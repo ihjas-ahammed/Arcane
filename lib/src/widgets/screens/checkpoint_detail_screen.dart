@@ -168,8 +168,11 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                   ),
                   child: Row(
                     children:[
-                      InkWell(
-                        onTap: () => Navigator.pop(context),
+                       InkWell(
+                        onTap: () {
+                          _saveTitle(provider, liveCheckpoint);
+                          Navigator.pop(context);
+                        },
                         child: const Icon(Icons.arrow_back, color: AppTheme.fhTextSecondary, size: 24),
                       ),
                       const SizedBox(width: 16),
@@ -209,6 +212,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                       controller: _titleController,
                       style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 24, fontWeight: FontWeight.bold),
                       decoration: const InputDecoration(border: InputBorder.none, hintText: "Objective Name"),
+                      onChanged: (_) => _saveTitle(provider, liveCheckpoint),
                       onSubmitted: (_) => _saveTitle(provider, liveCheckpoint),
                       onEditingComplete: () => _saveTitle(provider, liveCheckpoint),
                     ),

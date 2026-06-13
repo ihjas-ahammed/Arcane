@@ -200,17 +200,17 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.dart_tool/hooks_runner/objective_c/299b72f02a/output.json": {
-    "mtime": 1780405595.1909337,
-    "ast_hash": "26aa5454c0ee798e55ce3bce60be54d3",
+    "mtime": 1781359176.1890192,
+    "ast_hash": "9a0fb2c52246616a95701b198beb56cb",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.dart_tool/hooks_runner/objective_c/299b72f02a/dependencies.dependencies_hash_file.json": {
-    "mtime": 1780405595.2479193,
-    "ast_hash": "e310ea6518019496cbc9e6481760d90c",
+    "mtime": 1781359176.3240497,
+    "ast_hash": "0545e0bc9f96bfa5f5f5cae9d9f7266d",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.dart_tool/hooks_runner/objective_c/299b72f02a/input.json": {
-    "mtime": 1780405594.9309995,
+    "mtime": 1781359175.8679452,
     "ast_hash": "5170ee3e0a89c5242ef5eefbf63a9b7e",
     "semantic_hash": ""
   },
@@ -295,17 +295,17 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.dart_tool/flutter_build/f43fb03981ecea7be547789c7beca1f6/outputs.json": {
-    "mtime": 1781197587.0018675,
-    "ast_hash": "05b37e1435155c7cd56f51a383e092e6",
+    "mtime": 1781359190.0495732,
+    "ast_hash": "f12a0d476be359aa9c487e08d3c93eb9",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.dart_tool/flutter_build/f43fb03981ecea7be547789c7beca1f6/dart_build_result.json": {
-    "mtime": 1780493804.7397876,
-    "ast_hash": "e5b697e745518426c1ba601a1517eaf5",
+    "mtime": 1781359176.3410535,
+    "ast_hash": "2b82f0a02d29941531ce63037351f185",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.dart_tool/flutter_build/f43fb03981ecea7be547789c7beca1f6/native_assets.json": {
-    "mtime": 1780493804.754787,
+    "mtime": 1781359176.3940656,
     "ast_hash": "f3a664e105b4f792c6c7fe4e4d22c398",
     "semantic_hash": ""
   },
@@ -360,7 +360,7 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.dart_tool/extension_discovery/vs_code.json": {
-    "mtime": 1780493634.1044893,
+    "mtime": 1781359182.069246,
     "ast_hash": "e351090fd241f61607215fed3555d74e",
     "semantic_hash": ""
   },
@@ -555,8 +555,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/models/chatbot_models.dart": {
-    "mtime": 1780407714.843798,
-    "ast_hash": "a9f7e8a844c7d80f9d1b4ff5822073ac",
+    "mtime": 1781359796.6231337,
+    "ast_hash": "50f7946cf42750b381b9544c36a3298a",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/models/habit_models.dart": {
@@ -585,8 +585,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/providers/app_provider.dart": {
-    "mtime": 1781199462.0811942,
-    "ast_hash": "8bed5473f685f7140ec4a86caace0aca",
+    "mtime": 1781359975.807666,
+    "ast_hash": "ded5a7dc26b660cfbedd95aaa45d2ada",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/providers/actions/timer_actions.dart": {
@@ -675,8 +675,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/screens/home_screen.dart": {
-    "mtime": 1781100737.2960222,
-    "ast_hash": "06750fd2b5939eed4dfaace410eb2502",
+    "mtime": 1781360651.6608956,
+    "ast_hash": "0f2ca13456ff16480e3acad796abc528",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/screens/settings_screen.dart": {
@@ -705,8 +705,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/screens/nora_ai_screen.dart": {
-    "mtime": 1779462009.3344223,
-    "ast_hash": "9e7f923e03ae836bd95582e438538339",
+    "mtime": 1781360334.662791,
+    "ast_hash": "d8b9441f2120c565306f7d85927fdb3b",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/screens/onboarding/app_tour_screen.dart": {
@@ -1070,8 +1070,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/ui/nora_message_bubble.dart": {
-    "mtime": 1779462009.344423,
-    "ast_hash": "0f499e1070fc9a69c569436fccfaaf38",
+    "mtime": 1781360317.5560434,
+    "ast_hash": "cd93c6986593dcdfb6c9f6a587d09ab7",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/ui/rhombus_checkbox.dart": {
@@ -1320,8 +1320,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/analytics/jwe_quick_access_grid.dart": {
-    "mtime": 1779462009.3374226,
-    "ast_hash": "3865610df09903de158d2502db3462be",
+    "mtime": 1781359881.854135,
+    "ast_hash": "2ee199b0980cbd7195d2ec351463e674",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/analytics/jwe_date_selector.dart": {
@@ -1345,8 +1345,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/screens/checkpoint_detail_screen.dart": {
-    "mtime": 1779462009.3424227,
-    "ast_hash": "1c93760635a69660fa7361f80d784b06",
+    "mtime": 1781360903.1231756,
+    "ast_hash": "77bb1dd3f9ccd83cb24720273a5d7a67",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/screens/reflection_editor_screen.dart": {
@@ -1385,13 +1385,13 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/daily_summary_view.dart": {
-    "mtime": 1781199913.391477,
-    "ast_hash": "56b68aa73a4f4a8faa12a762463a9d0d",
+    "mtime": 1781359884.967166,
+    "ast_hash": "9b47d179cd50b216d8b4224b4b550817",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/schedule_view.dart": {
-    "mtime": 1780450526.3780718,
-    "ast_hash": "fb693d2418a5e21e71d97f17ffde4a66",
+    "mtime": 1781360746.0089478,
+    "ast_hash": "77cf9d852636bdf3150f8b3c648e4c53",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/chatbot_view.dart": {
@@ -1480,8 +1480,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/services/ai_service.dart": {
-    "mtime": 1781199790.4102445,
-    "ast_hash": "29ac0d2e4abe4cf96f220add01b5bc2e",
+    "mtime": 1781359814.690971,
+    "ast_hash": "10578be93f8cfd17c2fb577a7da9fce4",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/services/storage_service.dart": {
@@ -1745,8 +1745,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/ai.md": {
-    "mtime": 1781197185.2441525,
-    "ast_hash": "71afdb0cf1f9c432f98e7ad61e0df831",
+    "mtime": 1781360923.0294874,
+    "ast_hash": "6e0d800e0048395ce353fefcb2cb698b",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/future.md": {
@@ -1790,12 +1790,12 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.dart_tool/hooks_runner/objective_c/299b72f02a/stdout.txt": {
-    "mtime": 1780405594.9379978,
-    "ast_hash": "96e4bfc9126ef32f54a96b430eacad17",
+    "mtime": 1781359175.879948,
+    "ast_hash": "40e3cc4533e1fa9297e394694903f8a3",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.dart_tool/hooks_runner/objective_c/299b72f02a/stderr.txt": {
-    "mtime": 1780405594.9349985,
+    "mtime": 1781359175.8749468,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": ""
   },
@@ -1830,7 +1830,7 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.dart_tool/extension_discovery/README.md": {
-    "mtime": 1780405495.4589977,
+    "mtime": 1781359182.0742471,
     "ast_hash": "606241196f08642dcc9f7acef0d2d8da",
     "semantic_hash": ""
   },
@@ -2155,8 +2155,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/screens/story_briefing_screen.dart": {
-    "mtime": 1781199908.2365298,
-    "ast_hash": "49b474955df58226102a321a2b3e2591",
+    "mtime": 1781200842.337793,
+    "ast_hash": "02979f67540a689ddb31ed2da093e2be",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/story_examples/all.txt": {

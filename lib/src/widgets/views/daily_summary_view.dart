@@ -504,7 +504,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
               child: JweQuickAccessGrid(
                 onArchive: () => _checkPinAndNavigate(context, const ReflectionsArchiveScreen()),
-                onNora: () => _checkPinAndNavigate(context, const NoraAiScreen()),
                 onAdvanced: () => _checkPinAndNavigate(context, const AdvancedToolsScreen()),
               ),
             ),

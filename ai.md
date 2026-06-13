@@ -2,7 +2,6 @@ Make the following changes:
 
 
 
-
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi
 When adding a new ui, create very compact design based on the theme of jurassic world evolution
 

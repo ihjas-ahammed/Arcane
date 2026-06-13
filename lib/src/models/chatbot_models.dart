@@ -282,6 +282,38 @@ class GratitudeItem {
   }
 }
 
+class NoraAgentSkill {
+  final String id;
+  final String name;
+  final String description;
+  final String instructions;
+
+  NoraAgentSkill({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.instructions,
+  });
+
+  factory NoraAgentSkill.fromJson(Map<String, dynamic> json) {
+    return NoraAgentSkill(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      instructions: json['instructions'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'instructions': instructions,
+    };
+  }
+}
+
 class ChatbotMemory {
   List<ChatbotMessage> conversationHistory;
   String? lastWeeklySummary;
@@ -294,6 +326,7 @@ class ChatbotMemory {
   List<PersonInfo> people;
   
   List<GratitudeItem> gratitudeList; 
+  List<NoraAgentSkill> noraAgentSkills;
 
   ChatbotMemory({
     List<ChatbotMessage>? conversationHistory,
@@ -304,12 +337,14 @@ class ChatbotMemory {
     this.activeNoraSessionId,
     List<PersonInfo>? people,
     List<GratitudeItem>? gratitudeList,
+    List<NoraAgentSkill>? noraAgentSkills,
   })  : conversationHistory = conversationHistory ?? [],
         dailyCompletedGoals = dailyCompletedGoals ?? [],
         userRememberedItems = userRememberedItems ?? [],
         noraSessions = noraSessions ?? [],
         people = people ?? [],
-        gratitudeList = gratitudeList ?? [];
+        gratitudeList = gratitudeList ?? [],
+        noraAgentSkills = noraAgentSkills ?? [];
 
   factory ChatbotMemory.fromJson(Map<String, dynamic> json) {
     return ChatbotMemory(
@@ -349,6 +384,11 @@ class ChatbotMemory {
               })
               .toList() ??
           [],
+      noraAgentSkills: (json['noraAgentSkills'] as List<dynamic>?)
+              ?.map((skillJson) =>
+                  NoraAgentSkill.fromJson(skillJson as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -362,6 +402,7 @@ class ChatbotMemory {
       'activeNoraSessionId': activeNoraSessionId,
       'people': people.map((person) => person.toJson()).toList(),
       'gratitudeList': gratitudeList.map((item) => item.toJson()).toList(),
+      'noraAgentSkills': noraAgentSkills.map((skill) => skill.toJson()).toList(),
     };
   }
 }

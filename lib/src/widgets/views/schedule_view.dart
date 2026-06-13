@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
-import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/widgets/schedule/schedule_timeline.dart';
 import 'package:missions/src/widgets/schedule/protocol_control_panel.dart';
 import 'package:missions/src/widgets/schedule/schedule_hero_widget.dart';
@@ -622,36 +621,6 @@ class _ScheduleViewState extends State<ScheduleView> {
                 initialScrollOffset: 0,
                 scrollToNow: isToday,
                 scrollToNowTick: widget.openTick,
-              ),
-              Positioned(
-                right: 18,
-                bottom: 22,
-                child: InkWell(
-                  onTap: () => _handleAddSession(context, provider),
-                  child: ClipPath(
-                    clipper: HudCutClipper(clip: HudClip.both, cut: 10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: JweTheme.accentAmber,
-                        boxShadow: [
-                          BoxShadow(color: JweTheme.accentAmber.withValues(alpha: 0.55), blurRadius: 14),
-                        ],
-                      ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(MdiIcons.plus, color: JweTheme.bgDeep, size: 16),
-                        const SizedBox(width: 6),
-                        Text('LOG SESSION',
-                            style: GoogleFonts.saira(
-                              color: JweTheme.bgDeep,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.6,
-                            )),
-                      ]),
-                    ),
-                  ),
-                ),
               ),
             ],
           ),

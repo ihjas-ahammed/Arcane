@@ -23,6 +23,7 @@ import 'package:uuid/uuid.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
+import 'package:path_provider/path_provider.dart';
 import 'package:missions/src/services/app_user.dart';
 
 // Import Mixins
@@ -621,6 +622,23 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       loadStateFromMap(data);
     } catch (e) {
       rethrow;
+    }
+  }
+
+  Future<void> saveNoraBackupSnapshot() async {
+    try {
+      final docsDir = await getApplicationDocumentsDirectory();
+      final backupDir = Directory('${docsDir.path}/backups');
+      if (!await backupDir.exists()) {
+        await backupDir.create(recursive: true);
+      }
+      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final file = File('${backupDir.path}/nora_backup_$timestamp.json');
+      final data = getAppStateAsMap();
+      await file.writeAsString(jsonEncode(data));
+      debugPrint("Nora backup created at: ${file.path}");
+    } catch (e) {
+      debugPrint("Error creating Nora backup: $e");
     }
   }
 
@@ -1358,65 +1376,89 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
        end = DateTime.now();
     }
 
-    final refs = reflectionLogs.where((l) => l.timestamp.isAfter(start) && l.timestamp.isBefore(end)).toList();
-    final refStr = refs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join(" | ");
+    final String tasksContext = mainTasks.map((t) {
+      final subtasksStr = t.subTasks.map((s) {
+        final subsubtasksStr = s.subSubTasks.map((ss) {
+          final substepsStr = ss.substeps.map((substep) =>
+            "      - Sub-Step: ${substep.name} (ID: ${substep.id}, completed: ${substep.completed})\n"
+          ).join();
+          return "    - Sub-Subtask: ${ss.name} (ID: ${ss.id}, completed: ${ss.completed}, why: ${ss.why}, what: ${ss.what})\n$substepsStr";
+        }).join();
+        return "  - Subtask: ${s.name} (ID: ${s.id}, completed: ${s.completed}, why: ${s.why}, what: ${s.what}, assets/resources: ${s.resources})\n$subsubtasksStr";
+      }).join();
+      return "- Main Task: ${t.name} (ID: ${t.id}, theme: ${t.theme}, colorHex: ${t.colorHex}, description: ${t.description})\n$subtasksStr";
+    }).join();
 
-    final List<String> sessionStrs = [];
-    if (settings.noraAccessSessions) {
-      for (var task in mainTasks) {
-        for (var sub in task.subTasks) {
-          for (var sess in sub.sessions) {
-            if (sess.startTime.isAfter(start) && sess.startTime.isBefore(end)) {
-              sessionStrs.add("[${DateFormat('MM-dd').format(sess.startTime)}] ${task.name}(${sub.name}): ${sess.durationMinutes}m");
-            }
-          }
-        }
-      }
-    }
+    final String reflectionsContext = reflectionLogs
+      .where((l) => l.timestamp.isAfter(start) && l.timestamp.isBefore(end))
+      .map((l) => 
+        "- Reflection [Date: ${DateFormat('yyyy-MM-dd').format(l.timestamp)}] (ID: ${l.id}): trigger: '${l.trigger}', emotion: '${l.emotion}', reason: '${l.reason}', action: '${l.action}'"
+      ).join("\n");
 
-    final peopleStr = chatbotMemory.people.map((p) => "${p.name} (${p.relation})").join(", ");
-    final assetsStr = chatbotMemory.gratitudeList.map((a) => "${a.name} (${a.type})").join(", ");
+    final String peopleContext = chatbotMemory.people.map((p) => 
+      "- Person: ${p.name} (relation: ${p.relation}, details: ${p.details}, age: ${p.manualAge}, notes: ${p.manualNotes})"
+    ).join("\n");
 
-    String systemPrompt = session.systemPromptOverride ?? settings.customChatbotPrompt ?? "You are NORA. Tone: ${session.tone}.";
+    final String assetsContext = chatbotMemory.gratitudeList.map((a) => 
+      "- Asset/Gratitude: ${a.name} (type: ${a.type}, why: ${a.why}, what: ${a.what})"
+    ).join("\n");
+
+    final String skillsContext = chatbotMemory.noraAgentSkills.map((s) => 
+      "- Dynamic Skill '${s.name}': ${s.description}. Instructions: ${s.instructions}"
+    ).join("\n");
+
+    String systemPrompt = session.systemPromptOverride ?? settings.customChatbotPrompt ?? "You are NORA.";
 
     final fullContext = """
-    SYSTEM: $systemPrompt
-    ${session.customContext ?? ''}
+SYSTEM INSTRUCTION: $systemPrompt
+Persona tone: ${session.tone}
 
-    CONTEXT DATA FOR REQUESTED PERIOD:
-    Reflections: $refStr
-    Sessions: ${sessionStrs.join(" | ")}
-    Known Entities: $peopleStr
-    Known Assets: $assetsStr
-    """;
+CURRENT DATE/TIME: ${DateTime.now().toIso8601String()}
+
+NORA ACTIVE DYNAMIC SKILLS:
+$skillsContext
+
+APP DATABASE CONTEXT:
+=== TASKS HIERARCHY ===
+$tasksContext
+
+=== REFLECTIONS ===
+$reflectionsContext
+
+=== KNOWN PEOPLE ===
+$peopleContext
+
+=== ASSETS / GRATITUDE ===
+$assetsContext
+""";
     
-    // Nora defaults to the Live API models (fast, separate quota) and falls
-    // back to the HTTP lite models if the live socket fails.
     final modelCandidates = session.modelOverride != null
         ? [session.modelOverride!]
         : [...settings.liveModels, ...settings.liteModels];
-    final maxMessagesToGen = session.messageLimit > 0 ? session.messageLimit : 4; // Use limit or default to a sane 4
     
     try {
-      final responses = await _aiService.queryNeuralArchive(
+      final responseMap = await _aiService.queryNoraAgent(
         query: text, 
         logsContext: fullContext, 
-        maxMessages: maxMessagesToGen,
         modelCandidates: modelCandidates, 
         currentApiKeyIndex: apiKeyIndex, 
         customApiKeys: settings.customApiKeys, 
         onNewApiKeyIndex: (i) => setApiKeyIndex(i), 
         onLog: (m) {},
-        writingStyleMap: settings.adaptWritingStyle ? settings.writingStyleMap : null,
       );
-      
-      final clampLimit = session.messageLimit > 0 ? session.messageLimit : 15;
-      final clampedResponses = responses.take(clampLimit).toList();
 
-      for (String resp in clampedResponses) {
-        // dynamic typing delay
-        await Future.delayed(Duration(milliseconds: 1000 + (resp.length * 15).clamp(0, 3000)));
-        final botMsg = ChatbotMessage(id: const Uuid().v4(), text: resp, sender: MessageSender.bot, timestamp: DateTime.now());
+      final List<dynamic> messages = responseMap['messages'] as List<dynamic>? ?? [];
+      final List<dynamic> actions = responseMap['actions'] as List<dynamic>? ?? [];
+
+      if (actions.isNotEmpty) {
+        await executeNoraAgentActions(actions);
+      }
+
+      for (var resp in messages) {
+        final respStr = resp.toString();
+        // Dynamic typing delay
+        await Future.delayed(Duration(milliseconds: 500 + (respStr.length * 10).clamp(0, 2000)));
+        final botMsg = ChatbotMessage(id: const Uuid().v4(), text: respStr, sender: MessageSender.bot, timestamp: DateTime.now());
         session.messages.add(botMsg);
         markDirty('settings');
         notifyListeners();
@@ -1426,6 +1468,231 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       session.messages.add(errorMsg);
       markDirty('settings');
       notifyListeners();
+    }
+  }
+
+  Future<void> executeNoraAgentActions(List<dynamic> actions) async {
+    if (actions.isEmpty) return;
+
+    // 1. Take a database snapshot first
+    await saveNoraBackupSnapshot();
+
+    // 2. Loop and execute actions
+    for (var act in actions) {
+      if (act is! Map<String, dynamic>) continue;
+      final type = act['type'] as String?;
+      if (type == null) continue;
+
+      try {
+        switch (type) {
+          case 'check_task':
+            final taskId = act['taskId'] as String?;
+            final subtaskId = act['subtaskId'] as String?;
+            final subSubtaskId = act['subSubtaskId'] as String?;
+            final completed = act['completed'] as bool? ?? true;
+
+            if (taskId != null && subtaskId != null) {
+              if (subSubtaskId != null) {
+                if (completed) {
+                  completeSubSubtask(taskId, subtaskId, subSubtaskId);
+                } else {
+                  uncompleteSubSubtask(taskId, subtaskId, subSubtaskId);
+                }
+              } else {
+                if (completed) {
+                  completeSubtask(taskId, subtaskId);
+                } else {
+                  uncompleteSubtask(taskId, subtaskId);
+                }
+              }
+            }
+            break;
+
+          case 'add_task':
+            final taskType = act['taskType'] as String?;
+            final name = act['name'] as String?;
+            final description = act['description'] as String? ?? '';
+            final mainTaskId = act['mainTaskId'] as String?;
+            final subtaskId = act['subtaskId'] as String?;
+            final why = act['why'] as String? ?? '';
+            final what = act['what'] as String? ?? '';
+            final theme = act['theme'] as String? ?? 'General';
+            final colorHex = act['colorHex'] as String? ?? 'FF00F8F8';
+
+            if (name != null) {
+              if (taskType == 'main') {
+                addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
+              } else if (taskType == 'sub' && mainTaskId != null) {
+                addSubtask(mainTaskId, {
+                  'id': const Uuid().v4(),
+                  'name': name,
+                  'description': description,
+                  'why': why,
+                  'what': what,
+                  'completed': false,
+                });
+              } else if (taskType == 'subsub' && mainTaskId != null && subtaskId != null) {
+                addSubSubtask(mainTaskId, subtaskId, {
+                  'id': const Uuid().v4(),
+                  'name': name,
+                  'completed': false,
+                });
+              }
+            }
+            break;
+
+          case 'add_progress_point':
+            final mainTaskId = act['mainTaskId'] as String?;
+            final subTaskId = act['subTaskId'] as String?;
+            final progressVal = act['progress'];
+            final spentSecsVal = act['spentSeconds'];
+
+            if (mainTaskId != null && subTaskId != null && progressVal != null) {
+              double progress = 0.0;
+              if (progressVal is num) {
+                progress = progressVal.toDouble();
+              }
+              int spentSeconds = 0;
+              if (spentSecsVal is num) {
+                spentSeconds = spentSecsVal.toInt();
+              }
+              saveProgressDataPoint(mainTaskId, subTaskId, progress, spentSeconds);
+            }
+            break;
+
+          case 'edit_person':
+            final name = act['name'] as String?;
+            final relation = act['relation'] as String?;
+            final details = act['details'] as String?;
+            final age = act['age'] as int?;
+            final gender = act['gender'] as String?;
+            final notes = act['notes'] as String?;
+
+            if (name != null) {
+              final list = List<PersonInfo>.from(chatbotMemory.people);
+              final idx = list.indexWhere((p) => p.name.toLowerCase() == name.toLowerCase());
+              if (idx != -1) {
+                list[idx] = PersonInfo(
+                  id: list[idx].id,
+                  name: name,
+                  relation: relation ?? list[idx].relation,
+                  details: details ?? list[idx].details,
+                  manualAge: age ?? list[idx].manualAge,
+                  manualGender: gender ?? list[idx].manualGender,
+                  manualNotes: notes ?? list[idx].manualNotes,
+                  lastUpdated: DateTime.now(),
+                );
+              } else {
+                list.add(PersonInfo(
+                  id: const Uuid().v4(),
+                  name: name,
+                  relation: relation ?? "Acquaintance",
+                  details: details,
+                  manualAge: age,
+                  manualGender: gender,
+                  manualNotes: notes,
+                  lastUpdated: DateTime.now(),
+                ));
+              }
+              final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson())..people = list;
+              setChatbotMemory(newMemory);
+            }
+            break;
+
+          case 'edit_reflection':
+            final id = act['id'] as String?;
+            final trigger = act['trigger'] as String?;
+            final emotion = act['emotion'] as String?;
+            final reason = act['reason'] as String?;
+            final actionVal = act['action'] as String?;
+
+            if (id != null) {
+              final list = List<ReflectionLog>.from(reflectionLogs);
+              final idx = list.indexWhere((r) => r.id == id);
+              if (idx != -1) {
+                if (trigger != null) list[idx].trigger = trigger;
+                if (emotion != null) list[idx].emotion = emotion;
+                if (reason != null) list[idx].reason = reason;
+                if (actionVal != null) list[idx].action = actionVal;
+                setReflectionLogs(list);
+              }
+            }
+            break;
+
+          case 'add_nora_skill':
+            final name = act['name'] as String?;
+            final description = act['description'] as String?;
+            final instructions = act['instructions'] as String?;
+
+            if (name != null && description != null && instructions != null) {
+              final list = List<NoraAgentSkill>.from(chatbotMemory.noraAgentSkills);
+              list.removeWhere((s) => s.name.toLowerCase() == name.toLowerCase());
+              list.add(NoraAgentSkill(
+                id: const Uuid().v4(),
+                name: name,
+                description: description,
+                instructions: instructions,
+              ));
+              final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson())..noraAgentSkills = list;
+              setChatbotMemory(newMemory);
+            }
+            break;
+
+          case 'custom_db_edit':
+            final path = act['path'] as String?;
+            final value = act['value'];
+
+            if (path != null) {
+              final stateMap = getAppStateAsMap();
+              _updateJsonPathHelper(stateMap, path, value);
+              loadStateFromMap(stateMap);
+              markDirty('tasks');
+              markDirty('settings');
+              markDirty('reflections');
+              markDirty('finance');
+              markDirty('health');
+              notifyListeners();
+            }
+            break;
+        }
+      } catch (e) {
+        debugPrint("Error executing Nora action $type: $e");
+      }
+    }
+  }
+
+  void _updateJsonPathHelper(Map<String, dynamic> map, String path, dynamic value) {
+    final parts = path.split('.');
+    dynamic current = map;
+    for (int i = 0; i < parts.length - 1; i++) {
+      final part = parts[i];
+      final intIndex = int.tryParse(part);
+      if (intIndex != null && current is List) {
+        if (intIndex >= 0 && intIndex < current.length) {
+          current = current[intIndex];
+        } else {
+          return;
+        }
+      } else if (current is Map) {
+        if (current.containsKey(part)) {
+          current = current[part];
+        } else {
+          current[part] = <String, dynamic>{};
+          current = current[part];
+        }
+      } else {
+        return;
+      }
+    }
+
+    final lastPart = parts.last;
+    final intIndex = int.tryParse(lastPart);
+    if (intIndex != null && current is List) {
+      if (intIndex >= 0 && intIndex < current.length) {
+        current[intIndex] = value;
+      }
+    } else if (current is Map) {
+      current[lastPart] = value;
     }
   }
   
