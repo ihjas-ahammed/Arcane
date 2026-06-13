@@ -20,6 +20,7 @@ class JweCompactTaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final color = task.taskColor;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -28,9 +29,9 @@ class JweCompactTaskCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: isSelected ? JweTheme.accentCyan.withOpacity(0.1) : JweTheme.panel,
+            color: isSelected ? color.withValues(alpha: 0.1) : JweTheme.panel,
             border: Border(
-              left: BorderSide(color: isSelected ? JweTheme.accentCyan : JweTheme.textMuted, width: 3),
+              left: BorderSide(color: isSelected ? color : color.withValues(alpha: 0.35), width: 3),
               top: const BorderSide(color: JweTheme.border),
               right: const BorderSide(color: JweTheme.border),
               bottom: const BorderSide(color: JweTheme.border),
@@ -40,7 +41,7 @@ class JweCompactTaskCard extends StatelessWidget {
             children: [
               Icon(
                 MdiIcons.archiveOutline, 
-                color: isSelected ? JweTheme.accentCyan : JweTheme.textMuted, 
+                color: isSelected ? color : color.withValues(alpha: 0.35), 
                 size: 18
               ),
               const SizedBox(width: 10),
@@ -51,7 +52,7 @@ class JweCompactTaskCard extends StatelessWidget {
                     Text(
                       task.name.toUpperCase(),
                       style: GoogleFonts.rajdhani(
-                        color: isSelected ? JweTheme.textWhite : JweTheme.textMuted,
+                        color: isSelected ? JweTheme.textWhite : color.withValues(alpha: 0.5),
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                         letterSpacing: 1.0,
@@ -63,7 +64,7 @@ class JweCompactTaskCard extends StatelessWidget {
                     Text(
                       "STANDBY / ARCHIVED",
                       style: TextStyle(
-                        color: JweTheme.textMuted.withOpacity(0.7),
+                        color: isSelected ? color.withValues(alpha: 0.7) : color.withValues(alpha: 0.35),
                         fontSize: 9,
                         fontFamily: 'RobotoMono',
                         fontWeight: FontWeight.bold,

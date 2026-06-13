@@ -1,14 +1,15 @@
 import 'package:flutter/foundation.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/models/habit_models.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/providers/mixins/sync_mixin.dart';
+import 'package:missions/src/services/app_user.dart';
 
 mixin UserMixin on ChangeNotifier {
   // Auth
-  User? _currentUser;
+  AppUser? _currentUser;
   bool _authLoading = true;
   bool _isUsernameMissing = false;
   String? _lastLoginDate;
@@ -23,7 +24,7 @@ mixin UserMixin on ChangeNotifier {
   int _apiKeyIndex = 0;
 
   // Getters
-  User? get currentUser => _currentUser;
+  AppUser? get currentUser => _currentUser;
   bool get authLoading => _authLoading;
   bool get isUsernameMissing => _isUsernameMissing;
   String? get lastLoginDate => _lastLoginDate;
@@ -36,7 +37,7 @@ mixin UserMixin on ChangeNotifier {
   // Sync Dependency
   SyncMixin get sync => this as SyncMixin;
 
-  void setCurrentUser(User? user) {
+  void setCurrentUser(AppUser? user) {
     _currentUser = user;
     if (user != null) {
       _isUsernameMissing = user.displayName == null || user.displayName!.isEmpty;
@@ -111,7 +112,12 @@ mixin UserMixin on ChangeNotifier {
     Map<String, int> rollingXp = {};
     for (var log in _reflectionLogs) {
       if (log.timestamp.isAfter(sevenDaysAgo)) {
-        log.xpGained.forEach((k, v) => rollingXp[k] = (rollingXp[k] ?? 0) + v);
+        log.xpGained.forEach((k, v) {
+          final normalized = WellbeingTheme.normalizeSkillName(k);
+          if (normalized != null) {
+            rollingXp[normalized] = (rollingXp[normalized] ?? 0) + v;
+          }
+        });
       }
     }
     

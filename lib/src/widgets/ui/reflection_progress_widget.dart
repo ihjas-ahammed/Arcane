@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/models/skill_models.dart';
+import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:missions/src/widgets/valorant/valorant_button.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
 
 class ReflectionProgressWidget extends StatelessWidget {
   final List<ReflectionLog> logs;
@@ -107,21 +109,28 @@ class ReflectionProgressWidget extends StatelessWidget {
               ),
             ),
           
-          SizedBox(
-            width: double.infinity,
-            child: ValorantButton(
-              label: "LOG INSIGHT",
-              icon: MdiIcons.notebookEditOutline,
-              isPrimary: false,
-              color: AppTheme.fhAccentTeal,
-              onPressed: () {
-                Navigator.push(
-                  context, 
-                  MaterialPageRoute(builder: (context) => ReflectionEditorScreen(dateStr: dateStr))
-                );
-              },
-            ),
-          )
+          Consumer<AppProvider>(builder: (ctx, appProvider, _) {
+            final hasDraft = appProvider.settings.reflectionDraft != null;
+            return SizedBox(
+              width: double.infinity,
+              child: ValorantButton(
+                label: hasDraft ? "VIEW DRAFT" : "LOG INSIGHT",
+                icon: hasDraft
+                    ? MdiIcons.notebookCheck
+                    : MdiIcons.notebookEditOutline,
+                isPrimary: hasDraft,
+                color: hasDraft ? AppTheme.fhAccentOrange : AppTheme.fhAccentTeal,
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) =>
+                            ReflectionEditorScreen(dateStr: dateStr)),
+                  );
+                },
+              ),
+            );
+          })
         ],
       ),
     );

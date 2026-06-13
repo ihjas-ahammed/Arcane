@@ -25,7 +25,10 @@ class WellbeingPieChart extends StatelessWidget {
     for (var log in logs) {
       log.xpGained.forEach((key, value) {
         if (value > 0) {
-           categoryTotals[key] = (categoryTotals[key] ?? 0) + value;
+          final normalized = WellbeingTheme.normalizeSkillName(key);
+          if (normalized != null) {
+            categoryTotals[normalized] = (categoryTotals[normalized] ?? 0) + value;
+          }
         }
       });
     }

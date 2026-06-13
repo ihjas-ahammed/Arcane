@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/widgets/ui/startup_wellbeing_metrics.dart';
+import 'package:missions/src/widgets/ui/task_progress_snapshot_view.dart';
 import 'package:missions/src/screens/nora_ai_screen.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:provider/provider.dart';
@@ -54,6 +55,7 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
     final forecast = widget.report['forecast'] as String? ??
         widget.report['briefing'] as String? ??
         "Systems nominal. Ready for input.";
@@ -62,6 +64,7 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
             .toList() ??
         [];
     final metrics = widget.report['metrics'] as List<dynamic>?;
+    final taskSnapshot = widget.report['task_snapshot'] as Map<String, dynamic>?;
 
     return HudPanel(
       clip: HudClip.both,
@@ -212,6 +215,8 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                     const SizedBox(height: 18),
                     StartupWellbeingMetrics(metrics: metrics),
                   ],
+
+
 
                   const SizedBox(height: 18),
 

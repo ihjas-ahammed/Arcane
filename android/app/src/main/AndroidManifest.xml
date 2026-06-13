@@ -1,6 +1,10 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="me.ihjas.missions">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application
         android:label="Missions"
         android:name="${applicationName}"
@@ -27,7 +31,77 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Home-screen widget deep links (arcane://widget?action=…) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="arcane" android:host="widget"/>
+            </intent-filter>
         </activity>
+
+        <!-- Quick-action receiver: applies ENGAGE/CHECK/FINISH without opening
+             the app when it's alive; falls back to launching when killed. -->
+        <receiver
+            android:name="me.ihjas.missions.widgets.WidgetActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="me.ihjas.missions.WIDGET_ACTION"/>
+            </intent-filter>
+        </receiver>
+
+        <!-- Home-screen widget receivers -->
+        <receiver
+            android:name="me.ihjas.missions.widgets.RunningTaskWidget"
+            android:label="Arcane — Active Mission"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_running_task_info"/>
+        </receiver>
+
+        <receiver
+            android:name="me.ihjas.missions.widgets.FinanceWidget"
+            android:label="Arcane — Finance"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_finance_info"/>
+        </receiver>
+
+        <receiver
+            android:name="me.ihjas.missions.widgets.JournalWidget"
+            android:label="Arcane — Journal"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_journal_info"/>
+        </receiver>
+
+        <!-- Receivers for scheduled local notifications -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

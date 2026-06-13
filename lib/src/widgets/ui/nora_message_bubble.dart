@@ -42,7 +42,7 @@ class NoraMessageBubble extends StatelessWidget {
           if (!isUser) 
             Padding(
               padding: const EdgeInsets.only(right: 8.0, bottom: 4), 
-              child: Icon(MdiIcons.brain, size: 16, color: accentColor)
+              child: Icon(MdiIcons.creation, size: 16, color: accentColor)
             ),
             
           Flexible(

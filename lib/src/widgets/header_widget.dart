@@ -42,17 +42,19 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
       automaticallyImplyLeading: false,
       titleSpacing: 0,
       toolbarHeight: kToolbarHeight,
-      leading: !isLargeScreen
-          ? Builder(builder: (c) => IconButton(
-                icon: Icon(MdiIcons.menu, color: JweTheme.textMid, size: 22),
-                onPressed: () => Scaffold.of(c).openDrawer(),
-              ))
-          : Padding(
-              padding: const EdgeInsets.only(left: 16),
-              child: Icon(MdiIcons.shieldCrownOutline, color: JweTheme.accentAmber, size: 22),
-            ),
+      leadingWidth: 38,
+      leading: Align(
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: ArcaneAppIcon(
+            size: 16,
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
+      ),
       title: Row(children: [
-        Container(width: 4, height: 14, color: JweTheme.accentAmber),
+        Container(width: 4, height: 14, color: Theme.of(context).primaryColor),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
@@ -137,7 +139,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
             const SizedBox(width: 6),
             Text(clock,
                 style: GoogleFonts.jetBrainsMono(
-                  fontSize: 9.5, color: JweTheme.accentAmber, letterSpacing: 1.4, fontWeight: FontWeight.w600,
+                  fontSize: 9.5, color: Theme.of(context).primaryColor, letterSpacing: 1.4, fontWeight: FontWeight.w600,
                 )),
           ]),
         ),
@@ -154,6 +156,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
 
   Future<void> _editCallsign(BuildContext context, AppProvider provider, String current) async {
     final ctrl = TextEditingController(text: current);
+    final primaryColor = Theme.of(context).primaryColor;
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -174,7 +177,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
             hintText: 'OPERATOR',
             hintStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 14),
             enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: JweTheme.lineSoft)),
-            focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
+            focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: primaryColor)),
           ),
         ),
         actions: [
@@ -184,7 +187,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: Text('CONFIRM', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentAmber, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
+            child: Text('CONFIRM', style: GoogleFonts.jetBrainsMono(color: primaryColor, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
           ),
         ],
       ),
@@ -196,4 +199,63 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight + _stripH);
+}
+
+class ArcaneAppIcon extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  const ArcaneAppIcon({
+    super.key,
+    this.size = 22,
+    this.color = Colors.white,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _ArcaneAppIconPainter(color: color),
+      ),
+    );
+  }
+}
+
+class _ArcaneAppIconPainter extends CustomPainter {
+  final Color color;
+
+  _ArcaneAppIconPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final S = size.width;
+
+    final chevronPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = S * 0.12
+      ..strokeCap = StrokeCap.square
+      ..strokeJoin = StrokeJoin.miter;
+
+    // First (upper) chevron
+    final chevron1 = Path()
+      ..moveTo(S * 0.2, S * 0.5)
+      ..lineTo(S * 0.5, S * 0.22)
+      ..lineTo(S * 0.8, S * 0.5);
+    canvas.drawPath(chevron1, chevronPaint);
+
+    // Second (lower) chevron
+    final chevron2 = Path()
+      ..moveTo(S * 0.2, S * 0.78)
+      ..lineTo(S * 0.5, S * 0.5)
+      ..lineTo(S * 0.8, S * 0.78);
+    canvas.drawPath(chevron2, chevronPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArcaneAppIconPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
 }

@@ -84,7 +84,7 @@ class _Header extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const HudReticle(size: 22, color: JweTheme.accentAmber),
+          HudReticle(size: 22, color: JweTheme.accentAmber),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -267,7 +267,11 @@ class _SkillChip extends StatelessWidget {
               if (log.timestamp.year == date.year &&
                   log.timestamp.month == date.month &&
                   log.timestamp.day == date.day) {
-                dayXp += (log.xpGained[skill.name] ?? 0).toDouble();
+                log.xpGained.forEach((k, v) {
+                  if (WellbeingTheme.normalizeSkillName(k) == skill.name) {
+                    dayXp += v.toDouble();
+                  }
+                });
               }
             }
             weeklyXp[6 - i] = dayXp;
@@ -338,7 +342,7 @@ class _TransmissionBlock extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
             decoration: BoxDecoration(
               color: JweTheme.bgBase.withOpacity(0.85),
-              border: const Border(
+              border:  Border(
                 left: BorderSide(color: JweTheme.accentAmber, width: 2),
               ),
             ),

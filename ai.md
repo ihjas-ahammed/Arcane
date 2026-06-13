@@ -1,10 +1,5 @@
 Make the following changes:
 
-    - Update archive screen: 
-        - Add an option in which I can select and copy reflection logs into clipboard: like we do with whatsapp messages, in a format, date, time, why, what, how 
-        this will help me copy a lot of them together and manually analyse myself
-
-
 
 
 Make sure there wont be any screensize error, our ideal screen is 720x1520 with 271 dpi

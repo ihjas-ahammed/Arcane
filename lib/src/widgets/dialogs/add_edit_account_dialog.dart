@@ -59,7 +59,7 @@ class _AddEditAccountDialogState extends State<AddEditAccountDialog> {
     return AlertDialog(
       backgroundColor: JweTheme.panel,
       shape: RoundedRectangleBorder(
-        side: const BorderSide(color: JweTheme.accentAmber, width: 1),
+        side: BorderSide(color: JweTheme.accentAmber, width: 1),
         borderRadius: BorderRadius.zero,
       ),
       title: Text(

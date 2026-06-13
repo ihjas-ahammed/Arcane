@@ -9,12 +9,14 @@ import 'package:missions/src/widgets/ui/chart_carousel.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/utils/chart_data_helper.dart'; 
 import 'package:missions/src/widgets/cards/tactical_briefing_card.dart';
-import 'package:missions/src/widgets/dialogs/weekly_report_dialog.dart';
 import 'package:missions/src/screens/nora_ai_screen.dart';
+import 'package:missions/screens/story_briefing_screen.dart';
+import 'package:missions/src/screens/journaling/weekly_review_screen.dart';
 import 'package:missions/src/screens/reflections_archive_screen.dart';
 import 'package:missions/src/screens/journaling/advanced_tools_screen.dart';
 import 'package:missions/src/screens/journaling/archived_reports_screen.dart';
 import 'package:missions/src/widgets/cards/start_day_report_card.dart'; 
+import 'package:missions/src/widgets/ui/task_progress_snapshot_view.dart';
 import 'package:missions/src/widgets/analytics/jwe_date_selector.dart';
 import 'package:missions/src/widgets/analytics/jwe_reflection_progress.dart';
 import 'package:missions/src/widgets/analytics/jwe_quick_access_grid.dart';
@@ -138,37 +140,75 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     }
   }
 
+  String _buildFinanceWeekContext(AppProvider provider) {
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 7));
+    double weekIncome = 0, weekExpense = 0;
+    for (final t in provider.transactions) {
+      if (t.timestamp.isAfter(weekAgo)) {
+        if (t.isIncome) weekIncome += t.amount; else weekExpense += t.amount;
+      }
+    }
+    final balance = provider.financeActions.currentBalance;
+    return 'Week Income: ₹${weekIncome.toStringAsFixed(0)}, Expense: ₹${weekExpense.toStringAsFixed(0)}, Net: ₹${(weekIncome - weekExpense).toStringAsFixed(0)}, Balance: ₹${balance.toStringAsFixed(0)}';
+  }
+
+  String _buildAgentProgressContext(AppProvider provider) {
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 7));
+    final buf = StringBuffer();
+    for (final task in provider.mainTasks.where((t) => !t.isDeleted && t.isActive).take(4)) {
+      int weekSec = 0;
+      int completedSubs = 0;
+      final activeSubs = task.subTasks.where((s) => !s.isDeleted && s.isActive).toList();
+      for (final sub in activeSubs) {
+        if (sub.completed) completedSubs++;
+        for (final sess in sub.sessions) {
+          if (sess.startTime.isAfter(weekAgo)) weekSec += sess.durationSeconds;
+        }
+      }
+      buf.writeln('${task.name}: ${(weekSec / 3600).toStringAsFixed(1)}h this week, $completedSubs/${activeSubs.length} subtasks done');
+    }
+    return buf.toString();
+  }
+
   Future<void> _generateWeeklyReport(AppProvider provider) async {
     setState(() => _isGeneratingWeeklyReport = true);
     try {
       final data = provider.getLast7DaysData();
       final wellbeingDiff = provider.getWeeklyWellbeingComparison();
       final aiService = provider.aiService;
-      
+      final financeContext = _buildFinanceWeekContext(provider);
+      final agentContext = _buildAgentProgressContext(provider);
+
       final result = await aiService.generateWeeklyReport(
         logsText: data['logs'] as String,
         timeStatsText: data['times'] as String,
         wellbeingStatsText: wellbeingDiff,
+        financeText: financeContext,
+        agentProgressText: agentContext,
         modelCandidates: provider.settings.liteModels,
         currentApiKeyIndex: provider.apiKeyIndex,
         customApiKeys: provider.settings.customApiKeys,
         onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
         onLog: (msg) => debugPrint(msg),
+        writingStyleMap: provider.settings.adaptWritingStyle ? provider.settings.writingStyleMap : null,
       );
 
       if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => WeeklyReportDialog(
-            reportData: result,
-            onSave: () async {
-              final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-              await provider.saveWeeklyReport(dateStr, result);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Weekly Report Saved to Archive!")));
-                Navigator.pop(ctx);
-              }
-            },
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (ctx) => WeeklyReviewScreen(
+              reportData: result,
+              onArchive: () async {
+                final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                await provider.saveWeeklyReport(dateStr, result);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Weekly Review Saved to Archive!")));
+                }
+              },
+            ),
           ),
         );
       }
@@ -400,15 +440,34 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
               child: displayBriefing != null
-                  ? TacticalBriefingCard(
-                      briefingData: displayBriefing,
-                      isSaved: savedBriefing != null,
-                      onSave: savedBriefing == null
-                          ? () {
-                              appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
-                              setState(() {});
-                            }
-                          : null,
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TacticalBriefingCard(
+                          briefingData: displayBriefing,
+                          isSaved: savedBriefing != null,
+                          onSave: savedBriefing == null
+                              ? () {
+                                  appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
+                                  setState(() {});
+                                }
+                              : null,
+                        ),
+                        const SizedBox(height: 10),
+                        _HudActionBar(
+                          label: 'LAUNCH STORY MODE ANALYSIS',
+                          icon: MdiIcons.dramaMasks,
+                          accent: JweTheme.accentCyan,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => StoryBriefingScreen(todayLogs: reflectionsForDate),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     )
                   : HudPanel(
                       clip: HudClip.br,
@@ -431,12 +490,20 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                     ),
             ),
 
+            if (startDayReport != null && startDayReport['task_snapshot'] != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                child: TaskProgressSnapshotView(
+                  taskSnapshot: startDayReport['task_snapshot'],
+                  liveTasks: appProvider.mainTasks,
+                ),
+              ),
+
             // ── Classified access ──────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
               child: JweQuickAccessGrid(
                 onArchive: () => _checkPinAndNavigate(context, const ReflectionsArchiveScreen()),
-                onNora: () => _checkPinAndNavigate(context, const NoraAiScreen()),
                 onAdvanced: () => _checkPinAndNavigate(context, const AdvancedToolsScreen()),
               ),
             ),

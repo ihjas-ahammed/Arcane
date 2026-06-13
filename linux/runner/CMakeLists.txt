@@ -23,4 +23,8 @@ add_definitions(-DAPPLICATION_ID="${APPLICATION_ID}")
 target_link_libraries(${BINARY_NAME} PRIVATE flutter)
 target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::GTK)
 
+# Bundle the app icon so the window can load it at runtime
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/missions.png"
+  "${CMAKE_BINARY_DIR}/missions.png" COPYONLY)
+
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")

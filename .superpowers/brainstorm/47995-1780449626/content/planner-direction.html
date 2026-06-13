@@ -1,0 +1,80 @@
+<h2>How should the planner work?</h2>
+<p class="subtitle">Three research-backed directions. Today it's a flat ordered checklist with time estimates + a planned-vs-available budget bar. Pick the model that feels right (you can mix later).</p>
+
+<style>
+  .phone { background:#0d1117; border:1px solid #2b3440; border-radius:10px; padding:10px; font-family:'JetBrains Mono',monospace; color:#c9d4e0; min-height:300px; }
+  .phone .bar { height:8px; background:#161d27; border-radius:4px; overflow:hidden; margin:6px 0; }
+  .phone .fill { height:100%; }
+  .phone .hl { border:1px solid; border-radius:6px; padding:8px; margin-bottom:8px; }
+  .phone .row { display:flex; align-items:center; gap:8px; padding:7px 8px; background:#11161f; border-left:3px solid; margin-bottom:5px; border-radius:3px; font-size:12px; }
+  .phone .tag { font-size:9px; letter-spacing:1px; padding:2px 5px; border-radius:3px; font-weight:700; }
+  .phone .lbl { font-size:9px; letter-spacing:1.5px; color:#6b7888; font-weight:700; }
+  .phone .time { font-size:10px; color:#7d8a99; margin-left:auto; }
+  .cap { font-size:11px; color:#8b97a6; margin-top:6px; }
+</style>
+
+<div class="cards">
+
+  <div class="card" data-choice="A" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="phone">
+        <div class="lbl">DAILY HIGHLIGHT · YOUR FROG</div>
+        <div class="hl" style="border-color:#f5a623; background:rgba(245,166,35,0.08); color:#f5d9a0;">
+          🐸 <b>Finish thesis draft §3</b><br><span style="font-size:10px;color:#b89a6a;">PROJECT · 90m · do first</span>
+        </div>
+        <div class="lbl" style="margin:8px 0 4px;">CAPACITY · 60% RULE</div>
+        <div class="bar"><div class="fill" style="width:55%;background:#3ddc84;"></div></div>
+        <div class="cap">2h 40m planned of 4h 30m realistic (buffer kept)</div>
+        <div class="lbl" style="margin:10px 0 4px;">QUEUE</div>
+        <div class="row" style="border-color:#00d8d8;">Gym session <span class="time">45m</span></div>
+        <div class="row" style="border-color:#9b6cff;">Email triage <span class="time">25m</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · Highlight + Frog (lightweight)</h3>
+      <p>Keep the ordered queue, but pin ONE "highlight/frog" (your most important task) to do first, and make the budget bar buffer-aware (plan to ~60%, estimates rounded +20%). Smallest change. From <i>Make Time</i>, <i>Eat That Frog</i>, the planning-fallacy buffer rule.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="B" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="phone">
+        <div class="lbl">TIME-BLOCKED DAY</div>
+        <div class="row" style="border-color:#6b7888;background:transparent;"><span class="lbl">MORNING</span></div>
+        <div class="row" style="border-color:#f5a623;">🐸 Thesis draft §3 <span class="time">08:30</span></div>
+        <div class="row" style="border-color:#9b6cff;">Email triage <span class="time">10:00</span></div>
+        <div class="row" style="border-color:#6b7888;background:transparent;"><span class="lbl">AFTERNOON</span></div>
+        <div class="row" style="border-color:#00d8d8;">Gym session <span class="time">17:00</span></div>
+        <div class="cap" style="margin-top:8px;">Blocks land on the existing timeline. Unscheduled items wait in a tray.</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · Time-Blocked Day (Newport)</h3>
+      <p>Each item is assigned to an actual time block on the day timeline (you already have a timeline + predicted-sessions). The plan becomes a schedule, not just a list. Biggest behavior change, strongest "protect deep work" payoff. From <i>Deep Work / The Time-Block Planner</i>.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="C" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="phone">
+        <div class="lbl">HIGHLIGHT + BLOCKS + PRIORITY</div>
+        <div class="hl" style="border-color:#f5a623; background:rgba(245,166,35,0.08); color:#f5d9a0;">🐸 <b>Thesis draft §3</b> <span class="time">08:30 · 90m</span></div>
+        <div style="display:flex;gap:5px;margin:6px 0;">
+          <span class="tag" style="background:#7a1f1f;color:#ffb4b4;">URGENT+IMP</span>
+          <span class="tag" style="background:#1f4a7a;color:#a8d4ff;">IMPORTANT</span>
+        </div>
+        <div class="bar"><div class="fill" style="width:55%;background:#3ddc84;"></div></div>
+        <div class="cap">60% capacity · +20% buffers · morning-plan nudge</div>
+        <div class="row" style="border-color:#9b6cff;margin-top:8px;">Email triage <span class="time">10:00</span></div>
+        <div class="row" style="border-color:#00d8d8;">Gym <span class="time">17:00</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C · Full system (A + B + Eisenhower)</h3>
+      <p>Everything in A and B plus importance/urgency tagging (Eisenhower) and a morning-planning nudge. Most complete, most work, risk of feeling heavy for a daily tool.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:18px;">Click the one that fits — or tell me in the terminal if you want a different cut.</p>

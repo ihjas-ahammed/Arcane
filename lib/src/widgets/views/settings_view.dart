@@ -5,9 +5,10 @@ import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:missions/src/services/app_user.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/screens/settings/data_recovery_screen.dart';
+import 'package:missions/src/screens/schedule/scheduled_reminders_screen.dart';
 import 'package:missions/src/widgets/settings/api_key_manager.dart';
 import 'package:missions/src/widgets/settings/model_configuration_widget.dart';
 import 'package:missions/src/widgets/dialogs/pin_dialog.dart';
@@ -91,7 +92,7 @@ class _SettingsViewState extends State<SettingsView> {
       });
     } catch (e) {
       if (!mounted) return;
-      if (e is FirebaseAuthException) {
+      if (e is AuthFailure) {
         setState(() =>
             _passwordChangeError = e.message ?? "Failed to change password.");
       } else {
@@ -334,6 +335,58 @@ class _SettingsViewState extends State<SettingsView> {
                 const ApiKeyManager(),
 
                 const SizedBox(height: 16),
+                SwitchListTile.adaptive(
+                  title: const Text('Adapt User Writing Style', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: const Text('Analyze last 7 days of reflections to mirror your writing style in AI responses', style: TextStyle(fontSize: 12)),
+                  value: appProvider.settings.adaptWritingStyle,
+                  activeTrackColor: AppTheme.fhAccentPurple,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (bool value) async {
+                    appProvider.setSettings(appProvider.settings..adaptWritingStyle = value);
+                    if (value) {
+                      await appProvider.updateWritingStyleMap();
+                    }
+                  },
+                ),
+                if (appProvider.settings.adaptWritingStyle) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    appProvider.settings.writingStyleMap != null
+                        ? "Writing style map generated (Active)"
+                        : "Generating writing style map...",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: appProvider.settings.writingStyleMap != null
+                          ? AppTheme.fhAccentPurple
+                          : AppTheme.fhTextSecondary,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  decoration: InputDecoration(
+                    labelText: 'Story Mode Character (Default)',
+                    prefixIcon: Icon(MdiIcons.accountOutline, size: 20),
+                  ),
+                  dropdownColor: AppTheme.fhBgMedium,
+                  initialValue: appProvider.settings.storyCharacter,
+                  items: const [
+                    DropdownMenuItem(value: 'Ayan', child: Text('Ayan (Analytical/Storyteller)')),
+                    DropdownMenuItem(value: 'Mira', child: Text('Mira (Soft/Intuitive)')),
+                    DropdownMenuItem(value: 'Hiba', child: Text('Hiba (Dramatic/Expressive)')),
+                    DropdownMenuItem(value: 'Zara', child: Text('Zara (Structured/Practical)')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      appProvider.setSettings(
+                          appProvider.settings..storyCharacter = value);
+                    }
+                  },
+                ),
+
+                const SizedBox(height: 16),
                 Text("Custom System Prompts",
                     style: theme.textTheme.titleSmall),
                 const SizedBox(height: 8),
@@ -421,7 +474,10 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ]),
           
-          // 7. DIAGNOSTICS & ONBOARDING
+          // 7. NOTIFICATIONS
+          _buildNotificationsSection(appProvider, theme),
+
+          // 8. DIAGNOSTICS & ONBOARDING
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.tools,
               title: 'System Diagnostics',
@@ -473,7 +529,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ]),
 
-          // 8. CREDENTIALS
+          // 9. CREDENTIALS
           if (appProvider.currentUser != null)
             _buildSettingsSection(appProvider, theme,
                 icon: MdiIcons.shieldAccountOutline,
@@ -534,7 +590,7 @@ class _SettingsViewState extends State<SettingsView> {
                   const SizedBox(height: 20),
                   OutlinedButton.icon(
                     icon: _logoutLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
@@ -547,13 +603,13 @@ class _SettingsViewState extends State<SettingsView> {
                         : () => _handleLogout(appProvider, context),
                     style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.fhAccentOrange,
-                        side: const BorderSide(
+                        side: BorderSide(
                             color: AppTheme.fhAccentOrange, width: 1.5),
                         minimumSize: const Size(double.infinity, 44)),
                   ),
                 ]),
 
-          // 9. DATA RESET
+          // 10. DATA RESET
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.databaseRemoveOutline,
               title: 'Data & System Reset',
@@ -613,6 +669,128 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
+  Widget _buildNotificationsSection(AppProvider appProvider, ThemeData theme) {
+    final s = appProvider.settings;
+    final accent = appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
+
+    String fmtTime(int h, int m) {
+      final dt = DateTime(2000, 1, 1, h, m);
+      return DateFormat('hh:mm a').format(dt);
+    }
+
+    Future<void> pickTime(
+        BuildContext ctx, int curH, int curM, void Function(int, int) onPick) async {
+      final picked = await showTimePicker(
+        context: ctx,
+        initialTime: TimeOfDay(hour: curH, minute: curM),
+      );
+      if (picked != null) onPick(picked.hour, picked.minute);
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(MdiIcons.bellOutline, color: accent, size: 22),
+              const SizedBox(width: 10),
+              Text('Notifications',
+                  style: theme.textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+            ]),
+            Divider(height: 24, thickness: 0.5, color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
+
+            // --- Reflection reminder ---
+            Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Daily Reflection Reminder',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(
+                    s.reflectionReminderEnabled
+                        ? 'Fires every day at ${fmtTime(s.reflectionReminderHour, s.reflectionReminderMinute)}'
+                        : 'Disabled',
+                    style: const TextStyle(
+                        color: AppTheme.fhTextSecondary, fontSize: 12),
+                  ),
+                ]),
+              ),
+              Switch.adaptive(
+                value: s.reflectionReminderEnabled,
+                activeTrackColor: accent,
+                onChanged: (v) {
+                  appProvider.setSettings(s
+                    ..reflectionReminderEnabled = v);
+                  appProvider.rescheduleReminders();
+                },
+              ),
+            ]),
+            if (s.reflectionReminderEnabled) ...[
+              const SizedBox(height: 8),
+              Builder(builder: (ctx) => OutlinedButton.icon(
+                icon: Icon(MdiIcons.clockOutline, size: 16),
+                label: Text('Change Time — ${fmtTime(s.reflectionReminderHour, s.reflectionReminderMinute)}'),
+                onPressed: () => pickTime(
+                  ctx,
+                  s.reflectionReminderHour,
+                  s.reflectionReminderMinute,
+                  (h, m) {
+                    appProvider.setSettings(s
+                      ..reflectionReminderHour = h
+                      ..reflectionReminderMinute = m);
+                    appProvider.rescheduleReminders();
+                  },
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: accent,
+                  side: BorderSide(color: accent.withValues(alpha: 0.5)),
+                  minimumSize: const Size(double.infinity, 40),
+                ),
+              )),
+            ],
+
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: AppTheme.fhBorderColor),
+            const SizedBox(height: 16),
+
+            // --- Manage all scheduled reminders ---
+            Builder(builder: (ctx) => OutlinedButton.icon(
+              icon: Icon(MdiIcons.bellCogOutline, size: 16),
+              label: const Text('View & Edit Scheduled Reminders'),
+              onPressed: () => Navigator.push(
+                ctx,
+                MaterialPageRoute(
+                    builder: (_) => const ScheduledRemindersScreen()),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: accent,
+                side: BorderSide(color: accent.withValues(alpha: 0.5)),
+                minimumSize: const Size(double.infinity, 44),
+              ),
+            )),
+            const SizedBox(height: 8),
+            Row(children: [
+              Icon(MdiIcons.bellCheckOutline,
+                  color: AppTheme.fhTextSecondary, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Set per-submission reminders by tapping the bell icon on any submission detail screen, or per-task times in the Today planner.',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: AppTheme.fhTextSecondary, height: 1.5),
+                ),
+              ),
+            ]),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSettingsSection(AppProvider appProvider, ThemeData theme,
       {required IconData icon,
       required String title,
@@ -639,7 +817,7 @@ class _SettingsViewState extends State<SettingsView> {
             Divider(
                 height: 24,
                 thickness: 0.5,
-                color: AppTheme.fhBorderColor.withOpacity(0.5)),
+                color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
             ...children,
           ],
         ),

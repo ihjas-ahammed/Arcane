@@ -1,4 +1,6 @@
 // lib/src/models/skill_models.dart
+import 'package:missions/src/theme/wellbeing_theme.dart';
+
 
 class Skill {
   final String id;
@@ -101,6 +103,16 @@ class ReflectionLog {
   });
 
   factory ReflectionLog.fromJson(Map<String, dynamic> json) {
+    final rawXp = Map<String, dynamic>.from(json['xpGained'] as Map? ?? {});
+    final xpGained = <String, int>{};
+    rawXp.forEach((k, v) {
+      final val = (v as num?)?.toInt() ?? 0;
+      final normalized = WellbeingTheme.normalizeSkillName(k);
+      if (normalized != null) {
+        xpGained[normalized] = (xpGained[normalized] ?? 0) + val;
+      }
+    });
+
     return ReflectionLog(
       id: json['id'] as String? ?? 'unknown',
       timestamp: DateTime.parse(json['timestamp'] as String),
@@ -109,7 +121,7 @@ class ReflectionLog {
       reason: json['reason'] as String? ?? '',
       action: json['action'] as String? ?? '', 
       aiFeedback: json['aiFeedback'] as String? ?? '',
-      xpGained: Map<String, int>.from(json['xpGained'] as Map? ?? {}),
+      xpGained: xpGained,
     );
   }
 

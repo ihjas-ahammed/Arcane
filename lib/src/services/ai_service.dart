@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:missions/src/config/api_keys.dart';
 import 'package:flutter/foundation.dart';
@@ -8,7 +10,104 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 
 class AIService {
-  
+
+  static bool isLiveModel(String modelName) => modelName.toLowerCase().contains('live');
+
+  /// Sends [prompt] over the Gemini Live API (WebSocket, TEXT modality) and
+  /// returns the model's full text response. Uses the bidirectional streaming
+  /// endpoint which has a separate quota and lower latency than the HTTP
+  /// generateContent endpoint. Throws on socket error / empty response so the
+  /// caller's rotation loop can fall back to a non-live model.
+  Future<String> _liveTextCall(String apiKey, String modelName, String prompt) async {
+    final uri = Uri.parse(
+      'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=$apiKey',
+    );
+    final channel = WebSocketChannel.connect(uri);
+    final buffer = StringBuffer();
+    final completer = Completer<String>();
+    bool setupDone = false;
+
+    await channel.ready;
+
+    final sub = channel.stream.listen(
+      (data) {
+        try {
+          // Server frames may arrive as text or binary (UTF-8 JSON).
+          final String raw = data is String ? data : utf8.decode(data as List<int>);
+          final Map<String, dynamic> msg = jsonDecode(raw) as Map<String, dynamic>;
+
+          if (msg.containsKey('setupComplete')) {
+            setupDone = true;
+            channel.sink.add(jsonEncode({
+              'clientContent': {
+                'turns': [
+                  {
+                    'role': 'user',
+                    'parts': [
+                      {'text': prompt}
+                    ]
+                  }
+                ],
+                'turnComplete': true,
+              }
+            }));
+            return;
+          }
+
+          final serverContent = msg['serverContent'] as Map<String, dynamic>?;
+          if (serverContent != null) {
+            final modelTurn = serverContent['modelTurn'] as Map<String, dynamic>?;
+            final parts = modelTurn?['parts'] as List<dynamic>?;
+            if (parts != null) {
+              for (final p in parts) {
+                final t = (p as Map<String, dynamic>)['text'];
+                if (t is String) buffer.write(t);
+              }
+            }
+            final done = serverContent['turnComplete'] == true ||
+                serverContent['generationComplete'] == true;
+            if (done && !completer.isCompleted) {
+              completer.complete(buffer.toString());
+            }
+          }
+        } catch (_) {
+          // Ignore malformed frames; rely on completion / error / timeout.
+        }
+      },
+      onError: (e) {
+        if (!completer.isCompleted) completer.completeError(e as Object);
+      },
+      onDone: () {
+        if (!completer.isCompleted) {
+          completer.complete(buffer.toString());
+        }
+      },
+      cancelOnError: true,
+    );
+
+    // Open the session.
+    channel.sink.add(jsonEncode({
+      'setup': {
+        'model': 'models/$modelName',
+        'generationConfig': {
+          'responseModalities': ['TEXT']
+        }
+      }
+    }));
+
+    String result;
+    try {
+      result = await completer.future.timeout(const Duration(seconds: 45));
+    } finally {
+      await sub.cancel();
+      await channel.sink.close();
+    }
+
+    if (!setupDone) throw Exception('Live session setup never completed.');
+    if (result.trim().isEmpty) throw Exception('Live AI response was empty.');
+    return result;
+  }
+
   Future<T> _executeWithModelAndKeyRotation<T>({
     required List<String> modelCandidates,
     required Future<T> Function(String apiKey, String modelName) requestFn,
@@ -102,9 +201,15 @@ class AIService {
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
+    String? writingStyleMap,
   }) async {
+    String systemStyle = "";
+    if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
+      systemStyle = "\n\nAdhere to the following writing style map for your response (mirror the user's tone and style):\n$writingStyleMap\n";
+    }
     final prompt = """
     $logsContext
+    $systemStyle
     
     USER: "$query"
 
@@ -125,11 +230,16 @@ class AIService {
         onLog: onLog,
         modelCandidates: modelCandidates,
         requestFn: (apiKey, modelName) async {
-          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-          final response = await model.generateContent([genai.Content.text(prompt)]);
-          final raw = response.text;
+          final String? raw;
+          if (isLiveModel(modelName)) {
+            raw = await _liveTextCall(apiKey, modelName, prompt);
+          } else {
+            final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+            final response = await model.generateContent([genai.Content.text(prompt)]);
+            raw = response.text;
+          }
           if (raw == null) throw Exception("Empty AI response");
-          
+
           final decoded = JsonUtils.tryDecode(raw);
           if (decoded is List) {
             return decoded.map((e) => e.toString()).toList();
@@ -139,6 +249,113 @@ class AIService {
       );
     } catch(e) {
       if (e.toString().contains("OFFLINE_MOCK_DATA")) return ["offline mock response: connect api key."];
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> queryNoraAgent({
+    required String query,
+    required String logsContext,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+$logsContext
+
+USER QUERY: "$query"
+
+RULES:
+1. You are NORA, an agent assistant. You must address the user's query and optionally perform actions (edits/additions/retrievals) on their tasks, reflections, people info, gratitude/assets, progress points, or custom database paths.
+2. Your response MUST be a single, valid JSON object containing:
+   - "messages": a JSON array of strings (minimum 1, maximum 4). These are short, casual, lower-case, lazy-texting-style messages (use abbreviations like 'yk', 'tbh', 'idk', no markdown) that you speak to the user in chat.
+   - "actions": a JSON array of action objects. If no action is requested or needed, this must be an empty array [].
+3. The supported action object schemas in "actions" are:
+   - Check/Uncheck task:
+     {"type": "check_task", "taskId": "main-task-id", "subtaskId": "subtask-id", "subSubtaskId": "subsubtask-id (optional)", "completed": true/false}
+   - Add task:
+     {"type": "add_task", "taskType": "main"|"sub"|"subsub", "name": "task name", "description": "task description (optional)", "mainTaskId": "main-task-id (if sub/subsub)", "subtaskId": "subtask-id (if subsub)", "why": "why (optional)", "what": "what (optional)", "theme": "theme (optional)", "colorHex": "colorHex (optional)"}
+   - Add data point to progress graph:
+     {"type": "add_progress_point", "mainTaskId": "...", "subTaskId": "...", "progress": 0.0 to 1.0, "spentSeconds": integer}
+   - Edit/Add person info:
+     {"type": "edit_person", "name": "person name", "relation": "relation (optional)", "details": "details (optional)", "age": integer (optional), "gender": "gender (optional)", "notes": "notes (optional)"}
+   - Edit/Add reflection log:
+     {"type": "edit_reflection", "id": "reflection-id (or 'new')", "trigger": "...", "emotion": "...", "reason": "...", "action": "..."}
+   - Add a new custom ability/skill to Nora:
+     {"type": "add_nora_skill", "name": "skill name", "description": "what it does", "instructions": "rules/instructions for Nora on when and how to perform this skill"}
+   - Arbitrary/Custom database edit (e.g. changing dynamic values or keys based on new skills/abilities):
+     {"type": "custom_db_edit", "path": "dot-separated-path (e.g., 'settings.adaptWritingStyle' or 'mainTasks.0.name')", "value": any_value}
+
+Examples of valid JSON responses:
+{
+  "messages": ["on it, checked that task for you", "anything else?"],
+  "actions": [
+    {"type": "check_task", "taskId": "t1", "subtaskId": "st1", "completed": true}
+  ]
+}
+OR
+{
+  "messages": ["sure! added a skill to your chatbot memory", "now i can double all task names if you ask me to."],
+  "actions": [
+    {"type": "add_nora_skill", "name": "double_names", "description": "doubles all main task names", "instructions": "when asked to double names, output custom_db_edit action for each mainTask path like mainTasks.i.name"}
+  ]
+}
+OR
+{
+  "messages": ["hey, looking at june 13th reflection:", "you felt happy due to completion", "i can change the trigger if you want"],
+  "actions": []
+}
+
+Output ONLY the JSON object. Do not include markdown code block syntax (like ```json).
+""";
+
+    try {
+      return await _executeWithModelAndKeyRotation(
+        currentApiKeyIndex: currentApiKeyIndex,
+        customApiKeys: customApiKeys,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+        modelCandidates: modelCandidates,
+        requestFn: (apiKey, modelName) async {
+          final String? raw;
+          if (isLiveModel(modelName)) {
+            raw = await _liveTextCall(apiKey, modelName, prompt);
+          } else {
+            final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+            final response = await model.generateContent([genai.Content.text(prompt)]);
+            raw = response.text;
+          }
+          if (raw == null) throw Exception("Empty AI response");
+
+          // Strip markdown block markers if generated by mistake
+          String cleaned = raw.trim();
+          if (cleaned.startsWith("```")) {
+            final lines = cleaned.split("\n");
+            if (lines.first.startsWith("```")) lines.removeAt(0);
+            if (lines.isNotEmpty && lines.last.startsWith("```")) lines.removeLast();
+            cleaned = lines.join("\n").trim();
+          }
+
+          final decoded = JsonUtils.tryDecode(cleaned);
+          if (decoded is Map<String, dynamic>) {
+            return decoded;
+          }
+          // Fallback if not a map
+          return {
+            "messages": [cleaned],
+            "actions": []
+          };
+        },
+      );
+    } catch(e) {
+      if (e.toString().contains("OFFLINE_MOCK_DATA")) {
+        return {
+          "messages": ["offline mock response: connect api key."],
+          "actions": []
+        };
+      }
       rethrow;
     }
   }
@@ -387,39 +604,59 @@ class AIService {
     String? recentContext,
     List<String>? customApiKeys,
     String? systemInstruction,
+    String? writingStyleMap,
   }) async {
     final defaultInstruction = "Be empathetic, also dont make it too long, just like a reaction of a therapist";
     final instruction = systemInstruction != null && systemInstruction.isNotEmpty ? systemInstruction : defaultInstruction;
-    
+
+    String systemStyle = "";
+    if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
+      systemStyle = "\n\nAdhere to the following writing style map for your response (mirror the user's tone and style):\n$writingStyleMap\n";
+    }
+
     final prompt = """
     Analyze this reflection log.
+    $systemStyle
     Situation: $trigger
     Feeling: $emotion
     Reason: $reason
     Action Planned: $action
-    
+
     Recent Context (Last 7 Days):
     ${recentContext ?? 'No recent context available.'}
-    
+
     1. Provide constructive feedback. ($instruction)
-    2. Adopt an optimistic perspective (e.g., finding the silver lining or growth opportunity in bad situations). Focus on present actionability. Use recent context to understand patterns, but keep your feedback focused on THIS specific log.
-    3. Allocate XP (0-50) to the relevant Sources of Well-Being (Positivity, Resilience, Satisfaction, Vitality, Env. Mastery, Relationships, Self-Acceptance, Mastery, Autonomy, Growth, Engagement, Meaning).
+    2. Focus on present actionability. Use recent context to understand patterns but keep feedback focused on THIS specific log.
+    3. Score XP for each Well-Being area as a float 0.0 to 1.0 using ONLY clear evidence in this log:
+       - Positivity (0.0–1.0): Score ONLY if log shows moments of joy, gratitude, humor, awe, love, or contentment. No evidence = 0.0. Explicit positive emotion = 0.8–1.0.
+       - Resilience (0.0–1.0): Score ONLY if log shows bouncing back from setback, tolerating distress, reframing a negative event, or regulating strong emotions. Mere acknowledgment of difficulty = 0.0.
+       - Satisfaction (0.0–1.0): Score ONLY if log shows subjective sense of overall life going well or a meaningful accomplishment. Mundane tasks = 0.0.
+       - Vitality (0.0–1.0): Score ONLY if log references physical energy, exercise, sleep quality, or bodily health positively.
+       - Env. Mastery (0.0–1.0): Score ONLY if log shows user successfully shaped their environment: organized something, solved a logistical problem, or created a productive space.
+       - Relationships (0.0–1.0): Score ONLY if log shows feeling loved, supported, or valued by a specific person — or a meaningful positive interaction.
+       - Self-Acceptance (0.0–1.0): Score ONLY if log shows self-compassion, honest self-recognition without harsh judgment, or accepting a limitation gracefully.
+       - Mastery (0.0–1.0): Score ONLY if log shows completing a challenging task, learning a hard concept, or demonstrating a skill under difficulty.
+       - Autonomy (0.0–1.0): Score ONLY if log shows user making a self-determined choice, resisting social pressure, or acting according to their own values.
+       - Growth (0.0–1.0): Score ONLY if log shows intentional development: learning something new, seeking feedback, or practicing a skill deliberately.
+       - Engagement (0.0–1.0): Score ONLY if log shows flow state, absorption in a task, or genuine enthusiasm for an activity.
+       - Meaning (0.0–1.0): Score ONLY if log shows connection to purpose, contribution to something larger, or acting in alignment with deep values.
+    Use 0.0 when the evidence is absent or ambiguous. Partial evidence = 0.1–0.4. Clear evidence = 0.5–0.7. Exceptionally strong evidence = 0.8–1.0.
 
     Output JSON: {
-      "feedback": "string", 
+      "feedback": "string",
       "xp_allocation": {
-        "Positivity": int,
-        "Resilience": int,
-        "Satisfaction": int,
-        "Vitality": int,
-        "Env. Mastery": int,
-        "Relationships": int,
-        "Self-Acceptance": int,
-        "Mastery": int,
-        "Autonomy": int,
-        "Growth": int,
-        "Engagement": int,
-        "Meaning": int
+        "Positivity": float,
+        "Resilience": float,
+        "Satisfaction": float,
+        "Vitality": float,
+        "Env. Mastery": float,
+        "Relationships": float,
+        "Self-Acceptance": float,
+        "Mastery": float,
+        "Autonomy": float,
+        "Growth": float,
+        "Engagement": float,
+        "Meaning": float
       }
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
@@ -443,34 +680,45 @@ class AIService {
     required Function(String) onLog,
   }) async {
     final prompt = """
-    Analyze the following array of reflection logs. 
-    For each log, evaluate the user's progress across these 12 Sources of Well-Being:
-    1. Positivity 2. Resilience 3. Satisfaction 4. Vitality 5. Env. Mastery 6. Relationships 
-    7. Self-Acceptance 8. Mastery 9. Autonomy 10. Growth 11. Engagement 12. Meaning
+    Analyze the following array of reflection logs.
+    For each log, score the user's well-being evidence across 12 areas as a float 0.0 to 1.0.
 
-    Award XP (0 to 50) for each category based on evidence in the specific log. If no evidence, award 0.
+    Scoring rules (apply PER LOG — do NOT average across logs):
+    - Positivity: joy, gratitude, humor, awe, love, contentment. 0.0 if absent.
+    - Resilience: bouncing back, tolerating distress, reframing, emotion regulation. 0.0 if mere acknowledgment of difficulty.
+    - Satisfaction: subjective sense of overall life going well or meaningful accomplishment. 0.0 for routine tasks.
+    - Vitality: physical energy, exercise, good sleep, bodily health referenced positively.
+    - Env. Mastery: successfully shaped environment, solved logistics, created productive space.
+    - Relationships: feeling loved/supported/valued by a specific person; meaningful positive interaction.
+    - Self-Acceptance: self-compassion, honest self-recognition without harsh judgment.
+    - Mastery: completed a challenging task, learned hard concept, demonstrated skill under difficulty.
+    - Autonomy: self-determined choice, resisting pressure, acting by own values.
+    - Growth: deliberate learning, seeking feedback, practicing a skill intentionally.
+    - Engagement: flow state, absorption, genuine enthusiasm for an activity.
+    - Meaning: connection to purpose, contribution to something larger, acting by deep values.
+    Absent or ambiguous evidence = 0.0. Partial = 0.1–0.4. Clear = 0.5–0.7. Exceptionally strong = 0.8–1.0.
 
     Logs to evaluate:
     ${jsonEncode(logsPayload)}
 
-    Output EXACTLY valid JSON matching this structure:
+    Output EXACTLY valid JSON:
     {
       "updates":[
         {
           "log_id": "id_string_from_input",
           "xp_allocation": {
-            "Positivity": int,
-            "Resilience": int,
-            "Satisfaction": int,
-            "Vitality": int,
-            "Env. Mastery": int,
-            "Relationships": int,
-            "Self-Acceptance": int,
-            "Mastery": int,
-            "Autonomy": int,
-            "Growth": int,
-            "Engagement": int,
-            "Meaning": int
+            "Positivity": float,
+            "Resilience": float,
+            "Satisfaction": float,
+            "Vitality": float,
+            "Env. Mastery": float,
+            "Relationships": float,
+            "Self-Acceptance": float,
+            "Mastery": float,
+            "Autonomy": float,
+            "Growth": float,
+            "Engagement": float,
+            "Meaning": float
           }
         }
       ]
@@ -499,9 +747,15 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
     String? customInstruction,
+    String? writingStyleMap,
   }) async {
+    String systemStyle = "";
+    if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
+      systemStyle = "\n\nAdhere to the following writing style map for your response (mirror the user's tone and style):\n$writingStyleMap\n";
+    }
     final prompt = """
     Generate an end-of-day Tactical Briefing grounded in evidence-based psychology.
+    $systemStyle
 
     Current Logs: ${jsonEncode(reflections)}
     Reflection History (Context): $fullContext
@@ -521,15 +775,15 @@ class AIService {
     1. "summary" (max 120 words): An honest read of today. Use 1-2 granular emotion words drawn from the logs. If a cognitive distortion is visible, name it in the user's own situation and offer a balanced reframe (balanced is not the same as positive). If the day was hard, say so plainly. Close with one observation about what was in vs not in their control today.
     2. "improvements": 1-3 specific capabilities the user is building or could build (e.g. "tolerating uncertainty without seeking reassurance", not vague traits like "patience"). Each "insight" must be specific enough to act on tomorrow.
     3. "grateful_people": specific people mentioned (use names). "reason" must reference a concrete thing they did or said.
-    4. "grateful_assets": specific resources, skills, objects, or routines the user actually relied on today. "why" = strategic value; "what" = concrete yield.
+    4. "grateful_today": exactly 10 specific things to be grateful for today. Draw from the logs — people, moments, resources, abilities, circumstances. Each must be concrete and specific (not "health" but "the energy to finish the task despite fatigue"). Each has an "icon_type" (choose one: people, nature, health, learning, work, home, food, social, growth, mind, moment, general).
 
     Output JSON: {
       "summary": "string (max 120 words)",
       "improvements": [ {"ability": "string", "insight": "string"} ],
       "grateful_people": [ {"name": "string", "relation": "string", "reason": "string"} ],
-      "grateful_assets":[ {"name": "string", "type": "skill|person|object|resource", "why": "string", "what": "string"} ]
+      "grateful_today": [ {"text": "string", "icon_type": "string"} ]
     }
-    ENSURE VALID JSON. NO TRAILING COMMAS.
+    ENSURE VALID JSON. NO TRAILING COMMAS. grateful_today must have exactly 10 items.
     """;
     
     return await makeAICall(
@@ -550,23 +804,47 @@ class AIService {
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
+    String? financeText,
+    String? agentProgressText,
+    String? writingStyleMap,
   }) async {
+    String systemStyle = "";
+    if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
+      systemStyle = "\n\nAdhere to the following writing style map for your response (mirror the user's tone and style):\n$writingStyleMap\n";
+    }
     final prompt = """
+    Generate a comprehensive 7-Day Review Report grounded in "Getting Things Done" (GTD) and "Atomic Habits" principles, along with evidence-based psychology.
+    $systemStyle
+
+    Reflection Logs: $logsText
+    Time Data: $timeStatsText
+    Wellbeing Progress: $wellbeingStatsText
+    ${financeText != null && financeText.isNotEmpty ? 'Finance: $financeText' : ''}
+    ${agentProgressText != null && agentProgressText.isNotEmpty ? 'Agent Progress (Tasks): $agentProgressText' : ''}
+
     Task:
-    1. Analyze logs and time stats for a Weekly Report. Focus EQUALLY on the good things achieved and specific improvements needed. Adopt a highly optimistic perspective, reframing failures into valuable lessons and focusing on present potential.
-    2. Compare the user's wellbeing progress to last week. Highlight areas of major growth or decline.
-    3. Explicitly list out people mentioned that the user should be grateful for, and tell them why. (You may use real names).
-    4. Output JSON: 
-    { 
-      "summary": "string", 
+    1. "summary": Honest read of the week. Name 1-2 specific emotional themes. If the week was hard, say so plainly. Close with one actionable insight.
+    2. "wellbeing_analysis": Compare wellbeing to previous week. Name specific areas of growth or decline with evidence from logs.
+    3. "gtd_get_current": (GTD principle) Analyze the Agent Progress (Tasks) or logs. Identify 2-4 active or stalled projects/tasks and recommend ONE highly specific, immediate "Next Action" for each to prevent stalling.
+    4. "gtd_get_creative": (GTD principle) Based on the user's logs, suggest 1-2 new ideas, experiments, or "Someday/Maybe" items they might want to explore.
+    5. "atomic_friction": (Atomic Habits principle) Identify 1-2 areas where the user struggled or faced friction this week. Suggest ONE small, actionable environmental design or habit adjustment to make it easier next week.
+    6. "identity_votes": (Atomic Habits principle) Highlight 1-2 ways the user's actions this week successfully "voted" for the type of person they want to become (their desired identity).
+    7. "improved_abilities": 2-4 specific capabilities the user demonstrated or built this week. Score 1-10.
+    8. "grateful_people": People mentioned the user should appreciate. Use real names. Concrete reasons.
+    9. "gratitude_highlights": 5 specific things from this week worth being grateful for (not generic). Each with an icon_type (people/nature/health/learning/work/home/food/social/growth/mind/moment/general).
+
+    Output JSON:
+    {
+      "summary": "string",
       "wellbeing_analysis": "string",
-      "improved_abilities":[ {"name": "string", "reason": "string", "score": int} ], 
-      "time_insight": "string",
-      "grateful_people": [ {"name": "string", "reason": "string"} ]
-    } 
-    Logs: $logsText. 
-    Time: $timeStatsText. 
-    Wellbeing Progress: $wellbeingStatsText.
+      "gtd_get_current": [{"task": "string", "next_action": "string"}],
+      "gtd_get_creative": [{"idea": "string", "reason": "string"}],
+      "atomic_friction": [{"struggle": "string", "adjustment": "string"}],
+      "identity_votes": [{"action": "string", "identity": "string"}],
+      "improved_abilities": [{"name": "string", "reason": "string", "score": int}],
+      "grateful_people": [{"name": "string", "reason": "string"}],
+      "gratitude_highlights": [{"text": "string", "icon_type": "string"}]
+    }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
     return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
@@ -608,9 +886,15 @@ class AIService {
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
+    String? writingStyleMap,
   }) async {
+    String systemStyle = "";
+    if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
+      systemStyle = "\n\nAdhere to the following writing style map for your response (mirror the user's tone and style):\n$writingStyleMap\n";
+    }
     final prompt = """
     Generate a 'System Start-Up Sequence' (a morning briefing) grounded in evidence-based psychology.
+    $systemStyle
 
     Context:
     Reflections (Last 7 days): $reflectionsList
@@ -658,6 +942,7 @@ class AIService {
     final prompt = """
     Analyze the following reflection logs and extract a list of specific people mentioned by the user with name. 
     For each person, infer their relationship to the user (e.g., Friend, Boss, Partner, Colleague).
+    Also, extract the short sentence or snippet from the logs where the person was mentioned (context).
     Create a list of upto 50 people
     
     Logs:
@@ -668,7 +953,8 @@ class AIService {
       "people":[
         {
           "name": "string",
-          "relation": "string"
+          "relation": "string",
+          "context": "string (the sentence/snippet where they were mentioned)"
         }
       ]
     }
@@ -682,7 +968,7 @@ class AIService {
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog);
 
-    return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ??[];
+    return (result['people'] as List?)?.map((p) => p as Map<String, dynamic>).toList() ?? [];
   }
 
   Future<List<Map<String, dynamic>>> extractAssetsFromReflections({
@@ -914,5 +1200,232 @@ class AIService {
         currentApiKeyIndex: currentApiKeyIndex,
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog);
+  }
+
+  /// Generates a raw text response (not JSON) from the AI.
+  Future<String> makeRawTextAICall({
+    required String prompt,
+    required List<String> modelCandidates,
+    List<String>? customApiKeys,
+    required int currentApiKeyIndex,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    return await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+        final text = response.text;
+        if (text == null || text.trim().isEmpty) throw Exception("AI response was empty.");
+        return text.trim();
+      },
+    );
+  }
+
+  /// Generates a single story segment (list of paragraph objects) for one character.
+  /// [previousStoryJson] is the JSON string of paragraphs generated so far (for context).
+  /// [targetCharacter] is which character should primarily speak in this segment.
+  Future<List<Map<String, dynamic>>> generateStorySegment({
+    required String systemContext,
+    required String previousStoryJson,
+    required String targetCharacter,
+    required List<String> modelCandidates,
+    List<String>? customApiKeys,
+    required int currentApiKeyIndex,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+$systemContext
+
+CONVERSATION SO FAR (what has already been said — DO NOT REPEAT THESE):
+$previousStoryJson
+
+Your task for THIS segment: Write the next part of the conversation where $targetCharacter speaks.
+Rules for this segment:
+- $targetCharacter MUST have at least 2 dialogue lines in this segment.
+- The other characters may react briefly (1-2 lines each at most).
+- Stay in character as described. Reference specific details from today's reflections.
+- Maximum 10 paragraph objects total in this segment.
+- Use mix of 'action' and 'dialogue' types.
+
+OUTPUT ONLY A VALID JSON ARRAY of paragraph objects. No preamble. No markdown fences.
+Example: [{"type":"action","text":"..."},{"type":"dialogue","character":"$targetCharacter","text":"..."}]
+""";
+
+    return await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+        final raw = response.text;
+        if (raw == null || raw.trim().isEmpty) throw Exception("AI response was empty.");
+        final decoded = JsonUtils.tryDecode(raw.trim());
+        if (decoded is List) {
+          return decoded.cast<Map<String, dynamic>>();
+        }
+        throw FormatException("Expected JSON array but got: $raw", raw);
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> generateStoryBriefing({
+    required String todayReflections,
+    required String last7DaysContext,
+    required String last4WeeksWeeklyContext,
+    required String userCharacter,
+    required String storyExamples,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    // This is the base context shared across all segment calls.
+    final systemContext = """
+You are an expert storyteller generating a story-mode analysis of a user's daily reflections.
+
+WRITING STYLE REFERENCE (how the characters speak — follow this closely):
+--- START STORY EXAMPLES ---
+$storyExamples
+--- END STORY EXAMPLES ---
+
+CHARACTERS:
+- Ayan: Analytical, logical, explains things with simple real-world analogies. Confident but humble.
+- Hiba: Dramatic, expressive, overwhelmed by dry tasks. Groans, gasps, asks for biscuits. Very relatable.
+- Zara: Practical, structured, slightly philosophical. Spots patterns. Occasional dry wit.
+- Mira: Soft, intuitive, supportive. Highlights human emotion and underlying meaning.
+
+The user's character is: $userCharacter. Others address/reference them as the person who lived this day.
+
+CONTEXT DATA:
+Today's Reflections:
+$todayReflections
+
+Last 7 Days:
+$last7DaysContext
+
+Last 4 Weeks Weekly Reviews:
+$last4WeeksWeeklyContext
+
+All characters MUST speak casually, in short sentences, warm and conversational, exactly like the story examples.
+""";
+
+    // Batch 1: Scene + opening + Mira's primary turn
+    final batch1Prompt = """
+$systemContext
+
+Generate the OPENING of the story. This is Batch 1.
+Include:
+1. A 'scene' field: brief atmospheric description (setting, mood, rain/evening/tea etc).
+2. A 'paragraphs' array: the characters gather, look at the day's reflections + 7-day context + weekly reviews together. Mira speaks primarily (2-3 dialogue lines), others react briefly (1 line each).
+3. Keep to max 10 paragraph objects.
+
+OUTPUT ONLY VALID JSON OBJECT — no markdown, no preamble:
+{"scene": "...", "paragraphs": [{"type":"action","text":"..."},{"type":"dialogue","character":"Mira","text":"..."}]}
+""";
+
+    final batch1Result = await makeAICall(
+        prompt: batch1Prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    final scene = batch1Result['scene'] as String? ?? 'Late evening in the study. The lamp flickers gently.';
+    final paragraphsB1 = (batch1Result['paragraphs'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+
+    return {
+      'scene': scene,
+      'paragraphs': paragraphsB1,
+      'systemContext': systemContext,
+    };
+  }
+
+  /// Generates the next story segment for a specific character (Hiba or Zara).
+  Future<List<Map<String, dynamic>>> generateStoryCharacterSegment({
+    required String systemContext,
+    required List<Map<String, dynamic>> previousParagraphs,
+    required String targetCharacter,
+    required List<String> modelCandidates,
+    List<String>? customApiKeys,
+    required int currentApiKeyIndex,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prevJson = jsonEncode(previousParagraphs);
+    return await generateStorySegment(
+      systemContext: systemContext,
+      previousStoryJson: prevJson,
+      targetCharacter: targetCharacter,
+      modelCandidates: modelCandidates,
+      customApiKeys: customApiKeys,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
+  }
+
+  /// Continues the story with user input as their character.
+  Future<List<Map<String, dynamic>>> continueStoryWithUserInput({
+    required String systemContext,
+    required List<Map<String, dynamic>> previousParagraphs,
+    required String userCharacter,
+    required String userInput,
+    required bool isNarration,
+    required List<String> modelCandidates,
+    List<String>? customApiKeys,
+    required int currentApiKeyIndex,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prevJson = jsonEncode(previousParagraphs);
+    final inputType = isNarration ? 'narration/action' : 'dialogue';
+    final prompt = """
+$systemContext
+
+CONVERSATION SO FAR:
+$prevJson
+
+The user (playing as $userCharacter) just ${isNarration ? 'added a narration/action' : 'said'}:
+"$userInput"
+
+Continue the story naturally. The other characters should react to this input.
+Rules:
+- Include the user's input as a ${inputType} paragraph for $userCharacter.
+- Then have 2-4 reactions from the other characters.
+- Stay in character, casual and warm.
+- Max 8 paragraph objects total.
+
+OUTPUT ONLY A VALID JSON ARRAY of paragraph objects. No preamble. No markdown.
+[{"type":"dialogue","character":"$userCharacter","text":"$userInput"}, ...reactions...]
+""";
+
+    return await _executeWithModelAndKeyRotation(
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      modelCandidates: modelCandidates,
+      requestFn: (apiKey, modelName) async {
+        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+        final response = await model.generateContent([genai.Content.text(prompt)]);
+        final raw = response.text;
+        if (raw == null || raw.trim().isEmpty) throw Exception("AI response was empty.");
+        final decoded = JsonUtils.tryDecode(raw.trim());
+        if (decoded is List) return decoded.cast<Map<String, dynamic>>();
+        throw FormatException("Expected JSON array", raw);
+      },
+    );
   }
 }

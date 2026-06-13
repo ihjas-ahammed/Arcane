@@ -46,7 +46,7 @@ static void my_application_activate(GApplication* application) {
   if (use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "arcane");
+    gtk_header_bar_set_title(header_bar, "Missions");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
@@ -54,6 +54,24 @@ static void my_application_activate(GApplication* application) {
   }
 
   gtk_window_set_default_size(window, 1280, 720);
+
+  // Set window icon from bundle-relative path
+  {
+    gchar* exe_path = g_find_program_in_path(g_get_prgname());
+    if (!exe_path) {
+      exe_path = g_strdup(g_get_prgname());
+    }
+    gchar* exe_dir = g_path_get_dirname(exe_path);
+    gchar* icon_path = g_build_filename(exe_dir, "data", "missions.png", nullptr);
+    GdkPixbuf* icon = gdk_pixbuf_new_from_file(icon_path, nullptr);
+    if (icon) {
+      gtk_window_set_icon(window, icon);
+      g_object_unref(icon);
+    }
+    g_free(icon_path);
+    g_free(exe_dir);
+    g_free(exe_path);
+  }
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(project, self->dart_entrypoint_arguments);

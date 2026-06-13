@@ -151,12 +151,38 @@ class PersonInfo {
   String? details;
   DateTime? lastUpdated;
 
+  // New range & manual entries fields
+  DateTime? scanRangeStart;
+  DateTime? scanRangeEnd;
+  int? manualAge;
+  String? manualGender;
+  String? manualNotes;
+  String? manualNextMeetPlan;
+  List<String>? manualLastContactIntel;
+
+  // Additional Biodata Fields
+  String? manualOccupation;
+  String? manualLocation;
+  String? manualBirthday;
+  String? manualContact;
+
   PersonInfo({
     required this.id,
     required this.name,
     required this.relation,
     this.details,
     this.lastUpdated,
+    this.scanRangeStart,
+    this.scanRangeEnd,
+    this.manualAge,
+    this.manualGender,
+    this.manualNotes,
+    this.manualNextMeetPlan,
+    this.manualLastContactIntel,
+    this.manualOccupation,
+    this.manualLocation,
+    this.manualBirthday,
+    this.manualContact,
   });
 
   factory PersonInfo.fromJson(Map<String, dynamic> json) {
@@ -168,6 +194,23 @@ class PersonInfo {
       lastUpdated: json['lastUpdated'] != null 
           ? DateTime.parse(json['lastUpdated'] as String) 
           : null,
+      scanRangeStart: json['scanRangeStart'] != null
+          ? DateTime.parse(json['scanRangeStart'] as String)
+          : null,
+      scanRangeEnd: json['scanRangeEnd'] != null
+          ? DateTime.parse(json['scanRangeEnd'] as String)
+          : null,
+      manualAge: json['manualAge'] as int?,
+      manualGender: json['manualGender'] as String?,
+      manualNotes: json['manualNotes'] as String?,
+      manualNextMeetPlan: json['manualNextMeetPlan'] as String?,
+      manualLastContactIntel: json['manualLastContactIntel'] != null
+          ? List<String>.from(json['manualLastContactIntel'] as List)
+          : null,
+      manualOccupation: json['manualOccupation'] as String?,
+      manualLocation: json['manualLocation'] as String?,
+      manualBirthday: json['manualBirthday'] as String?,
+      manualContact: json['manualContact'] as String?,
     );
   }
 
@@ -178,6 +221,17 @@ class PersonInfo {
       'relation': relation,
       'details': details,
       'lastUpdated': lastUpdated?.toIso8601String(),
+      'scanRangeStart': scanRangeStart?.toIso8601String(),
+      'scanRangeEnd': scanRangeEnd?.toIso8601String(),
+      'manualAge': manualAge,
+      'manualGender': manualGender,
+      'manualNotes': manualNotes,
+      'manualNextMeetPlan': manualNextMeetPlan,
+      'manualLastContactIntel': manualLastContactIntel,
+      'manualOccupation': manualOccupation,
+      'manualLocation': manualLocation,
+      'manualBirthday': manualBirthday,
+      'manualContact': manualContact,
     };
   }
 }
@@ -228,6 +282,38 @@ class GratitudeItem {
   }
 }
 
+class NoraAgentSkill {
+  final String id;
+  final String name;
+  final String description;
+  final String instructions;
+
+  NoraAgentSkill({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.instructions,
+  });
+
+  factory NoraAgentSkill.fromJson(Map<String, dynamic> json) {
+    return NoraAgentSkill(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      instructions: json['instructions'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'instructions': instructions,
+    };
+  }
+}
+
 class ChatbotMemory {
   List<ChatbotMessage> conversationHistory;
   String? lastWeeklySummary;
@@ -240,6 +326,7 @@ class ChatbotMemory {
   List<PersonInfo> people;
   
   List<GratitudeItem> gratitudeList; 
+  List<NoraAgentSkill> noraAgentSkills;
 
   ChatbotMemory({
     List<ChatbotMessage>? conversationHistory,
@@ -250,12 +337,14 @@ class ChatbotMemory {
     this.activeNoraSessionId,
     List<PersonInfo>? people,
     List<GratitudeItem>? gratitudeList,
+    List<NoraAgentSkill>? noraAgentSkills,
   })  : conversationHistory = conversationHistory ?? [],
         dailyCompletedGoals = dailyCompletedGoals ?? [],
         userRememberedItems = userRememberedItems ?? [],
         noraSessions = noraSessions ?? [],
         people = people ?? [],
-        gratitudeList = gratitudeList ?? [];
+        gratitudeList = gratitudeList ?? [],
+        noraAgentSkills = noraAgentSkills ?? [];
 
   factory ChatbotMemory.fromJson(Map<String, dynamic> json) {
     return ChatbotMemory(
@@ -295,6 +384,11 @@ class ChatbotMemory {
               })
               .toList() ??
           [],
+      noraAgentSkills: (json['noraAgentSkills'] as List<dynamic>?)
+              ?.map((skillJson) =>
+                  NoraAgentSkill.fromJson(skillJson as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -308,6 +402,7 @@ class ChatbotMemory {
       'activeNoraSessionId': activeNoraSessionId,
       'people': people.map((person) => person.toJson()).toList(),
       'gratitudeList': gratitudeList.map((item) => item.toJson()).toList(),
+      'noraAgentSkills': noraAgentSkills.map((skill) => skill.toJson()).toList(),
     };
   }
 }

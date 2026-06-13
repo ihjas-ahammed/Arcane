@@ -236,7 +236,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       initialTime: initialTime,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
+          colorScheme: ColorScheme.dark(
             primary: JweTheme.accentAmber,
             onPrimary: Colors.black,
             surface: JweTheme.panel,
@@ -286,10 +286,10 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
         content: TextField(
           autofocus: true,
           style: const TextStyle(color: JweTheme.textWhite),
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: "Location Name",
-            hintStyle: TextStyle(color: JweTheme.textMuted),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.textMuted)),
+            hintStyle: const TextStyle(color: JweTheme.textMuted),
+            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.textMuted)),
             focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
           ),
           onChanged: (val) => newLoc = val.trim(),
@@ -317,7 +317,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(backgroundColor: JweTheme.bgBase, body: Center(child: CircularProgressIndicator(color: JweTheme.accentAmber)));
+      return Scaffold(backgroundColor: JweTheme.bgBase, body: Center(child: CircularProgressIndicator(color: JweTheme.accentAmber)));
     }
 
     final nextBus = _findNextBus();
@@ -393,7 +393,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                                   const Text("ROUTE CONFIGURATION", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
                                   InkWell(
                                     onTap: _addLocation,
-                                    child: const Text("+ ADD LOC", style: TextStyle(color: JweTheme.accentAmber, fontSize: 10, fontWeight: FontWeight.bold)),
+                                    child: Text("+ ADD LOC", style: TextStyle(color: JweTheme.accentAmber, fontSize: 10, fontWeight: FontWeight.bold)),
                                   )
                                 ],
                               ),
@@ -420,7 +420,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                         if (nextBus != null && !_isEditMode)
                           Container(
                             padding: const EdgeInsets.all(24),
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               color: JweTheme.panel,
                               border: Border(
                                   left: BorderSide(

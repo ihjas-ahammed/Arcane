@@ -57,7 +57,7 @@ class ReflectionLogCard extends StatelessWidget {
                         ),
                         child: Text(
                           "+$totalXp XP", 
-                          style: const TextStyle(
+                          style:  TextStyle(
                             color: JweTheme.accentAmber, 
                             fontSize: 10, 
                             fontWeight: FontWeight.bold,

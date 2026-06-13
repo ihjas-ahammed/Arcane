@@ -14,8 +14,18 @@ class DayWindow {
     return sleepAt.difference(from).inMinutes;
   }
 
+  /// Realistic plannable time left, after reserving a buffer for breaks and
+  /// overruns (the planning-fallacy "60% rule"): we only ever schedule ~60% of
+  /// the time actually remaining in the day.
+  int realisticMinutes(DateTime now) =>
+      (minutesRemaining(now) * kCapacityBufferRatio).round();
+
   int get totalMinutes => sleepAt.difference(wakeAt).inMinutes;
 }
+
+/// Share of remaining wake-time we treat as realistically plannable. The rest
+/// is intentional slack. See [DayWindow.realisticMinutes].
+const double kCapacityBufferRatio = 0.6;
 
 const int _fallbackWakeHour = 7;
 const int _fallbackSleepHour = 22;

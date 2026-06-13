@@ -21,7 +21,7 @@ class _AddSavingsGoalDialogState extends State<AddSavingsGoalDialog> {
     return AlertDialog(
       backgroundColor: JweTheme.panel,
       shape: Border.all(color: JweTheme.accentAmber, width: 2),
-      title: const Text("NEW SAVINGS PROTOCOL", style: TextStyle(color: JweTheme.accentAmber, fontWeight: FontWeight.bold)),
+      title: Text("NEW SAVINGS PROTOCOL", style: TextStyle(color: JweTheme.accentAmber, fontWeight: FontWeight.bold)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -42,7 +42,7 @@ class _AddSavingsGoalDialogState extends State<AddSavingsGoalDialog> {
                   lastDate: DateTime.now().add(const Duration(days: 3650)),
                   builder: (context, child) => Theme(
                     data: Theme.of(context).copyWith(
-                      colorScheme: const ColorScheme.dark(
+                      colorScheme: ColorScheme.dark(
                         primary: JweTheme.accentAmber,
                         onPrimary: Colors.black,
                         surface: JweTheme.bgBase,
@@ -56,7 +56,7 @@ class _AddSavingsGoalDialogState extends State<AddSavingsGoalDialog> {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(border: Border.all(color: JweTheme.border)),
-                child: Text(DateFormat('MMM dd, yyyy').format(_targetDate), style: const TextStyle(color: JweTheme.accentAmber, fontWeight: FontWeight.bold)),
+                child: Text(DateFormat('MMM dd, yyyy').format(_targetDate), style: TextStyle(color: JweTheme.accentAmber, fontWeight: FontWeight.bold)),
               ),
             )
           ],

@@ -38,6 +38,29 @@ class TaskCalculations {
     return totalSeconds;
   }
 
+  /// The next checkpoint to tick off for [subTask]: the first (in order)
+  /// incomplete checkable node, descending into nested substeps so the
+  /// *lowest* actionable leaf in the hierarchy is returned. Returns null when
+  /// nothing is left to check.
+  static SubSubTask? nextCheckpoint(SubTask subTask) =>
+      _firstIncompleteLeaf(subTask.subSubTasks);
+
+  static SubSubTask? _firstIncompleteLeaf(List<SubSubTask> nodes) {
+    for (final n in nodes) {
+      if (n.type == 'info') continue;
+      final checkableChildren =
+          n.substeps.where((c) => c.type != 'info').toList();
+      if (checkableChildren.isNotEmpty) {
+        final leaf = _firstIncompleteLeaf(n.substeps);
+        if (leaf != null) return leaf;
+        if (!n.completed) return n; // children done but parent still open
+      } else if (!n.completed) {
+        return n;
+      }
+    }
+    return null;
+  }
+
   static bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }

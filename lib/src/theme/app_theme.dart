@@ -15,10 +15,10 @@ class AppTheme {
   static const Color fhAccentRed = Color(0xFFFF5470); // Alert
   static const Color fhAccentTeal = Color(0xFF5FE1D8); // Cyan secondary
   static const Color fhAccentTealFixed = Color(0xFF5FE1D8);
-  static const Color fhAccentGold = Color(0xFFFFB547); // Amber primary
+  static Color fhAccentGold = const Color(0xFF00AEFF); // Sky blue primary
   static const Color fhAccentPurple = Color(0xFF8A6FE2);
   static const Color fhAccentGreen = Color(0xFF4AF3C2);
-  static const Color fhAccentOrange = Color(0xFFFFB547);
+  static Color fhAccentOrange = const Color(0xFF00AEFF);
 
   static const String fontDisplay = 'RobotoCondensed';
   static const String fontBody = 'OpenSans';

@@ -45,11 +45,15 @@ class SubmissionCard extends StatelessWidget {
     final provider = Provider.of<AppProvider>(context);
     final timerState = provider.activeTimers[subTask.id];
 
+    MainTask parent = parentTask;
     SubTask current = subTask;
     try {
       final liveParent = provider.mainTasks.firstWhere((t) => t.id == parentTask.id);
+      parent = liveParent;
       current = liveParent.subTasks.firstWhere((s) => s.id == subTask.id);
     } catch (_) {}
+
+    final isPhoenix = parent.phoenixSubTaskId == current.id;
 
     final isRunning = timerState?.isRunning ?? false;
     final isCompleted = current.completed;
@@ -141,6 +145,22 @@ class SubmissionCard extends StatelessWidget {
                         const Spacer(),
                         if (current.isRecurring) ...[
                           Icon(MdiIcons.sync, size: 11, color: JweTheme.textMuted),
+                          const SizedBox(width: 6),
+                        ],
+                        if (!isCompleted) ...[
+                          IconButton(
+                            icon: Icon(
+                              isPhoenix ? MdiIcons.fire : MdiIcons.fireOff,
+                              color: isPhoenix ? JweTheme.accentAmber : JweTheme.textMuted.withValues(alpha: 0.4),
+                            ),
+                            iconSize: 13,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () {
+                              provider.taskActions.setAgentPhoenix(parent.id, isPhoenix ? null : current.id);
+                            },
+                            tooltip: isPhoenix ? 'CLEAR PHOENIX' : 'ANOINT PHOENIX',
+                          ),
                           const SizedBox(width: 6),
                         ],
                         if (isRunning)

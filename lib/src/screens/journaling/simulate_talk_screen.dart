@@ -48,8 +48,8 @@ class _SimulateTalkScreenState extends State<SimulateTalkScreen> {
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
       appBar: AppBar(
-        title: const Text("COMMS SIMULATOR", style: TextStyle(color: AppTheme.fhAccentOrange)),
-        iconTheme: const IconThemeData(color: AppTheme.fhAccentOrange),
+        title: Text("COMMS SIMULATOR", style: TextStyle(color: AppTheme.fhAccentOrange)),
+        iconTheme: IconThemeData(color: AppTheme.fhAccentOrange),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),

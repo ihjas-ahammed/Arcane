@@ -67,47 +67,51 @@ class JweDrawerProtocolItem extends StatelessWidget {
         ? HudTone.neutral
         : (pctLabel >= 100 ? HudTone.teal : (pctLabel >= 60 ? HudTone.amber : HudTone.cyan));
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: HudPanel(
-          clip: HudClip.br,
-          accent: color,
-          allBrackets: isSelected,
-          padding: const EdgeInsets.all(12),
-          background: isSelected ? color.withValues(alpha: 0.08) : JweTheme.panel,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              HudHexTag(code: _hexCode(task.id), tone: tone),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(
-                    'A-${_hexCode(task.id)}',
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 9, color: JweTheme.textMuted, letterSpacing: 1.4, fontWeight: FontWeight.w600,
-                    ),
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: HudPanel(
+        clip: HudClip.br,
+        accent: color,
+        allBrackets: isSelected,
+        padding: const EdgeInsets.all(12),
+        background: isSelected ? color.withValues(alpha: 0.08) : JweTheme.panel,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            HudHexTag(code: _hexCode(task.id), color: color),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text(
+                  'A-${_hexCode(task.id)}',
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 9,
+                    color: isSelected ? color : color.withValues(alpha: 0.5),
+                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    task.name.toUpperCase(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.saira(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: isSelected ? JweTheme.textWhite : JweTheme.textMid,
-                      letterSpacing: 0.4,
-                    ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  task.name.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.saira(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? JweTheme.textWhite : JweTheme.textMid,
+                    letterSpacing: 0.4,
                   ),
-                ]),
-              ),
-              Icon(icon, size: 18, color: isSelected ? color : JweTheme.textMuted),
-            ]),
-            const SizedBox(height: 10),
-            Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+                ),
+              ]),
+            ),
+            Icon(icon, size: 18, color: isSelected ? color : color.withValues(alpha: 0.4)),
+          ]),
+          const SizedBox(height: 10),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
               Text(
                 helper.formatTime(todaySec.toDouble()),
                 style: GoogleFonts.jetBrainsMono(
@@ -118,10 +122,10 @@ class JweDrawerProtocolItem extends StatelessWidget {
               Text(
                 'TODAY',
                 style: GoogleFonts.jetBrainsMono(
-                  fontSize: 9, color: JweTheme.textMuted, letterSpacing: 1.2, fontWeight: FontWeight.w600,
+                  fontSize: 9, color: color.withValues(alpha: 0.4), letterSpacing: 1.2, fontWeight: FontWeight.w600,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 12),
               if (pctLabel != null) ...[
                 Text(
                   '${pctLabel}%',
@@ -137,14 +141,14 @@ class JweDrawerProtocolItem extends StatelessWidget {
               Text(
                 'VS ${_compact(yesterdaySec)} YDAY',
                 style: GoogleFonts.jetBrainsMono(
-                  fontSize: 9, color: JweTheme.textMuted, letterSpacing: 1.2, fontWeight: FontWeight.w600,
+                  fontSize: 9, color: color.withValues(alpha: 0.4), letterSpacing: 1.2, fontWeight: FontWeight.w600,
                 ),
               ),
             ]),
-            const SizedBox(height: 6),
-            HudBar(value: barPct * 100, tone: tone, height: 3),
-          ]),
-        ),
+          ),
+          const SizedBox(height: 6),
+          HudBar(value: barPct * 100, color: color, height: 3),
+        ]),
       ),
     );
   }

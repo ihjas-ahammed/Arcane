@@ -7,13 +7,11 @@ import 'package:missions/src/widgets/ui/hud_components.dart';
 /// Operator HUD classified-access tiles.
 class JweQuickAccessGrid extends StatelessWidget {
   final VoidCallback onArchive;
-  final VoidCallback onNora;
   final VoidCallback onAdvanced;
 
   const JweQuickAccessGrid({
     super.key,
     required this.onArchive,
-    required this.onNora,
     required this.onAdvanced,
   });
 
@@ -34,16 +32,6 @@ class JweQuickAccessGrid extends StatelessWidget {
         tone: HudTone.cyan,
         code: 'A-01',
         onTap: onArchive,
-      ),
-      const SizedBox(height: 6),
-      _Tile(
-        title: 'NORA AI',
-        sub: 'Persona switch · controls',
-        icon: MdiIcons.brain,
-        accent: JweTheme.accentAmber,
-        tone: HudTone.amber,
-        code: 'N-04',
-        onTap: onNora,
       ),
       const SizedBox(height: 6),
       _Tile(

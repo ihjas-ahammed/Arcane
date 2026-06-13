@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'package:missions/src/services/ai_service.dart';
 import 'package:missions/src/services/firebase_service.dart' as fb_service;
 import 'package:missions/src/services/local_storage_service.dart';
@@ -7,8 +8,10 @@ import 'package:missions/src/services/storage_service.dart';
 import 'package:missions/src/services/data_export_service.dart';
 import 'package:missions/src/services/notification_service.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
-import 'package:missions/src/utils/history_helper.dart'; 
+import 'package:missions/src/utils/history_helper.dart';
 import 'package:missions/src/utils/constants.dart';
+import 'package:missions/src/utils/task_calculations.dart';
+import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/skill_models.dart';
@@ -20,7 +23,8 @@ import 'package:uuid/uuid.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:missions/src/services/app_user.dart';
 
 // Import Mixins
 import 'package:missions/src/providers/mixins/sync_mixin.dart';
@@ -91,6 +95,23 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     _financeActions = FinanceActions(this);
     _journalingActions = JournalingActions(this);
 
+    // Route notification taps / action buttons.
+    // Payload for the timer notification is encoded as "<subtaskId>|<mainTaskId>".
+    NotificationService.instance.setOnTap((payload) {
+      if (payload == null) return;
+      if (payload.startsWith('stop_timer:')) {
+        final subtaskId =
+            payload.substring('stop_timer:'.length).split('|').first;
+        _timerActions.pauseTimer(subtaskId);
+      } else if (payload.startsWith('check_next:')) {
+        _handleNotificationCheck(payload.substring('check_next:'.length),
+            undo: false);
+      } else if (payload.startsWith('undo_check:')) {
+        _handleNotificationCheck(payload.substring('undo_check:'.length),
+            undo: true);
+      }
+    });
+
     _initialize();
     WidgetsBinding.instance.addObserver(this);
   }
@@ -116,16 +137,265 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     await fetchDailyReportsFromCloud();
   }
 
+  // --- Notification Reminders ---
+
+  /// (Re)arms every reminder we know about: the daily reflection reminder
+  /// (driven by settings flags) plus all persisted [ScheduledReminder]s.
+  /// Safe to call repeatedly — each reminder cancels its own slot first.
+  void rescheduleReminders() {
+    final s = settings;
+    if (s.reflectionReminderEnabled) {
+      NotificationService.instance.scheduleDailyReminder(
+        id: NotificationService.reflectionReminderId,
+        title: '◈ REFLECT',
+        body: 'Time for your daily reflection. How did today go?',
+        hour: s.reflectionReminderHour,
+        minute: s.reflectionReminderMinute,
+      );
+    } else {
+      NotificationService.instance.cancelDailyReminder(
+          NotificationService.reflectionReminderId);
+    }
+
+    for (final r in s.scheduledReminders) {
+      _armReminder(r);
+    }
+  }
+
+  /// Schedule or cancel one reminder with the OS, based on its current state.
+  void _armReminder(ScheduledReminder r) {
+    if (!r.enabled) {
+      NotificationService.instance.cancelOneTimeReminder(r.notificationId);
+      return;
+    }
+    if (r.repeat == 'daily') {
+      NotificationService.instance.scheduleDailyReminder(
+        id: r.notificationId,
+        title: r.title,
+        body: r.body,
+        hour: r.hour,
+        minute: r.minute,
+      );
+    } else if (r.time != null) {
+      NotificationService.instance.scheduleOneTimeReminder(
+        id: r.notificationId,
+        title: r.title,
+        body: r.body,
+        scheduledTime: r.time!,
+      );
+    }
+  }
+
+  List<ScheduledReminder> get scheduledReminders =>
+      List.unmodifiable(settings.scheduledReminders);
+
+  /// Insert or replace a reminder (matched by [ScheduledReminder.id]),
+  /// persist it, and (re)arm the OS notification.
+  void upsertReminder(ScheduledReminder reminder) {
+    final list = List<ScheduledReminder>.from(settings.scheduledReminders);
+    final idx = list.indexWhere((e) => e.id == reminder.id);
+    if (idx >= 0) {
+      list[idx] = reminder;
+    } else {
+      list.add(reminder);
+    }
+    setSettings(settings..scheduledReminders = list);
+    _armReminder(reminder);
+    notifyListeners();
+  }
+
+  void deleteReminder(String id) {
+    final list = List<ScheduledReminder>.from(settings.scheduledReminders);
+    final idx = list.indexWhere((e) => e.id == id);
+    if (idx < 0) return;
+    final removed = list.removeAt(idx);
+    setSettings(settings..scheduledReminders = list);
+    NotificationService.instance.cancelOneTimeReminder(removed.notificationId);
+    notifyListeners();
+  }
+
+  void setReminderEnabled(String id, bool enabled) {
+    final r = settings.scheduledReminders.firstWhereOrNull((e) => e.id == id);
+    if (r == null) return;
+    upsertReminder(r.copyWith(enabled: enabled));
+  }
+
+  /// Per-submission reminder. Persists a 'task' reminder so it shows up in the
+  /// Scheduled Reminders screen and is re-armed on launch (passing null clears).
+  Future<void> setSubtaskReminder(
+      String mainTaskId, String subtaskId, DateTime? reminderTime) async {
+    final id = 'task_$subtaskId';
+    if (reminderTime == null) {
+      deleteReminder(id);
+      return;
+    }
+    final task = mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
+    if (task == null || sub == null) return;
+
+    upsertReminder(ScheduledReminder(
+      id: id,
+      title: '⏰ ${sub.name}',
+      body: 'Reminder for: ${task.name} › ${sub.name}',
+      type: 'task',
+      repeat: 'once',
+      time: reminderTime,
+      mainTaskId: mainTaskId,
+      subtaskId: subtaskId,
+    ));
+  }
+
+  /// The reminder time currently set for a submission/subtask, or null.
+  DateTime? subtaskReminderTime(String subtaskId) {
+    final r = settings.scheduledReminders
+        .firstWhereOrNull((e) => e.id == 'task_$subtaskId');
+    return r?.time;
+  }
+
+  /// The reminder time currently set for a planned day-plan item, or null.
+  DateTime? plannerReminderTime(String compoundId) {
+    final r = settings.scheduledReminders
+        .firstWhereOrNull((e) => e.id == 'plan_$compoundId');
+    return r?.time;
+  }
+
+  /// Set (or clear, when [reminderTime] is null) the reminder for a planner item.
+  Future<void> setPlannerReminder(
+      String compoundId, DateTime? reminderTime) async {
+    final id = 'plan_$compoundId';
+    if (reminderTime == null) {
+      deleteReminder(id);
+      return;
+    }
+    final parts = compoundId.split('|');
+    final task = mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+    final sub = parts.length > 1
+        ? task?.subTasks.firstWhereOrNull((s) => s.id == parts[1])
+        : null;
+    String label = sub?.name ?? 'Planned task';
+    if (parts.length == 3 && sub != null) {
+      final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+      if (cp != null) label = cp.name;
+    }
+
+    upsertReminder(ScheduledReminder(
+      id: id,
+      title: '🎯 $label',
+      body: task != null ? 'Planned: ${task.name} › $label' : 'Planned: $label',
+      type: 'planner',
+      repeat: 'once',
+      time: reminderTime,
+      mainTaskId: task?.id,
+      subtaskId: sub?.id,
+      compoundId: compoundId,
+    ));
+  }
+
+  // --- Ongoing-notification checkpoint actions ---
+
+  Timer? _notifUndoTimer;
+
+  /// Handles the CHECK NEXT / UNDO CHECK action buttons on the active-timer
+  /// notification. [raw] is encoded as `subtaskId|mainTaskId`.
+  void _handleNotificationCheck(String raw, {required bool undo}) {
+    final parts = raw.split('|');
+    if (parts.length < 2) return;
+    final subtaskId = parts[0];
+    final mainTaskId = parts[1];
+    final task = mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
+    if (task == null || sub == null) return;
+
+    _notifUndoTimer?.cancel();
+
+    if (undo) {
+      final lastId = _lastCheckedCheckpointId[subtaskId];
+      if (lastId != null) {
+        _taskActions.uncompleteSubSubtask(mainTaskId, subtaskId, lastId);
+        _lastCheckedCheckpointId.remove(subtaskId);
+        showGlobalToast('↩ Unchecked');
+      }
+      refreshTimerNotification(mainTaskId, subtaskId);
+      return;
+    }
+
+    final cp = TaskCalculations.nextCheckpoint(sub);
+    if (cp == null) {
+      showGlobalToast('No checkpoints left to check');
+      refreshTimerNotification(mainTaskId, subtaskId);
+      return;
+    }
+    _taskActions.completeSubSubtask(mainTaskId, subtaskId, cp.id);
+    _lastCheckedCheckpointId[subtaskId] = cp.id;
+    showGlobalToast('✓ Checked: ${cp.name}');
+
+    // Show the just-checked state with an UNDO CHECK button for 2 seconds,
+    // then revert to CHECK NEXT pointing at the new lowest checkpoint.
+    refreshTimerNotification(mainTaskId, subtaskId,
+        justCheckedName: cp.name, showUndo: true);
+    _notifUndoTimer = Timer(const Duration(seconds: 2), () {
+      _lastCheckedCheckpointId.remove(subtaskId);
+      refreshTimerNotification(mainTaskId, subtaskId);
+    });
+  }
+
+  final Map<String, String> _lastCheckedCheckpointId = {};
+
+  void refreshTimerNotification(String mainTaskId, String subtaskId,
+      {String? justCheckedName, bool showUndo = false}) {
+    final task = mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
+    if (task == null || sub == null) return;
+    final timer = activeTimers[subtaskId];
+    if (timer == null || !timer.isRunning) return;
+
+    final next = TaskCalculations.nextCheckpoint(sub);
+    NotificationService.instance.showTimerNotification(
+      taskName: sub.name,
+      startTime: timer.startTime,
+      subtaskId: subtaskId,
+      mainTaskId: mainTaskId,
+      progress: sub.calculateProgress(),
+      nextCheckpointName: next?.name,
+      showUndo: showUndo,
+      statusBody: justCheckedName != null ? '✓ $justCheckedName' : null,
+    );
+  }
+
+  void saveReflectionDraft({
+    required String trigger,
+    required String emotion,
+    required String reason,
+    required String action,
+    required double energyLevel,
+  }) {
+    final draft = ReflectionDraft(
+      trigger: trigger,
+      emotion: emotion,
+      reason: reason,
+      action: action,
+      energyLevel: energyLevel,
+      savedAt: DateTime.now(),
+    );
+    if (draft.isEmpty) return;
+    setSettings(settings..reflectionDraft = draft);
+  }
+
+  void clearReflectionDraft() {
+    if (settings.reflectionDraft == null) return;
+    setSettings(settings..reflectionDraft = null);
+  }
+
   // --- Initialization ---
 
   Future<void> _initialize() async {
     initializeSkills();
     initializeDefaultFinanceCategories();
-    
+
     fb_service.authStateChanges.listen(_onAuthStateChanged);
   }
 
-  Future<void> _onAuthStateChanged(User? user) async {
+  Future<void> _onAuthStateChanged(AppUser? user) async {
     if (user != null) {
       if (currentUser == null || currentUser!.uid != user.uid) {
         setCurrentUser(user);
@@ -151,6 +421,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       try {
         await fetchDailyReportsFromCloud();
       } catch (_) {}
+
+      rescheduleReminders();
 
     } else {
       setCurrentUser(null);
@@ -272,6 +544,15 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     if (doNotify) notifyListeners();
   }
 
+  @override
+  void setMainTasks(List<MainTask> tasks) {
+    super.setMainTasks(tasks);
+    final running = activeTimers.entries.firstWhereOrNull((e) => e.value.isRunning);
+    if (running != null) {
+      refreshTimerNotification(running.value.mainTaskId, running.key);
+    }
+  }
+
   // --- Delegated Actions ---
 
   void addMainTask({required String name, required String description, required String theme, required String colorHex}) => _taskActions.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
@@ -308,18 +589,16 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   Future<void> signupUser(String email, String password) async {
     final user = await fb_service.signUpWithEmail(email, password);
     if (user != null) {
-      await user.updateDisplayName("OPERATIVE");
-      await user.reload();
-      setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
+      await fb_service.updateDisplayName("OPERATIVE");
+      setCurrentUser(fb_service.currentUser);
     }
   }
-  
+
   Future<void> changePasswordHandler(String pwd) async => await fb_service.changePassword(pwd);
   Future<void> updateUserDisplayName(String name) async {
     if (currentUser != null) {
-      await currentUser!.updateDisplayName(name);
-      await currentUser!.reload();
-      setCurrentUser(fb_service.firebaseAuthInstance.currentUser);
+      await fb_service.updateDisplayName(name);
+      setCurrentUser(fb_service.currentUser);
     }
   }
 
@@ -343,6 +622,23 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       loadStateFromMap(data);
     } catch (e) {
       rethrow;
+    }
+  }
+
+  Future<void> saveNoraBackupSnapshot() async {
+    try {
+      final docsDir = await getApplicationDocumentsDirectory();
+      final backupDir = Directory('${docsDir.path}/backups');
+      if (!await backupDir.exists()) {
+        await backupDir.create(recursive: true);
+      }
+      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final file = File('${backupDir.path}/nora_backup_$timestamp.json');
+      final data = getAppStateAsMap();
+      await file.writeAsString(jsonEncode(data));
+      debugPrint("Nora backup created at: ${file.path}");
+    } catch (e) {
+      debugPrint("Error creating Nora backup: $e");
     }
   }
 
@@ -385,6 +681,24 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     }
     updateGratitudeList(currentList);
   }
+
+  // --- People Actions ---
+  void updatePeopleList(List<PersonInfo> newList) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.people = newList;
+    setChatbotMemory(newMemory);
+  }
+
+  void updatePersonInfo(PersonInfo updatedPerson) {
+    final currentList = List<PersonInfo>.from(chatbotMemory.people);
+    final index = currentList.indexWhere((p) => p.id == updatedPerson.id);
+    if (index != -1) {
+      currentList[index] = updatedPerson;
+    } else {
+      currentList.insert(0, updatedPerson);
+    }
+    updatePeopleList(currentList);
+  }
   
   // --- Someday List Actions ---
   void addSomedayItem(String title) {
@@ -420,9 +734,19 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     
     for (var log in reflectionLogs) {
       if (log.timestamp.isAfter(last7)) {
-        log.xpGained.forEach((k, v) => currentXp[k] = (currentXp[k] ?? 0) + v);
+        log.xpGained.forEach((k, v) {
+          final normalized = WellbeingTheme.normalizeSkillName(k);
+          if (normalized != null) {
+            currentXp[normalized] = (currentXp[normalized] ?? 0) + v;
+          }
+        });
       } else if (log.timestamp.isAfter(prev7) && log.timestamp.isBefore(last7)) {
-        log.xpGained.forEach((k, v) => prevXp[k] = (prevXp[k] ?? 0) + v);
+        log.xpGained.forEach((k, v) {
+          final normalized = WellbeingTheme.normalizeSkillName(k);
+          if (normalized != null) {
+            prevXp[normalized] = (prevXp[normalized] ?? 0) + v;
+          }
+        });
       }
     }
 
@@ -507,7 +831,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       customApiKeys: settings.customApiKeys,
       onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 
       onLog: (m) => debugPrint(m),
-      customInstruction: settings.customBriefingPrompt
+      customInstruction: settings.customBriefingPrompt,
+      writingStyleMap: settings.adaptWritingStyle ? settings.writingStyleMap : null,
     );
 
     if (result['grateful_assets'] != null) {
@@ -613,11 +938,11 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       final newMainTasks = mainTasks.map((task) {
         final updatedSubtasks = task.subTasks.map((st) {
           if (st.isRecurring) {
-            bool shouldReset = false;
+            bool shouldReset = true;
             if (st.completed && st.lastCompletedDate != null) {
-              if (DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!) != todayStr) shouldReset = true;
-            } else if (st.completed) {
-              shouldReset = true;
+              if (DateFormat('yyyy-MM-dd').format(st.lastCompletedDate!) == todayStr) {
+                shouldReset = false;
+              }
             }
             if (shouldReset) {
               changed = true;
@@ -630,6 +955,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
                 completed: false,
                 currentCount: 0,
                 subSubTasks: st.subSubTasks.map(_resetCheckpoint).toList(),
+                templateSets: st.templateSets.map((ts) => ts.copyWith(
+                  subSubTasks: ts.subSubTasks.map(_resetCheckpoint).toList(),
+                )).toList(),
                 progressDataPoints: [],
                 updatedAt: DateTime.now(),
               );
@@ -705,7 +1033,11 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     int total = 0;
     for (var log in reflectionLogs) {
       if (log.timestamp.isAfter(sevenDaysAgo)) {
-        total += log.xpGained[skillName] ?? 0;
+        log.xpGained.forEach((k, v) {
+          if (WellbeingTheme.normalizeSkillName(k) == skillName) {
+            total += v;
+          }
+        });
       }
     }
     return total;
@@ -736,11 +1068,20 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         onLog: (msg) => debugPrint(msg),
       );
       
+      final sortedForHours = List<ReflectionLog>.from(reflectionLogs)
+        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
       final newLogs = List<ReflectionLog>.from(reflectionLogs);
       bool logsChanged = false;
       for (var update in updates) {
         final logId = update['log_id'];
-        final xpMap = Map<String, int>.from(update['xp_allocation'] ?? {});
+        final rawScores = <String, double>{};
+        (update['xp_allocation'] as Map? ?? {}).forEach(
+            (k, v) => rawScores[k.toString()] = (v as num).toDouble());
+        final logEntry = sortedForHours.firstWhere(
+            (l) => l.id == logId,
+            orElse: () => newLogs.first);
+        final xpMap = _convertXpScoresToActual(rawScores, logEntry.timestamp);
         final idx = newLogs.indexWhere((l) => l.id == logId);
         if (idx != -1) {
           newLogs[idx] = ReflectionLog(
@@ -751,7 +1092,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
             reason: newLogs[idx].reason,
             action: newLogs[idx].action,
             aiFeedback: newLogs[idx].aiFeedback,
-            xpGained: xpMap, 
+            xpGained: xpMap,
           );
           logsChanged = true;
         }
@@ -764,6 +1105,47 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     } finally {
       setLoadingTask(null);
     }
+  }
+
+  /// Converts AI-scored XP (0.0–1.0 per skill) into actual integer XP.
+  /// Formula: actual = round(score * lifetimeAvg * hoursPassed).
+  /// lifetimeAvg = historical avg XP per scored reflection for that skill (default 20).
+  /// hoursPassed = hours since previous reflection (clamped 0.5–48, default 8).
+  Map<String, int> _convertXpScoresToActual(
+    Map<String, double> scores,
+    DateTime logTimestamp,
+  ) {
+    final prevLogs = reflectionLogs
+        .where((l) => l.timestamp.isBefore(logTimestamp) && l.xpGained.isNotEmpty)
+        .toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    final hoursPassed = prevLogs.isEmpty
+        ? 8.0
+        : (logTimestamp.difference(prevLogs.first.timestamp).inMinutes / 60.0)
+            .clamp(0.5, 48.0);
+
+    final result = <String, int>{};
+    for (final entry in scores.entries) {
+      final normalized = WellbeingTheme.normalizeSkillName(entry.key);
+      if (normalized == null) continue;
+
+      final score = entry.value.clamp(0.0, 1.0);
+      if (score <= 0.0) {
+        result[normalized] = 0;
+        continue;
+      }
+      final logsWithXp =
+          reflectionLogs.where((l) => (l.xpGained[normalized] ?? 0) > 0).toList();
+      final lifetimeAvg = logsWithXp.isEmpty
+          ? 20.0
+          : logsWithXp.fold<int>(0, (s, l) => s + (l.xpGained[normalized] ?? 0)) /
+              logsWithXp.length;
+      final rawXp = (score * lifetimeAvg * hoursPassed).round();
+      // Overwrite/merge if multiple keys end up normalized to the same canonical name
+      result[normalized] = (result[normalized] ?? 0) + rawXp.clamp(1, 9999);
+    }
+    return result;
   }
 
   /// Synchronously persists a stub reflection log, then runs AI analysis in
@@ -796,6 +1178,10 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     // Fire-and-forget; the future is intentionally not awaited.
     // ignore: discarded_futures
     _runReflectionAnalysis(logId, trigger, emotion, reason, action);
+
+    if (settings.adaptWritingStyle) {
+      updateWritingStyleMap();
+    }
     return logId;
   }
 
@@ -819,8 +1205,13 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         customApiKeys: settings.customApiKeys,
         recentContext: recentContext,
         systemInstruction: settings.customReflectionPrompt,
+        writingStyleMap: settings.adaptWritingStyle ? settings.writingStyleMap : null,
       );
-      final xpGained = Map<String, int>.from(eval['xp_allocation'] ?? {});
+      // Convert 0-1 AI scores to actual XP using lifetime avg * hours elapsed
+      final rawScores = <String, double>{};
+      (eval['xp_allocation'] as Map? ?? {}).forEach(
+          (k, v) => rawScores[k.toString()] = (v as num).toDouble());
+      final xpGained = _convertXpScoresToActual(rawScores, DateTime.now());
       final feedback = (eval['feedback'] as String?) ?? '';
       updateReflectionLog(logId, aiFeedback: feedback, xpGained: xpGained);
 
@@ -988,60 +1379,89 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
        end = DateTime.now();
     }
 
-    final refs = reflectionLogs.where((l) => l.timestamp.isAfter(start) && l.timestamp.isBefore(end)).toList();
-    final refStr = refs.map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join(" | ");
+    final String tasksContext = mainTasks.map((t) {
+      final subtasksStr = t.subTasks.map((s) {
+        final subsubtasksStr = s.subSubTasks.map((ss) {
+          final substepsStr = ss.substeps.map((substep) =>
+            "      - Sub-Step: ${substep.name} (ID: ${substep.id}, completed: ${substep.completed})\n"
+          ).join();
+          return "    - Sub-Subtask: ${ss.name} (ID: ${ss.id}, completed: ${ss.completed}, why: ${ss.why}, what: ${ss.what})\n$substepsStr";
+        }).join();
+        return "  - Subtask: ${s.name} (ID: ${s.id}, completed: ${s.completed}, why: ${s.why}, what: ${s.what}, assets/resources: ${s.resources})\n$subsubtasksStr";
+      }).join();
+      return "- Main Task: ${t.name} (ID: ${t.id}, theme: ${t.theme}, colorHex: ${t.colorHex}, description: ${t.description})\n$subtasksStr";
+    }).join();
 
-    final List<String> sessionStrs = [];
-    if (settings.noraAccessSessions) {
-      for (var task in mainTasks) {
-        for (var sub in task.subTasks) {
-          for (var sess in sub.sessions) {
-            if (sess.startTime.isAfter(start) && sess.startTime.isBefore(end)) {
-              sessionStrs.add("[${DateFormat('MM-dd').format(sess.startTime)}] ${task.name}(${sub.name}): ${sess.durationMinutes}m");
-            }
-          }
-        }
-      }
-    }
+    final String reflectionsContext = reflectionLogs
+      .where((l) => l.timestamp.isAfter(start) && l.timestamp.isBefore(end))
+      .map((l) => 
+        "- Reflection [Date: ${DateFormat('yyyy-MM-dd').format(l.timestamp)}] (ID: ${l.id}): trigger: '${l.trigger}', emotion: '${l.emotion}', reason: '${l.reason}', action: '${l.action}'"
+      ).join("\n");
 
-    final peopleStr = chatbotMemory.people.map((p) => "${p.name} (${p.relation})").join(", ");
-    final assetsStr = chatbotMemory.gratitudeList.map((a) => "${a.name} (${a.type})").join(", ");
+    final String peopleContext = chatbotMemory.people.map((p) => 
+      "- Person: ${p.name} (relation: ${p.relation}, details: ${p.details}, age: ${p.manualAge}, notes: ${p.manualNotes})"
+    ).join("\n");
 
-    String systemPrompt = session.systemPromptOverride ?? settings.customChatbotPrompt ?? "You are NORA. Tone: ${session.tone}.";
+    final String assetsContext = chatbotMemory.gratitudeList.map((a) => 
+      "- Asset/Gratitude: ${a.name} (type: ${a.type}, why: ${a.why}, what: ${a.what})"
+    ).join("\n");
+
+    final String skillsContext = chatbotMemory.noraAgentSkills.map((s) => 
+      "- Dynamic Skill '${s.name}': ${s.description}. Instructions: ${s.instructions}"
+    ).join("\n");
+
+    String systemPrompt = session.systemPromptOverride ?? settings.customChatbotPrompt ?? "You are NORA.";
 
     final fullContext = """
-    SYSTEM: $systemPrompt
-    ${session.customContext ?? ''}
+SYSTEM INSTRUCTION: $systemPrompt
+Persona tone: ${session.tone}
 
-    CONTEXT DATA FOR REQUESTED PERIOD:
-    Reflections: $refStr
-    Sessions: ${sessionStrs.join(" | ")}
-    Known Entities: $peopleStr
-    Known Assets: $assetsStr
-    """;
+CURRENT DATE/TIME: ${DateTime.now().toIso8601String()}
+
+NORA ACTIVE DYNAMIC SKILLS:
+$skillsContext
+
+APP DATABASE CONTEXT:
+=== TASKS HIERARCHY ===
+$tasksContext
+
+=== REFLECTIONS ===
+$reflectionsContext
+
+=== KNOWN PEOPLE ===
+$peopleContext
+
+=== ASSETS / GRATITUDE ===
+$assetsContext
+""";
     
-    final modelCandidates = session.modelOverride != null ? [session.modelOverride!] : settings.liteModels;
-    final maxMessagesToGen = session.messageLimit > 0 ? session.messageLimit : 4; // Use limit or default to a sane 4
+    final modelCandidates = session.modelOverride != null
+        ? [session.modelOverride!]
+        : [...settings.liveModels, ...settings.liteModels];
     
     try {
-      final responses = await _aiService.queryNeuralArchive(
+      final responseMap = await _aiService.queryNoraAgent(
         query: text, 
         logsContext: fullContext, 
-        maxMessages: maxMessagesToGen,
         modelCandidates: modelCandidates, 
         currentApiKeyIndex: apiKeyIndex, 
         customApiKeys: settings.customApiKeys, 
         onNewApiKeyIndex: (i) => setApiKeyIndex(i), 
-        onLog: (m) {}
+        onLog: (m) {},
       );
-      
-      final clampLimit = session.messageLimit > 0 ? session.messageLimit : 15;
-      final clampedResponses = responses.take(clampLimit).toList();
 
-      for (String resp in clampedResponses) {
-        // dynamic typing delay
-        await Future.delayed(Duration(milliseconds: 1000 + (resp.length * 15).clamp(0, 3000)));
-        final botMsg = ChatbotMessage(id: const Uuid().v4(), text: resp, sender: MessageSender.bot, timestamp: DateTime.now());
+      final List<dynamic> messages = responseMap['messages'] as List<dynamic>? ?? [];
+      final List<dynamic> actions = responseMap['actions'] as List<dynamic>? ?? [];
+
+      if (actions.isNotEmpty) {
+        await executeNoraAgentActions(actions);
+      }
+
+      for (var resp in messages) {
+        final respStr = resp.toString();
+        // Dynamic typing delay
+        await Future.delayed(Duration(milliseconds: 500 + (respStr.length * 10).clamp(0, 2000)));
+        final botMsg = ChatbotMessage(id: const Uuid().v4(), text: respStr, sender: MessageSender.bot, timestamp: DateTime.now());
         session.messages.add(botMsg);
         markDirty('settings');
         notifyListeners();
@@ -1051,6 +1471,231 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       session.messages.add(errorMsg);
       markDirty('settings');
       notifyListeners();
+    }
+  }
+
+  Future<void> executeNoraAgentActions(List<dynamic> actions) async {
+    if (actions.isEmpty) return;
+
+    // 1. Take a database snapshot first
+    await saveNoraBackupSnapshot();
+
+    // 2. Loop and execute actions
+    for (var act in actions) {
+      if (act is! Map<String, dynamic>) continue;
+      final type = act['type'] as String?;
+      if (type == null) continue;
+
+      try {
+        switch (type) {
+          case 'check_task':
+            final taskId = act['taskId'] as String?;
+            final subtaskId = act['subtaskId'] as String?;
+            final subSubtaskId = act['subSubtaskId'] as String?;
+            final completed = act['completed'] as bool? ?? true;
+
+            if (taskId != null && subtaskId != null) {
+              if (subSubtaskId != null) {
+                if (completed) {
+                  completeSubSubtask(taskId, subtaskId, subSubtaskId);
+                } else {
+                  uncompleteSubSubtask(taskId, subtaskId, subSubtaskId);
+                }
+              } else {
+                if (completed) {
+                  completeSubtask(taskId, subtaskId);
+                } else {
+                  uncompleteSubtask(taskId, subtaskId);
+                }
+              }
+            }
+            break;
+
+          case 'add_task':
+            final taskType = act['taskType'] as String?;
+            final name = act['name'] as String?;
+            final description = act['description'] as String? ?? '';
+            final mainTaskId = act['mainTaskId'] as String?;
+            final subtaskId = act['subtaskId'] as String?;
+            final why = act['why'] as String? ?? '';
+            final what = act['what'] as String? ?? '';
+            final theme = act['theme'] as String? ?? 'General';
+            final colorHex = act['colorHex'] as String? ?? 'FF00F8F8';
+
+            if (name != null) {
+              if (taskType == 'main') {
+                addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
+              } else if (taskType == 'sub' && mainTaskId != null) {
+                addSubtask(mainTaskId, {
+                  'id': const Uuid().v4(),
+                  'name': name,
+                  'description': description,
+                  'why': why,
+                  'what': what,
+                  'completed': false,
+                });
+              } else if (taskType == 'subsub' && mainTaskId != null && subtaskId != null) {
+                addSubSubtask(mainTaskId, subtaskId, {
+                  'id': const Uuid().v4(),
+                  'name': name,
+                  'completed': false,
+                });
+              }
+            }
+            break;
+
+          case 'add_progress_point':
+            final mainTaskId = act['mainTaskId'] as String?;
+            final subTaskId = act['subTaskId'] as String?;
+            final progressVal = act['progress'];
+            final spentSecsVal = act['spentSeconds'];
+
+            if (mainTaskId != null && subTaskId != null && progressVal != null) {
+              double progress = 0.0;
+              if (progressVal is num) {
+                progress = progressVal.toDouble();
+              }
+              int spentSeconds = 0;
+              if (spentSecsVal is num) {
+                spentSeconds = spentSecsVal.toInt();
+              }
+              saveProgressDataPoint(mainTaskId, subTaskId, progress, spentSeconds);
+            }
+            break;
+
+          case 'edit_person':
+            final name = act['name'] as String?;
+            final relation = act['relation'] as String?;
+            final details = act['details'] as String?;
+            final age = act['age'] as int?;
+            final gender = act['gender'] as String?;
+            final notes = act['notes'] as String?;
+
+            if (name != null) {
+              final list = List<PersonInfo>.from(chatbotMemory.people);
+              final idx = list.indexWhere((p) => p.name.toLowerCase() == name.toLowerCase());
+              if (idx != -1) {
+                list[idx] = PersonInfo(
+                  id: list[idx].id,
+                  name: name,
+                  relation: relation ?? list[idx].relation,
+                  details: details ?? list[idx].details,
+                  manualAge: age ?? list[idx].manualAge,
+                  manualGender: gender ?? list[idx].manualGender,
+                  manualNotes: notes ?? list[idx].manualNotes,
+                  lastUpdated: DateTime.now(),
+                );
+              } else {
+                list.add(PersonInfo(
+                  id: const Uuid().v4(),
+                  name: name,
+                  relation: relation ?? "Acquaintance",
+                  details: details,
+                  manualAge: age,
+                  manualGender: gender,
+                  manualNotes: notes,
+                  lastUpdated: DateTime.now(),
+                ));
+              }
+              final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson())..people = list;
+              setChatbotMemory(newMemory);
+            }
+            break;
+
+          case 'edit_reflection':
+            final id = act['id'] as String?;
+            final trigger = act['trigger'] as String?;
+            final emotion = act['emotion'] as String?;
+            final reason = act['reason'] as String?;
+            final actionVal = act['action'] as String?;
+
+            if (id != null) {
+              final list = List<ReflectionLog>.from(reflectionLogs);
+              final idx = list.indexWhere((r) => r.id == id);
+              if (idx != -1) {
+                if (trigger != null) list[idx].trigger = trigger;
+                if (emotion != null) list[idx].emotion = emotion;
+                if (reason != null) list[idx].reason = reason;
+                if (actionVal != null) list[idx].action = actionVal;
+                setReflectionLogs(list);
+              }
+            }
+            break;
+
+          case 'add_nora_skill':
+            final name = act['name'] as String?;
+            final description = act['description'] as String?;
+            final instructions = act['instructions'] as String?;
+
+            if (name != null && description != null && instructions != null) {
+              final list = List<NoraAgentSkill>.from(chatbotMemory.noraAgentSkills);
+              list.removeWhere((s) => s.name.toLowerCase() == name.toLowerCase());
+              list.add(NoraAgentSkill(
+                id: const Uuid().v4(),
+                name: name,
+                description: description,
+                instructions: instructions,
+              ));
+              final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson())..noraAgentSkills = list;
+              setChatbotMemory(newMemory);
+            }
+            break;
+
+          case 'custom_db_edit':
+            final path = act['path'] as String?;
+            final value = act['value'];
+
+            if (path != null) {
+              final stateMap = getAppStateAsMap();
+              _updateJsonPathHelper(stateMap, path, value);
+              loadStateFromMap(stateMap);
+              markDirty('tasks');
+              markDirty('settings');
+              markDirty('reflections');
+              markDirty('finance');
+              markDirty('health');
+              notifyListeners();
+            }
+            break;
+        }
+      } catch (e) {
+        debugPrint("Error executing Nora action $type: $e");
+      }
+    }
+  }
+
+  void _updateJsonPathHelper(Map<String, dynamic> map, String path, dynamic value) {
+    final parts = path.split('.');
+    dynamic current = map;
+    for (int i = 0; i < parts.length - 1; i++) {
+      final part = parts[i];
+      final intIndex = int.tryParse(part);
+      if (intIndex != null && current is List) {
+        if (intIndex >= 0 && intIndex < current.length) {
+          current = current[intIndex];
+        } else {
+          return;
+        }
+      } else if (current is Map) {
+        if (current.containsKey(part)) {
+          current = current[part];
+        } else {
+          current[part] = <String, dynamic>{};
+          current = current[part];
+        }
+      } else {
+        return;
+      }
+    }
+
+    final lastPart = parts.last;
+    final intIndex = int.tryParse(lastPart);
+    if (intIndex != null && current is List) {
+      if (intIndex >= 0 && intIndex < current.length) {
+        current[intIndex] = value;
+      }
+    } else if (current is Map) {
+      current[lastPart] = value;
     }
   }
   
@@ -1068,6 +1713,235 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   
   void setJournalPin(String pin) {
     setSettings(settings..journalPin = pin);
+  }
+
+  Future<void> updateWritingStyleMap() async {
+    if (!settings.adaptWritingStyle) {
+      return;
+    }
+    
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    final recentLogs = reflectionLogs
+        .where((l) => l.timestamp.isAfter(sevenDaysAgo))
+        .toList();
+    
+    if (recentLogs.isEmpty) {
+      setSettings(settings..writingStyleMap = null);
+      notifyListeners();
+      return;
+    }
+    
+    final logsText = recentLogs
+        .map((l) => "Situation/Trigger: ${l.trigger}\nFeeling/Emotion: ${l.emotion}\nReason: ${l.reason}\nAction Planned: ${l.action}")
+        .join("\n\n");
+        
+    final prompt = """
+    You are an expert linguist and writing style analyzer. 
+    Analyze the following journal/reflection entries written by the user over the last 7 days:
+    
+    $logsText
+    
+    Extract and create a detailed profile/map of their writing style. 
+    Focus on:
+    - Tone (e.g., formal, casual, reflective, self-critical, optimistic, stoic, emotional, analytical)
+    - Vocabulary and word choice (common words, slang, specific terminology used)
+    - Sentence structure and length (e.g., short fragments, long compound sentences, run-on sentences, lazy texting)
+    - Format and styling (e.g., use of bullet points, emoji usage, casing preferences, punctuation habits)
+    
+    Output a JSON object with a single key "style_map" containing a concise summary (1-3 paragraphs) describing this writing style so another LLM can replicate it perfectly.
+    
+    JSON Schema:
+    {
+      "style_map": "string description"
+    }
+    ENSURE VALID JSON. NO TRAILING COMMAS.
+    """;
+    
+    try {
+      final result = await _aiService.makeAICall(
+        prompt: prompt,
+        modelCandidates: settings.liteModels,
+        customApiKeys: settings.customApiKeys,
+        currentApiKeyIndex: apiKeyIndex,
+        onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
+        onLog: (m) => debugPrint("[StyleMap] $m"),
+      );
+      
+      final styleDescription = result['style_map'] as String?;
+      if (styleDescription != null && styleDescription.isNotEmpty) {
+        setSettings(settings..writingStyleMap = styleDescription);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("Error generating writing style map: $e");
+    }
+  }
+
+  Future<Map<String, dynamic>> generateStoryBriefing(List<ReflectionLog> todayLogs) async {
+    final todayReflectionsStr = todayLogs.isEmpty
+        ? "No reflections logged today."
+        : todayLogs.map((l) => "- [${DateFormat('HH:mm').format(l.timestamp)}] Situation: ${l.trigger}\n  Feeling: ${l.emotion}\n  Reason: ${l.reason}\n  Action: ${l.action}").join("\n\n");
+    
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    final recentLogs = reflectionLogs
+        .where((l) => l.timestamp.isAfter(sevenDaysAgo))
+        .toList();
+    final last7DaysStr = recentLogs.isEmpty
+        ? "No recent reflections."
+        : recentLogs.map((l) => "- [${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+        
+    final archivedWeeklyReports = await getArchivedWeeklyReports();
+    final last4WeeksList = archivedWeeklyReports.reversed.take(4).toList();
+    final last4WeeksStr = last4WeeksList.isEmpty
+        ? "No weekly review summaries available."
+        : last4WeeksList.map((r) {
+            final date = r['date'] as String? ?? 'Unknown Date';
+            final summary = r['summary'] as String? ?? 'No summary';
+            return "- [$date] $summary";
+          }).join("\n");
+
+    String storyExamples = "";
+    try {
+      storyExamples = await rootBundle.loadString('assets/story_examples/all.txt');
+    } catch (e) {
+      debugPrint("Error loading story_examples/all.txt from assets: $e");
+      storyExamples = "Ayan is analytical, Hiba is dramatic, Zara is practical, Mira is soft and supportive.";
+    }
+
+    return await _aiService.generateStoryBriefing(
+      todayReflections: todayReflectionsStr,
+      last7DaysContext: last7DaysStr,
+      last4WeeksWeeklyContext: last4WeeksStr,
+      userCharacter: settings.storyCharacter,
+      storyExamples: storyExamples,
+      modelCandidates: settings.liteModels,
+      currentApiKeyIndex: apiKeyIndex,
+      customApiKeys: settings.customApiKeys,
+      onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
+      onLog: (m) => debugPrint("[StoryBriefingAI] $m"),
+    );
+  }
+
+  /// Generates the story progressively in 3 batches. Calls [onProgress] after each batch
+  /// with the accumulated list of paragraphs and a status label.
+  Future<({String scene, List<Map<String, dynamic>> paragraphs, String systemContext})> generateStoryProgressively(
+    List<ReflectionLog> todayLogs, {
+    required Function(String label, List<Map<String, dynamic>> paragraphs) onProgress,
+  }) async {
+    final todayReflectionsStr = todayLogs.isEmpty
+        ? "No reflections logged today."
+        : todayLogs.map((l) => "- [${DateFormat('HH:mm').format(l.timestamp)}] Situation: ${l.trigger}\n  Feeling: ${l.emotion}\n  Reason: ${l.reason}\n  Action: ${l.action}").join("\n\n");
+
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    final recentLogs = reflectionLogs.where((l) => l.timestamp.isAfter(sevenDaysAgo)).toList();
+    final last7DaysStr = recentLogs.isEmpty
+        ? "No recent reflections."
+        : recentLogs.map((l) => "- [${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+
+    final archivedWeeklyReports = await getArchivedWeeklyReports();
+    final last4WeeksList = archivedWeeklyReports.reversed.take(4).toList();
+    final last4WeeksStr = last4WeeksList.isEmpty
+        ? "No weekly review summaries available."
+        : last4WeeksList.map((r) {
+            final date = r['date'] as String? ?? 'Unknown Date';
+            final summary = r['summary'] as String? ?? 'No summary';
+            return "- [$date] $summary";
+          }).join("\n");
+
+    String storyExamples = "";
+    try {
+      storyExamples = await rootBundle.loadString('assets/story_examples/all.txt');
+    } catch (e) {
+      storyExamples = "Ayan is analytical, Hiba is dramatic, Zara is practical, Mira is soft and supportive.";
+    }
+
+    // Determine the three characters to feature (user char last or interspersed)
+    final userChar = settings.storyCharacter;
+    final others = ['Mira', 'Hiba', 'Zara', 'Ayan'].where((c) => c != userChar).toList();
+    // Batch 1: Mira (or first non-user), Batch 2: Hiba (or second), Batch 3: Zara/user
+    final batch2Char = others.isNotEmpty ? others[0] : 'Mira';
+    final batch3Char = others.length > 1 ? others[1] : 'Zara';
+
+    // Batch 1: Scene + opening + first character
+    onProgress('Gathering the friends...', []);
+    final batch1 = await _aiService.generateStoryBriefing(
+      todayReflections: todayReflectionsStr,
+      last7DaysContext: last7DaysStr,
+      last4WeeksWeeklyContext: last4WeeksStr,
+      userCharacter: userChar,
+      storyExamples: storyExamples,
+      modelCandidates: settings.liteModels,
+      currentApiKeyIndex: apiKeyIndex,
+      customApiKeys: settings.customApiKeys,
+      onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
+      onLog: (m) => debugPrint("[StoryBatch1] $m"),
+    );
+
+    final scene = batch1['scene'] as String? ?? 'Late evening in the study room.';
+    final systemContext = batch1['systemContext'] as String? ?? '';
+    final allParagraphs = List<Map<String, dynamic>>.from(
+        (batch1['paragraphs'] as List?)?.cast<Map<String, dynamic>>() ?? []);
+
+    onProgress('$batch2Char is thinking...', List.from(allParagraphs));
+
+    // Batch 2: Second character
+    try {
+      final batch2 = await _aiService.generateStoryCharacterSegment(
+        systemContext: systemContext,
+        previousParagraphs: List.from(allParagraphs),
+        targetCharacter: batch2Char,
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
+        onLog: (m) => debugPrint("[StoryBatch2] $m"),
+      );
+      allParagraphs.addAll(batch2);
+    } catch (e) {
+      debugPrint("Batch 2 failed: $e");
+    }
+
+    onProgress('$batch3Char is chiming in...', List.from(allParagraphs));
+
+    // Batch 3: Third character
+    try {
+      final batch3 = await _aiService.generateStoryCharacterSegment(
+        systemContext: systemContext,
+        previousParagraphs: List.from(allParagraphs),
+        targetCharacter: batch3Char,
+        modelCandidates: settings.liteModels,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
+        onLog: (m) => debugPrint("[StoryBatch3] $m"),
+      );
+      allParagraphs.addAll(batch3);
+    } catch (e) {
+      debugPrint("Batch 3 failed: $e");
+    }
+
+    return (scene: scene, paragraphs: allParagraphs, systemContext: systemContext);
+  }
+
+  /// Continue the story with user input.
+  Future<List<Map<String, dynamic>>> continueStory({
+    required String systemContext,
+    required List<Map<String, dynamic>> previousParagraphs,
+    required String userInput,
+    required bool isNarration,
+  }) async {
+    return await _aiService.continueStoryWithUserInput(
+      systemContext: systemContext,
+      previousParagraphs: previousParagraphs,
+      userCharacter: settings.storyCharacter,
+      userInput: userInput,
+      isNarration: isNarration,
+      modelCandidates: settings.liteModels,
+      currentApiKeyIndex: apiKeyIndex,
+      customApiKeys: settings.customApiKeys,
+      onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
+      onLog: (m) => debugPrint("[StoryContinue] $m"),
+    );
   }
 }
 

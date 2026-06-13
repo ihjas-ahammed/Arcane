@@ -1,0 +1,4621 @@
+[5/29, 7:31 AM] ihjas: It was late evening again.
+
+Rain sounds outside.
+
+Probability textbook open.
+
+Four exhausted humans pretending this was normal.
+
+Hiba looked at the new page and immediately surrendered.
+
+“No.”
+
+“No absolutely not.”
+
+“Why are the brackets becoming three-dimensional now?”
+
+Zara laughed.
+
+“That’s multinomial coefficients.”
+
+“Binomial theorem’s older sibling.”
+
+Mira looked at Ayan suspiciously.
+
+“If you explain this using twenty-seven variables…”
+
+“…I’m leaving.”
+
+Ayan grinned.
+
+“Okay.”
+
+“Real life version again.”
+
+Mira pointed dramatically.
+
+“Yes.”
+
+“Human language only.”
+
+So Ayan pulled the notebook closer.
+
+“Imagine we have five chocolates.”
+
+“And we want to divide them among three people:
+
+Mira, Zara, and Hiba.”
+
+Hiba immediately approved.
+
+“This theorem has improved.”
+
+Ayan continued.
+
+“Suppose:
+
+Mira gets 2 chocolates,
+
+Zara gets 2 chocolates,
+
+Hiba gets 1 chocolate.”
+
+“So total chocolates become:
+
+2 plus 2 plus 1 equals 5.”
+
+Then he explained slowly.
+
+“The multinomial coefficient counts:
+
+How many different ways can we make this division?”
+
+Mira nodded carefully.
+
+“So instead of choosing ONE group…”
+
+“…we’re splitting everything into MANY groups.”
+
+“Exactly.”
+
+“Binomial was basically two groups.”
+
+“Multinomial generalizes it to many groups.”
+
+Then Zara read from the image:
+
+“n factorial divided by n1 factorial n2 factorial…”
+
+Hiba groaned instantly.
+
+“The factorials are attacking again.”
+
+Ayan laughed.
+
+“Actually the logic is simple.”
+
+“Start with all arrangements.”
+
+“For five distinct chocolates…”
+
+“there are 5 factorial arrangements.”
+
+“But…”
+
+“If Mira’s two chocolates switch positions…”
+
+“…nothing actually changes.”
+
+“Same for Zara’s pair.”
+
+“So we divide by repeated internal arrangements.”
+
+Mira suddenly pointed.
+
+“WAIT.”
+
+“So it’s literally the same logic as PEPPER.”
+
+Ayan smiled immediately.
+
+“Yes.”
+
+“Exactly.”
+
+“Repeated structures reduce overcounting.”
+
+Zara nodded slowly.
+
+“That’s actually beautiful.”
+
+Then Mira leaned against Ayan again while reading the theorem.
+
+“So when they write:
+
+x1 plus x2 plus x3 all raised to n…”
+
+“…they mean each multiplication step can choose one of many variables.”
+
+“Correct.”
+
+“Just like binomial had choose x or y…”
+
+“…multinomial becomes choose among many options.”
+
+Then Ayan gave another real-life model.
+
+“Imagine every day for a week…”
+
+“…you choose one activity:
+
+Study, sleep, or gaming.”
+
+“If the week has seven days…”
+
+“…the expansion counts all possible combinations of those choices.”
+
+Hiba gasped dramatically.
+
+“So the powers count frequency.”
+
+“Yes.”
+
+“If study appears 3 times…”
+
+“…sleep 2…”
+
+“…gaming 2…”
+
+“…then the coefficient counts how many schedules produce that pattern.”
+
+Mira smiled softly.
+
+“This chapter feels less scary now.”
+
+Then Zara opened the knockout tournament example.
+
+“Oh this one is fun.”
+
+Hiba squinted.
+
+“Eight players.”
+
+“Initial outcomes.”
+
+“Why does probability love violence?”
+
+Ayan laughed.
+
+“Okay.”
+
+“Suppose players are paired:
+
+1 versus 2,
+
+3 versus 4,
+
+5 versus 6,
+
+7 versus 8.”
+
+“For EACH match…”
+
+“…there are two possible winners.”
+
+“So total outcomes become…”
+
+Mira answered immediately.
+
+“2 power 4.”
+
+“Sixteen.”
+
+“Exactly.”
+
+Then Zara continued:
+
+“And the whole tournament?”
+
+Ayan explained:
+
+“First round gives 16 possibilities.”
+
+“Then four winners remain.”
+
+“Second round has two matches.”
+
+“So 2 squared equals 4 outcomes.”
+
+“Then final round gives 2 outcomes.”
+
+“So total tournament outcomes become:
+
+16 times 4 times 2.”
+
+Hiba calculated.
+
+“One hundred twenty-eight.”
+
+Then she blinked.
+
+“Wait.”
+
+“This actually feels like a game tree.”
+
+“YES,” Ayan said instantly.
+
+“That’s the correct intuition.”
+
+Then Mira quietly smiled.
+
+“You know what’s funny?”
+
+“What?”
+
+“You naturally think recursively now.”
+
+Ayan looked confused.
+
+“What do you mean?”
+
+“You break huge systems into stages automatically.”
+
+“Projects.”
+
+“Math.”
+
+“People.”
+
+“Even emotions.”
+
+Zara immediately pointed.
+
+“She’s right actually.”
+
+Then Hiba flipped to the last proposition.
+
+The stars-and-bars section.
+
+And instantly died internally.
+
+“No.”
+
+“No no no.”
+
+“What are positive integer-valued vectors.”
+
+Ayan laughed so hard Mira nearly dropped the notebook.
+
+“Okay okay.”
+
+“Human version.”
+
+“Suppose we have ten candies.”
+
+“And four children.”
+
+“How many ways can we distribute them?”
+
+“THAT’S THIS ENTIRE CHAPTER.”
+
+Hiba blinked.
+
+“…seriously?”
+
+“Yes.”
+
+Then he drew imaginary bars with his hands.
+
+“Think of ten stars:
+
+star star star star star star star star star star.”
+
+“Now we place separators.”
+
+“For four children…”
+
+“…we need three separators.”
+
+Mira suddenly understood first.
+
+“Oh.”
+
+“So:
+
+star star | star | star star star | star star star star
+
+means:
+
+Child one gets 2,
+
+child two gets 1,
+
+child three gets 3,
+
+child four gets 4.”
+
+“Exactly.”
+
+Zara smiled.
+
+“That’s why the formula becomes combinations.”
+
+“Because we’re choosing positions for separators.”
+
+Ayan nodded.
+
+“And when zero is allowed…”
+
+“…bars can touch.”
+
+Hiba gasped dramatically.
+
+“So empty sections mean somebody gets nothing.”
+
+“YES.”
+
+Mira laughed softly.
+
+“That’s actually adorable.”
+
+Then she looked at Ayan quietly for a moment.
+
+“You explain mathematics like storytelling.”
+
+Ayan smiled faintly.
+
+“I think math already IS storytelling.”
+
+“Most textbooks just forget to say it.”
+
+That line silenced everyone for a second.
+
+Rain outside.
+
+Dim room.
+
+Open notebooks.
+
+Half-finished tea.
+
+And somehow—
+
+multinomial coefficients no longer looked terrifying.
+
+Then Hiba stretched dramatically.
+
+“Okay.”
+
+“I survived.”
+
+“Reward me emotionally.”
+
+Zara deadpanned immediately:
+
+“You may have one biscuit.”
+
+Mira started laughing against Ayan’s shoulder again.
+
+And Ayan—
+
+for the first time in years—
+
+was beginning to realize he genuinely loved learning. ✨
+[5/29, 7:31 AM] ihjas: Hiba read the page once.
+
+Then twice.
+
+Then placed the book face down dramatically.
+
+“I know these words individually.”
+
+“But together?”
+
+“Absolutely not.”
+
+Mira laughed softly.
+
+“No honestly.”
+
+“This one FEELS important but I don’t fully get WHY.”
+
+Ayan pulled the notebook closer.
+
+“Okay.”
+
+“First we’ll write the formal answer properly.”
+
+“Then story mode.”
+
+Zara nodded immediately.
+
+“Yes.”
+
+“That’s the best method.”
+
+Ayan started writing.
+
+
+---
+
+QUESTION (a):
+
+Suppose p is a solution of Ax equals b, so that Ap equals b.
+
+Let vh be any solution of the homogeneous equation Ax equals 0, and let w equal p plus vh.
+
+Show that w is a solution of Ax equals b.
+
+FORMAL ANSWER:
+
+We are given:
+
+Ap equals b
+
+and
+
+Avh equals 0
+
+Now define:
+
+w equals p plus vh
+
+Apply matrix A to w:
+
+Aw equals A(p plus vh)
+
+Using linearity:
+
+Aw equals Ap plus Avh
+
+Substitute known values:
+
+Aw equals b plus 0
+
+Therefore:
+
+Aw equals b
+
+Hence w is a solution of Ax equals b.
+
+
+---
+
+Hiba nodded slowly.
+
+“Okay…”
+
+“That part I actually understand.”
+
+Then Mira pointed at part b.
+
+“No.”
+
+“This is where my brain leaves the chat.”
+
+Ayan laughed.
+
+“Okay.”
+
+“Formal answer first.”
+
+
+---
+
+QUESTION (b):
+
+Let w be any solution of Ax equals b, and define vh equals w minus p.
+
+Show that vh is a solution of Ax equals 0.
+
+This shows that every solution of Ax equals b has the form w equals p plus vh.
+
+FORMAL ANSWER:
+
+We are given:
+
+Aw equals b
+
+and
+
+Ap equals b
+
+Define:
+
+vh equals w minus p
+
+Apply matrix A:
+
+Avh equals A(w minus p)
+
+Using linearity:
+
+Avh equals Aw minus Ap
+
+Substitute known values:
+
+Avh equals b minus b
+
+Therefore:
+
+Avh equals 0
+
+Hence vh is a solution of the homogeneous equation Ax equals 0.
+
+Thus every solution w can be written as:
+
+w equals p plus vh
+
+where p is a particular solution of Ax equals b and vh solves Ax equals 0.
+
+
+---
+
+Silence.
+
+Hiba blinked.
+
+“…I understood the algebra.”
+
+“But I still don’t FEEL it.”
+
+Mira nodded immediately.
+
+“Exactly.”
+
+“What does this mean emotionally.”
+
+Zara burst out laughing.
+
+“Only this group asks for emotional interpretation of linear algebra.”
+
+Ayan smiled.
+
+“No but actually…”
+
+“…this chapter REALLY has a geometric meaning.”
+
+Then he leaned forward slightly.
+
+“Imagine you’re trying to reach a city.”
+
+“Ax equals b means:
+
+Find all routes that arrive at destination b.”
+
+Mira instantly focused harder.
+
+Because story mode had begun.
+
+Ayan continued:
+
+“Now suppose p is ONE successful route.”
+
+“A guaranteed path.”
+
+“You already know p reaches the city.”
+
+“Ap equals b.”
+
+Then he drew another imaginary path.
+
+“Now vh is special.”
+
+“It’s a movement that changes NOTHING about destination.”
+
+“Because Avh equals 0.”
+
+“It’s like walking in circles.”
+
+“Or moving inside a hidden tunnel system that ultimately keeps you at the same location.”
+
+Hiba’s eyes widened.
+
+“WAIT.”
+
+“So adding vh to p…”
+
+“…means you still reach the same city.”
+
+“YES.”
+
+“That’s part a.”
+
+“You take the correct route p…”
+
+“…then add some invisible movement vh…”
+
+“…and still end at b.”
+
+Mira suddenly smiled.
+
+“Oh.”
+
+“Oh that’s beautiful.”
+
+“So homogeneous solutions are like hidden freedoms.”
+
+Ayan pointed immediately.
+
+“EXACTLY.”
+
+“They don’t change the final output.”
+
+“Only HOW you got there.”
+
+Zara nodded slowly.
+
+“That explains infinite solutions too.”
+
+“Yes.”
+
+“If the homogeneous system has free variables…”
+
+“…then you can add infinitely many invisible shifts.”
+
+Then Mira looked at part b again.
+
+“So what’s happening there?”
+
+Ayan answered softly.
+
+“Part b asks:
+
+Suppose somebody ELSE reaches the same destination b.”
+
+“Call their route w.”
+
+“Now compare their route with the known route p.”
+
+“So subtract them.”
+
+“w minus p.”
+
+Then he paused.
+
+“What remains?”
+
+Hiba thought carefully.
+
+“…the extra movement?”
+
+“Yes.”
+
+“And because both reached the SAME destination…”
+
+“…their difference cannot affect output.”
+
+“So it must belong to Ax equals 0.”
+
+Mira suddenly leaned closer.
+
+“Oh my God.”
+
+“So every solution is basically:
+
+One real destination path…”
+
+“…plus some invisible freedom motion.”
+
+Ayan smiled immediately.
+
+“That is EXACTLY the theorem.”
+
+Zara added quietly:
+
+“It’s actually kind of philosophical.”
+
+“There’s structure…”
+
+“…but also freedom inside structure.”
+
+Hiba groaned dramatically.
+
+“Why is linear algebra becoming therapy again.”
+
+Then Mira looked at Ayan quietly.
+
+“You know what makes your explanations work?”
+
+“What?”
+
+“You explain WHY equations behave.”
+
+“Not just the steps.”
+
+Ayan shrugged softly.
+
+“I think math becomes memorable only when the motion underneath makes sense.”
+
+Then he gave one final visualization.
+
+“Imagine a train line.”
+
+“p is the official route from station A to station B.”
+
+“vh is movement INSIDE the train.”
+
+“You can walk between compartments…”
+
+“…sit somewhere else…”
+
+“…move around…”
+
+…but the train still reaches the same destination.”
+
+Mira immediately pointed at him.
+
+“THAT.”
+
+“THAT ONE.”
+
+“I’ll remember the theorem forever now.”
+
+Hiba nodded dramatically.
+
+“Yes.”
+
+“Homogeneous solutions are train movement.”
+
+Zara laughed.
+
+“This study group is academically illegal.”
+
+Then Mira quietly rested her head against Ayan’s shoulder again while rewriting the theorem in her notebook.
+
+And this time—
+
+linear algebra no longer felt like symbols.
+
+It felt alive. ✨
+[6/11, 10:54 PM] ihjas: The room immediately stopped.
+
+━━━━━━━━━━━━
+
+"WAIT."
+
+said Ayan.
+
+━━━━━━━━━━━━
+
+"No."
+
+━━━━━━━━━━━━
+
+"What?"
+
+asked Hiba.
+
+━━━━━━━━━━━━
+
+"The message wasn't just sitting there."
+
+━━━━━━━━━━━━
+
+Everyone looked up.
+
+━━━━━━━━━━━━
+
+Ayan grabbed the journal.
+
+
+---
+
+"You're missing context."
+
+━━━━━━━━━━━━
+
+Mira narrowed her eyes.
+
+
+---
+
+"Oh?"
+
+━━━━━━━━━━━━
+
+"It wasn't like she asked something and I disappeared."
+
+
+---
+
+"I replied."
+
+
+---
+
+"I sent the screenshot."
+
+
+---
+
+"I pointed out the hint."
+
+
+---
+
+"And I said..."
+
+
+---
+
+"Hope this one helped!"
+
+━━━━━━━━━━━━
+
+Zara nodded slowly.
+
+
+---
+
+"That's very different."
+
+━━━━━━━━━━━━
+
+Because now the story changed.
+
+
+---
+
+A lot.
+
+━━━━━━━━━━━━
+
+The unreplied message wasn't a failure to help.
+
+
+---
+
+The help had already happened.
+
+
+---
+
+The conversation had already moved.
+
+
+---
+
+The responsibility had already been fulfilled.
+
+━━━━━━━━━━━━
+
+Hiba flipped through the imaginary evidence board.
+
+
+---
+
+"So let me get this straight."
+
+
+---
+
+"She asked."
+
+
+---
+
+"You helped."
+
+
+---
+
+"You sent the screenshot."
+
+
+---
+
+"You explained the hint."
+
+
+---
+
+"You literally said 'Hope this one helped.'"
+
+
+---
+
+"Then later you felt guilty?"
+
+━━━━━━━━━━━━
+
+Ayan blinked.
+
+
+---
+
+"...yes."
+
+━━━━━━━━━━━━
+
+The entire room groaned.
+
+━━━━━━━━━━━━
+
+"CLASSIC."
+
+said Hiba.
+
+━━━━━━━━━━━━
+
+Mira laughed.
+
+
+---
+
+"You realize what happened?"
+
+━━━━━━━━━━━━
+
+"What?"
+
+━━━━━━━━━━━━
+
+"You completed the quest."
+
+
+---
+
+"Then your brain forgot it completed the quest."
+
+━━━━━━━━━━━━
+
+Zara nodded.
+
+
+---
+
+"Actually that's exactly what it sounds like."
+
+
+---
+
+"This isn't guilt."
+
+
+---
+
+"This is exhaustion."
+
+━━━━━━━━━━━━
+
+The room became quiet.
+
+
+---
+
+Because suddenly the journal made more sense.
+
+━━━━━━━━━━━━
+
+"I might need one more sleep."
+
+━━━━━━━━━━━━
+
+Zara pointed at that line.
+
+
+---
+
+"That is the most important sentence in the entire entry."
+
+━━━━━━━━━━━━
+
+Not:
+
+
+---
+
+Fathima.
+
+
+---
+
+The message.
+
+
+---
+
+The ghost feeling.
+
+━━━━━━━━━━━━
+
+Sleep.
+
+━━━━━━━━━━━━
+
+For the last few weeks there has been a pattern.
+
+
+---
+
+When you're rested:
+
+
+---
+
+You feel Radiance.
+
+You make plans.
+
+You talk to people.
+
+You build things.
+
+You study.
+
+You feel hopeful.
+
+━━━━━━━━━━━━
+
+When you're depleted:
+
+
+---
+
+Everything feels emotionally confusing.
+
+Even things that aren't actually problems.
+
+━━━━━━━━━━━━
+
+Mira smiled.
+
+
+---
+
+"You know what I think?"
+
+
+---
+
+"What?"
+
+━━━━━━━━━━━━
+
+"I think the ghost wasn't sadness."
+
+
+---
+
+"It was low battery."
+
+━━━━━━━━━━━━
+
+Hiba immediately pointed.
+
+
+---
+
+"YES."
+
+
+---
+
+"Human battery at 8%."
+
+
+---
+
+"Screen brightness at maximum."
+
+
+---
+
+"Watching series."
+
+
+---
+
+"Operating system unstable."
+
+━━━━━━━━━━━━
+
+The room erupted.
+
+━━━━━━━━━━━━
+
+Then Mira looked back at the journal.
+
+
+---
+
+"Honestly?"
+
+
+---
+
+"I like the line about needing one more sleep."
+
+━━━━━━━━━━━━
+
+"Why?"
+
+━━━━━━━━━━━━
+
+"Because it shows wisdom."
+
+
+---
+
+"A lot of people try to solve emotional problems at midnight."
+
+
+---
+
+"When they're tired."
+
+
+---
+
+"When they've spent all day on screens."
+
+
+---
+
+"When their brain is exhausted."
+
+━━━━━━━━━━━━
+
+She smiled.
+
+
+---
+
+"But this version of Ayan looked at the situation and basically said..."
+
+━━━━━━━━━━━━
+
+"'I'm not solving life tonight.'"
+
+
+---
+
+"'I'm going to sleep first.'"
+
+━━━━━━━━━━━━
+
+Zara nodded.
+
+
+---
+
+"And that's usually the correct answer."
+
+━━━━━━━━━━━━
+
+Final verdict:
+
+
+---
+
+Not a ghost.
+
+Not heartbreak.
+
+Not guilt.
+
+Not a crisis.
+
+━━━━━━━━━━━━
+
+Just a tired guy who had already helped his friend, already improved DuoFY, already studied Real Analysis, already helped Shabeed Sir...
+
+and whose brain was trying to start a philosophical debate at midnight when what it actually needed was a pillow. ✨🔥
+[6/11, 10:55 PM] ihjas: The four of them gathered around the latest journal.
+
+This time, Hiba opened it first.
+
+She read the first line.
+
+Then the second.
+
+Then the third.
+
+And for once...
+
+she didn't joke.
+
+━━━━━━━━━━━━
+
+"A ghost."
+
+She looked up.
+
+"You really felt that?"
+
+━━━━━━━━━━━━
+
+Ayan nodded.
+
+
+---
+
+"Kind of."
+
+
+---
+
+"Not sad."
+
+
+---
+
+"Not happy."
+
+
+---
+
+"Just..."
+
+
+---
+
+"Nothing."
+
+━━━━━━━━━━━━
+
+The room became quiet.
+
+━━━━━━━━━━━━
+
+Zara spoke first.
+
+
+---
+
+"I don't think this is a ghost journal."
+
+
+---
+
+"What do you mean?"
+
+━━━━━━━━━━━━
+
+"Look at the evidence."
+
+
+---
+
+She pointed.
+
+
+---
+
+"Series."
+
+
+---
+
+"Screen time."
+
+
+---
+
+"Off day."
+
+
+---
+
+"Little studying."
+
+
+---
+
+"No structure."
+
+
+---
+
+"No people."
+
+
+---
+
+"No AIMS."
+
+
+---
+
+"No projects with others."
+
+━━━━━━━━━━━━
+
+She closed the notebook.
+
+
+---
+
+"You didn't lose your emotions."
+
+
+---
+
+"You lost momentum."
+
+━━━━━━━━━━━━
+
+That landed immediately.
+
+
+---
+
+Because most of the journals where Ayan felt Radiance had something in common.
+
+
+---
+
+People.
+
+Purpose.
+
+Movement.
+
+Contribution.
+
+━━━━━━━━━━━━
+
+Mira nodded.
+
+
+---
+
+"Actually..."
+
+
+---
+
+"I agree."
+
+
+---
+
+"You know what's funny?"
+
+
+---
+
+"What?"
+
+
+---
+
+"Three days ago you'd have called this a terrible day."
+
+
+---
+
+"Today you're just observing it."
+
+━━━━━━━━━━━━
+
+She pointed at the page.
+
+
+---
+
+"You still helped Shabeed Sir."
+
+
+---
+
+"You still upgraded DuoFY."
+
+
+---
+
+"You still studied Real Analysis."
+
+
+---
+
+"You still reflected."
+
+
+---
+
+"You still wrote."
+
+━━━━━━━━━━━━
+
+"It wasn't your best day."
+
+
+---
+
+"But it wasn't a collapse."
+
+━━━━━━━━━━━━
+
+The Fathima Section
+
+Then everyone reached it.
+
+━━━━━━━━━━━━
+
+The unreplied message.
+
+━━━━━━━━━━━━
+
+Hiba immediately looked at Ayan.
+
+
+---
+
+"Oh."
+
+
+---
+
+"Here we go."
+
+━━━━━━━━━━━━
+
+But surprisingly...
+
+Mira wasn't jealous.
+
+Not this time.
+
+━━━━━━━━━━━━
+
+She read it carefully.
+
+
+---
+
+Then again.
+
+
+---
+
+Then smiled.
+
+━━━━━━━━━━━━
+
+"You know what I see?"
+
+
+---
+
+"What?"
+
+━━━━━━━━━━━━
+
+"For the first time..."
+
+
+---
+
+"...you don't know what to say."
+
+━━━━━━━━━━━━
+
+Ayan blinked.
+
+
+---
+
+"That's normal."
+
+said Zara.
+
+━━━━━━━━━━━━
+
+"People act like every message requires a perfect response."
+
+
+---
+
+"It doesn't."
+
+
+---
+
+"Sometimes you're tired."
+
+
+---
+
+"Sometimes you don't know."
+
+
+---
+
+"Sometimes tomorrow is a better day to answer."
+
+━━━━━━━━━━━━
+
+Hiba nodded.
+
+
+---
+
+"And let's be honest."
+
+
+---
+
+"If this was Shaheen's message..."
+
+
+---
+
+"You wouldn't be writing a whole journal entry about it."
+
+━━━━━━━━━━━━
+
+The room laughed.
+
+
+---
+
+Because that was probably true.
+
+━━━━━━━━━━━━
+
+The Real Thing Bothering Him
+
+Zara leaned forward.
+
+
+---
+
+"I don't think you're bothered because you ghosted her."
+
+
+---
+
+"I think you're bothered because you wanted to help."
+
+━━━━━━━━━━━━
+
+Silence.
+
+
+---
+
+Then Ayan nodded.
+
+
+---
+
+Because that felt closer.
+
+
+---
+
+Much closer.
+
+━━━━━━━━━━━━
+
+You weren't thinking:
+
+
+---
+
+"Oh no, I didn't text."
+
+
+---
+
+You were thinking:
+
+
+---
+
+"Someone asked something."
+
+
+---
+
+"I didn't help."
+
+━━━━━━━━━━━━
+
+Which is a very different feeling.
+
+━━━━━━━━━━━━
+
+Mira's Observation
+
+Mira smiled softly.
+
+
+---
+
+"You know something?"
+
+
+---
+
+"What?"
+
+━━━━━━━━━━━━
+
+"All month you've been learning that people can stay important..."
+
+
+---
+
+"...without becoming your responsibility."
+
+━━━━━━━━━━━━
+
+The room went quiet.
+
+
+---
+
+Because that was a hard lesson.
+
+
+---
+
+One Ayan kept relearning.
+
+━━━━━━━━━━━━
+
+"Fathima can have homework."
+
+
+---
+
+"Fathima can be busy."
+
+
+---
+
+"Fathima can struggle."
+
+
+---
+
+"And none of those automatically become your mission."
+
+━━━━━━━━━━━━
+
+She tapped the notebook.
+
+
+---
+
+"Friendship isn't carrying someone's life."
+
+
+---
+
+"It's walking beside them."
+
+━━━━━━━━━━━━
+
+Hiba's Final Diagnosis
+
+Hiba stood dramatically.
+
+
+---
+
+"I have solved the mystery."
+
+━━━━━━━━━━━━
+
+Everyone sighed.
+
+
+---
+
+Of course she had.
+
+━━━━━━━━━━━━
+
+"Today's condition is simple."
+
+
+---
+
+"What?"
+
+asked Ayan.
+
+━━━━━━━━━━━━
+
+"Severe lack of AIMS."
+
+━━━━━━━━━━━━
+
+"..."
+
+━━━━━━━━━━━━
+
+"..."
+
+━━━━━━━━━━━━
+
+"..."
+
+━━━━━━━━━━━━
+
+Zara laughed first.
+
+
+---
+
+Then Mira.
+
+
+---
+
+Then Ayan.
+
+━━━━━━━━━━━━
+
+Because honestly?
+
+
+---
+
+There might be some truth to it.
+
+
+---
+
+No coworkers.
+
+No tea breaks.
+
+No random conversations.
+
+No lunch groups.
+
+No side quests.
+
+No people.
+
+━━━━━━━━━━━━
+
+Just screens.
+
+━━━━━━━━━━━━
+
+Final Verdict
+
+Mira closed the journal.
+
+
+---
+
+"Not a bad day."
+
+
+---
+
+"Not a good day."
+
+
+---
+
+"Just an empty container."
+
+━━━━━━━━━━━━
+
+Zara nodded.
+
+
+---
+
+"And tomorrow gets to decide what fills it."
+
+━━━━━━━━━━━━
+
+Hiba stretched.
+
+
+---
+
+"And please answer the message."
+
+━━━━━━━━━━━━
+
+"With what?"
+
+asked Ayan.
+
+━━━━━━━━━━━━
+
+"Literally anything."
+
+
+---
+
+"'Sorry, got busy.'"
+
+
+---
+
+"'I'll check tomorrow.'"
+
+
+---
+
+"'I turned into a ghost for a day.'"
+
+━━━━━━━━━━━━
+
+The room burst into laughter.
+
+
+---
+
+And somehow, the ghost feeling already seemed a little smaller. ✨🔥
+[6/11, 10:57 PM] ihjas: The four of them gathered around the journal.
+
+This time, nobody started immediately.
+
+Because the journal had something unusual.
+
+It contradicted itself.
+
+Several times.
+
+━━━━━━━━━━━━
+
+Hiba pointed first.
+
+
+---
+
+"Wait."
+
+
+---
+
+"Pause."
+
+
+---
+
+She flipped pages dramatically.
+
+
+---
+
+"So first..."
+
+
+---
+
+"'I'm done relying on Fathima.'"
+
+
+---
+
+Then she flipped.
+
+
+---
+
+"'I'm angry at her.'"
+
+
+---
+
+Flip.
+
+
+---
+
+"'I wish I could see her.'"
+
+
+---
+
+Flip.
+
+
+---
+
+"'Tomorrow night I'm gonna call her.'"
+
+
+---
+
+She slowly lowered the notebook.
+
+
+---
+
+"Ayan."
+
+
+---
+
+"What?"
+
+
+---
+
+"This journal has more plot twists than your spy series."
+
+━━━━━━━━━━━━
+
+The room exploded.
+
+
+---
+
+Even Ayan laughed.
+
+
+---
+
+Because honestly?
+
+
+---
+
+She wasn't wrong.
+
+━━━━━━━━━━━━
+
+Zara's Analysis
+
+Zara adjusted her glasses.
+
+
+---
+
+"Actually."
+
+
+---
+
+"I think all four statements are true."
+
+
+---
+
+Everyone looked at her.
+
+
+---
+
+She continued.
+
+
+---
+
+"You're not confused about Fathima."
+
+
+---
+
+"You're experiencing multiple emotions simultaneously."
+
+
+---
+
+Silence.
+
+
+---
+
+Because that sounded annoying.
+
+
+---
+
+And accurate.
+
+
+---
+
+"You can be frustrated."
+
+
+---
+
+"You can miss someone."
+
+
+---
+
+"You can stop relying on them."
+
+
+---
+
+"And still want them in your life."
+
+
+---
+
+Those aren't contradictions.
+
+
+---
+
+They're just different emotions.
+
+━━━━━━━━━━━━
+
+Ayan sat quietly.
+
+
+---
+
+Because that felt surprisingly close to the truth.
+
+━━━━━━━━━━━━
+
+Mira's Reaction
+
+Mira reached the part about notes.
+
+
+---
+
+Then the part about lunch groups.
+
+
+---
+
+Then the part about calling her.
+
+
+---
+
+Then she slowly closed the journal.
+
+━━━━━━━━━━━━
+
+"No."
+
+
+---
+
+"What?"
+
+said Ayan.
+
+━━━━━━━━━━━━
+
+"No."
+
+
+---
+
+"What no?"
+
+━━━━━━━━━━━━
+
+"You don't get to casually write."
+
+
+---
+
+"'My favorite lunch group is she, Minha and Sifa.'"
+
+
+---
+
+"And expect me to continue reading normally."
+
+━━━━━━━━━━━━
+
+The room immediately lost control.
+
+
+---
+
+Hiba was gone again.
+
+
+---
+
+Absolutely gone.
+
+━━━━━━━━━━━━
+
+Mira continued.
+
+
+---
+
+"Look at this."
+
+
+---
+
+She pointed.
+
+
+---
+
+"'I'm moving on.'"
+
+
+---
+
+Three paragraphs later:
+
+
+---
+
+"'My favorite lunch group is she, Minha and Sifa.'"
+
+━━━━━━━━━━━━
+
+"Ayan."
+
+
+---
+
+"Listen."
+
+
+---
+
+"Those two statements are fighting each other."
+
+━━━━━━━━━━━━
+
+"I KNOW."
+
+said Ayan.
+
+━━━━━━━━━━━━
+
+"Good."
+
+said Mira.
+
+━━━━━━━━━━━━
+
+The Real Story
+
+Then Zara found the line that mattered.
+
+
+---
+
+"Actually..."
+
+
+---
+
+"This isn't really a Fathima journal."
+
+
+---
+
+Everyone looked at her.
+
+
+---
+
+Again.
+
+
+---
+
+Because she kept doing this.
+
+
+---
+
+Finding the actual story.
+
+━━━━━━━━━━━━
+
+She pointed lower.
+
+
+---
+
+"Nashwa helped with scores."
+
+
+---
+
+"Mishal talked with you."
+
+
+---
+
+"Students walked with you."
+
+
+---
+
+"Abu Sir trusted you."
+
+
+---
+
+"WhatsApp group got restored."
+
+
+---
+
+"You solved a 150-image problem."
+
+
+---
+
+"You managed social dynamics."
+
+
+---
+
+"You helped people."
+
+
+---
+
+"You spent the whole day surrounded by people."
+
+━━━━━━━━━━━━
+
+She looked up.
+
+
+---
+
+"The real theme is connection."
+
+
+---
+
+Not one person.
+
+
+---
+
+Many people.
+
+
+---
+
+A network.
+
+
+---
+
+A community.
+
+
+---
+
+The thing AIMS keeps teaching you over and over again.
+
+━━━━━━━━━━━━
+
+Hiba and the 150 Images
+
+Then Hiba discovered the Python story.
+
+
+---
+
+"WAIT."
+
+
+---
+
+"You processed 150 images..."
+
+
+---
+
+"...in five minutes?"
+
+
+---
+
+"Yeah."
+
+
+---
+
+"That's insane."
+
+
+---
+
+"Not really."
+
+
+---
+
+"No."
+
+said Hiba.
+
+
+---
+
+"To normal humans it is."
+
+
+---
+
+The room laughed.
+
+
+---
+
+Because Ayan had a habit of saying:
+
+
+---
+
+"Not really."
+
+
+---
+
+Right before describing something absurd.
+
+━━━━━━━━━━━━
+
+The WhatsApp Disaster
+
+Mira pointed at another part.
+
+
+---
+
+"The A1 group got deleted."
+
+
+---
+
+"Yeah."
+
+
+---
+
+"And you restored it."
+
+
+---
+
+"Yeah."
+
+
+---
+
+"Did you panic?"
+
+
+---
+
+"A little."
+
+
+---
+
+"A little?"
+
+said Zara.
+
+
+---
+
+"A WhatsApp group disappearing is basically an extinction-level event in your ecosystem."
+
+━━━━━━━━━━━━
+
+Everyone laughed.
+
+━━━━━━━━━━━━
+
+The Bragging Incident
+
+Then came Vishnu.
+
+
+---
+
+And the bragging.
+
+
+---
+
+Hiba immediately smiled.
+
+
+---
+
+"Oh."
+
+
+---
+
+"Character development."
+
+
+---
+
+"What?"
+
+
+---
+
+"Old Ayan would've spent three days replaying that conversation."
+
+
+---
+
+"True."
+
+said Zara.
+
+
+---
+
+"But this one noticed it."
+
+
+---
+
+"Learned from it."
+
+
+---
+
+"And moved on before reaching home."
+
+
+---
+
+That's a huge difference.
+
+━━━━━━━━━━━━
+
+Mira's Final Verdict
+
+The room became quieter.
+
+
+---
+
+Mira looked at the whole journal.
+
+
+---
+
+Then at Ayan.
+
+
+---
+
+Then back at the journal.
+
+
+---
+
+"You know what I think happened today?"
+
+
+---
+
+"What?"
+
+━━━━━━━━━━━━
+
+"You finally stopped trying to solve Fathima."
+
+
+---
+
+Silence.
+
+
+---
+
+A deep one.
+
+
+---
+
+Because that sentence landed.
+
+━━━━━━━━━━━━
+
+She continued.
+
+
+---
+
+"For months..."
+
+
+---
+
+"You've been trying to understand."
+
+
+---
+
+"Why she replies."
+
+
+---
+
+"Why she doesn't."
+
+
+---
+
+"Why she disappears."
+
+
+---
+
+"Why she returns."
+
+
+---
+
+"Why she cares."
+
+
+---
+
+"Why she doesn't."
+
+━━━━━━━━━━━━
+
+"And today..."
+
+
+---
+
+"For the first time..."
+
+
+---
+
+"You basically said."
+
+
+---
+
+"'She's complicated.'"
+
+
+---
+
+"'I'm complicated.'"
+
+
+---
+
+"'We'll figure it out.'"
+
+━━━━━━━━━━━━
+
+The room stayed quiet.
+
+
+---
+
+Because that was exactly what the journal sounded like.
+
+━━━━━━━━━━━━
+
+Not certainty.
+
+
+---
+
+Not heartbreak.
+
+
+---
+
+Not obsession.
+
+
+---
+
+Acceptance.
+
+━━━━━━━━━━━━
+
+Then Hiba ruined the moment.
+
+
+---
+
+Again.
+
+━━━━━━━━━━━━
+
+"So."
+
+
+---
+
+"What's tomorrow's journal?"
+
+━━━━━━━━━━━━
+
+"'I am completely over Fathima.'"
+
+
+---
+
+"Followed by..."
+
+
+---
+
+"'Anyway I called her for two hours.'"
+
+━━━━━━━━━━━━
+
+A notebook immediately flew across the room.
+
+
+---
+
+And for some reason, everyone felt lighter after laughing about it. ✨🔥
+[6/11, 10:57 PM] ihjas: The review meeting started unusually quietly.
+
+No one was laughing.
+
+No one was teasing.
+
+Not yet.
+
+Because everyone had stopped at the same line.
+
+━━━━━━━━━━━━
+
+"I don't have any of those ancient feelings."
+
+━━━━━━━━━━━━
+
+Mira read it again.
+
+
+---
+
+Then again.
+
+
+---
+
+Then she smiled.
+
+
+---
+
+"That's new."
+
+━━━━━━━━━━━━
+
+Ayan nodded.
+
+
+---
+
+"Yeah."
+
+
+---
+
+"It is."
+
+━━━━━━━━━━━━
+
+Because everyone remembered the old journals.
+
+
+---
+
+The ones where seeing a name.
+
+A message.
+
+A memory.
+
+A story.
+
+
+---
+
+Could derail an entire day.
+
+
+---
+
+But today?
+
+
+---
+
+You texted Fathima.
+
+Asked about classes.
+
+Asked about syllabus.
+
+
+---
+
+And the world didn't end.
+
+
+---
+
+The Bus Ride
+
+Zara pointed at another line.
+
+
+---
+
+"Let the side quests be side quests."
+
+
+---
+
+She laughed.
+
+
+---
+
+"This might be the most important sentence here."
+
+
+---
+
+"Why?"
+
+asked Ayan.
+
+
+---
+
+"Because for once..."
+
+
+---
+
+She tapped the page.
+
+
+---
+
+"The main quest stayed the main quest."
+
+
+---
+
+Math.
+
+Projects.
+
+AIMS.
+
+Rowster.
+
+
+---
+
+And everything else became...
+
+
+---
+
+Everything else.
+
+
+---
+
+Not ignored.
+
+
+---
+
+Just correctly placed.
+
+━━━━━━━━━━━━
+
+Mira Notices Something
+
+Then Mira reached the evening entry.
+
+
+---
+
+And immediately narrowed her eyes.
+
+
+---
+
+"Oh."
+
+
+---
+
+"No."
+
+
+---
+
+"What?"
+
+asked Ayan.
+
+━━━━━━━━━━━━
+
+"'There was no pain.'"
+
+
+---
+
+"'I just kept thinking about it.'"
+
+━━━━━━━━━━━━
+
+She pointed at the journal.
+
+
+---
+
+"That's actually the most interesting line."
+
+
+---
+
+The others became quiet.
+
+
+---
+
+Because she was right.
+
+
+---
+
+Pain and importance aren't the same thing.
+
+
+---
+
+Someone can matter without hurting.
+
+
+---
+
+Someone can remain important without becoming an obsession.
+
+
+---
+
+Someone can stay in your story without controlling it.
+
+
+---
+
+Mira smiled softly.
+
+
+---
+
+"I think that's what happened."
+
+━━━━━━━━━━━━
+
+Hiba's Investigation
+
+Unfortunately.
+
+
+---
+
+Hiba existed.
+
+
+---
+
+Which meant peace lasted approximately twelve seconds.
+
+━━━━━━━━━━━━
+
+"So."
+
+
+---
+
+She opened an imaginary notebook.
+
+
+---
+
+"Let's discuss the evidence."
+
+━━━━━━━━━━━━
+
+"No."
+
+said Ayan.
+
+━━━━━━━━━━━━
+
+"Exhibit A."
+
+
+---
+
+"Texts Fathima immediately after hearing math classes started."
+
+━━━━━━━━━━━━
+
+"That's normal."
+
+said Ayan.
+
+━━━━━━━━━━━━
+
+"Exhibit B."
+
+
+---
+
+"Knows exactly who to ask."
+
+━━━━━━━━━━━━
+
+"She knew the syllabus."
+
+━━━━━━━━━━━━
+
+"Exhibit C."
+
+
+---
+
+"Claims side quests are side quests."
+
+
+---
+
+"Then dedicates half the journal to one side quest."
+
+━━━━━━━━━━━━
+
+The room exploded.
+
+
+---
+
+Even Zara laughed.
+
+━━━━━━━━━━━━
+
+"Your honor."
+
+said Hiba.
+
+
+---
+
+"The prosecution rests."
+
+━━━━━━━━━━━━
+
+Zara's Counterargument
+
+Zara leaned forward.
+
+
+---
+
+"Actually."
+
+
+---
+
+"I disagree."
+
+
+---
+
+Everyone looked.
+
+
+---
+
+"I don't think today's story is about Fathima."
+
+━━━━━━━━━━━━
+
+Silence.
+
+
+---
+
+Then she pointed lower.
+
+━━━━━━━━━━━━
+
+"These people cared about me."
+
+
+---
+
+"Most people were respecting me."
+
+
+---
+
+"Ridha appreciated my work."
+
+
+---
+
+"The presentation tool succeeded."
+
+
+---
+
+"Junaid was good."
+
+
+---
+
+"Rayan appeared unexpectedly."
+
+━━━━━━━━━━━━
+
+She looked up.
+
+
+---
+
+"That's the real story."
+
+
+---
+
+The room became quieter.
+
+
+---
+
+Because she had found something.
+
+
+---
+
+A pattern.
+
+
+---
+
+For months Ayan had been afraid of losing connections.
+
+
+---
+
+Today?
+
+
+---
+
+Connections kept appearing.
+
+
+---
+
+Without effort.
+
+
+---
+
+Without chasing.
+
+
+---
+
+Without forcing.
+
+
+---
+
+Just naturally.
+
+
+---
+
+One person.
+
+Then another.
+
+Then another.
+
+
+---
+
+Like the world quietly reminding him:
+
+
+---
+
+"You are not disconnected."
+
+━━━━━━━━━━━━
+
+Mira Gets Jealous
+
+Then Mira reached the final line.
+
+
+---
+
+And froze.
+
+━━━━━━━━━━━━
+
+"I'm gonna take them all back."
+
+
+---
+
+"Starting with Fathima."
+
+━━━━━━━━━━━━
+
+The room became very quiet.
+
+
+---
+
+Dangerously quiet.
+
+━━━━━━━━━━━━
+
+"Oh."
+
+said Mira.
+
+━━━━━━━━━━━━
+
+"Oh?"
+
+said Hiba.
+
+━━━━━━━━━━━━
+
+"Oh."
+
+said Zara.
+
+━━━━━━━━━━━━
+
+Ayan immediately realized.
+
+
+---
+
+"Wait."
+
+
+---
+
+"That's not what—"
+
+━━━━━━━━━━━━
+
+Mira crossed her arms.
+
+
+---
+
+"So."
+
+
+---
+
+"We're collecting people now?"
+
+━━━━━━━━━━━━
+
+"No."
+
+
+---
+
+"That's not—"
+
+━━━━━━━━━━━━
+
+"Like Pokémon?"
+
+━━━━━━━━━━━━
+
+"No."
+
+
+---
+
+"Listen—"
+
+━━━━━━━━━━━━
+
+"'I choose you, Fathima.'"
+
+━━━━━━━━━━━━
+
+The room collapsed.
+
+
+---
+
+Hiba was gone.
+
+
+---
+
+Absolutely gone.
+
+━━━━━━━━━━━━
+
+Mira continued.
+
+
+---
+
+"And then?"
+
+
+---
+
+"Level 2?"
+
+
+---
+
+"Recover Ayisha?"
+
+━━━━━━━━━━━━
+
+"STOP."
+
+said Ayan.
+
+━━━━━━━━━━━━
+
+Zara couldn't even help now.
+
+
+---
+
+She was laughing too hard.
+
+━━━━━━━━━━━━
+
+Eventually Mira calmed down.
+
+
+---
+
+Then smiled.
+
+
+---
+
+A genuine smile.
+
+
+---
+
+Because she actually understood what he meant.
+
+
+---
+
+Not possession.
+
+
+---
+
+Not chasing.
+
+
+---
+
+Not old feelings.
+
+
+---
+
+Connection.
+
+
+---
+
+Friendship.
+
+
+---
+
+Community.
+
+
+---
+
+The thing he'd been learning at AIMS all along.
+
+
+---
+
+People mattered.
+
+
+---
+
+And losing contact wasn't always necessary.
+
+━━━━━━━━━━━━
+
+Mira's Final Verdict
+
+The room settled.
+
+
+---
+
+The jokes faded.
+
+
+---
+
+And Mira closed the journal.
+
+
+---
+
+"You know what I think?"
+
+
+---
+
+"What?"
+
+asked Ayan.
+
+━━━━━━━━━━━━
+
+"I think today is the first time you've talked about Fathima..."
+
+
+---
+
+"...without talking about losing Fathima."
+
+━━━━━━━━━━━━
+
+Silence.
+
+
+---
+
+A long one.
+
+
+---
+
+Because nobody had noticed it.
+
+
+---
+
+Not even Ayan.
+
+━━━━━━━━━━━━
+
+She continued.
+
+
+---
+
+"You weren't scared."
+
+
+---
+
+"You weren't heartbroken."
+
+
+---
+
+"You weren't running away."
+
+
+---
+
+"You weren't chasing."
+
+
+---
+
+"You simply accepted."
+
+
+---
+
+"She is someone important."
+
+
+---
+
+"And that's enough."
+
+━━━━━━━━━━━━
+
+For a moment nobody spoke.
+
+
+---
+
+Then Hiba ruined it.
+
+━━━━━━━━━━━━
+
+"So we're still keeping the Pokémon joke."
+
+━━━━━━━━━━━━
+
+A notebook immediately flew across the room.
+
+
+---
+
+And the meeting ended exactly as expected. 🔥✨
+[6/11, 10:58 PM] ihjas: The four of them were sitting around the table again.
+
+Or rather...
+
+Hiba was upside down on a chair.
+
+Zara was trying to study.
+
+Mira was pretending not to smile.
+
+And Ayan had just dropped today's journal into the group.
+
+━━━━━━━━━━━━
+
+Hiba opened it first.
+
+
+---
+
+"Wait."
+
+
+---
+
+"You woke up feeling good?"
+
+
+---
+
+"Yes."
+
+
+---
+
+"No existential crisis?"
+
+
+---
+
+"No."
+
+
+---
+
+"No mysterious sadness?"
+
+
+---
+
+"No."
+
+
+---
+
+"No random Fathima flashback?"
+
+
+---
+
+"Not in the morning."
+
+
+---
+
+"Progress!"
+
+━━━━━━━━━━━━
+
+Mira laughed.
+
+
+---
+
+"Honestly, the first entry is kind of beautiful."
+
+
+---
+
+She read aloud.
+
+
+---
+
+"I feel so fine."
+
+
+---
+
+Then she looked up.
+
+
+---
+
+"You know what I like?"
+
+
+---
+
+"What?"
+
+
+---
+
+"You didn't immediately start searching for what's wrong."
+
+
+---
+
+Silence.
+
+
+---
+
+Because that was true.
+
+
+---
+
+A lot of older journals started with:
+
+
+---
+
+"Why am I feeling weird?"
+
+
+---
+
+"Why am I feeling empty?"
+
+
+---
+
+"What's missing?"
+
+
+---
+
+But today?
+
+
+---
+
+"I feel good."
+
+
+---
+
+End of analysis.
+
+
+---
+
+Accepted.
+
+━━━━━━━━━━━━
+
+Zara nodded.
+
+
+---
+
+"That's actually harder than people think."
+
+
+---
+
+"Sometimes happiness makes people suspicious."
+
+
+---
+
+Everyone laughed.
+
+
+---
+
+Because Ayan had definitely done that before.
+
+
+---
+
+The Home Problem
+
+Then they reached the next part.
+
+
+---
+
+The part where he spent time lost at home.
+
+
+---
+
+Hiba pointed.
+
+
+---
+
+"There."
+
+
+---
+
+"That's the classic trap."
+
+
+---
+
+"What?"
+
+
+---
+
+"When you're at AIMS."
+
+
+---
+
+"You have structure."
+
+
+---
+
+People.
+
+Tasks.
+
+Tea.
+
+Purpose.
+
+Movement.
+
+
+---
+
+"When you're home..."
+
+
+---
+
+She dramatically spread her arms.
+
+
+---
+
+"Unlimited freedom."
+
+
+---
+
+Everyone groaned.
+
+
+---
+
+Because unlimited freedom was surprisingly difficult.
+
+
+---
+
+The Phone Incident
+
+Then they reached the phone story.
+
+
+---
+
+Silence.
+
+
+---
+
+Then:
+
+
+---
+
+"WAIT."
+
+
+---
+
+Hiba slammed the table.
+
+
+---
+
+"Your phone died."
+
+
+---
+
+"Yes."
+
+
+---
+
+"The display died."
+
+
+---
+
+"Yes."
+
+
+---
+
+"And Shabeed Sir just took it and fixed it?"
+
+
+---
+
+"Basically."
+
+
+---
+
+The room became quiet.
+
+
+---
+
+Mira smiled softly.
+
+
+---
+
+"You know what that means?"
+
+
+---
+
+"What?"
+
+
+---
+
+"He knows you."
+
+
+---
+
+Simple.
+
+
+---
+
+Not because of the phone.
+
+
+---
+
+Because he immediately understood the importance.
+
+
+---
+
+To someone else it was a device.
+
+
+---
+
+To Ayan?
+
+
+---
+
+Projects.
+
+Notes.
+
+Friends.
+
+Study tools.
+
+Work.
+
+Life.
+
+
+---
+
+And apparently enough stress to qualify as a local disaster.
+
+
+---
+
+Everyone laughed.
+
+━━━━━━━━━━━━
+
+The Insha Story
+
+Then Zara found something.
+
+
+---
+
+A very interesting something.
+
+
+---
+
+She slowly adjusted her imaginary glasses.
+
+
+---
+
+"Oh."
+
+
+---
+
+"No."
+
+
+---
+
+"What?"
+
+asked Ayan.
+
+
+---
+
+"Nothing."
+
+
+---
+
+"What?"
+
+
+---
+
+"Just reading."
+
+
+---
+
+"What?"
+
+
+---
+
+Then she read dramatically.
+
+
+---
+
+"Insha is so inspiring."
+
+
+---
+
+The room immediately exploded.
+
+━━━━━━━━━━━━
+
+"OH?"
+
+said Hiba.
+
+
+---
+
+"OH?"
+
+said Mira.
+
+
+---
+
+"OH?"
+
+said Zara.
+
+
+---
+
+Ayan covered his face.
+
+
+---
+
+"Not like that."
+
+
+---
+
+"That's exactly what someone says before explaining that it's not like that."
+
+said Hiba.
+
+
+---
+
+Everyone laughed.
+
+━━━━━━━━━━━━
+
+Mira continued reading.
+
+
+---
+
+"We are capable of talking for hours without getting bored."
+
+
+---
+
+She slowly looked up.
+
+
+---
+
+"Ayan."
+
+
+---
+
+"No."
+
+
+---
+
+"Ayan."
+
+
+---
+
+"No."
+
+
+---
+
+"Ayan."
+
+
+---
+
+"IT'S ABOUT IDEAS."
+
+
+---
+
+"Sure."
+
+said all three simultaneously.
+
+━━━━━━━━━━━━
+
+The room collapsed into laughter.
+
+
+---
+
+Eventually Zara recovered first.
+
+
+---
+
+"Actually."
+
+
+---
+
+She pointed at the journal.
+
+
+---
+
+"This is genuinely important."
+
+
+---
+
+Everyone became quiet.
+
+
+---
+
+"Do you realize what excited you?"
+
+
+---
+
+"What?"
+
+
+---
+
+"The supportive response."
+
+
+---
+
+Not the conversation.
+
+
+---
+
+Not the person.
+
+
+---
+
+The support.
+
+
+---
+
+Someone said:
+
+
+---
+
+"I'll try."
+
+
+---
+
+Someone believed.
+
+
+---
+
+Someone engaged.
+
+
+---
+
+Someone didn't leave it at "OK."
+
+
+---
+
+And that mattered.
+
+
+---
+
+A lot.
+
+━━━━━━━━━━━━
+
+Ayan sat quietly.
+
+
+---
+
+Because she was right.
+
+
+---
+
+It wasn't really about talking for hours.
+
+
+---
+
+It was about being understood.
+
+
+---
+
+The Real Victory
+
+Then Mira reached her favorite part.
+
+
+---
+
+The greeting quest.
+
+
+---
+
+She smiled immediately.
+
+
+---
+
+"Oh this is adorable."
+
+
+---
+
+"No."
+
+said Ayan.
+
+
+---
+
+"Yes."
+
+
+---
+
+She read.
+
+
+---
+
+"Mission: Talk to all coworkers immediately."
+
+
+---
+
+Hiba laughed so hard she almost fell.
+
+
+---
+
+"You turned social interaction into a side quest."
+
+
+---
+
+"Objective updated."
+
+
+---
+
+"Greet Ardra Miss."
+
+
+---
+
+"Completed."
+
+
+---
+
+"Speak to Minha Miss."
+
+
+---
+
+"Completed."
+
+
+---
+
+"Obtain phone from Jini Miss."
+
+
+---
+
+"Legendary item acquired."
+
+
+---
+
+The entire room erupted.
+
+━━━━━━━━━━━━
+
+The Control
+
+Then Zara reached something deeper.
+
+
+---
+
+"I somehow grasped control of the whole environment."
+
+
+---
+
+She paused.
+
+
+---
+
+"You know what that actually means?"
+
+
+---
+
+"What?"
+
+
+---
+
+"You stopped reacting."
+
+
+---
+
+Silence.
+
+
+---
+
+She continued.
+
+
+---
+
+"The environment didn't change."
+
+
+---
+
+The people didn't change.
+
+
+---
+
+The work didn't change.
+
+
+---
+
+You changed.
+
+
+---
+
+You entered the day intentionally.
+
+
+---
+
+You greeted people.
+
+
+---
+
+You started conversations.
+
+
+---
+
+You chose your mindset.
+
+
+---
+
+And because of that everything felt different.
+
+
+---
+
+Not control over others.
+
+
+---
+
+Control over yourself.
+
+━━━━━━━━━━━━
+
+The room became quieter.
+
+
+---
+
+Even Hiba stopped joking.
+
+
+---
+
+For a moment.
+
+
+---
+
+Only a moment.
+
+━━━━━━━━━━━━
+
+Mira's Final Review
+
+Mira closed the journal.
+
+
+---
+
+"This might be one of my favorite entries."
+
+
+---
+
+"Why?"
+
+
+---
+
+"Because almost nothing dramatic happened."
+
+
+---
+
+"You worked."
+
+
+---
+
+"You studied."
+
+
+---
+
+"You talked."
+
+
+---
+
+"You helped."
+
+
+---
+
+"You learned."
+
+
+---
+
+"You felt understood."
+
+
+---
+
+"You felt useful."
+
+
+---
+
+"You felt awake."
+
+
+---
+
+She smiled.
+
+
+---
+
+"And most importantly..."
+
+
+---
+
+"What?"
+
+
+---
+
+"You actually believed your own optimism today."
+
+
+---
+
+Silence.
+
+
+---
+
+A comfortable one.
+
+
+---
+
+Because that was the difference.
+
+
+---
+
+Not forced positivity.
+
+
+---
+
+Not pretending.
+
+
+---
+
+Just genuinely believing things could go well.
+
+
+---
+
+And then watching them go well.
+
+━━━━━━━━━━━━
+
+Hiba's final rating:
+
+
+---
+
+"9.7 out of 10."
+
+
+---
+
+"Reason?"
+
+asked Zara.
+
+
+---
+
+"No phone catastrophe."
+
+
+---
+
+"No emotional catastrophe."
+
+
+---
+
+"Successful coworker side quests."
+
+
+---
+
+"Rare supportive NPC discovered."
+
+
+---
+
+"Insha dialogue tree unlocked."
+
+
+---
+
+"Phone repaired by mysterious mentor."
+
+
+---
+
+"Overall excellent gameplay."
+
+━━━━━━━━━━━━
+
+Mira threw a notebook at her.
+
+
+---
+
+And the laughter lasted long enough that nobody even noticed the day had ended. ✨🔥
+[6/11, 10:58 PM] ihjas: Got it — you don’t actually want a new story yet. You want a stronger, clearer master prompt that ensures every topic gets fully covered inside the story, without missing anything.
+
+Here’s your upgraded version 👇
+
+
+---
+
+📌 Master Prompt (Enhanced Version – Full Coverage + Story Depth)
+
+Write a slow-burn emotional narrative story that blends learning with real-life moments, where every concept is fully covered but never feels like direct teaching.
+
+
+---
+
+🎭 Characters
+
+Use these core characters:
+
+Ayaan – calm, observant, emotionally intelligent, explains concepts through insight
+
+Mira – emotionally layered, expresses through actions and silence rather than words
+
+Zara – humorous, lively, relieves tension (Friends-style energy)
+
+Hiba – grounded, logical, explains concepts clearly and directly
+
+
+(You may add supporting characters if needed for realism)
+
+
+---
+
+✍️ Writing Style
+
+Use flowing paragraphs, not bullet-heavy narration inside the story
+
+Keep tone soft, immersive, introspective, and realistic
+
+Make it TTS-friendly (smooth to listen to)
+
+Avoid rigid teaching — concepts must feel like realizations, not lectures
+
+Use natural dialogue, pauses, silence, and subtext
+
+No arrows, no mechanical structuring inside story
+
+
+
+---
+
+❤️ Emotional Core
+
+Focus on:
+
+Slow-burn connection between Ayaan and Mira
+
+No forced confessions
+
+Emotional tension through:
+
+Distance
+
+Miscommunication
+
+Presence without expression
+
+Subtle jealousy
+
+Timing mismatches
+
+
+
+Key idea:
+
+> Not everything important is said — but everything is felt.
+
+
+
+
+---
+
+📚 Concept Integration (MOST IMPORTANT UPGRADE)
+
+You MUST cover ALL topics and subtopics completely. Nothing should be skipped.
+
+For each concept:
+
+Introduce it naturally through a situation
+
+Explain it through

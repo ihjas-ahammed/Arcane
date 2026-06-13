@@ -45,7 +45,7 @@ class _SomedayListScreenState extends State<SomedayListScreen> {
       appBar: AppBar(
         title: Text("SOMEDAY / MAYBE", style: GoogleFonts.rajdhani(color: JweTheme.accentAmber, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
         backgroundColor: JweTheme.bgBase,
-        iconTheme: const IconThemeData(color: JweTheme.accentAmber),
+        iconTheme: IconThemeData(color: JweTheme.accentAmber),
       ),
       body: SafeArea(
         child: Center(

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_running_task_desc">Arcane — Active mission with engage/halt/finish controls.</string>
+    <string name="widget_finance_desc">Arcane — Liquid balance, today/MTD spend, budget trajectory.</string>
+    <string name="widget_journal_desc">Arcane — Quick reflection log + latest entry.</string>
+</resources>

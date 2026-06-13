@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
+import 'package:intl/intl.dart';
 
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/theme/person_info_theme.dart';
@@ -95,7 +96,22 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     setState(() {
       _plan.remove(compoundId);
     });
-    _persistPlan(provider);
+    _persistPlan(provider); // updateDayPlan auto-clears a Phoenix that left the plan
+  }
+
+  void _togglePhoenix(AppProvider provider, String compoundId) {
+    final current = provider.taskActions.getPhoenixId(_date);
+    if (current == compoundId) {
+      provider.taskActions.setPhoenix(_date, null);
+    } else {
+      // Pin to the front so the Phoenix reads as the first thing of the day.
+      setState(() {
+        _plan.remove(compoundId);
+        _plan.insert(0, compoundId);
+      });
+      _persistPlan(provider);
+      provider.taskActions.setPhoenix(_date, compoundId);
+    }
   }
 
   Future<void> _editEstimate(AppProvider provider, String compoundId) async {
@@ -166,6 +182,66 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     }
   }
 
+  Future<void> _editReminder(AppProvider provider, String compoundId) async {
+    final existing = provider.plannerReminderTime(compoundId);
+    if (existing != null) {
+      final action = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppTheme.fhBgDark,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+          title: Text('REMINDER',
+              style: GoogleFonts.rajdhani(
+                  color: AppTheme.fhAccentTeal,
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.bold)),
+          content: Text(
+            'Set for ${DateFormat('MMM d · hh:mm a').format(existing)}.',
+            style: const TextStyle(color: AppTheme.fhTextSecondary),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, 'clear'),
+                child: const Text('CLEAR',
+                    style: TextStyle(color: AppTheme.fhAccentRed))),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, 'change'),
+                child: const Text('CHANGE',
+                    style: TextStyle(color: AppTheme.fhAccentTeal))),
+          ],
+        ),
+      );
+      if (action == 'clear') {
+        await provider.setPlannerReminder(compoundId, null);
+        return;
+      }
+      if (action != 'change') return;
+    }
+
+    if (!mounted) return;
+    final base = existing ?? DateTime.now().add(const Duration(hours: 1));
+    final date = await showDatePicker(
+      context: context,
+      initialDate: base,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(base),
+    );
+    if (time == null) return;
+    final when =
+        DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    await provider.setPlannerReminder(compoundId, when);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Reminder set for ${DateFormat('MMM d · hh:mm a').format(when)}'),
+      backgroundColor: AppTheme.fhAccentTeal.withValues(alpha: 0.9),
+    ));
+  }
+
   ({String? title, Color? color, bool isRunning}) _resolveActive(AppProvider provider) {
     for (final id in _plan) {
       final parts = id.split('|');
@@ -193,6 +269,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     final now = DateTime.now();
     final window = resolveDayWindow(provider, now);
     final minutesLeft = window.minutesRemaining(now);
+    final realisticMinutes = window.realisticMinutes(now);
     final plannedMinutes =
         _plan.fold<int>(0, (sum, id) => sum + _estimateFor(id, provider));
     final active = _resolveActive(provider);
@@ -215,6 +292,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
             _BudgetBar(
               plannedMinutes: plannedMinutes,
               minutesLeft: minutesLeft,
+              realisticMinutes: realisticMinutes,
               fromHistory: window.fromHistory,
             ),
             if (active.title != null)
@@ -260,31 +338,60 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       );
     }
 
-    return ReorderableListView.builder(
+    final phoenixId = provider.taskActions.getPhoenixId(_date);
+    final hasPhoenix = phoenixId != null && _plan.contains(phoenixId);
+    final queue = _plan.where((id) => id != phoenixId).toList();
+
+    final list = ReorderableListView.builder(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-      itemCount: _plan.length,
+      itemCount: queue.length,
       proxyDecorator: (child, _, __) =>
           Material(color: Colors.transparent, child: child),
       onReorder: (oldIndex, newIndex) {
         if (oldIndex < newIndex) newIndex -= 1;
         setState(() {
-          final item = _plan.removeAt(oldIndex);
-          _plan.insert(newIndex, item);
+          final item = queue.removeAt(oldIndex);
+          queue.insert(newIndex, item);
+          _plan = [if (hasPhoenix) phoenixId!, ...queue];
         });
         _persistPlan(provider);
       },
       itemBuilder: (context, index) {
-        final id = _plan[index];
+        final id = queue[index];
         return _PlanRow(
           key: ValueKey(id),
           compoundId: id,
           provider: provider,
           minutes: _estimateFor(id, provider),
           isCustomEstimate: _estimates.containsKey(id),
+          hasReminder: provider.plannerReminderTime(id) != null,
           onEditEstimate: () => _editEstimate(provider, id),
+          onEditReminder: () => _editReminder(provider, id),
           onRemove: () => _removeFromPlan(provider, id),
+          onAnoint: () => _togglePhoenix(provider, id),
         );
       },
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (hasPhoenix)
+          _PhoenixCard(
+            compoundId: phoenixId!,
+            provider: provider,
+            minutes: _estimateFor(phoenixId, provider),
+            isCustomEstimate: _estimates.containsKey(phoenixId),
+            hasReminder: provider.plannerReminderTime(phoenixId) != null,
+            onEditEstimate: () => _editEstimate(provider, phoenixId!),
+            onEditReminder: () => _editReminder(provider, phoenixId!),
+            onRemove: () => _removeFromPlan(provider, phoenixId!),
+            onDemote: () => _togglePhoenix(provider, phoenixId!),
+          )
+        else
+          const _AnointHint(),
+        Expanded(child: list),
+      ],
     );
   }
 
@@ -379,23 +486,26 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
 class _BudgetBar extends StatelessWidget {
   final int plannedMinutes;
   final int minutesLeft;
+  final int realisticMinutes;
   final bool fromHistory;
 
   const _BudgetBar({
     required this.plannedMinutes,
     required this.minutesLeft,
+    required this.realisticMinutes,
     required this.fromHistory,
   });
 
   @override
   Widget build(BuildContext context) {
-    final over = minutesLeft > 0 && plannedMinutes > minutesLeft;
-    final ratio = minutesLeft <= 0
+    // Capacity is judged against realistic (buffer-aware) time, not raw time left.
+    final over = realisticMinutes > 0 && plannedMinutes > realisticMinutes;
+    final ratio = realisticMinutes <= 0
         ? 1.0
-        : (plannedMinutes / minutesLeft).clamp(0.0, 1.0);
+        : (plannedMinutes / realisticMinutes).clamp(0.0, 1.0);
     final color = over
         ? AppTheme.fhAccentRed
-        : (ratio > 0.75 ? PersonInfoTheme.spideyCyan : AppTheme.fhAccentGreen);
+        : (ratio > 0.85 ? PersonInfoTheme.spideyCyan : AppTheme.fhAccentGreen);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
@@ -417,9 +527,9 @@ class _BudgetBar extends StatelessWidget {
               const SizedBox(width: 6),
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text('PLANNED',
+                child: Text('PLANNED / ${formatMinutes(realisticMinutes)} USABLE',
                     style: TextStyle(
-                        color: AppTheme.fhTextSecondary,
+                        color: over ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
                         fontSize: 10,
                         letterSpacing: 1.5,
                         fontWeight: FontWeight.bold)),
@@ -523,8 +633,11 @@ class _PlanRow extends StatelessWidget {
   final AppProvider provider;
   final int minutes;
   final bool isCustomEstimate;
+  final bool hasReminder;
   final VoidCallback onEditEstimate;
+  final VoidCallback onEditReminder;
   final VoidCallback onRemove;
+  final VoidCallback onAnoint;
 
   const _PlanRow({
     super.key,
@@ -532,8 +645,11 @@ class _PlanRow extends StatelessWidget {
     required this.provider,
     required this.minutes,
     required this.isCustomEstimate,
+    required this.hasReminder,
     required this.onEditEstimate,
+    required this.onEditReminder,
     required this.onRemove,
+    required this.onAnoint,
   });
 
   @override
@@ -615,9 +731,201 @@ class _PlanRow extends StatelessWidget {
             ),
           ),
           IconButton(
+            icon: Icon(MdiIcons.fireCircle,
+                size: 18, color: AppTheme.fhTextSecondary),
+            onPressed: onAnoint,
+            splashRadius: 18,
+            tooltip: 'Anoint as Phoenix',
+          ),
+          IconButton(
+            icon: Icon(
+              hasReminder ? MdiIcons.bellRing : MdiIcons.bellOutline,
+              size: 18,
+              color: hasReminder ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
+            ),
+            onPressed: onEditReminder,
+            splashRadius: 18,
+            tooltip: 'Reminder',
+          ),
+          IconButton(
             icon: const Icon(Icons.close, size: 18, color: AppTheme.fhAccentRed),
             onPressed: onRemove,
             splashRadius: 18,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnointHint extends StatelessWidget {
+  const _AnointHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.fhAccentOrange.withOpacity(0.05),
+        border: Border.all(
+            color: AppTheme.fhAccentOrange.withOpacity(0.35),
+            style: BorderStyle.solid),
+      ),
+      child: Row(
+        children: [
+          Icon(MdiIcons.fireCircle, size: 16, color: AppTheme.fhAccentOrange),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text('Anoint your Phoenix — the one thing that must rise today.',
+                style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11.5)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PhoenixCard extends StatelessWidget {
+  final String compoundId;
+  final AppProvider provider;
+  final int minutes;
+  final bool isCustomEstimate;
+  final bool hasReminder;
+  final VoidCallback onEditEstimate;
+  final VoidCallback onEditReminder;
+  final VoidCallback onRemove;
+  final VoidCallback onDemote;
+
+  const _PhoenixCard({
+    required this.compoundId,
+    required this.provider,
+    required this.minutes,
+    required this.isCustomEstimate,
+    required this.hasReminder,
+    required this.onEditEstimate,
+    required this.onEditReminder,
+    required this.onRemove,
+    required this.onDemote,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = compoundId.split('|');
+    if (parts.length < 2) return const SizedBox.shrink();
+    final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+    if (task == null || sub == null) return const SizedBox.shrink();
+
+    final isCheckpoint = parts.length == 3;
+    SubSubTask? cp;
+    if (isCheckpoint) {
+      cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+      if (cp == null) return const SizedBox.shrink();
+    }
+    final title = isCheckpoint ? cp!.name : sub.name;
+    final parent = isCheckpoint ? '${task.name} > ${sub.name}' : task.name;
+
+    final amber = AppTheme.fhAccentOrange;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+      decoration: BoxDecoration(
+        color: amber.withOpacity(0.07),
+        border: Border(left: BorderSide(color: amber, width: 3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Phoenix banner
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 6, 2),
+            child: Row(
+              children: [
+                Icon(MdiIcons.fire, size: 13, color: amber),
+                const SizedBox(width: 6),
+                Text('PHOENIX',
+                    style: GoogleFonts.rajdhani(
+                        color: amber,
+                        fontSize: 10,
+                        letterSpacing: 2,
+                        fontWeight: FontWeight.bold)),
+                const Spacer(),
+                InkWell(
+                  onTap: onDemote,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Text('DEMOTE',
+                        style: TextStyle(
+                            color: AppTheme.fhTextSecondary,
+                            fontSize: 9,
+                            letterSpacing: 1.2,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 0, 8, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(title,
+                          style: const TextStyle(
+                              color: AppTheme.fhTextPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
+                      Text(parent,
+                          style: const TextStyle(
+                              color: AppTheme.fhTextSecondary, fontSize: 10),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+              ),
+              InkWell(
+                onTap: onEditEstimate,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.fhBgDeepDark,
+                    border: Border.all(
+                        color: isCustomEstimate
+                            ? amber.withOpacity(0.6)
+                            : AppTheme.fhBorderColor),
+                  ),
+                  child: Text(formatMinutes(minutes),
+                      style: TextStyle(
+                          color: isCustomEstimate ? amber : AppTheme.fhTextSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold)),
+                ),
+              ),
+              IconButton(
+                icon: Icon(
+                  hasReminder ? MdiIcons.bellRing : MdiIcons.bellOutline,
+                  size: 18,
+                  color: hasReminder ? amber : AppTheme.fhTextSecondary,
+                ),
+                onPressed: onEditReminder,
+                splashRadius: 18,
+                tooltip: 'Reminder',
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 18, color: AppTheme.fhAccentRed),
+                onPressed: onRemove,
+                splashRadius: 18,
+              ),
+            ],
           ),
         ],
       ),
