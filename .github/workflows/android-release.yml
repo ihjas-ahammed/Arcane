@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - '**'
+    paths-ignore:
+      - 'builds/**'
   pull_request:
 
 permissions:
@@ -16,6 +18,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -32,6 +36,13 @@ jobs:
       - name: Get Flutter Dependencies
         run: flutter pub get
 
+      - name: Extract version from pubspec.yaml
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | sed 's/+.*//' | xargs)
+          echo "vname=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Create api_keys.dart from secret
         env:
           GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
@@ -45,25 +56,54 @@ jobs:
       # The signing config in android/app/build.gradle.kts points at
       # ../../debug.keystore (i.e. the repo root). It's committed, so the
       # checkout step already places it where Gradle expects.
-      - name: Build Android Release APK
-        run: flutter build apk --release
+      - name: Build release APK (split per ABI)
+        run: flutter build apk --release --split-per-abi
 
-      - name: Upload APK Artifact
+      - name: Copy APKs to builds directory
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.vname }}"
+          mkdir -p builds
+          for apk in build/app/outputs/flutter-apk/*-release.apk; do
+            if [[ $(basename "$apk") == "app-release.apk" ]]; then
+              continue
+            fi
+            ABI=$(basename "$apk" | sed 's/app-//' | sed 's/-release.apk//')
+            cp "$apk" "builds/arcane-v${VERSION}-${ABI}.apk"
+          done
+          ls -lh builds/
+
+      - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: app-release-${{ github.run_number }}
-          path: build/app/outputs/apk/release/app-release.apk
+          path: builds/arcane-*.apk
           if-no-files-found: error
+
+      - name: Commit and push builds to repository
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add builds/
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: add Android builds v${{ steps.version.outputs.vname }} [skip ci]"
+            git push origin main
+          fi
 
       - name: Publish GitHub Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v1
         with:
-          files: build/app/outputs/apk/release/app-release.apk
+          files: builds/arcane-*.apk
           tag_name: build-${{ github.run_number }}
           name: Build ${{ github.run_number }}
           body: |
             Automated release from `main`.
+            Version: ${{ steps.version.outputs.vname }}
             Commit: ${{ github.sha }}
           draft: false
           prerelease: false

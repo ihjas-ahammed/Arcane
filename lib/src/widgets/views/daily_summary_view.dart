@@ -258,10 +258,14 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           }).toList()
         :[];
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isLargeScreen = screenWidth > 900;
+    final bottomPadding = isLargeScreen ? 14.0 : (0 + MediaQuery.of(context).padding.bottom);
+
     return Scaffold(
       backgroundColor: JweTheme.bgBase,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(0, 14, 0, 80),
+        padding: EdgeInsets.fromLTRB(0, 14, 0, bottomPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

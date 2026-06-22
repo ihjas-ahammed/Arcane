@@ -16,11 +16,15 @@ class MoreScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isLargeScreen = screenWidth > 900;
+    final bottomPadding = isLargeScreen ? 16.0 : (0 + MediaQuery.of(context).padding.bottom);
+
     final bodyContent = Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.fromLTRB(16, 16, 16, bottomPadding),
           children: [
             const Text("UTILITIES & SYSTEM",
                 style: TextStyle(

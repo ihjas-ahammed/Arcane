@@ -208,8 +208,12 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
         .toList()
       ..sort((a, b) => b.amount.compareTo(a.amount));
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isLargeScreen = screenWidth > 900;
+    final bottomPadding = isLargeScreen ? 0.0 : (0 + MediaQuery.of(context).padding.bottom);
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 80),
+      padding: EdgeInsets.only(bottom: bottomPadding),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
 
         // ── Balance hero ────────────────────────────

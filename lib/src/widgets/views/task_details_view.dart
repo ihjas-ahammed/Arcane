@@ -299,6 +299,9 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
         final completedArchived = currentTask.subTasks.where((st) => st.completed && !st.isRecurring && !st.isDeleted).toList();
 
         final theme = Theme.of(context);
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isLargeScreen = screenWidth > 900;
+        final bottomPadding = isLargeScreen ? 0.0 : (0 + MediaQuery.of(context).padding.bottom);
 
         return RefreshIndicator(
           color: AppTheme.fhAccentTeal,
@@ -308,7 +311,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.only(top: 0, bottom: 80, left: 0, right: 0),
+            padding: EdgeInsets.only(top: 0, bottom: bottomPadding, left: 0, right: 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -321,7 +324,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                 ),
 
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 16 , 16, 12),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [

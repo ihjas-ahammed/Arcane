@@ -26,8 +26,12 @@ class _HealthDashboardViewState extends State<HealthDashboardView> {
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
     final log = provider.getDailyHealthLog(dateStr);
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isLargeScreen = screenWidth > 900;
+    final bottomPadding = isLargeScreen ? 16.0 : (0 + MediaQuery.of(context).padding.bottom);
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, bottomPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

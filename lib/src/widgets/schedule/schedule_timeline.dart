@@ -145,6 +145,10 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     final double pixelsPerHour = _basePixelsPerHour;
     final double totalHeight = pixelsPerHour * hoursCount;
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isLargeScreen = screenWidth > 900;
+    final bottomPadding = isLargeScreen ? 0.0 : (0 + MediaQuery.of(context).padding.bottom);
+
     final layoutEntries = _calculateLayout(widget.entries);
 
     return LayoutBuilder(builder: (context, constraints) {
@@ -157,7 +161,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
               widget.onAddSession();
             },
             child: Container(
-              height: totalHeight,
+              height: totalHeight + bottomPadding,
               width: double.infinity,
               color: Colors.transparent,
               child: Stack(

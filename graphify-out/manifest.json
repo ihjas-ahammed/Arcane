@@ -45,8 +45,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/android/app/build.gradle.kts": {
-    "mtime": 1779462009.3316422,
-    "ast_hash": "60b79f18c89f365a3fd95ea5ee7973b1",
+    "mtime": 1782130685.7190526,
+    "ast_hash": "75609cf8d19d6db3c9bbd979a74c555c",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/android/app/src/main/kotlin/me/ihjas/missions/MainActivity.kt": {
@@ -160,12 +160,12 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.dart_tool/package_graph.json": {
-    "mtime": 1780448818.353497,
-    "ast_hash": "60b001281772dfd8c720012e58b6147b",
+    "mtime": 1782132448.662778,
+    "ast_hash": "0613afefd2f9b3d9020e668ab14ff834",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.dart_tool/package_config.json": {
-    "mtime": 1781199439.325999,
+    "mtime": 1782132451.619999,
     "ast_hash": "f61f259b4e50bb7009c02d2c8d862865",
     "semantic_hash": ""
   },
@@ -295,7 +295,7 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.dart_tool/flutter_build/f43fb03981ecea7be547789c7beca1f6/outputs.json": {
-    "mtime": 1781359190.0495732,
+    "mtime": 1782129297.2577717,
     "ast_hash": "f12a0d476be359aa9c487e08d3c93eb9",
     "semantic_hash": ""
   },
@@ -670,12 +670,12 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/screens/more_screen.dart": {
-    "mtime": 1781361455.3107867,
-    "ast_hash": "ba89b303de283dc09f4bb4cac4f99eb6",
+    "mtime": 1782132011.0097547,
+    "ast_hash": "bbb1939c8a7a4f4796846d210514ab05",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/screens/home_screen.dart": {
-    "mtime": 1781362576.3207047,
+    "mtime": 1782131230.7988508,
     "ast_hash": "56a4c6e29d1b8456003d1f8e5bc7467d",
     "semantic_hash": ""
   },
@@ -885,8 +885,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/finance/finance_tracker_view.dart": {
-    "mtime": 1781101159.2484279,
-    "ast_hash": "dee59cebae8c51b6d990cd4962f4a247",
+    "mtime": 1782131973.5636876,
+    "ast_hash": "a20cf3d48ea57a873694e0c0033ade04",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/finance/savings_goals_view.dart": {
@@ -910,8 +910,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/schedule/schedule_timeline.dart": {
-    "mtime": 1779462009.3424227,
-    "ast_hash": "cc39e4a5bca7eefc25f8e560c6ea9e6b",
+    "mtime": 1782131973.5636876,
+    "ast_hash": "3b3b541fd25c06fee78de30184f59006",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/schedule/schedule_hero_widget.dart": {
@@ -990,8 +990,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/ui/completed_submissions_section.dart": {
-    "mtime": 1779462009.343423,
-    "ast_hash": "f1647ce050806c954e3e353dfc8ccdc8",
+    "mtime": 1782132076.4191236,
+    "ast_hash": "4879ff8a3a475a71401a6886ab367742",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/ui/reflection_progress_widget.dart": {
@@ -1370,13 +1370,13 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/health_dashboard_view.dart": {
-    "mtime": 1779462009.345423,
-    "ast_hash": "76f49acb6faf41f767a52e8f15fb1428",
+    "mtime": 1782131973.5626879,
+    "ast_hash": "c7b40764da50721dc6f55a60f52d37f8",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/task_details_view.dart": {
-    "mtime": 1781362923.5001583,
-    "ast_hash": "d524a2207c50bbb647acb58f910e4cae",
+    "mtime": 1782131973.5626879,
+    "ast_hash": "96ff40323072a69819994f81600cd357",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/ai_prompts_view.dart": {
@@ -1385,8 +1385,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/daily_summary_view.dart": {
-    "mtime": 1781359884.967166,
-    "ast_hash": "9b47d179cd50b216d8b4224b4b550817",
+    "mtime": 1782131973.5626879,
+    "ast_hash": "0d60b80f20bbce04ce8806976ed12ce5",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/schedule_view.dart": {
@@ -1505,8 +1505,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/services/notification_service.dart": {
-    "mtime": 1780494418.9544547,
-    "ast_hash": "49e682f65513ba733aacfcf1fc2be3aa",
+    "mtime": 1782130690.6981316,
+    "ast_hash": "e297764917162791f70f7120f84a6ecf",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/services/data_export_service.dart": {
@@ -1725,8 +1725,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/pubspec.yaml": {
-    "mtime": 1781199431.761366,
-    "ast_hash": "5664f6912bd6144970932582fd86f44a",
+    "mtime": 1782132435.959027,
+    "ast_hash": "61a6e4332c9d2c462463991aee09fd72",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/targets.md": {
@@ -1875,8 +1875,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.github/workflows/android-release.yml": {
-    "mtime": 1779465621.7630877,
-    "ast_hash": "4895322a50a58124ac4080ab4d8c5c4e",
+    "mtime": 1782132735.2165465,
+    "ast_hash": "ab325620d42bd53d4539484d8d1411bc",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.superpowers/brainstorm/47995-1780449626/content/planner-direction.html": {
