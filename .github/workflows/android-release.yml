@@ -73,15 +73,8 @@ jobs:
           done
           ls -lh builds/
 
-      - name: Upload APK Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release-${{ github.run_number }}
-          path: builds/arcane-*.apk
-          if-no-files-found: error
-
       - name: Commit and push builds to repository
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push'
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -91,7 +84,7 @@ jobs:
             echo "No changes to commit."
           else
             git commit -m "chore: add Android builds v${{ steps.version.outputs.vname }} [skip ci]"
-            git push origin main
+            git push origin HEAD:${{ github.ref_name }}
           fi
 
       - name: Publish GitHub Release
