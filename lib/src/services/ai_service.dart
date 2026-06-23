@@ -205,7 +205,7 @@ class AIService {
   }) async {
     String systemStyle = "";
     if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
-      systemStyle = "\n\nAdhere to the following writing style map for your response (mirror the user's tone and style):\n$writingStyleMap\n";
+      systemStyle = "\n\nAdhere to the following writing style map for your response. IMPORTANT: You must write in the absolute BEST version of this writing style, with all grammar, spelling, casing, capitalization, and punctuation corrected. Do NOT directly copy the user's typing style if it has typos, run-on sentences, lack of capitalization, or lazy texting shortcuts. Every sentence must use proper capitalization, standard punctuation, and perfect grammar while keeping the user's tone, vocabulary, and personality:\n$writingStyleMap\n";
     }
     final prompt = """
     $logsContext
@@ -215,11 +215,11 @@ class AIService {
 
     RULES:
     1. Answer based on the provided context if applicable.
-    2. Write casually, lower case, lazy texting style, use abbreviations like 'yk', 'tbh', 'idk'. NO markdown formatting.
+    2. Write casually, but with proper grammar, punctuation, and capitalization. NO markdown formatting.
     3. You must output your thoughts as a sequence of short text messages (1-2 sentences max per message).
     4. STRICT LIMIT: Generate a MAXIMUM of $maxMessages messages in this sequence. Do not exceed this.
     5. Your output MUST be ONLY a valid JSON array of strings. No JSON wrapper object.
-    Example output format: ["yeah i remember that", "tbh you should just take a break", "what do you think?"]
+    Example output format: ["Yeah, I remember that.", "Tbh, you should just take a break.", "What do you think?"]
     """;
 
     try {
@@ -417,13 +417,22 @@ Output ONLY the JSON object. Do not include markdown code block syntax (like ```
     USER SPECIFIC REQUEST: $userPrompt
     
     Task:
-    1. Break down the execution into 3-6 concrete, actionable steps ("How"). Keep them concise. Incorporate user request.
-    2. Define the expected result/reward ("What") upon completion.
+    1. Break down the execution into concrete, actionable steps ("How"). Keep them concise. Incorporate user request.
+    2. You can create nested sub-steps of any depth (any-level nested tasks) under any step if it requires more detailed execution.
+    3. Define the expected result/reward ("What") upon completion.
     
     Output JSON ONLY:
     {
       "steps":[
-        {"name": "Step description"}
+        {
+          "name": "Step description",
+          "steps": [
+            {
+              "name": "Sub-step description",
+              "steps": []
+            }
+          ]
+        }
       ],
       "what": "Description of the result or reward"
     }
@@ -611,7 +620,7 @@ Output ONLY the JSON object. Do not include markdown code block syntax (like ```
 
     String systemStyle = "";
     if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
-      systemStyle = "\n\nAdhere to the following writing style map for your response (mirror the user's tone and style):\n$writingStyleMap\n";
+      systemStyle = "\n\nAdhere to the following writing style map for your response. IMPORTANT: You must write in the absolute BEST version of this writing style, with all grammar, spelling, casing, capitalization, and punctuation corrected. Do NOT directly copy the user's typing style if it has typos, run-on sentences, lack of capitalization, or lazy texting shortcuts. Every sentence must use proper capitalization, standard punctuation, and perfect grammar while keeping the user's tone, vocabulary, and personality:\n$writingStyleMap\n";
     }
 
     final prompt = """
@@ -751,7 +760,7 @@ Output ONLY the JSON object. Do not include markdown code block syntax (like ```
   }) async {
     String systemStyle = "";
     if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
-      systemStyle = "\n\nAdhere to the following writing style map for your response (mirror the user's tone and style):\n$writingStyleMap\n";
+      systemStyle = "\n\nAdhere to the following writing style map for your response. IMPORTANT: You must write in the absolute BEST version of this writing style, with all grammar, spelling, casing, capitalization, and punctuation corrected. Do NOT directly copy the user's typing style if it has typos, run-on sentences, lack of capitalization, or lazy texting shortcuts. Every sentence must use proper capitalization, standard punctuation, and perfect grammar while keeping the user's tone, vocabulary, and personality:\n$writingStyleMap\n";
     }
     final prompt = """
     Generate an end-of-day Tactical Briefing grounded in evidence-based psychology.
@@ -810,7 +819,7 @@ Output ONLY the JSON object. Do not include markdown code block syntax (like ```
   }) async {
     String systemStyle = "";
     if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
-      systemStyle = "\n\nAdhere to the following writing style map for your response (mirror the user's tone and style):\n$writingStyleMap\n";
+      systemStyle = "\n\nAdhere to the following writing style map for your response. IMPORTANT: You must write in the absolute BEST version of this writing style, with all grammar, spelling, casing, capitalization, and punctuation corrected. Do NOT directly copy the user's typing style if it has typos, run-on sentences, lack of capitalization, or lazy texting shortcuts. Every sentence must use proper capitalization, standard punctuation, and perfect grammar while keeping the user's tone, vocabulary, and personality:\n$writingStyleMap\n";
     }
     final prompt = """
     Generate a comprehensive 7-Day Review Report grounded in "Getting Things Done" (GTD) and "Atomic Habits" principles, along with evidence-based psychology.
@@ -890,7 +899,7 @@ Output ONLY the JSON object. Do not include markdown code block syntax (like ```
   }) async {
     String systemStyle = "";
     if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
-      systemStyle = "\n\nAdhere to the following writing style map for your response (mirror the user's tone and style):\n$writingStyleMap\n";
+      systemStyle = "\n\nAdhere to the following writing style map for your response. IMPORTANT: You must write in the absolute BEST version of this writing style, with all grammar, spelling, casing, capitalization, and punctuation corrected. Do NOT directly copy the user's typing style if it has typos, run-on sentences, lack of capitalization, or lazy texting shortcuts. Every sentence must use proper capitalization, standard punctuation, and perfect grammar while keeping the user's tone, vocabulary, and personality:\n$writingStyleMap\n";
     }
     final prompt = """
     Generate a 'System Start-Up Sequence' (a morning briefing) grounded in evidence-based psychology.
@@ -1223,208 +1232,6 @@ Output ONLY the JSON object. Do not include markdown code block syntax (like ```
         final text = response.text;
         if (text == null || text.trim().isEmpty) throw Exception("AI response was empty.");
         return text.trim();
-      },
-    );
-  }
-
-  /// Generates a single story segment (list of paragraph objects) for one character.
-  /// [previousStoryJson] is the JSON string of paragraphs generated so far (for context).
-  /// [targetCharacter] is which character should primarily speak in this segment.
-  Future<List<Map<String, dynamic>>> generateStorySegment({
-    required String systemContext,
-    required String previousStoryJson,
-    required String targetCharacter,
-    required List<String> modelCandidates,
-    List<String>? customApiKeys,
-    required int currentApiKeyIndex,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prompt = """
-$systemContext
-
-CONVERSATION SO FAR (what has already been said — DO NOT REPEAT THESE):
-$previousStoryJson
-
-Your task for THIS segment: Write the next part of the conversation where $targetCharacter speaks.
-Rules for this segment:
-- $targetCharacter MUST have at least 2 dialogue lines in this segment.
-- The other characters may react briefly (1-2 lines each at most).
-- Stay in character as described. Reference specific details from today's reflections.
-- Maximum 10 paragraph objects total in this segment.
-- Use mix of 'action' and 'dialogue' types.
-
-OUTPUT ONLY A VALID JSON ARRAY of paragraph objects. No preamble. No markdown fences.
-Example: [{"type":"action","text":"..."},{"type":"dialogue","character":"$targetCharacter","text":"..."}]
-""";
-
-    return await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
-        final raw = response.text;
-        if (raw == null || raw.trim().isEmpty) throw Exception("AI response was empty.");
-        final decoded = JsonUtils.tryDecode(raw.trim());
-        if (decoded is List) {
-          return decoded.cast<Map<String, dynamic>>();
-        }
-        throw FormatException("Expected JSON array but got: $raw", raw);
-      },
-    );
-  }
-
-  Future<Map<String, dynamic>> generateStoryBriefing({
-    required String todayReflections,
-    required String last7DaysContext,
-    required String last4WeeksWeeklyContext,
-    required String userCharacter,
-    required String storyExamples,
-    required List<String> modelCandidates,
-    required int currentApiKeyIndex,
-    List<String>? customApiKeys,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    // This is the base context shared across all segment calls.
-    final systemContext = """
-You are an expert storyteller generating a story-mode analysis of a user's daily reflections.
-
-WRITING STYLE REFERENCE (how the characters speak — follow this closely):
---- START STORY EXAMPLES ---
-$storyExamples
---- END STORY EXAMPLES ---
-
-CHARACTERS:
-- Ayan: Analytical, logical, explains things with simple real-world analogies. Confident but humble.
-- Hiba: Dramatic, expressive, overwhelmed by dry tasks. Groans, gasps, asks for biscuits. Very relatable.
-- Zara: Practical, structured, slightly philosophical. Spots patterns. Occasional dry wit.
-- Mira: Soft, intuitive, supportive. Highlights human emotion and underlying meaning.
-
-The user's character is: $userCharacter. Others address/reference them as the person who lived this day.
-
-CONTEXT DATA:
-Today's Reflections:
-$todayReflections
-
-Last 7 Days:
-$last7DaysContext
-
-Last 4 Weeks Weekly Reviews:
-$last4WeeksWeeklyContext
-
-All characters MUST speak casually, in short sentences, warm and conversational, exactly like the story examples.
-""";
-
-    // Batch 1: Scene + opening + Mira's primary turn
-    final batch1Prompt = """
-$systemContext
-
-Generate the OPENING of the story. This is Batch 1.
-Include:
-1. A 'scene' field: brief atmospheric description (setting, mood, rain/evening/tea etc).
-2. A 'paragraphs' array: the characters gather, look at the day's reflections + 7-day context + weekly reviews together. Mira speaks primarily (2-3 dialogue lines), others react briefly (1 line each).
-3. Keep to max 10 paragraph objects.
-
-OUTPUT ONLY VALID JSON OBJECT — no markdown, no preamble:
-{"scene": "...", "paragraphs": [{"type":"action","text":"..."},{"type":"dialogue","character":"Mira","text":"..."}]}
-""";
-
-    final batch1Result = await makeAICall(
-        prompt: batch1Prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
-
-    final scene = batch1Result['scene'] as String? ?? 'Late evening in the study. The lamp flickers gently.';
-    final paragraphsB1 = (batch1Result['paragraphs'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-
-    return {
-      'scene': scene,
-      'paragraphs': paragraphsB1,
-      'systemContext': systemContext,
-    };
-  }
-
-  /// Generates the next story segment for a specific character (Hiba or Zara).
-  Future<List<Map<String, dynamic>>> generateStoryCharacterSegment({
-    required String systemContext,
-    required List<Map<String, dynamic>> previousParagraphs,
-    required String targetCharacter,
-    required List<String> modelCandidates,
-    List<String>? customApiKeys,
-    required int currentApiKeyIndex,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prevJson = jsonEncode(previousParagraphs);
-    return await generateStorySegment(
-      systemContext: systemContext,
-      previousStoryJson: prevJson,
-      targetCharacter: targetCharacter,
-      modelCandidates: modelCandidates,
-      customApiKeys: customApiKeys,
-      currentApiKeyIndex: currentApiKeyIndex,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-    );
-  }
-
-  /// Continues the story with user input as their character.
-  Future<List<Map<String, dynamic>>> continueStoryWithUserInput({
-    required String systemContext,
-    required List<Map<String, dynamic>> previousParagraphs,
-    required String userCharacter,
-    required String userInput,
-    required bool isNarration,
-    required List<String> modelCandidates,
-    List<String>? customApiKeys,
-    required int currentApiKeyIndex,
-    required Function(int) onNewApiKeyIndex,
-    required Function(String) onLog,
-  }) async {
-    final prevJson = jsonEncode(previousParagraphs);
-    final inputType = isNarration ? 'narration/action' : 'dialogue';
-    final prompt = """
-$systemContext
-
-CONVERSATION SO FAR:
-$prevJson
-
-The user (playing as $userCharacter) just ${isNarration ? 'added a narration/action' : 'said'}:
-"$userInput"
-
-Continue the story naturally. The other characters should react to this input.
-Rules:
-- Include the user's input as a ${inputType} paragraph for $userCharacter.
-- Then have 2-4 reactions from the other characters.
-- Stay in character, casual and warm.
-- Max 8 paragraph objects total.
-
-OUTPUT ONLY A VALID JSON ARRAY of paragraph objects. No preamble. No markdown.
-[{"type":"dialogue","character":"$userCharacter","text":"$userInput"}, ...reactions...]
-""";
-
-    return await _executeWithModelAndKeyRotation(
-      currentApiKeyIndex: currentApiKeyIndex,
-      customApiKeys: customApiKeys,
-      onNewApiKeyIndex: onNewApiKeyIndex,
-      onLog: onLog,
-      modelCandidates: modelCandidates,
-      requestFn: (apiKey, modelName) async {
-        final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-        final response = await model.generateContent([genai.Content.text(prompt)]);
-        final raw = response.text;
-        if (raw == null || raw.trim().isEmpty) throw Exception("AI response was empty.");
-        final decoded = JsonUtils.tryDecode(raw.trim());
-        if (decoded is List) return decoded.cast<Map<String, dynamic>>();
-        throw FormatException("Expected JSON array", raw);
       },
     );
   }

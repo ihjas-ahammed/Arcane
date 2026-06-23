@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/utils/helpers.dart';
 
 class TaskProgressSnapshotView extends StatelessWidget {
   final Map<String, dynamic> taskSnapshot;
@@ -28,8 +29,13 @@ class TaskProgressSnapshotView extends StatelessWidget {
 
       for (final sub in task.subTasks) {
         if (sub.isDeleted || !sub.isActive) continue;
-        if (sub.isRecurring) continue;
-        if (sub.completed) continue; // Neglect archived subtasks
+        if (sub.isRecurring) {
+          if (!sub.completed) continue;
+        } else {
+          if (sub.completed && sub.completedDate != getTodayDateString()) {
+            continue;
+          }
+        }
 
         double snapProgress = 0.0;
         int snapTime = 0;

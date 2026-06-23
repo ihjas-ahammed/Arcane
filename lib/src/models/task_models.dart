@@ -237,6 +237,7 @@ class SubTask {
   List<SubSubTask> subSubTasks;
   List<TaskSession> sessions;
   List<ProgressDataPoint> progressDataPoints;
+  double manualProgress;
 
   String why;
   String what;
@@ -265,6 +266,7 @@ class SubTask {
     this.isCountable = false,
     this.targetCount = 0,
     this.currentCount = 0,
+    this.manualProgress = 0.0,
     List<SubSubTask>? subSubTasks,
     List<TaskSession>? sessions,
     List<ProgressDataPoint>? progressDataPoints,
@@ -297,6 +299,7 @@ class SubTask {
     bool? isCountable,
     int? targetCount,
     int? currentCount,
+    double? manualProgress,
     List<SubSubTask>? subSubTasks,
     List<TaskSession>? sessions,
     List<ProgressDataPoint>? progressDataPoints,
@@ -323,6 +326,7 @@ class SubTask {
       isCountable: isCountable ?? this.isCountable,
       targetCount: targetCount ?? this.targetCount,
       currentCount: currentCount ?? this.currentCount,
+      manualProgress: manualProgress ?? this.manualProgress,
       subSubTasks: subSubTasks ?? this.subSubTasks,
       sessions: sessions ?? this.sessions,
       progressDataPoints: progressDataPoints ?? this.progressDataPoints,
@@ -352,6 +356,7 @@ class SubTask {
       isCountable: json['isCountable'] as bool? ?? false,
       targetCount: json['targetCount'] as int? ?? 0,
       currentCount: json['currentCount'] as int? ?? 0,
+      manualProgress: (json['manualProgress'] as num? ?? 0.0).toDouble(),
       why: json['why'] as String? ?? '',
       what: json['what'] as String? ?? '',
       resources: json['resources'] as String? ?? '',
@@ -402,6 +407,7 @@ class SubTask {
       'isCountable': isCountable,
       'targetCount': targetCount,
       'currentCount': currentCount,
+      'manualProgress': manualProgress,
       'why': why,
       'what': what,
       'resources': resources,
@@ -446,6 +452,9 @@ class SubTask {
   bool get hasCheckableSubsteps => subSubTasks.any((sst) => sst.type != 'info');
 
   double calculateProgress() {
+    if (progressMode == 'manual') {
+      return manualProgress.clamp(0.0, 1.0);
+    }
     final checkables = subSubTasks.where((sst) => sst.type != 'info').toList();
     if (checkables.isEmpty) return completed ? 1.0 : 0.0;
     double total = 0;

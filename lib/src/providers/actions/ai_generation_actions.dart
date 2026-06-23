@@ -1,6 +1,7 @@
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/services/ai_service.dart';
 import 'package:missions/src/models/task_models.dart';
+import 'package:missions/src/utils/id_generator.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 
@@ -154,18 +155,36 @@ class AIGenerationActions {
         onLog: _logToApp,
       );
 
-      final steps = (result['steps'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ?? [];
+      final steps = (result['steps'] as List?) ?? [];
       final what = result['what'] as String? ?? '';
 
       _provider.taskActions.updateSubtask(mainTaskId, subTaskId, {'what': what});
 
-      for (var step in steps) {
-        _provider.addSubSubtask(mainTaskId, subTaskId, {
-          'name': step['name'] ?? 'Action Step',
-          'isCountable': false,
-          'targetCount': 0,
-        });
+      Future<void> addNestedSteps(List<dynamic> stepsList, {String? parentCheckpointId}) async {
+        for (var step in stepsList) {
+          if (step is! Map) continue;
+          final stepMap = Map<String, dynamic>.from(step);
+          final checkpointId = IdGenerator.generateCheckpointId();
+
+          _provider.addSubSubtask(
+            mainTaskId,
+            subTaskId,
+            {
+              'id': checkpointId,
+              'name': stepMap['name'] ?? 'Action Step',
+              'isCountable': false,
+              'targetCount': 0,
+            },
+            parentCheckpointId: parentCheckpointId,
+          );
+
+          if (stepMap.containsKey('steps') && stepMap['steps'] is List) {
+            await addNestedSteps(stepMap['steps'] as List, parentCheckpointId: checkpointId);
+          }
+        }
       }
+
+      await addNestedSteps(steps);
 
     } catch (e) {
       debugPrint("Error generating action plan: $e");

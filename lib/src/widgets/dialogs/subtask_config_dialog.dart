@@ -145,6 +145,8 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
         return 'Bar = today\'s time ÷ 7-day avg';
       case 'subtask':
         return 'Bar = completed steps ÷ total steps';
+      case 'manual':
+        return 'Bar = custom percentage input';
       case 'auto':
       default:
         return 'Steps if available, otherwise time-based';
@@ -164,6 +166,7 @@ class _ProgressModeSelector extends StatelessWidget {
       ('auto', 'AUTO'),
       ('time', 'TIME'),
       ('subtask', 'STEPS'),
+      ('manual', 'MANUAL'),
     ];
     return Row(
       children: modes.map((entry) {

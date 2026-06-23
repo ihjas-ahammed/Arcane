@@ -10,7 +10,6 @@ import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/utils/chart_data_helper.dart'; 
 import 'package:missions/src/widgets/cards/tactical_briefing_card.dart';
 import 'package:missions/src/screens/nora_ai_screen.dart';
-import 'package:missions/screens/story_briefing_screen.dart';
 import 'package:missions/src/screens/journaling/weekly_review_screen.dart';
 import 'package:missions/src/screens/reflections_archive_screen.dart';
 import 'package:missions/src/screens/journaling/advanced_tools_screen.dart';
@@ -456,20 +455,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                                   setState(() {});
                                 }
                               : null,
-                        ),
-                        const SizedBox(height: 10),
-                        _HudActionBar(
-                          label: 'LAUNCH STORY MODE ANALYSIS',
-                          icon: MdiIcons.dramaMasks,
-                          accent: JweTheme.accentCyan,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => StoryBriefingScreen(todayLogs: reflectionsForDate),
-                              ),
-                            );
-                          },
                         ),
                       ],
                     )

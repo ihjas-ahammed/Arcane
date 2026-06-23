@@ -100,9 +100,22 @@ class FinanceActions {
   }
 
   void deleteTransaction(String id) {
-    _provider.setProviderState(
-      transactions: _provider.transactions.where((t) => t.id != id).toList(),
-    );
+    final matches = _provider.transactions.where((t) => t.id == id).toList();
+    if (matches.isEmpty) return;
+    final tx = matches.first;
+    final newTransactions = _provider.transactions.where((t) => t.id != id).toList();
+
+    if (tx.accountId != null) {
+      final newAccounts = _provider.accounts.map((a) {
+        if (a.id == tx.accountId) {
+          a.balance += tx.isIncome ? -tx.amount : tx.amount;
+        }
+        return a;
+      }).toList();
+      _provider.setProviderState(transactions: newTransactions, accounts: newAccounts);
+    } else {
+      _provider.setProviderState(transactions: newTransactions);
+    }
   }
 
   // --- Categories ---

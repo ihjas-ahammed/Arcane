@@ -306,6 +306,7 @@ class SubmissionCard extends StatelessWidget {
 
   double _resolveProgress(SubTask task, double hierarchical, double usagePct) {
     switch (task.progressMode) {
+      case 'manual': return task.manualProgress;
       case 'subtask': return hierarchical;
       case 'time': return usagePct;
       case 'auto':
@@ -315,6 +316,9 @@ class SubmissionCard extends StatelessWidget {
   }
 
   String _progressLabel(SubTask task, double hierarchical, double usagePct) {
+    if (task.progressMode == 'manual') {
+      return '${(task.manualProgress * 100).round()}%';
+    }
     final useSteps = task.progressMode == 'subtask' ||
         (task.progressMode == 'auto' && task.hasCheckableSubsteps);
     final pct = useSteps ? hierarchical : usagePct;

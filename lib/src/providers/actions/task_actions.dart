@@ -41,7 +41,7 @@ class TaskActions {
         } else if (action == 'add_child') {
           final data = payload as Map<String, dynamic>;
           final newChild = SubSubTask(
-            id: IdGenerator.generateCheckpointId(),
+            id: data['id'] as String? ?? IdGenerator.generateCheckpointId(),
             name: data['name'] as String,
             isCountable: data['isCountable'] as bool? ?? false,
             targetCount: data['isCountable'] as bool? ?? false ? (data['targetCount'] as int? ?? 1) : 0,
@@ -761,12 +761,29 @@ class TaskActions {
     
     subtaskToUpdate.updatedAt = DateTime.now();
 
+    if (updates.containsKey('manualProgress')) {
+      final double mp = (updates['manualProgress'] as num).toDouble();
+      subtaskToUpdate.manualProgress = mp;
+      if (mp >= 1.0) {
+        subtaskToUpdate.completed = true;
+        subtaskToUpdate.completedDate = getTodayDateString();
+        subtaskToUpdate.lastCompletedDate = DateTime.now();
+      } else {
+        subtaskToUpdate.completed = false;
+        subtaskToUpdate.completedDate = null;
+        subtaskToUpdate.lastCompletedDate = null;
+      }
+    }
+
     if (updates.containsKey('currentTimeSpent')) subtaskToUpdate.currentTimeSpent = updates['currentTimeSpent'] as int;
     if (updates.containsKey('completed')) {
       subtaskToUpdate.completed = updates['completed'] as bool;
       if (!subtaskToUpdate.completed) {
         subtaskToUpdate.completedDate = null;
         subtaskToUpdate.lastCompletedDate = null;
+      } else {
+        subtaskToUpdate.completedDate = getTodayDateString();
+        subtaskToUpdate.lastCompletedDate = DateTime.now();
       }
     }
 

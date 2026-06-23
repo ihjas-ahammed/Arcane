@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -483,30 +484,112 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
                           fontSize: 10, color: JweTheme.textMuted, letterSpacing: 1.4,
                         )),
                   )
-                : Column(children: List.generate(cats.length, (i) {
-                    final r = cats[i];
-                    final color = Color(int.parse('0xFF${r.cat.colorHex}'));
-                    final tone = _toneFor(color);
-                    return Padding(
-                      padding: EdgeInsets.only(bottom: i < cats.length - 1 ? 12 : 0),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(children: [
-                          Expanded(
-                            child: Text(r.cat.name,
-                                style: GoogleFonts.inter(
-                                  fontSize: 12, color: JweTheme.textWhite, fontWeight: FontWeight.w500,
-                                )),
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Pie Chart on the left
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          SizedBox(
+                            width: 100,
+                            height: 100,
+                            child: PieChart(
+                              PieChartData(
+                                sectionsSpace: 2,
+                                centerSpaceRadius: 28,
+                                startDegreeOffset: -90,
+                                sections: cats.map((r) {
+                                  final color = Color(int.parse('0xFF${r.cat.colorHex}'));
+                                  return PieChartSectionData(
+                                    color: color,
+                                    value: r.amount,
+                                    title: '',
+                                    radius: 12,
+                                    borderSide: const BorderSide(color: Colors.transparent, width: 0),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
                           ),
-                          Text('$_currency${_compactMoney(r.amount)} · ${r.pct.round()}%',
-                              style: GoogleFonts.jetBrainsMono(
-                                fontSize: 11, color: color, fontWeight: FontWeight.w600, letterSpacing: 0.6,
-                              )),
-                        ]),
-                        const SizedBox(height: 4),
-                        HudBar(value: r.pct.clamp(0, 100), max: 40, tone: tone, height: 3),
-                      ]),
-                    );
-                  })),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'TOTAL',
+                                style: GoogleFonts.jetBrainsMono(
+                                  fontSize: 8,
+                                  color: JweTheme.textMuted,
+                                  letterSpacing: 1.0,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                '$_currency${_compactMoney(monthSpend)}',
+                                style: GoogleFonts.saira(
+                                  fontSize: 11,
+                                  color: JweTheme.accentAmber,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 16),
+                      // List of categories on the right
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(cats.length, (i) {
+                            final r = cats[i];
+                            final color = Color(int.parse('0xFF${r.cat.colorHex}'));
+                            return Padding(
+                              padding: EdgeInsets.only(bottom: i < cats.length - 1 ? 10 : 0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          r.cat.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            color: JweTheme.textWhite,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '$_currency${_compactMoney(r.amount)} · ${r.pct.round()}%',
+                                        style: GoogleFonts.jetBrainsMono(
+                                          fontSize: 11,
+                                          color: color,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.6,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  HudBar(
+                                    value: r.pct.clamp(0, 100),
+                                    max: 100,
+                                    color: color,
+                                    height: 3,
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ),
+                      ),
+                    ],
+                  ),
           ),
         ),
 
@@ -609,13 +692,6 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
     if (v >= 100000) return v.toStringAsFixed(0);
     if (v >= 1000) return v.toStringAsFixed(0);
     return v.toStringAsFixed(2);
-  }
-
-  static HudTone _toneFor(Color c) {
-    if (c == JweTheme.accentCyan) return HudTone.cyan;
-    if (c == JweTheme.accentTeal) return HudTone.teal;
-    if (c == JweTheme.accentRed) return HudTone.red;
-    return HudTone.amber;
   }
 }
 

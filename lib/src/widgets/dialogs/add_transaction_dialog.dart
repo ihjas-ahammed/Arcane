@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/widgets/dialogs/add_category_dialog.dart';
-import 'package:missions/src/models/finance_models.dart';
+import 'package:missions/src/widgets/dialogs/add_edit_account_dialog.dart';
 import 'package:provider/provider.dart';
 
 class AddTransactionDialog extends StatefulWidget {
@@ -31,6 +31,13 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
     final provider = Provider.of<AppProvider>(context);
     final categories = provider.categories.where((c) => c.isIncomeCategory == widget.isIncome).toList();
     final accounts = provider.accounts;
+
+    if (_selectedAccountId == null && accounts.isNotEmpty) {
+      _selectedAccountId = accounts.first.id;
+    }
+    if (_selectedCategoryId == null && categories.isNotEmpty) {
+      _selectedCategoryId = categories.first.id;
+    }
 
     return AlertDialog(
       backgroundColor: JweTheme.panel,
@@ -87,28 +94,36 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
                 }
               },
             ),
-            if (accounts.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedAccountId,
-                dropdownColor: JweTheme.bgBase,
-                decoration: const InputDecoration(
-                  labelText: "ACCOUNT",
-                  labelStyle: TextStyle(color: JweTheme.textMuted),
-                ),
-                items: [
-                  const DropdownMenuItem(
-                    value: null,
-                    child: Text("No account", style: TextStyle(color: JweTheme.textMuted)),
-                  ),
-                  ...accounts.map((a) => DropdownMenuItem(
-                        value: a.id,
-                        child: Text(a.name, style: const TextStyle(color: Colors.white)),
-                      )),
-                ],
-                onChanged: (val) => setState(() => _selectedAccountId = val),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedAccountId,
+              dropdownColor: JweTheme.bgBase,
+              decoration: const InputDecoration(
+                labelText: "ACCOUNT",
+                labelStyle: TextStyle(color: JweTheme.textMuted),
               ),
-            ],
+              items: [
+                ...accounts.map((a) => DropdownMenuItem(
+                      value: a.id,
+                      child: Text(a.name, style: const TextStyle(color: Colors.white)),
+                    )),
+                DropdownMenuItem(
+                  value: 'ADD_NEW_ACCOUNT',
+                  child: Text("+ Add New Account", style: TextStyle(color: JweTheme.accentAmber)),
+                ),
+              ],
+              onChanged: (val) {
+                if (val == 'ADD_NEW_ACCOUNT') {
+                  Navigator.pop(context);
+                  showDialog(
+                    context: context,
+                    builder: (_) => const AddEditAccountDialog(),
+                  );
+                } else {
+                  setState(() => _selectedAccountId = val);
+                }
+              },
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: _noteController,
@@ -134,17 +149,34 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
           ),
           onPressed: () {
             final amt = double.tryParse(_amountController.text);
-            if (amt != null && amt > 0 && _selectedCategoryId != null) {
-              provider.financeActions.addTransaction(
-                amt,
-                widget.isIncome,
-                _selectedCategoryId!,
-                _noteController.text.trim(),
-                DateTime.now(),
-                accountId: _selectedAccountId,
+            if (amt == null || amt <= 0) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please enter a valid amount')),
               );
-              Navigator.pop(context);
+              return;
             }
+            if (_selectedCategoryId == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please select a category')),
+              );
+              return;
+            }
+            if (_selectedAccountId == null || _selectedAccountId == 'ADD_NEW_ACCOUNT') {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please select an account')),
+              );
+              return;
+            }
+
+            provider.financeActions.addTransaction(
+              amt,
+              widget.isIncome,
+              _selectedCategoryId!,
+              _noteController.text.trim(),
+              DateTime.now(),
+              accountId: _selectedAccountId,
+            );
+            Navigator.pop(context);
           },
           child: const Text("CONFIRM", style: TextStyle(fontWeight: FontWeight.bold)),
         ),

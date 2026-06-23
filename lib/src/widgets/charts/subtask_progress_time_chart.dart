@@ -140,9 +140,15 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
 
   List<_Point> _buildPoints() {
     final pts = widget.subTask.progressDataPoints;
-    if (pts.isEmpty) return [];
     final sorted = [...pts]..sort((a, b) => a.spentSeconds.compareTo(b.spentSeconds));
-    return sorted.map((p) => _Point(p.spentSeconds.toDouble(), p.progress)).toList();
+    final result = <_Point>[];
+    if (sorted.isEmpty || sorted.first.spentSeconds != 0) {
+      result.add(_Point(0.0, 0.0));
+    }
+    for (final p in sorted) {
+      result.add(_Point(p.spentSeconds.toDouble(), p.progress));
+    }
+    return result;
   }
 
   /// Linear regression over (spentSeconds, progress) points.

@@ -53,7 +53,23 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_title(window, "Missions");
   }
 
-  gtk_window_set_default_size(window, 1280, 720);
+  // Set default window size in phone portrait ratio and position it on the right side.
+  GdkDisplay* display = gdk_display_get_default();
+  GdkMonitor* monitor = display ? gdk_display_get_primary_monitor(display) : nullptr;
+  GdkRectangle workarea = {0, 0, 1280, 720};
+  if (monitor) {
+    gdk_monitor_get_workarea(monitor, &workarea);
+  }
+
+  int width = 400;
+  int height = workarea.height - 200;
+  if (height < 600) height = 600;
+
+  int x = workarea.x + workarea.width - width - 40;
+  int y = workarea.y + 40;
+
+  gtk_window_set_default_size(window, width, height);
+  gtk_window_move(window, x, y);
 
   // Set window icon from bundle-relative path
   {

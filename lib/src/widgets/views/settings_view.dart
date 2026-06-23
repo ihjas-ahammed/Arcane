@@ -32,6 +32,7 @@ class _SettingsViewState extends State<SettingsView> {
   String _passwordChangeError = '';
   String _passwordChangeSuccess = '';
   bool _logoutLoading = false;
+  bool _regeneratingStyleMap = false;
 
   List<String> _availableModels = [
     'gemini-2.0-flash',
@@ -65,6 +66,70 @@ class _SettingsViewState extends State<SettingsView> {
     _customReflectionPromptController.dispose();
     _customBriefingPromptController.dispose();
     super.dispose();
+  }
+
+  void _showEditStyleMapDialog(BuildContext context, AppProvider appProvider) {
+    final controller = TextEditingController(text: appProvider.settings.writingStyleMap ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgMedium,
+        title: Row(
+          children: [
+            Icon(MdiIcons.pencilOutline, color: AppTheme.fhAccentPurple),
+            const SizedBox(width: 10),
+            const Text('Edit Writing Style Map', style: TextStyle(color: AppTheme.fhTextPrimary)),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Manually define or tweak the map describing your writing style. Downstream AI models will reference this description to align their tone.',
+                style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: TextField(
+                  controller: controller,
+                  maxLines: 8,
+                  minLines: 3,
+                  style: const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
+                  decoration: const InputDecoration(
+                    hintText: 'Describe your writing style (e.g. casual tone, uses analytical terms, prefers short sentences...)',
+                    alignLabelWithHint: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('CANCEL', style: TextStyle(color: AppTheme.fhTextSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              appProvider.setSettings(appProvider.settings..writingStyleMap = controller.text.trim().isEmpty ? null : controller.text.trim());
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Writing style map updated.'),
+                backgroundColor: AppTheme.fhAccentGreen,
+              ));
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.fhAccentPurple,
+              foregroundColor: AppTheme.fhBgDark,
+            ),
+            child: const Text('SAVE'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleChangePassword(AppProvider appProvider) async {
@@ -344,47 +409,71 @@ class _SettingsViewState extends State<SettingsView> {
                   onChanged: (bool value) async {
                     appProvider.setSettings(appProvider.settings..adaptWritingStyle = value);
                     if (value) {
-                      await appProvider.updateWritingStyleMap();
+                      setState(() => _regeneratingStyleMap = true);
+                      try {
+                        await appProvider.updateWritingStyleMap();
+                      } finally {
+                        if (mounted) {
+                          setState(() => _regeneratingStyleMap = false);
+                        }
+                      }
                     }
                   },
                 ),
                 if (appProvider.settings.adaptWritingStyle) ...[
                   const SizedBox(height: 8),
-                  Text(
-                    appProvider.settings.writingStyleMap != null
-                        ? "Writing style map generated (Active)"
-                        : "Generating writing style map...",
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: appProvider.settings.writingStyleMap != null
-                          ? AppTheme.fhAccentPurple
-                          : AppTheme.fhTextSecondary,
-                      fontStyle: FontStyle.italic,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _regeneratingStyleMap
+                              ? "Generating writing style map..."
+                              : (appProvider.settings.writingStyleMap != null
+                                  ? "Writing style map generated (Active)"
+                                  : "No writing style map generated yet"),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: appProvider.settings.writingStyleMap != null
+                                ? AppTheme.fhAccentPurple
+                                : AppTheme.fhTextSecondary,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                      if (!_regeneratingStyleMap) ...[
+                        IconButton(
+                          icon: Icon(MdiIcons.refresh, size: 18, color: AppTheme.fhAccentPurple),
+                          tooltip: 'Regenerate Writing Style Map',
+                          onPressed: () async {
+                            setState(() => _regeneratingStyleMap = true);
+                            try {
+                              await appProvider.updateWritingStyleMap();
+                            } finally {
+                              if (mounted) {
+                                setState(() => _regeneratingStyleMap = false);
+                              }
+                            }
+                          },
+                        ),
+                        IconButton(
+                          icon: Icon(MdiIcons.pencilOutline, size: 18, color: AppTheme.fhAccentPurple),
+                          tooltip: 'Manually View & Edit Map',
+                          onPressed: () => _showEditStyleMapDialog(context, appProvider),
+                        ),
+                      ],
+                      if (_regeneratingStyleMap)
+                        const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.fhAccentPurple),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
-
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  decoration: InputDecoration(
-                    labelText: 'Story Mode Character (Default)',
-                    prefixIcon: Icon(MdiIcons.accountOutline, size: 20),
-                  ),
-                  dropdownColor: AppTheme.fhBgMedium,
-                  initialValue: appProvider.settings.storyCharacter,
-                  items: const [
-                    DropdownMenuItem(value: 'Ayan', child: Text('Ayan (Analytical/Storyteller)')),
-                    DropdownMenuItem(value: 'Mira', child: Text('Mira (Soft/Intuitive)')),
-                    DropdownMenuItem(value: 'Hiba', child: Text('Hiba (Dramatic/Expressive)')),
-                    DropdownMenuItem(value: 'Zara', child: Text('Zara (Structured/Practical)')),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      appProvider.setSettings(
-                          appProvider.settings..storyCharacter = value);
-                    }
-                  },
-                ),
 
                 const SizedBox(height: 16),
                 Text("Custom System Prompts",
