@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/widgets/dialogs/add_edit_protocol_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -98,6 +100,23 @@ class JweTaskOptionsDialog extends StatelessWidget {
                 ),
                 onPressed: () {
                   provider.taskActions.toggleTaskStatus(task.id, !isActive);
+                  Navigator.pop(context);
+                },
+              ),
+              const SizedBox(height: 12),
+
+              OutlinedButton.icon(
+                icon: Icon(MdiIcons.contentCopy, size: 18),
+                label: const Text("COPY STRUCTURE"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: JweTheme.accentCyan,
+                  side: const BorderSide(color: JweTheme.accentCyan),
+                  shape: const BeveledRectangleBorder(),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: task.toCopyStructure()));
+                  showGlobalToast("Protocol structure copied to clipboard");
                   Navigator.pop(context);
                 },
               ),

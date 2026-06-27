@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/utils/step_expansion.dart';
 import 'package:missions/src/widgets/items/checkpoint_item.dart';
 import 'package:missions/src/widgets/items/draggable_checkpoint_wrapper.dart';
@@ -187,6 +189,13 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                             fontFamily: AppTheme.fontDisplay
                           ),
                         ),
+                      ),
+                      IconButton(
+                        icon: Icon(MdiIcons.contentCopy, color: AppTheme.fhTextSecondary),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: liveCheckpoint.toCopyStructure()));
+                          showGlobalToast("Objective structure copied to clipboard");
+                        },
                       ),
                       IconButton(
                         icon:  Icon(MdiIcons.deleteOutline, color: AppTheme.fhAccentRed),

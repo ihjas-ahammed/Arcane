@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/timeline_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/widgets/dialogs/subtask_config_dialog.dart';
 import 'package:missions/src/widgets/dialogs/add_session_dialog.dart';
@@ -399,6 +401,14 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                   GestureDetector(
                     onTap: () => _handleEditSubtask(context, provider, liveSubTask),
                     child: Icon(MdiIcons.pencilOutline, color: JweTheme.textMid, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: liveSubTask.toCopyStructure()));
+                      showGlobalToast("Task structure copied to clipboard");
+                    },
+                    child: Icon(MdiIcons.contentCopy, color: JweTheme.textMid, size: 20),
                   ),
                 ],
               ),

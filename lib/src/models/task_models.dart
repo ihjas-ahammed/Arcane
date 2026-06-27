@@ -586,3 +586,97 @@ class MainTaskTemplate {
     this.colorHex = "FF00F8F8",
   });
 }
+
+extension TaskCopyExtension on MainTask {
+  String toCopyStructure() {
+    final buffer = StringBuffer();
+    buffer.writeln(name);
+    // MainTask has no why field.
+    if (description.trim().isNotEmpty) {
+      buffer.writeln("What: ${description.trim()}");
+    }
+    if (subTasks.isNotEmpty) {
+      buffer.writeln("    How:");
+      for (final sub in subTasks) {
+        buffer.write(sub.toCopyStructure(1));
+      }
+    }
+    return buffer.toString().trimRight();
+  }
+}
+
+extension SubTaskCopyExtension on SubTask {
+  String toCopyStructure([int depth = 0]) {
+    final buffer = StringBuffer();
+    if (depth == 0) {
+      buffer.writeln(name);
+      if (why.trim().isNotEmpty) {
+        buffer.writeln("Why: ${why.trim()}");
+      }
+      if (what.trim().isNotEmpty) {
+        buffer.writeln("What: ${what.trim()}");
+      }
+      if (subSubTasks.isNotEmpty) {
+        buffer.writeln("    How:");
+        for (final sst in subSubTasks) {
+          buffer.write(sst.toCopyStructure(1));
+        }
+      }
+    } else {
+      final indentBullet = ' ' * (4 * depth + 4);
+      final indentProps = ' ' * (4 * depth + 6);
+      buffer.writeln('$indentBullet* $name');
+      if (why.trim().isNotEmpty) {
+        buffer.writeln('${indentProps}Why: ${why.trim()}');
+      }
+      if (what.trim().isNotEmpty) {
+        buffer.writeln('${indentProps}What: ${what.trim()}');
+      }
+      if (subSubTasks.isNotEmpty) {
+        buffer.writeln('${indentProps}How:');
+        for (final sst in subSubTasks) {
+          buffer.write(sst.toCopyStructure(depth + 1));
+        }
+      }
+    }
+    return buffer.toString();
+  }
+}
+
+extension SubSubTaskCopyExtension on SubSubTask {
+  String toCopyStructure([int depth = 0]) {
+    final buffer = StringBuffer();
+    if (depth == 0) {
+      buffer.writeln(name);
+      if (why.trim().isNotEmpty) {
+        buffer.writeln("Why: ${why.trim()}");
+      }
+      if (what.trim().isNotEmpty) {
+        buffer.writeln("What: ${what.trim()}");
+      }
+      if (substeps.isNotEmpty) {
+        buffer.writeln("    How:");
+        for (final sub in substeps) {
+          buffer.write(sub.toCopyStructure(1));
+        }
+      }
+    } else {
+      final indentBullet = ' ' * (4 * depth + 4);
+      final indentProps = ' ' * (4 * depth + 6);
+      buffer.writeln('$indentBullet* $name');
+      if (why.trim().isNotEmpty) {
+        buffer.writeln('${indentProps}Why: ${why.trim()}');
+      }
+      if (what.trim().isNotEmpty) {
+        buffer.writeln('${indentProps}What: ${what.trim()}');
+      }
+      if (substeps.isNotEmpty) {
+        buffer.writeln('${indentProps}How:');
+        for (final sub in substeps) {
+          buffer.write(sub.toCopyStructure(depth + 1));
+        }
+      }
+    }
+    return buffer.toString();
+  }
+}
