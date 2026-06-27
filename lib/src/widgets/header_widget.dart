@@ -15,11 +15,14 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
 
   static const double _stripH = 22;
 
+  final Widget? leading;
+
   const HeaderWidget({
     super.key,
     required this.currentViewLabel,
     this.onOpenPersona,
     this.customAction,
+    this.leading,
   });
 
   @override
@@ -42,8 +45,8 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
       automaticallyImplyLeading: false,
       titleSpacing: 0,
       toolbarHeight: kToolbarHeight,
-      leadingWidth: 38,
-      leading: Align(
+      leadingWidth: leading != null ? 48 : 38,
+      leading: leading ?? Align(
         alignment: Alignment.centerLeft,
         child: Padding(
           padding: const EdgeInsets.only(left: 16),

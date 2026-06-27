@@ -140,6 +140,19 @@ class FinanceActions {
     );
   }
 
+  void updateCategory(String id, {String? name, String? colorHex, String? iconName, bool? isIncome}) {
+    final updated = _provider.categories.map((c) {
+      if (c.id == id) {
+        c.name = name ?? c.name;
+        c.colorHex = colorHex ?? c.colorHex;
+        c.iconName = iconName ?? c.iconName;
+        c.isIncomeCategory = isIncome ?? c.isIncomeCategory;
+      }
+      return c;
+    }).toList();
+    _provider.setProviderState(categories: updated);
+  }
+
   // --- Savings Goals ---
 
   void addSavingsGoal(String name, String description, double targetAmount, DateTime targetDate, String iconName) {
@@ -249,5 +262,15 @@ class FinanceActions {
     }).toList();
 
     _provider.setProviderState(savingsGoals: newGoals);
+  }
+
+  void updateCategoryBudget(String categoryId, double budget) {
+    final updated = _provider.categories.map((c) {
+      if (c.id == categoryId) {
+        c.budget = budget;
+      }
+      return c;
+    }).toList();
+    _provider.setProviderState(categories: updated);
   }
 }

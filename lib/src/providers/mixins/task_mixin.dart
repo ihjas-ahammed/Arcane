@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/app_state_models.dart';
+import 'package:missions/src/models/project_models.dart';
 import 'package:missions/src/utils/constants.dart';
 import 'package:missions/src/providers/mixins/sync_mixin.dart';
 
@@ -11,14 +12,16 @@ mixin TaskMixin on ChangeNotifier {
   Map<String, dynamic> _completedByDay = {};
   String? _selectedTaskId;
   Map<String, ActiveTimerInfo> _activeTimers = {}; // Store typed objects internally
+  List<Project> _projects = [];
+  String? _activeProjectId;
 
   // --- Getters ---
   List<MainTask> get mainTasks => _mainTasks;
   Map<String, dynamic> get completedByDay => _completedByDay;
   String? get selectedTaskId => _selectedTaskId;
-  
-  // Directly return the typed map
   Map<String, ActiveTimerInfo> get activeTimers => _activeTimers;
+  List<Project> get projects => _projects;
+  String? get activeProjectId => _activeProjectId;
 
   // --- Requirements from AppProvider ---
   SyncMixin get sync => this as SyncMixin;
@@ -60,6 +63,20 @@ mixin TaskMixin on ChangeNotifier {
     sync.markDirty('settings');
   }
 
+  void setProjects(List<Project> projects) {
+    if (!listEquals(_projects, projects)) {
+      _projects = List.from(projects);
+      sync.markDirty('tasks');
+    }
+  }
+
+  void setActiveProjectId(String? id) {
+    if (_activeProjectId != id) {
+      _activeProjectId = id;
+      notifyListeners();
+    }
+  }
+
   MainTask? getSelectedTask() {
     try {
       return _mainTasks.firstWhere((t) => t.id == _selectedTaskId);
@@ -88,6 +105,12 @@ mixin TaskMixin on ChangeNotifier {
     } else {
       _activeTimers = {};
     }
+
+    if (data['projects'] != null) {
+      _projects = (data['projects'] as List).map((e) => Project.fromJson(e as Map<String, dynamic>)).toList();
+    } else {
+      _projects = [];
+    }
   }
 
   Map<String, dynamic> getTaskStateMap() {
@@ -95,8 +118,8 @@ mixin TaskMixin on ChangeNotifier {
       'mainTasks': _mainTasks.map((t) => t.toJson()).toList(),
       'completedByDay': _completedByDay,
       'selectedTaskId': _selectedTaskId,
-      // Serialize objects to JSON maps for storage
       'activeTimers': _activeTimers.map((k, v) => MapEntry(k, v.toJson())),
+      'projects': _projects.map((p) => p.toJson()).toList(),
     };
   }
 }

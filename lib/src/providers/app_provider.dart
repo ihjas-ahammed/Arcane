@@ -17,6 +17,7 @@ import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/models/finance_models.dart';
+import 'package:missions/src/models/project_models.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
 import 'package:uuid/uuid.dart';
@@ -155,6 +156,19 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     } else {
       NotificationService.instance.cancelDailyReminder(
           NotificationService.reflectionReminderId);
+    }
+
+    if (s.financeReminderEnabled) {
+      NotificationService.instance.scheduleDailyReminder(
+        id: NotificationService.financeReminderId,
+        title: '◈ FINANCE DATA SYNC',
+        body: 'Time to update your finance data and records.',
+        hour: s.financeReminderHour,
+        minute: s.financeReminderMinute,
+      );
+    } else {
+      NotificationService.instance.cancelDailyReminder(
+          NotificationService.financeReminderId);
     }
 
     for (final r in s.scheduledReminders) {
@@ -466,6 +480,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     setCategories([]);
     setSavingsGoals([]);
     setAccounts([]);
+    setProjects([]);
     setChatbotMemory(ChatbotMemory());
     initializeSkills();
     initializeDefaultFinanceCategories();
@@ -528,6 +543,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       List<FinanceCategory>? categories,
       List<SavingsGoal>? savingsGoals,
       List<FinanceAccount>? accounts,
+      List<Project>? projects,
       bool doNotify = true,
       bool doPersist = true
   }) {
@@ -540,8 +556,28 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     if (categories != null) setCategories(categories);
     if (savingsGoals != null) setSavingsGoals(savingsGoals);
     if (accounts != null) setAccounts(accounts);
+    if (projects != null) setProjects(projects);
 
     if (doNotify) notifyListeners();
+  }
+
+  // --- Project Helpers ---
+  void addProject(Project project) {
+    final list = List<Project>.from(projects)..add(project);
+    setProjects(list);
+    notifyListeners();
+  }
+
+  void updateProject(Project project) {
+    final list = projects.map((p) => p.id == project.id ? project : p).toList();
+    setProjects(list);
+    notifyListeners();
+  }
+
+  void deleteProject(String projectId) {
+    final list = projects.where((p) => p.id != projectId).toList();
+    setProjects(list);
+    notifyListeners();
   }
 
   @override

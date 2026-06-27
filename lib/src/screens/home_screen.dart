@@ -14,6 +14,7 @@ import 'package:missions/src/widgets/views/health_dashboard_view.dart';
 import 'package:missions/src/widgets/views/schedule_view.dart';
 import 'package:missions/src/screens/logbook_screen.dart';
 import 'package:missions/src/screens/more_screen.dart';
+import 'package:missions/src/widgets/views/projects_view.dart';
 import 'package:missions/src/screens/finance/finance_dashboard_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
@@ -38,7 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'MISSIONS',
     'BIOMETRICS',
     'SCHEDULE',
-    'ADVANCED TOOLS',
+    'PROJECTS',
     'ANALYTICS',
     'WALLET',
   ];
@@ -121,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _DesktopNavItem(label: 'MISSIONS', icon: MdiIcons.targetAccount),
     _DesktopNavItem(label: 'BIO', icon: MdiIcons.heartPulse),
     _DesktopNavItem(label: 'SCHEDULE', icon: MdiIcons.calendarClock),
-    _DesktopNavItem(label: 'TOOLS', icon: MdiIcons.hammerWrench),
+    _DesktopNavItem(label: 'PROJECTS', icon: MdiIcons.rocketLaunchOutline),
     _DesktopNavItem(label: 'INTEL', icon: MdiIcons.notebookOutline),
     _DesktopNavItem(label: 'WALLET', icon: MdiIcons.walletOutline),
   ];
@@ -227,10 +228,23 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       ScheduleView(openTick: _scheduleOpenTick),
-      const MoreScreen(isEmbed: true),
+      const ProjectsView(),
       const LogbookScreen(),
       const FinanceDashboardScreen(),
     ];
+
+    String headerLabel = _viewTitles[_selectedIndex];
+    Widget? customLeading;
+    if (_selectedIndex == 3 && appProvider.activeProjectId != null) {
+      final project = appProvider.projects.firstWhereOrNull((p) => p.id == appProvider.activeProjectId);
+      if (project != null) {
+        headerLabel = 'PROJECT: ${project.name}';
+        customLeading = IconButton(
+          icon: const Icon(Icons.arrow_back, color: JweTheme.textWhite, size: 18),
+          onPressed: () => appProvider.setActiveProjectId(null),
+        );
+      }
+    }
 
     return Theme(
       data: dynamicTheme.copyWith(scaffoldBackgroundColor: JweTheme.bgBase),
@@ -239,7 +253,8 @@ class _HomeScreenState extends State<HomeScreen> {
         extendBody: true,
         backgroundColor: JweTheme.bgBase,
         appBar: HeaderWidget(
-          currentViewLabel: _viewTitles[_selectedIndex],
+          currentViewLabel: headerLabel,
+          leading: customLeading,
           onOpenPersona: () => _scaffoldKey.currentState?.openEndDrawer(),
           customAction: IconButton(
             icon:  Icon(MdiIcons.cogOutline, color: JweTheme.textMuted),

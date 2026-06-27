@@ -38,6 +38,7 @@ class NotificationService {
   // --- Notification IDs ---
   static const int _timerNotifId = 2001;
   static const int reflectionReminderId = 3001;
+  static const int financeReminderId = 3002;
   static const int _submissionReminderBase = 4000;
 
   // Linux: periodic timer for updating the live-elapsed notification every 5 min

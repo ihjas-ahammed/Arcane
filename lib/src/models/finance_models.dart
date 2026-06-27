@@ -46,6 +46,7 @@ class FinanceCategory {
   String colorHex;
   String iconName;
   bool isIncomeCategory;
+  double budget;
 
   FinanceCategory({
     required this.id,
@@ -53,6 +54,7 @@ class FinanceCategory {
     required this.colorHex,
     required this.iconName,
     required this.isIncomeCategory,
+    this.budget = 0.0,
   });
 
   factory FinanceCategory.fromJson(Map<String, dynamic> json) {
@@ -62,6 +64,7 @@ class FinanceCategory {
       colorHex: json['colorHex'] as String? ?? 'FFFFFFFF',
       iconName: json['iconName'] as String? ?? 'circle',
       isIncomeCategory: json['isIncomeCategory'] as bool? ?? false,
+      budget: (json['budget'] as num? ?? 0.0).toDouble(),
     );
   }
 
@@ -72,6 +75,7 @@ class FinanceCategory {
       'colorHex': colorHex,
       'iconName': iconName,
       'isIncomeCategory': isIncomeCategory,
+      'budget': budget,
     };
   }
 }

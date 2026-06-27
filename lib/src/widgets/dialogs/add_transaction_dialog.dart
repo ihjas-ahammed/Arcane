@@ -18,6 +18,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
   final _noteController = TextEditingController();
   String? _selectedCategoryId;
   String? _selectedAccountId;
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void dispose() {
@@ -133,6 +134,54 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
                 labelStyle: TextStyle(color: JweTheme.textMuted),
               ),
             ),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _selectedDate,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                  builder: (context, child) => Theme(
+                    data: Theme.of(context).copyWith(
+                      colorScheme: ColorScheme.dark(
+                        primary: widget.isIncome ? JweTheme.accentCyan : JweTheme.accentRed,
+                        onPrimary: Colors.black,
+                        surface: JweTheme.bgBase,
+                      ),
+                    ),
+                    child: child!,
+                  ),
+                );
+                if (picked != null) {
+                  setState(() {
+                    _selectedDate = picked;
+                  });
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  border: Border.all(color: JweTheme.lineSoft),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text("DATE", style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+                    Row(
+                      children: [
+                        Text(
+                          "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}",
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(Icons.calendar_today, size: 14, color: widget.isIncome ? JweTheme.accentCyan : JweTheme.accentRed),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -173,7 +222,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
               widget.isIncome,
               _selectedCategoryId!,
               _noteController.text.trim(),
-              DateTime.now(),
+              _selectedDate,
               accountId: _selectedAccountId,
             );
             Navigator.pop(context);

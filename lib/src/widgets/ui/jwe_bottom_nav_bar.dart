@@ -25,7 +25,7 @@ class JweBottomNavBar extends StatelessWidget {
     _TabSpec(label: 'MISSIONS', icon: 'target'),
     _TabSpec(label: 'BIO',      icon: 'pulse'),
     _TabSpec(label: 'SCHEDULE', icon: 'calendar'),
-    _TabSpec(label: 'TOOLS',    icon: 'tools'),
+    _TabSpec(label: 'PROJECTS', icon: 'projects'),
     _TabSpec(label: 'INTEL',    icon: 'note'),
     _TabSpec(label: 'WALLET',   icon: 'wallet'),
   ];
@@ -37,7 +37,7 @@ class JweBottomNavBar extends StatelessWidget {
       case 'pulse': return MdiIcons.heartPulse;
       case 'note': return MdiIcons.notebookOutline;
       case 'wallet': return MdiIcons.walletOutline;
-      case 'tools': return MdiIcons.hammerWrench;
+      case 'projects': return MdiIcons.rocketLaunchOutline;
     }
     return MdiIcons.circle;
   }

@@ -9,6 +9,7 @@ import 'package:missions/src/models/finance_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/finance_helpers.dart';
+import 'package:missions/src/widgets/dialogs/add_category_dialog.dart';
 import 'package:missions/src/widgets/dialogs/add_edit_account_dialog.dart';
 import 'package:missions/src/widgets/dialogs/add_transaction_dialog.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
@@ -150,6 +151,41 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
+    final accentColor = provider.getSelectedTask()?.taskColor ?? JweTheme.accentAmber;
+
+    return DefaultTabController(
+      length: 3,
+      child: Column(
+        children: [
+          Container(
+            color: JweTheme.panel,
+            child: TabBar(
+              indicatorColor: accentColor,
+              labelColor: accentColor,
+              dividerColor: accentColor.withValues(alpha: 0.20),
+              unselectedLabelColor: JweTheme.textMuted,
+              tabs: [
+                Tab(icon: Icon(MdiIcons.databaseOutline, size: 20)),
+                Tab(icon: Icon(MdiIcons.calculatorVariantOutline, size: 20)),
+                Tab(icon: Icon(MdiIcons.chartLine, size: 20)),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildLedgerTab(context, provider),
+                _buildBudgetTab(context, provider, accentColor),
+                _buildAnalyticsTab(context, provider, accentColor),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLedgerTab(BuildContext context, AppProvider provider) {
     final balance = provider.financeActions.currentBalance;
     final hasAccounts = provider.accounts.isNotEmpty;
 
@@ -214,7 +250,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
     final bottomPadding = isLargeScreen ? 0.0 : (0 + MediaQuery.of(context).padding.bottom);
 
     return SingleChildScrollView(
-      padding: EdgeInsets.only(bottom: bottomPadding),
+      padding: EdgeInsets.only(bottom: bottomPadding + 130.0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
 
         // ── Balance hero ────────────────────────────
@@ -614,85 +650,725 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
         else
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(children: provider.transactions.take(40).map((tx) {
-              final cat = provider.categories.firstWhere(
-                (c) => c.id == tx.categoryId,
-                orElse: () => FinanceCategory(id: '', name: 'Unknown', colorHex: 'FFFFFF', iconName: 'help', isIncomeCategory: tx.isIncome),
-              );
-              final color = Color(int.parse('0xFF${cat.colorHex}'));
-              return Dismissible(
-                key: ValueKey(tx.id),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  color: JweTheme.accentRed,
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20),
-                  child: const Icon(Icons.delete, color: Colors.white),
-                ),
-                onDismissed: (_) => provider.financeActions.deleteTransaction(tx.id),
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                    decoration: BoxDecoration(
-                      color: JweTheme.panel,
-                      border: Border(left: BorderSide(color: tx.isIncome ? JweTheme.accentTeal : JweTheme.accentRed, width: 2)),
-                    ),
-                    child: Row(children: [
-                      Container(
-                        width: 30, height: 30,
-                        decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.10),
-                          border: Border.all(color: color.withValues(alpha: 0.40), width: 1),
-                        ),
-                        child: Icon(FinanceHelpers.getIconData(cat.iconName), color: color, size: 16),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                          Text(cat.name.toUpperCase(),
-                              style: GoogleFonts.saira(
-                                color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.4,
-                              )),
-                          if (tx.note.isNotEmpty)
-                            Text(tx.note,
-                                maxLines: 1, overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.inter(
-                                  color: JweTheme.textMuted, fontSize: 11,
-                                )),
-                          Text(DateFormat('dd MMM · HH:mm').format(tx.timestamp).toUpperCase(),
+            child: Column(
+              children: (() {
+                final widgets = <Widget>[];
+                DateTime? lastDate;
+                for (var tx in provider.transactions.take(40)) {
+                  final txDate = DateTime(tx.timestamp.year, tx.timestamp.month, tx.timestamp.day);
+                  if (lastDate == null || lastDate != txDate) {
+                    widgets.add(
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12, bottom: 6),
+                        child: Row(
+                          children: [
+                            const Icon(MdiIcons.chevronDoubleRight, size: 10, color: JweTheme.textMuted),
+                            const SizedBox(width: 6),
+                            Text(
+                              "${tx.timestamp.year}-${tx.timestamp.month.toString().padLeft(2, '0')}-${tx.timestamp.day.toString().padLeft(2, '0')}",
                               style: GoogleFonts.jetBrainsMono(
-                                color: JweTheme.textMuted, fontSize: 9, letterSpacing: 1.0, fontWeight: FontWeight.w500,
-                              )),
-                        ]),
-                      ),
-                      Text(
-                        '${tx.isIncome ? '+' : '−'}$_currency${_compactMoney(tx.amount)}',
-                        style: GoogleFonts.jetBrainsMono(
-                          color: tx.isIncome ? JweTheme.accentTeal : JweTheme.accentRed,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.4,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: JweTheme.textMuted,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Container(
+                                height: 0.5,
+                                color: JweTheme.lineSoft.withValues(alpha: 0.15),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ]),
-                  ),
-                ),
-              );
-            }).toList()),
+                    );
+                    lastDate = txDate;
+                  }
+
+                  final cat = provider.categories.firstWhere(
+                    (c) => c.id == tx.categoryId,
+                    orElse: () => FinanceCategory(id: '', name: 'Unknown', colorHex: 'FFFFFF', iconName: 'help', isIncomeCategory: tx.isIncome),
+                  );
+                  final color = Color(int.parse('0xFF${cat.colorHex}'));
+
+                  widgets.add(
+                    Dismissible(
+                      key: ValueKey(tx.id),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        color: JweTheme.accentRed,
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        child: const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      onDismissed: (_) => provider.financeActions.deleteTransaction(tx.id),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Container(
+                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                          decoration: BoxDecoration(
+                            color: JweTheme.panel,
+                            border: Border(left: BorderSide(color: tx.isIncome ? JweTheme.accentTeal : JweTheme.accentRed, width: 2)),
+                          ),
+                          child: Row(children: [
+                            Container(
+                              width: 30, height: 30,
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.10),
+                                border: Border.all(color: color.withValues(alpha: 0.40), width: 1),
+                              ),
+                              child: Icon(FinanceHelpers.getIconData(cat.iconName), color: color, size: 16),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(cat.name.toUpperCase(),
+                                          style: GoogleFonts.saira(
+                                            color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.4,
+                                          )),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    GestureDetector(
+                                      onTap: () {
+                                        showDialog(
+                                          context: context,
+                                          builder: (_) => AddCategoryDialog(isIncome: cat.isIncomeCategory, category: cat),
+                                        );
+                                      },
+                                      child: Icon(MdiIcons.pencilOutline, size: 12, color: JweTheme.textMuted),
+                                    ),
+                                  ],
+                                ),
+                                if (tx.note.isNotEmpty)
+                                  Text(tx.note,
+                                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.inter(
+                                        color: JweTheme.textMuted, fontSize: 11,
+                                      )),
+                                Text(DateFormat('HH:mm').format(tx.timestamp).toUpperCase(),
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: JweTheme.textMuted, fontSize: 9, letterSpacing: 1.0, fontWeight: FontWeight.w500,
+                                    )),
+                              ]),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${tx.isIncome ? '+' : '−'}$_currency${_compactMoney(tx.amount)}',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: tx.isIncome ? JweTheme.accentTeal : JweTheme.accentRed,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ]),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                return widgets;
+              })(),
+            ),
           ),
       ]),
     );
   }
-
-  static bool _sameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
 
   static String _compactMoney(double v) {
     if (v >= 100000) return v.toStringAsFixed(0);
     if (v >= 1000) return v.toStringAsFixed(0);
     return v.toStringAsFixed(2);
   }
+
+  void _showSetBudgetDialog(BuildContext context, FinanceCategory cat) {
+    final ctrl = TextEditingController(text: cat.budget > 0 ? cat.budget.toStringAsFixed(2) : '');
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final provider = Provider.of<AppProvider>(ctx, listen: false);
+        return AlertDialog(
+          backgroundColor: JweTheme.panel,
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: JweTheme.accentAmber),
+            borderRadius: BorderRadius.zero,
+          ),
+          title: Text(
+            'SET MONTHLY BUDGET: ${cat.name.toUpperCase()}',
+            style: GoogleFonts.saira(
+              color: JweTheme.accentAmber,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.6,
+              fontSize: 13,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Enter monthly spending limit for this category.',
+                  style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10, color: JweTheme.textMuted, letterSpacing: 1.4)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontSize: 22),
+                decoration: const InputDecoration(
+                  prefixText: '₹ ',
+                  hintText: '0.00',
+                  hintStyle: TextStyle(color: JweTheme.textMuted),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: JweTheme.accentAmber,
+                foregroundColor: Colors.black,
+                shape: const BeveledRectangleBorder(),
+              ),
+              onPressed: () {
+                final val = double.tryParse(ctrl.text) ?? 0.0;
+                provider.financeActions.updateCategoryBudget(cat.id, val);
+                Navigator.pop(ctx);
+              },
+              child: const Text('SAVE BUDGET', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildBudgetTab(BuildContext context, AppProvider provider, Color accent) {
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month, 1);
+    
+    final catMTDSpend = <String, double>{};
+    for (var t in provider.transactions) {
+      if (t.isIncome) continue;
+      if (t.timestamp.isBefore(monthStart)) continue;
+      catMTDSpend[t.categoryId] = (catMTDSpend[t.categoryId] ?? 0) + t.amount;
+    }
+
+    final expenseCategories = provider.categories.where((c) => !c.isIncomeCategory).toList();
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isLargeScreen = screenWidth > 900;
+    final bottomPadding = isLargeScreen ? 0.0 : (0 + MediaQuery.of(context).padding.bottom);
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(left: 16, right: 16, top: 14, bottom: bottomPadding + 130.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(width: 4, height: 16, color: accent),
+              const SizedBox(width: 8),
+              Text(
+                'MONTHLY BUDGET PLANNER',
+                style: GoogleFonts.jetBrainsMono(
+                  color: accent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (expenseCategories.isEmpty)
+            Center(
+              child: Text(
+                'NO EXPENSE CATEGORIES DETECTED',
+                style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 11),
+              ),
+            )
+          else
+            ...expenseCategories.map((cat) {
+              final spent = catMTDSpend[cat.id] ?? 0.0;
+              final budget = cat.budget;
+              final color = Color(int.parse('0xFF${cat.colorHex}'));
+              final isOver = budget > 0 && spent > budget;
+              final remaining = budget - spent;
+              final progress = budget > 0 ? (spent / budget).clamp(0.0, 1.0) : 0.0;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: HudPanel(
+                  clip: HudClip.br,
+                  accent: isOver ? JweTheme.accentRed : color,
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(FinanceHelpers.getIconData(cat.iconName), color: color, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            cat.name.toUpperCase(),
+                            style: GoogleFonts.saira(
+                              color: JweTheme.textWhite,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: () {
+                              showDialog(
+                                context: context,
+                                builder: (_) => AddCategoryDialog(isIncome: false, category: cat),
+                              );
+                            },
+                            child: Icon(MdiIcons.pencilOutline, size: 12, color: JweTheme.textMuted),
+                          ),
+                          const Spacer(),
+                          OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: color.withValues(alpha: 0.5)),
+                              shape: const BeveledRectangleBorder(),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              minimumSize: Size.zero,
+                            ),
+                            onPressed: () => _showSetBudgetDialog(context, cat),
+                            child: Text(
+                              budget > 0 ? 'EDIT LIMIT' : 'SET BUDGET',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: color,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'SPENT MTD',
+                                style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8, letterSpacing: 0.8),
+                              ),
+                              Text(
+                                '$_currency${spent.toStringAsFixed(2)}',
+                                style: GoogleFonts.saira(
+                                  color: JweTheme.textWhite,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                budget > 0 ? 'MONTHLY BUDGET' : 'BUDGET',
+                                style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8, letterSpacing: 0.8),
+                              ),
+                              Text(
+                                budget > 0 ? '$_currency${budget.toStringAsFixed(2)}' : 'NOT SET',
+                                style: GoogleFonts.saira(
+                                  color: budget > 0 ? color : JweTheme.textMuted,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      if (budget > 0) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: HudProgressBar(
+                                value: progress * 100,
+                                tone: isOver ? HudTone.red : HudTone.cyan,
+                                segments: 10,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${(progress * 100).round()}%',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: isOver ? JweTheme.accentRed : JweTheme.textWhite,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              isOver ? 'EXCEEDED BY:' : 'REMAINING:',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: isOver ? JweTheme.accentRed : JweTheme.textMuted,
+                                fontSize: 9,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            Text(
+                              '$_currency${remaining.abs().toStringAsFixed(2)}',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: isOver ? JweTheme.accentRed : JweTheme.accentTeal,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsTab(BuildContext context, AppProvider provider, Color accent) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final thirtyAgo = today.subtract(const Duration(days: 29));
+    final dailyInc = List<double>.filled(30, 0);
+    final dailyExp = List<double>.filled(30, 0);
+
+    for (var t in provider.transactions) {
+      final ts = t.timestamp;
+      if (ts.isBefore(thirtyAgo)) continue;
+      final dayIdx = today.difference(DateTime(ts.year, ts.month, ts.day)).inDays;
+      final i = 29 - dayIdx;
+      if (i >= 0 && i < 30) {
+        if (t.isIncome) {
+          dailyInc[i] += t.amount;
+        } else {
+          dailyExp[i] += t.amount;
+        }
+      }
+    }
+
+    final regIncome = LinearRegression.calculate(dailyInc);
+    final regExpense = LinearRegression.calculate(dailyExp);
+
+    double maxVal = 100.0;
+    for (int i = 0; i < 30; i++) {
+      if (dailyInc[i] > maxVal) maxVal = dailyInc[i];
+      if (dailyExp[i] > maxVal) maxVal = dailyExp[i];
+    }
+    for (int i = 29; i <= 36; i++) {
+      final pi = regIncome.predict(i.toDouble());
+      final pe = regExpense.predict(i.toDouble());
+      if (pi > maxVal) maxVal = pi;
+      if (pe > maxVal) maxVal = pe;
+    }
+    final maxYVal = maxVal * 1.15;
+
+    final tomorrowIncome = regIncome.predict(30).clamp(0.0, double.infinity);
+    final tomorrowExpense = regExpense.predict(30).clamp(0.0, double.infinity);
+
+    // MTD category spend
+    final monthStart = DateTime(now.year, now.month, 1);
+    final catMTDSpend = <String, double>{};
+    for (var t in provider.transactions) {
+      if (t.isIncome) continue;
+      if (t.timestamp.isBefore(monthStart)) continue;
+      catMTDSpend[t.categoryId] = (catMTDSpend[t.categoryId] ?? 0) + t.amount;
+    }
+    final expenseCategories = provider.categories.where((c) => !c.isIncomeCategory).toList();
+    double maxSpend = 100.0;
+    for (final cat in expenseCategories) {
+      final s = catMTDSpend[cat.id] ?? 0.0;
+      if (s > maxSpend) maxSpend = s;
+    }
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isLargeScreen = screenWidth > 900;
+    final bottomPadding = isLargeScreen ? 0.0 : (0 + MediaQuery.of(context).padding.bottom);
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(left: 16, right: 16, top: 14, bottom: bottomPadding + 130.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(width: 4, height: 16, color: accent),
+              const SizedBox(width: 8),
+              Text(
+                'PREDICTIVE TREND ANALYSIS',
+                style: GoogleFonts.jetBrainsMono(
+                  color: accent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          HudPanel(
+            clip: HudClip.br,
+            accent: accent,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Container(width: 8, height: 8, color: JweTheme.accentCyan),
+                    const SizedBox(width: 4),
+                    Text('INCOME', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8, fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 12),
+                    Container(width: 8, height: 8, color: JweTheme.accentRed),
+                    const SizedBox(width: 4),
+                    Text('EXPENSE', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 180,
+                  child: LineChart(
+                    LineChartData(
+                      minX: 0,
+                      maxX: 36,
+                      minY: 0,
+                      maxY: maxYVal,
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: true,
+                        drawHorizontalLine: true,
+                        getDrawingHorizontalLine: (value) => FlLine(color: JweTheme.lineSoft.withValues(alpha: 0.1), strokeWidth: 1),
+                        getDrawingVerticalLine: (value) => FlLine(color: JweTheme.lineSoft.withValues(alpha: 0.1), strokeWidth: 1),
+                      ),
+                      titlesData: FlTitlesData(
+                        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (value, meta) {
+                              if (value == 0) return Text('30D AGO', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8, fontWeight: FontWeight.bold));
+                              if (value == 29) return Text('TODAY', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8, fontWeight: FontWeight.bold));
+                              if (value == 36) return Text('+7D PROJ', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentAmber, fontSize: 8, fontWeight: FontWeight.bold));
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                        ),
+                      ),
+                      borderData: FlBorderData(show: false),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: List.generate(30, (idx) => FlSpot(idx.toDouble(), dailyInc[idx])),
+                          color: JweTheme.accentCyan,
+                          isCurved: true,
+                          dotData: const FlDotData(show: false),
+                          barWidth: 2,
+                        ),
+                        LineChartBarData(
+                          spots: List.generate(8, (idx) => FlSpot((29 + idx).toDouble(), regIncome.predict((29 + idx).toDouble()))),
+                          color: JweTheme.accentCyan,
+                          isCurved: false,
+                          dotData: const FlDotData(show: false),
+                          barWidth: 1.5,
+                          dashArray: [4, 4],
+                        ),
+                        LineChartBarData(
+                          spots: List.generate(30, (idx) => FlSpot(idx.toDouble(), dailyExp[idx])),
+                          color: JweTheme.accentRed,
+                          isCurved: true,
+                          dotData: const FlDotData(show: false),
+                          barWidth: 2,
+                        ),
+                        LineChartBarData(
+                          spots: List.generate(8, (idx) => FlSpot((29 + idx).toDouble(), regExpense.predict((29 + idx).toDouble()))),
+                          color: JweTheme.accentRed,
+                          isCurved: false,
+                          dotData: const FlDotData(show: false),
+                          barWidth: 1.5,
+                          dashArray: [4, 4],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Divider(height: 1, color: JweTheme.lineSoft.withValues(alpha: 0.15)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('TOMORROW EXPECTED INC', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8, letterSpacing: 0.8)),
+                          const SizedBox(height: 2),
+                          Text('$_currency${tomorrowIncome.toStringAsFixed(2)}', style: GoogleFonts.saira(color: JweTheme.accentTeal, fontSize: 14, fontWeight: FontWeight.bold)),
+                          Text(regIncome.slope >= 0 ? 'TRENDING UP (+₹${regIncome.slope.toStringAsFixed(1)}/d)' : 'TRENDING DOWN (-₹${regIncome.slope.abs().toStringAsFixed(1)}/d)', style: GoogleFonts.jetBrainsMono(color: regIncome.slope >= 0 ? JweTheme.accentTeal : JweTheme.accentRed, fontSize: 7, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('TOMORROW EXPECTED EXP', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8, letterSpacing: 0.8)),
+                          const SizedBox(height: 2),
+                          Text('$_currency${tomorrowExpense.toStringAsFixed(2)}', style: GoogleFonts.saira(color: JweTheme.accentRed, fontSize: 14, fontWeight: FontWeight.bold)),
+                          Text(regExpense.slope >= 0 ? 'TRENDING UP (+₹${regExpense.slope.toStringAsFixed(1)}/d)' : 'TRENDING DOWN (-₹${regExpense.slope.abs().toStringAsFixed(1)}/d)', style: GoogleFonts.jetBrainsMono(color: regExpense.slope >= 0 ? JweTheme.accentRed : JweTheme.accentTeal, fontSize: 7, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Container(width: 4, height: 16, color: accent),
+              const SizedBox(width: 8),
+              Text(
+                'CATEGORY EXPENDITURE BREAKDOWN',
+                style: GoogleFonts.jetBrainsMono(
+                  color: accent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          HudPanel(
+            clip: HudClip.br,
+            accent: accent,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (expenseCategories.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text('NO MTD EXPENSE DATA FOUND', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10)),
+                    ),
+                  )
+                else ...[
+                  SizedBox(
+                    height: 160,
+                    child: BarChart(
+                      BarChartData(
+                        alignment: BarChartAlignment.spaceAround,
+                        maxY: maxSpend * 1.15,
+                        barTouchData: BarTouchData(enabled: true),
+                        titlesData: FlTitlesData(
+                          show: true,
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              getTitlesWidget: (double value, TitleMeta meta) {
+                                final idx = value.toInt();
+                                if (idx >= 0 && idx < expenseCategories.length) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 4.0),
+                                    child: Text(
+                                      expenseCategories[idx].name.substring(0, math.min(4, expenseCategories[idx].name.length)).toUpperCase(),
+                                      style: GoogleFonts.jetBrainsMono(fontSize: 8, color: JweTheme.textMuted, fontWeight: FontWeight.bold),
+                                    ),
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              },
+                            ),
+                          ),
+                          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        ),
+                        gridData: const FlGridData(show: false),
+                        borderData: FlBorderData(show: false),
+                        barGroups: List.generate(expenseCategories.length, (index) {
+                          final cat = expenseCategories[index];
+                          final spent = catMTDSpend[cat.id] ?? 0.0;
+                          final color = Color(int.parse('0xFF${cat.colorHex}'));
+                          return BarChartGroupData(
+                            x: index,
+                            barRods: [
+                              BarChartRodData(
+                                toY: spent,
+                                color: color,
+                                width: 16,
+                                borderRadius: BorderRadius.zero,
+                                backDrawRodData: BackgroundBarChartRodData(
+                                  show: true,
+                                  toY: maxSpend * 1.15,
+                                  color: JweTheme.bgBase,
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ...expenseCategories.map((cat) {
+                    final spent = catMTDSpend[cat.id] ?? 0.0;
+                    final color = Color(int.parse('0xFF${cat.colorHex}'));
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6.0),
+                      child: Row(
+                        children: [
+                          Container(width: 8, height: 8, color: color),
+                          const SizedBox(width: 8),
+                          Text(cat.name.toUpperCase(), style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 10, fontWeight: FontWeight.bold)),
+                          const Spacer(),
+                          Text('$_currency${spent.toStringAsFixed(2)}', style: GoogleFonts.jetBrainsMono(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
 class _CatRow {
@@ -967,4 +1643,40 @@ class _ProjectedIncomeCard extends StatelessWidget {
       ]),
     );
   }
+}
+
+class LinearRegression {
+  final double slope;
+  final double intercept;
+
+  LinearRegression(this.slope, this.intercept);
+
+  static LinearRegression calculate(List<double> values) {
+    final n = values.length;
+    if (n == 0) return LinearRegression(0, 0);
+
+    double sumX = 0;
+    double sumY = 0;
+    double sumXY = 0;
+    double sumXX = 0;
+
+    for (int i = 0; i < n; i++) {
+      final x = i.toDouble();
+      final y = values[i];
+      sumX += x;
+      sumY += y;
+      sumXY += x * y;
+      sumXX += x * x;
+    }
+
+    final num = n * sumXY - sumX * sumY;
+    final den = n * sumXX - sumX * sumX;
+    if (den == 0) return LinearRegression(0, sumY / n);
+
+    final slope = num / den;
+    final intercept = (sumY - slope * sumX) / n;
+    return LinearRegression(slope, intercept);
+  }
+
+  double predict(double x) => slope * x + intercept;
 }

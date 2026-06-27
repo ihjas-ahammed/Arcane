@@ -246,6 +246,9 @@ class AppSettings {
   bool submissionReminderEnabled;
   int submissionReminderHour;
   int submissionReminderMinute;
+  bool financeReminderEnabled;
+  int financeReminderHour;
+  int financeReminderMinute;
 
   // Persisted user reminders (task / planner / custom) shown in the
   // Scheduled Reminders screen and re-armed on launch.
@@ -299,6 +302,9 @@ class AppSettings {
     this.submissionReminderEnabled = false,
     this.submissionReminderHour = 9,
     this.submissionReminderMinute = 0,
+    this.financeReminderEnabled = false,
+    this.financeReminderHour = 18,
+    this.financeReminderMinute = 0,
     List<ScheduledReminder>? scheduledReminders,
     this.adaptWritingStyle = false,
     this.writingStyleMap,
@@ -365,6 +371,9 @@ class AppSettings {
       submissionReminderEnabled: json['submissionReminderEnabled'] as bool? ?? false,
       submissionReminderHour: json['submissionReminderHour'] as int? ?? 9,
       submissionReminderMinute: json['submissionReminderMinute'] as int? ?? 0,
+      financeReminderEnabled: json['financeReminderEnabled'] as bool? ?? false,
+      financeReminderHour: json['financeReminderHour'] as int? ?? 18,
+      financeReminderMinute: json['financeReminderMinute'] as int? ?? 0,
       scheduledReminders: (json['scheduledReminders'] as List<dynamic>?)
               ?.map((e) => ScheduledReminder.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -413,6 +422,9 @@ class AppSettings {
       'submissionReminderEnabled': submissionReminderEnabled,
       'submissionReminderHour': submissionReminderHour,
       'submissionReminderMinute': submissionReminderMinute,
+      'financeReminderEnabled': financeReminderEnabled,
+      'financeReminderHour': financeReminderHour,
+      'financeReminderMinute': financeReminderMinute,
       'scheduledReminders': scheduledReminders.map((e) => e.toJson()).toList(),
       'customBusSchedules': customBusSchedules,
       'adaptWritingStyle': adaptWritingStyle,
