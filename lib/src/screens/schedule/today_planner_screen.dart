@@ -251,7 +251,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       if (task == null || sub == null || sub.completed) continue;
       String? title;
       if (parts.length == 3) {
-        final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+        final cp = sub.findCheckpoint(parts[2]);
         if (cp == null || cp.completed) continue;
         title = cp.name;
       } else {
@@ -411,8 +411,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
 
       for (final sub in activeSubs) {
         final subId = '${task.id}|${sub.id}';
-        final activeCps =
-            sub.subSubTasks.where((c) => !c.completed).toList();
+        final activeCps = _getAllIncompleteCheckpoints(sub);
         final allCpIds =
             activeCps.map((c) => '$subId|${c.id}').toList();
         final subInPlan = planSet.contains(subId);
@@ -435,7 +434,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
             if (!_matchesQuery(cp.name, q) && !_matchesQuery(sub.name, q)) continue;
             taskRows.add(_AvailableRow(
               title: cp.name,
-              parent: sub.name,
+              parent: _findParentPath(sub, cp),
               color: task.taskColor,
               isCheckpoint: true,
               onAdd: () => _addToPlan(provider, cpId),
@@ -666,12 +665,12 @@ class _PlanRow extends StatelessWidget {
     final isCheckpoint = parts.length == 3;
     SubSubTask? cp;
     if (isCheckpoint) {
-      cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+      cp = sub.findCheckpoint(parts[2]);
       if (cp == null) return const SizedBox.shrink();
     }
 
     final title = isCheckpoint ? cp!.name : sub.name;
-    final parent = isCheckpoint ? '${task.name} > ${sub.name}' : task.name;
+    final parent = isCheckpoint ? '${task.name} > ${_findParentPath(sub, cp!)}' : task.name;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -820,11 +819,11 @@ class _PhoenixCard extends StatelessWidget {
     final isCheckpoint = parts.length == 3;
     SubSubTask? cp;
     if (isCheckpoint) {
-      cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+      cp = sub.findCheckpoint(parts[2]);
       if (cp == null) return const SizedBox.shrink();
     }
     final title = isCheckpoint ? cp!.name : sub.name;
-    final parent = isCheckpoint ? '${task.name} > ${sub.name}' : task.name;
+    final parent = isCheckpoint ? '${task.name} > ${_findParentPath(sub, cp!)}' : task.name;
 
     final amber = AppTheme.fhAccentOrange;
 
@@ -1079,4 +1078,35 @@ class _AddSection extends StatelessWidget {
       ),
     );
   }
+}
+
+List<SubSubTask> _getAllIncompleteCheckpoints(SubTask sub) {
+  final List<SubSubTask> result = [];
+  void recurse(List<SubSubTask> currentList) {
+    for (final cp in currentList) {
+      if (!cp.completed) {
+        result.add(cp);
+        recurse(cp.substeps);
+      }
+    }
+  }
+  recurse(sub.subSubTasks);
+  return result;
+}
+
+String _findParentPath(SubTask sub, SubSubTask target) {
+  String? search(List<SubSubTask> list, String currentPath) {
+    for (final item in list) {
+      if (item.id == target.id) return currentPath;
+      final subPath = currentPath.isEmpty ? item.name : '$currentPath > ${item.name}';
+      final found = search(item.substeps, subPath);
+      if (found != null) return found;
+    }
+    return null;
+  }
+  final path = search(sub.subSubTasks, '');
+  if (path == null || path.isEmpty) {
+    return sub.name;
+  }
+  return '${sub.name} > $path';
 }

@@ -231,7 +231,7 @@ class TaskActions {
     final sub = task.subTasks.firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
     if (sub == null) return false;
     if (parts.length == 3) {
-      final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+      final cp = sub.findCheckpoint(parts[2]);
       return cp != null && !cp.completed;
     }
     return !sub.completed;

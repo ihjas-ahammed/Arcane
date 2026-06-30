@@ -82,7 +82,7 @@ class HomeWidgetPublisher {
           queueId = inPlan;
           final parts = inPlan.split('|');
           if (parts.length == 3) {
-            cp = s.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+            cp = s.findCheckpoint(parts[2]);
           }
         }
         return (
@@ -106,7 +106,7 @@ class HomeWidgetPublisher {
             .firstWhereOrNull((st) => st.id == parts[1] && !st.isDeleted);
         if (m != null && s != null && !s.completed) {
           if (parts.length == 3) {
-            final cp = s.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+            final cp = s.findCheckpoint(parts[2]);
             if (cp != null && !cp.completed) {
               return (mainTask: m, subTask: s, checkpoint: cp, isRunning: false, isPhoenix: true, queueId: phoenixId);
             }
@@ -128,7 +128,7 @@ class HomeWidgetPublisher {
       );
       if (m == null || s == null || s.completed) continue;
       if (parts.length == 3) {
-        final cp = s.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+        final cp = s.findCheckpoint(parts[2]);
         if (cp == null || cp.completed) continue;
         return (mainTask: m, subTask: s, checkpoint: cp, isRunning: false, isPhoenix: false, queueId: idPair);
       }
@@ -143,6 +143,15 @@ class HomeWidgetPublisher {
     final s = r.subTask;
     final m = r.mainTask;
     final cp = r.checkpoint;
+
+    final today = helper.getTodayDateString();
+    final dayPlannerWidgetCheckable = _provider.settings.dayPlannerWidgetCheckable;
+
+    final topFiveTasks = TaskCalculations.resolveTopFiveDayPlanTasks(
+      mainTasks: _provider.mainTasks,
+      plan: _provider.taskActions.getDayPlan(today),
+      phoenixId: _provider.taskActions.getPhoenixId(today),
+    );
 
     final title = s == null
         ? 'NO PLAN SET'
@@ -160,18 +169,17 @@ class HomeWidgetPublisher {
 
     // Buffer-aware day capacity ("planned / realistic"), shown on the widget.
     String capacity = '';
-    if (s != null) {
-      final now = DateTime.now();
-      final window = resolveDayWindow(_provider, now);
-      final planned = _provider.taskActions
-          .plannedMinutesForDay(helper.getTodayDateString());
-      final realistic = window.realisticMinutes(now);
-      if (realistic > 0) {
-        capacity = '${formatMinutes(planned)} / ${formatMinutes(realistic)}';
-      }
+    final now = DateTime.now();
+    final window = resolveDayWindow(_provider, now);
+    final planned = _provider.taskActions.plannedMinutesForDay(today);
+    final realistic = window.realisticMinutes(now);
+    if (realistic > 0) {
+      capacity = '${formatMinutes(planned)} / ${formatMinutes(realistic)}';
     }
 
     final key = [
+      dayPlannerWidgetCheckable,
+      topFiveTasks.map((t) => '${t.compoundId}|${t.name}|${t.isPhoenix}').join(','),
       s != null,
       title,
       subtitle,
@@ -198,6 +206,8 @@ class HomeWidgetPublisher {
         sessionStart: sessionStart,
         isPhoenix: r.isPhoenix,
         capacity: capacity,
+        dayPlannerWidgetCheckable: dayPlannerWidgetCheckable,
+        topFiveTasks: topFiveTasks,
       );
     } catch (e) {
       debugPrint('[HomeWidget] publish task: $e');

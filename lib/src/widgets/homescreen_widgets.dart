@@ -8,6 +8,8 @@ import 'package:intl/intl.dart';
 /// Since they are rendered to a fixed logical size (400x200), we wrap them in
 /// a fixed 400x200 Container to ensure layout stability and pixel-perfect results.
 
+import 'package:missions/src/utils/task_calculations.dart';
+
 class RunningTaskHomeWidget extends StatelessWidget {
   final bool hasTask;
   final String title;
@@ -18,6 +20,8 @@ class RunningTaskHomeWidget extends StatelessWidget {
   final double progress; // 0..1 — mirrors the missions screen subtask progress
   final bool isPhoenix; // true when the headlined item is today's Phoenix
   final String capacity; // e.g. "2h40 / 4h30"; empty hides the readout
+  final bool dayPlannerWidgetCheckable;
+  final List<ResolvedDayPlanItem> topFiveTasks;
 
   const RunningTaskHomeWidget({
     super.key,
@@ -30,10 +34,170 @@ class RunningTaskHomeWidget extends StatelessWidget {
     this.progress = 0.0,
     this.isPhoenix = false,
     this.capacity = '',
+    this.dayPlannerWidgetCheckable = false,
+    this.topFiveTasks = const [],
   });
+
+  Widget _buildCheckableList(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 400,
+        height: 200,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.fhBgDark,
+          border: Border.all(color: AppTheme.fhAccentGold, width: 2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: AppTheme.fhAccentGold,
+                    shape: BoxShape.rectangle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  "DAY PLAN",
+                  style: TextStyle(
+                    color: AppTheme.fhAccentGold,
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const Spacer(),
+                if (capacity.isNotEmpty)
+                  Text(
+                    "CAP $capacity",
+                    style: const TextStyle(
+                      color: AppTheme.fhTextDisabled,
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // List of top 5 tasks
+            Expanded(
+              child: topFiveTasks.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "NO PLAN SET",
+                        style: TextStyle(
+                          color: AppTheme.fhTextDisabled,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                  : Column(
+                      children: List.generate(5, (index) {
+                        if (index >= topFiveTasks.length) {
+                          return const SizedBox(height: 30);
+                        }
+                        final item = topFiveTasks[index];
+                        return Container(
+                          height: 30,
+                          margin: const EdgeInsets.only(bottom: 2),
+                          child: Row(
+                            children: [
+                              // Task Indicator / Color bar
+                              Container(
+                                width: 4,
+                                height: 18,
+                                decoration: BoxDecoration(
+                                  color: item.color,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Task details (Name & Subtitle)
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        if (item.isPhoenix) ...[
+                                          Icon(Icons.fireplace, size: 12, color: AppTheme.fhAccentOrange),
+                                          const SizedBox(width: 4),
+                                        ],
+                                        Expanded(
+                                          child: Text(
+                                            item.name.toUpperCase(),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: item.isPhoenix ? AppTheme.fhAccentOrange : AppTheme.fhTextPrimary,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      item.parentName.toUpperCase(),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: AppTheme.fhTextSecondary,
+                                        fontSize: 9,
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Checkbox representation
+                              Container(
+                                width: 18,
+                                height: 18,
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: item.isPhoenix ? AppTheme.fhAccentOrange : AppTheme.fhAccentTeal,
+                                    width: 1.5,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Icon(
+                                  Icons.check,
+                                  size: 12,
+                                  color: Colors.transparent,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                            ],
+                          ),
+                        );
+                      }),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (dayPlannerWidgetCheckable) {
+      return _buildCheckableList(context);
+    }
+
     // Phoenix anchors an amber identity; a live session still flips to red.
     final accentColor = isRunning
         ? AppTheme.fhAccentRed

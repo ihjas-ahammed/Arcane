@@ -463,6 +463,18 @@ class SubTask {
     }
     return total / checkables.length;
   }
+
+  SubSubTask? findCheckpoint(String cpId) {
+    SubSubTask? recurse(List<SubSubTask> list) {
+      for (final item in list) {
+        if (item.id == cpId) return item;
+        final found = recurse(item.substeps);
+        if (found != null) return found;
+      }
+      return null;
+    }
+    return recurse(subSubTasks);
+  }
 }
 
 class SubSubTask {

@@ -9,6 +9,8 @@ import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/day_budget_helper.dart' show formatMinutes;
 import 'package:missions/src/widgets/ui/hud_components.dart';
 
+import 'package:missions/src/utils/task_calculations.dart';
+
 /// Operator HUD active-mission card. Live-ticking radial elapsed ring,
 /// engagement controls, finish action.
 class ScheduleHeroWidget extends StatefulWidget {
@@ -37,6 +39,9 @@ class ScheduleHeroWidget extends StatefulWidget {
   final VoidCallback onFinishSubTask;
   final VoidCallback onTitleTap;
 
+  final List<ResolvedDayPlanItem> topFiveTasks;
+  final void Function(ResolvedDayPlanItem item) onCheckTask;
+
   const ScheduleHeroWidget({
     super.key,
     this.mainTask,
@@ -53,6 +58,8 @@ class ScheduleHeroWidget extends StatefulWidget {
     required this.onFinishCheckpoint,
     required this.onFinishSubTask,
     required this.onTitleTap,
+    this.topFiveTasks = const [],
+    required this.onCheckTask,
   });
 
   @override
@@ -61,6 +68,7 @@ class ScheduleHeroWidget extends StatefulWidget {
 
 class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
   Timer? _ticker;
+  bool _isExpanded = false;
 
   @override
   void initState() {
@@ -145,154 +153,268 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
     final ringSec = widget.isRunning ? liveSeconds : displayTotal;
     final ringPct = ((ringSec % 3600) / 3600 * 100).clamp(0.0, 100.0);
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-      child: HudPanel(
-        clip: HudClip.both,
-        accent: accent,
-        allBrackets: true,
-        padding: EdgeInsets.zero,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          // ── Status bar ───────────────────────────────
-          Container(
-            padding: const EdgeInsets.fromLTRB(14, 7, 12, 7),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: accent.withValues(alpha: 0.25))),
-            ),
-            child: Row(children: [
-              if (widget.isPhoenix && !isEmpty) ...[
-                Icon(MdiIcons.fire, size: 12, color: accent),
-                const SizedBox(width: 6),
-              ] else ...[
-                HudDot(tone: tone),
-                const SizedBox(width: 10),
-              ],
-              Text(
-                isEmpty
-                    ? 'QUEUE EMPTY'
-                    : (widget.isPhoenix
-                        ? 'PHOENIX · ${widget.isRunning ? "ENGAGED" : "STANDBY"}'
-                        : (isCheckpoint
-                            ? 'CHECKPOINT · ${widget.isRunning ? "ENGAGED" : "STANDBY"}'
-                            : (widget.isRunning ? 'ACTIVE · ENGAGED' : 'ACTIVE · STANDBY'))),
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 10, color: accent, fontWeight: FontWeight.w600, letterSpacing: 1.6,
-                ),
+    return GestureDetector(
+      onVerticalDragEnd: (details) {
+        if (details.primaryVelocity != null) {
+          if (details.primaryVelocity! > 0) {
+            setState(() => _isExpanded = true);
+          } else if (details.primaryVelocity! < 0) {
+            setState(() => _isExpanded = false);
+          }
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+        child: HudPanel(
+          clip: HudClip.both,
+          accent: accent,
+          allBrackets: true,
+          padding: EdgeInsets.zero,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            // ── Status bar ───────────────────────────────
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 7, 12, 7),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: accent.withValues(alpha: 0.25))),
               ),
-              const Spacer(),
-              if (widget.isRunning)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Text('REC',
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 9, color: accent, fontWeight: FontWeight.w700, letterSpacing: 1.4,
-                      )).animate(onPlay: (c) => c.repeat()).fadeOut(duration: 700.ms, delay: 700.ms),
-                ),
-              InkWell(
-                onTap: widget.onOpenPlan,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: JweTheme.lineSoft),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(MdiIcons.formatListBulleted, size: 11, color: JweTheme.textMid),
-                    const SizedBox(width: 4),
-                    Text('DAY PLAN',
-                        style: GoogleFonts.jetBrainsMono(
-                          fontSize: 9, color: JweTheme.textMid, fontWeight: FontWeight.w600, letterSpacing: 1.4,
-                        )),
-                  ]),
-                ),
-              ),
-            ]),
-          ),
-
-          // ── Body ─────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-              if (!isEmpty)
-                HudRing(
-                  value: ringPct,
-                  size: 58,
-                  stroke: 4,
-                  tone: tone,
-                  label: _ringLabel(ringSec),
-                  sub: widget.isRunning ? 'SESSION' : 'TODAY',
-                ),
-              if (!isEmpty) const SizedBox(width: 12),
-              Expanded(
-                child: InkWell(
-                  onTap: isEmpty ? null : widget.onTitleTap,
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.saira(
-                          color: JweTheme.textWhite,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          height: 1.1,
-                          letterSpacing: 0.4,
-                        )),
-                    if (sub.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(sub,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.jetBrainsMono(
-                            color: JweTheme.textMid,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.4,
-                          )),
-                    ],
-                    if (!isEmpty && widget.realisticMinutes > 0) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        'CAP ${formatMinutes(widget.plannedMinutes)} / ${formatMinutes(widget.realisticMinutes)}',
-                        style: GoogleFonts.jetBrainsMono(
-                          color: widget.plannedMinutes > widget.realisticMinutes
-                              ? JweTheme.accentRed
-                              : JweTheme.textMuted,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ],
-                  ]),
-                ),
-              ),
-            ]),
-          ),
-
-          // ── Action row ───────────────────────────────
-          if (!isEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: Row(children: [
-                Expanded(
-                  child: _HudActionButton(
-                    label: widget.isRunning ? 'HALT SESSION' : 'ENGAGE',
-                    icon: widget.isRunning ? MdiIcons.pause : MdiIcons.play,
-                    primary: !widget.isRunning,
-                    accent: widget.isRunning ? JweTheme.accentRed : accent,
-                    onTap: widget.onPlayPause,
+                if (widget.isPhoenix && !isEmpty) ...[
+                  Icon(MdiIcons.fire, size: 12, color: accent),
+                  const SizedBox(width: 6),
+                ] else ...[
+                  HudDot(tone: tone),
+                  const SizedBox(width: 10),
+                ],
+                Text(
+                  isEmpty
+                      ? 'QUEUE EMPTY'
+                      : (widget.isPhoenix
+                          ? 'PHOENIX · ${widget.isRunning ? "ENGAGED" : "STANDBY"}'
+                          : (isCheckpoint
+                              ? 'CHECKPOINT · ${widget.isRunning ? "ENGAGED" : "STANDBY"}'
+                              : (widget.isRunning ? 'ACTIVE · ENGAGED' : 'ACTIVE · STANDBY'))),
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 10, color: accent, fontWeight: FontWeight.w600, letterSpacing: 1.6,
                   ),
                 ),
-                const SizedBox(width: 8),
-                _HudActionButton(
-                  label: 'FINISH',
-                  icon: MdiIcons.checkAll,
-                  primary: false,
-                  accent: accent,
-                  onTap: isCheckpoint ? widget.onFinishCheckpoint : widget.onFinishSubTask,
+                const Spacer(),
+                if (widget.isRunning)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Text('REC',
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 9, color: accent, fontWeight: FontWeight.w700, letterSpacing: 1.4,
+                        )).animate(onPlay: (c) => c.repeat()).fadeOut(duration: 700.ms, delay: 700.ms),
+                  ),
+                InkWell(
+                  onTap: widget.onOpenPlan,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: JweTheme.lineSoft),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(MdiIcons.formatListBulleted, size: 11, color: JweTheme.textMid),
+                      const SizedBox(width: 4),
+                      Text('DAY PLAN',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 9, color: JweTheme.textMid, fontWeight: FontWeight.w600, letterSpacing: 1.4,
+                          )),
+                    ]),
+                  ),
                 ),
               ]),
             ),
-        ]),
+  
+            // ── Body ─────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                if (!isEmpty)
+                  HudRing(
+                    value: ringPct,
+                    size: 58,
+                    stroke: 4,
+                    tone: tone,
+                    label: _ringLabel(ringSec),
+                    sub: widget.isRunning ? 'SESSION' : 'TODAY',
+                  ),
+                if (!isEmpty) const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: isEmpty ? null : widget.onTitleTap,
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.saira(
+                            color: JweTheme.textWhite,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            height: 1.1,
+                            letterSpacing: 0.4,
+                          )),
+                      if (sub.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(sub,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.jetBrainsMono(
+                              color: JweTheme.textMid,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.4,
+                            )),
+                      ],
+                      if (!isEmpty && widget.realisticMinutes > 0) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'CAP ${formatMinutes(widget.plannedMinutes)} / ${formatMinutes(widget.realisticMinutes)}',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: widget.plannedMinutes > widget.realisticMinutes
+                                ? JweTheme.accentRed
+                                : JweTheme.textMuted,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+
+            // ── Top Five Tasks Checklist (visible when expanded) ─────────
+            if (_isExpanded) ...[
+              Container(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Divider(color: JweTheme.lineSoft, height: 16),
+                    Text(
+                      'DAILY QUEUE (TOP 5)',
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 9,
+                        color: JweTheme.textMuted,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (widget.topFiveTasks.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          'NO PLAN SET',
+                          style: GoogleFonts.saira(
+                            fontSize: 12,
+                            color: JweTheme.textMuted,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    else
+                      ...widget.topFiveTasks.map((item) {
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: JweTheme.bgBase.withValues(alpha: 0.4),
+                            border: Border(left: BorderSide(color: item.color, width: 2.5)),
+                          ),
+                          child: Row(
+                            children: [
+                              if (item.isPhoenix) ...[
+                                Icon(Icons.fireplace, size: 13, color: JweTheme.accentAmber),
+                                const SizedBox(width: 4),
+                              ],
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.name.toUpperCase(),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.saira(
+                                        color: item.isPhoenix ? JweTheme.accentAmber : JweTheme.textWhite,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    Text(
+                                      item.parentName.toUpperCase(),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.jetBrainsMono(
+                                        color: JweTheme.textMuted,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Check button
+                              InkWell(
+                                onTap: () => widget.onCheckTask(item),
+                                child: Container(
+                                  width: 22,
+                                  height: 22,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: item.isPhoenix ? JweTheme.accentAmber : JweTheme.accentTeal,
+                                      width: 1.5,
+                                    ),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Icon(
+                                    Icons.check,
+                                    size: 14,
+                                    color: item.isPhoenix ? JweTheme.accentAmber : JweTheme.accentTeal,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                  ],
+                ),
+              ),
+            ],
+  
+            // ── Action row ───────────────────────────────
+            if (!isEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: Row(children: [
+                  Expanded(
+                    child: _HudActionButton(
+                      label: widget.isRunning ? 'HALT SESSION' : 'ENGAGE',
+                      icon: widget.isRunning ? MdiIcons.pause : MdiIcons.play,
+                      primary: !widget.isRunning,
+                      accent: widget.isRunning ? JweTheme.accentRed : accent,
+                      onTap: widget.onPlayPause,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _HudActionButton(
+                    label: 'FINISH',
+                    icon: MdiIcons.checkAll,
+                    primary: false,
+                    accent: accent,
+                    onTap: isCheckpoint ? widget.onFinishCheckpoint : widget.onFinishSubTask,
+                  ),
+                ]),
+              ),
+          ]),
+        ),
       ),
     ).animate().fadeIn(duration: 360.ms).slideY(begin: -0.04, end: 0);
   }

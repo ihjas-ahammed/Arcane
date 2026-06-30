@@ -5,6 +5,7 @@ import 'dart:ui' show Size;
 import 'package:flutter/foundation.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:missions/src/widgets/homescreen_widgets.dart';
+import 'package:missions/src/utils/task_calculations.dart';
 
 /// Bridge between the Flutter app and the Android home-screen widgets.
 ///
@@ -81,6 +82,8 @@ class HomeWidgetService {
     DateTime? sessionStart,
     bool isPhoenix = false,
     String capacity = '',
+    bool dayPlannerWidgetCheckable = false,
+    List<ResolvedDayPlanItem> topFiveTasks = const [],
   }) async {
     if (!_supported) return;
     try {
@@ -95,6 +98,8 @@ class HomeWidgetService {
           progress: progress,
           isPhoenix: isPhoenix,
           capacity: capacity,
+          dayPlannerWidgetCheckable: dayPlannerWidgetCheckable,
+          topFiveTasks: topFiveTasks,
         ),
         key: 'arcane.task.image',
         logicalSize: const Size(400, 200),
@@ -115,6 +120,7 @@ class HomeWidgetService {
       'arcane.task.progressPct': (progress.clamp(0.0, 1.0) * 100).round(),
       'arcane.task.sessionStartMs': sessionStart?.millisecondsSinceEpoch ?? 0,
       'arcane.task.updatedAtMs': DateTime.now().millisecondsSinceEpoch,
+      'arcane.task.dayPlannerWidgetCheckable': dayPlannerWidgetCheckable,
     });
     await _refresh(_providerRunning);
   }

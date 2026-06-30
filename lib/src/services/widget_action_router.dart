@@ -88,6 +88,14 @@ class WidgetActionRouter {
       case 'task_check_next':
         _taskCheckNext(provider);
         break;
+      case 'task_check_0':
+      case 'task_check_1':
+      case 'task_check_2':
+      case 'task_check_3':
+      case 'task_check_4':
+        final index = int.parse(action.split('_').last);
+        _taskCheckAtPlanIndex(provider, index);
+        break;
       case 'task_open':
       case 'task_open_plan':
         _gotoTab(HomeTab.schedule);
@@ -185,6 +193,24 @@ class WidgetActionRouter {
     showGlobalToast('✓ Checked: ${cp.name}');
   }
 
+  void _taskCheckAtPlanIndex(AppProvider provider, int index) {
+    final today = helper.getTodayDateString();
+    final topFive = TaskCalculations.resolveTopFiveDayPlanTasks(
+      mainTasks: provider.mainTasks,
+      plan: provider.taskActions.getDayPlan(today),
+      phoenixId: provider.taskActions.getPhoenixId(today),
+    );
+    if (index >= topFive.length) return;
+    final item = topFive[index];
+    if (item.targetCheckpointId != null) {
+      provider.taskActions.completeSubSubtask(item.mainTaskId, item.subTaskId, item.targetCheckpointId!);
+      showGlobalToast('✓ Checked: ${item.name}');
+    } else {
+      provider.taskActions.completeSubtask(item.mainTaskId, item.subTaskId);
+      showGlobalToast('✓ Completed: ${item.name}');
+    }
+  }
+
   void _taskFinish(AppProvider provider) {
     final r = _resolveActive(provider);
     final m = r.mainTask;
@@ -238,7 +264,7 @@ class WidgetActionRouter {
           queueId = inPlan;
           final parts = inPlan.split('|');
           if (parts.length == 3) {
-            cp = s.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+            cp = s.findCheckpoint(parts[2]);
           }
         }
         return (mainTask: m, subTask: s, checkpoint: cp, isRunning: true, queueId: queueId);
@@ -255,7 +281,7 @@ class WidgetActionRouter {
             .firstWhereOrNull((st) => st.id == parts[1] && !st.isDeleted);
         if (m != null && s != null && !s.completed) {
           if (parts.length == 3) {
-            final cp = s.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+            final cp = s.findCheckpoint(parts[2]);
             if (cp != null && !cp.completed) {
               return (mainTask: m, subTask: s, checkpoint: cp, isRunning: false, queueId: phoenixId);
             }
@@ -277,7 +303,7 @@ class WidgetActionRouter {
       );
       if (m == null || s == null || s.completed) continue;
       if (parts.length == 3) {
-        final cp = s.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+        final cp = s.findCheckpoint(parts[2]);
         if (cp == null || cp.completed) continue;
         return (mainTask: m, subTask: s, checkpoint: cp, isRunning: false, queueId: idPair);
       }

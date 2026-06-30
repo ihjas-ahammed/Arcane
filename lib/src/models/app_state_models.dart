@@ -205,6 +205,7 @@ class AppSettings {
   bool descriptionsVisible;
   bool dailyAutoGenerateContent;
   bool autoSaveEnabled;
+  bool dayPlannerWidgetCheckable;
   int wakeupTimeHour;
   int wakeupTimeMinute;
   List<String> liteModels;
@@ -265,6 +266,7 @@ class AppSettings {
     this.descriptionsVisible = true,
     this.dailyAutoGenerateContent = true,
     this.autoSaveEnabled = true,
+    this.dayPlannerWidgetCheckable = false,
     this.wakeupTimeHour = 7,
     this.wakeupTimeMinute = 0,
     this.liteModels = const [
@@ -327,6 +329,7 @@ class AppSettings {
           json['autoGenerateContent'] as bool? ??
           true,
       autoSaveEnabled: json['autoSaveEnabled'] as bool? ?? true,
+      dayPlannerWidgetCheckable: json['dayPlannerWidgetCheckable'] as bool? ?? false,
       wakeupTimeHour: json['wakeupTimeHour'] as int? ?? 7,
       wakeupTimeMinute: json['wakeupTimeMinute'] as int? ?? 0,
       liteModels: (json['liteModels'] as List<dynamic>?)
@@ -396,6 +399,7 @@ class AppSettings {
       'descriptionsVisible': descriptionsVisible,
       'dailyAutoGenerateContent': dailyAutoGenerateContent,
       'autoSaveEnabled': autoSaveEnabled,
+      'dayPlannerWidgetCheckable': dayPlannerWidgetCheckable,
       'wakeupTimeHour': wakeupTimeHour,
       'wakeupTimeMinute': wakeupTimeMinute,
       'liteModels': liteModels,

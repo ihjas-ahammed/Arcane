@@ -380,8 +380,7 @@ class _ScheduleViewState extends State<ScheduleView> {
           nextQueueId = inPlan;
           final parts = inPlan.split('|');
           if (parts.length == 3) {
-            nextCheckpoint =
-                s.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+            nextCheckpoint = s.findCheckpoint(parts[2]);
           }
         }
       }
@@ -400,8 +399,7 @@ class _ScheduleViewState extends State<ScheduleView> {
             .firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
         if (sTask != null && !sTask.completed) {
           if (parts.length == 3) {
-            final cp =
-                sTask.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+            final cp = sTask.findCheckpoint(parts[2]);
             if (cp != null && !cp.completed) {
               nextQueueId = phoenixId;
               nextMainTask = mTask;
@@ -428,7 +426,7 @@ class _ScheduleViewState extends State<ScheduleView> {
           if (sTask != null && !sTask.completed) {
             if (parts.length == 3) {
               // It's a checkpoint
-              final cp = sTask.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+              final cp = sTask.findCheckpoint(parts[2]);
               if (cp != null && !cp.completed) {
                 nextQueueId = idPair;
                 nextMainTask = mTask;
@@ -462,6 +460,12 @@ class _ScheduleViewState extends State<ScheduleView> {
         provider.taskActions.plannedMinutesForDay(helper.getTodayDateString());
     final realisticMin = dayWindow.realisticMinutes(now);
 
+    final topFiveTasks = TaskCalculations.resolveTopFiveDayPlanTasks(
+      mainTasks: provider.mainTasks,
+      plan: plan,
+      phoenixId: phoenixId,
+    );
+
     return Column(
       children: [
         if (isToday) _CarryoverBanner(provider: provider),
@@ -477,6 +481,14 @@ class _ScheduleViewState extends State<ScheduleView> {
           realisticMinutes: realisticMin,
           accumulatedTodaySeconds: accumulatedTodaySeconds,
           sessionStart: sessionStart,
+          topFiveTasks: topFiveTasks,
+          onCheckTask: (item) {
+            if (item.targetCheckpointId != null) {
+              provider.taskActions.completeSubSubtask(item.mainTaskId, item.subTaskId, item.targetCheckpointId!);
+            } else {
+              provider.taskActions.completeSubtask(item.mainTaskId, item.subTaskId);
+            }
+          },
           onOpenPlan: () {
              Navigator.push(context, MaterialPageRoute(builder: (_) => const TodayPlannerScreen()));
           },

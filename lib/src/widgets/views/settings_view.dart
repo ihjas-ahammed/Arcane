@@ -561,6 +561,17 @@ class _SettingsViewState extends State<SettingsView> {
                       AppTheme.fhAccentTealFixed),
                   contentPadding: EdgeInsets.zero,
                 ),
+                SwitchListTile.adaptive(
+                  title: const Text('Checkable Day Planner Widget'),
+                  subtitle: const Text(
+                      'Show the top 5 day planner tasks on the homescreen widget instead of the running task.'),
+                  value: appProvider.settings.dayPlannerWidgetCheckable,
+                  onChanged: (value) => appProvider.setSettings(
+                      appProvider.settings..dayPlannerWidgetCheckable = value),
+                  activeTrackColor: (appProvider.getSelectedTask()?.taskColor ??
+                      AppTheme.fhAccentTealFixed),
+                  contentPadding: EdgeInsets.zero,
+                ),
               ]),
           
           // 7. NOTIFICATIONS

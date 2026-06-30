@@ -1,5 +1,31 @@
+import 'package:flutter/material.dart' show Color;
+import 'package:collection/collection.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/app_state_models.dart';
+
+class ResolvedDayPlanItem {
+  final String compoundId; // original ID in plan (e.g. taskId|subTaskId or taskId|subTaskId|subSubTaskId)
+  final String name;       // lowest level task/checkpoint name if nested, else subtask name
+  final String parentName; // parent task/subtask name(s)
+  final Color color;
+  final bool isPhoenix;
+  final String mainTaskId;
+  final String subTaskId;
+  final String? checkpointId; // original checkpoint ID if it was a checkpoint entry
+  final String? targetCheckpointId; // lowest level checkpoint ID if nested, else null
+
+  ResolvedDayPlanItem({
+    required this.compoundId,
+    required this.name,
+    required this.parentName,
+    required this.color,
+    required this.isPhoenix,
+    required this.mainTaskId,
+    required this.subTaskId,
+    this.checkpointId,
+    this.targetCheckpointId,
+  });
+}
 
 class TaskCalculations {
   /// Calculates the total time spent on a subtask for the current day (local time).
@@ -76,6 +102,97 @@ class TaskCalculations {
     if (mins.length < 3) return null;
     final mid = mins.length ~/ 2;
     return mins.length.isOdd ? mins[mid] : ((mins[mid - 1] + mins[mid]) / 2).round();
+  }
+
+  static List<ResolvedDayPlanItem> resolveTopFiveDayPlanTasks({
+    required List<MainTask> mainTasks,
+    required List<String> plan,
+    required String? phoenixId,
+  }) {
+    final List<ResolvedDayPlanItem> resolved = [];
+    final Set<String> processedCompoundIds = {};
+
+    ResolvedDayPlanItem? resolveItem(String compoundId, bool isPhoenix) {
+      final parts = compoundId.split('|');
+      if (parts.length < 2) return null;
+      final mTask = mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
+      final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
+      if (mTask == null || sTask == null || sTask.completed) return null;
+
+      if (parts.length == 3) {
+        // It's a checkpoint
+        final cp = sTask.findCheckpoint(parts[2]);
+        if (cp == null || cp.completed) return null;
+
+        // Resolve nested checkable child
+        final lowestCp = _findLowestIncompleteSubSubTask(cp);
+        final targetCpId = (lowestCp != null && lowestCp.id != cp.id) ? lowestCp.id : null;
+        final displayName = lowestCp?.name ?? cp.name;
+
+        return ResolvedDayPlanItem(
+          compoundId: compoundId,
+          name: displayName,
+          parentName: '${mTask.name} · ${sTask.name}',
+          color: mTask.taskColor,
+          isPhoenix: isPhoenix,
+          mainTaskId: mTask.id,
+          subTaskId: sTask.id,
+          checkpointId: cp.id,
+          targetCheckpointId: targetCpId,
+        );
+      } else {
+        // It's a subtask
+        // Resolve nested checkable child
+        final lowestCp = nextCheckpoint(sTask);
+        final targetCpId = lowestCp?.id;
+        final displayName = lowestCp?.name ?? sTask.name;
+
+        return ResolvedDayPlanItem(
+          compoundId: compoundId,
+          name: displayName,
+          parentName: mTask.name,
+          color: mTask.taskColor,
+          isPhoenix: isPhoenix,
+          mainTaskId: mTask.id,
+          subTaskId: sTask.id,
+          checkpointId: null,
+          targetCheckpointId: targetCpId,
+        );
+      }
+    }
+
+    // 1. Resolve Phoenix first
+    if (phoenixId != null) {
+      final resolvedPhx = resolveItem(phoenixId, true);
+      if (resolvedPhx != null) {
+        resolved.add(resolvedPhx);
+        processedCompoundIds.add(phoenixId);
+      }
+    }
+
+    // 2. Resolve other plan items
+    for (final idPair in plan) {
+      if (processedCompoundIds.contains(idPair)) continue;
+      final item = resolveItem(idPair, false);
+      if (item != null) {
+        resolved.add(item);
+        processedCompoundIds.add(idPair);
+      }
+    }
+
+    return resolved.take(5).toList();
+  }
+
+  static SubSubTask? _findLowestIncompleteSubSubTask(SubSubTask parent) {
+    final checkable = parent.substeps.where((c) => c.type != 'info').toList();
+    if (checkable.isEmpty) {
+      return parent.completed ? null : parent;
+    }
+    for (final child in checkable) {
+      final leaf = _findLowestIncompleteSubSubTask(child);
+      if (leaf != null) return leaf;
+    }
+    return parent.completed ? null : parent;
   }
 
   static const int defaultSubtaskMinutes = 30;

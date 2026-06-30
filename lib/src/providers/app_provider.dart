@@ -288,7 +288,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         : null;
     String label = sub?.name ?? 'Planned task';
     if (parts.length == 3 && sub != null) {
-      final cp = sub.subSubTasks.firstWhereOrNull((c) => c.id == parts[2]);
+      final cp = sub.findCheckpoint(parts[2]);
       if (cp != null) label = cp.name;
     }
 

@@ -60,8 +60,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/android/app/src/main/kotlin/me/ihjas/missions/widgets/RunningTaskWidget.kt": {
-    "mtime": 1780451464.758292,
-    "ast_hash": "459ea048f915e04e5a8d3b4b5de0f09e",
+    "mtime": 1782818657.315788,
+    "ast_hash": "9264fba88223a3fe99e8593c192bc593",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/android/app/src/main/kotlin/me/ihjas/missions/widgets/WidgetActionReceiver.kt": {
@@ -295,7 +295,7 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.dart_tool/flutter_build/f43fb03981ecea7be547789c7beca1f6/outputs.json": {
-    "mtime": 1782568708.5145464,
+    "mtime": 1782816228.6603363,
     "ast_hash": "f12a0d476be359aa9c487e08d3c93eb9",
     "semantic_hash": ""
   },
@@ -565,8 +565,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/models/app_state_models.dart": {
-    "mtime": 1782570338.6985357,
-    "ast_hash": "e93566ac01689e39a78321ca93005080",
+    "mtime": 1782818557.8456042,
+    "ast_hash": "1e5a3cee292dbfc70e057d661d34bd8f",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/models/finance_models.dart": {
@@ -580,13 +580,13 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/models/task_models.dart": {
-    "mtime": 1782569089.921657,
-    "ast_hash": "f4f56c325ba5428b84d460aa2dd96588",
+    "mtime": 1782818448.9707844,
+    "ast_hash": "d9da455ef2d7d14c3cec83892c4a93b7",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/providers/app_provider.dart": {
-    "mtime": 1782570365.921184,
-    "ast_hash": "1fafba1355f0dfa8f971d1ebd204822a",
+    "mtime": 1782818472.7647626,
+    "ast_hash": "112956a4e50fb67477b131b977516f17",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/providers/actions/timer_actions.dart": {
@@ -605,8 +605,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/providers/actions/task_actions.dart": {
-    "mtime": 1782223481.829842,
-    "ast_hash": "3ee8f5acf4807520ea7fa6c5c61eb918",
+    "mtime": 1782818460.8079445,
+    "ast_hash": "b20635982f93c096e08ed2737c802c66",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/providers/actions/journaling_actions.dart": {
@@ -725,8 +725,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/screens/schedule/today_planner_screen.dart": {
-    "mtime": 1781100950.330544,
-    "ast_hash": "78607908e9bcc054ec647de1aa0ffae4",
+    "mtime": 1782818536.624747,
+    "ast_hash": "31b864d9e3841f4ec87346e3ca209dbb",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/screens/schedule/scheduled_reminders_screen.dart": {
@@ -810,8 +810,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/homescreen_widgets.dart": {
-    "mtime": 1781101173.122522,
-    "ast_hash": "b4991325d546771d5b85ebb3c59ce2ed",
+    "mtime": 1782819055.3423355,
+    "ast_hash": "bb6d2fb662c4bc7be9cc94bcf1aca9aa",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/header_widget.dart": {
@@ -915,8 +915,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/schedule/schedule_hero_widget.dart": {
-    "mtime": 1780450646.909493,
-    "ast_hash": "bdb924d03f9c8e2baaceb516594c5303",
+    "mtime": 1782819064.4061596,
+    "ast_hash": "52964c6c54ef7931c8be4e1b8a1df049",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/valorant/valorant_button.dart": {
@@ -1390,8 +1390,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/schedule_view.dart": {
-    "mtime": 1781360746.0089478,
-    "ast_hash": "77cf9d852636bdf3150f8b3c648e4c53",
+    "mtime": 1782818864.4804928,
+    "ast_hash": "331d12dfdd83a1bd607465448f063084",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/chatbot_view.dart": {
@@ -1400,8 +1400,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/settings_view.dart": {
-    "mtime": 1782570374.6923678,
-    "ast_hash": "3e763352f4f249a486985e5f04b6d7b9",
+    "mtime": 1782818580.1383731,
+    "ast_hash": "0639c42b0103808ec703a0758e071030",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/action_plan/action_plan_outcome_card.dart": {
@@ -1495,8 +1495,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/services/widget_action_router.dart": {
-    "mtime": 1781099859.149038,
-    "ast_hash": "4eab8ef45c206cab7991f96a55a189ed",
+    "mtime": 1782818634.0389035,
+    "ast_hash": "0ece0b240551ac4d8dc6b97a7330fe8e",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/services/firebase_service.dart": {
@@ -1515,8 +1515,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/services/home_widget_publisher.dart": {
-    "mtime": 1780450786.0028992,
-    "ast_hash": "f887e67dd69f5a9fa0e9bd42e3c846b4",
+    "mtime": 1782818603.6624594,
+    "ast_hash": "d6619d740ca49385092651729fd30416",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/services/app_user.dart": {
@@ -1525,8 +1525,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/services/home_widget_service.dart": {
-    "mtime": 1780450731.4847507,
-    "ast_hash": "420fe2ddf23058254096f32fb7326379",
+    "mtime": 1782819052.0724835,
+    "ast_hash": "b3c530c8bf2ec56e3a68faa33e9e1b20",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/theme/app_theme.dart": {
@@ -1595,8 +1595,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/utils/task_calculations.dart": {
-    "mtime": 1780405453.8836746,
-    "ast_hash": "e4f27b8ed0c6a2be0748ef0be3b13c47",
+    "mtime": 1782818434.3502185,
+    "ast_hash": "ef5af1dd77051d1a79a66b506060cac6",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/utils/math_utils.dart": {

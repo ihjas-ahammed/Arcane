@@ -39,86 +39,112 @@ class RunningTaskWidget : HomeWidgetProvider() {
             views.setViewVisibility(R.id.widget_image, android.view.View.GONE)
         }
 
-        val hasTask = WidgetCommon.getSafeBoolean(prefs, "arcane.task.hasTask", false)
-        val isRunning = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isRunning", false)
-        val accumulatedSec = WidgetCommon.getSafeLong(prefs, "arcane.task.accumulatedSec", 0L)
-        val sessionStartMs = WidgetCommon.getSafeLong(prefs, "arcane.task.sessionStartMs", 0L)
+        val dayPlannerWidgetCheckable = WidgetCommon.getSafeBoolean(prefs, "arcane.task.dayPlannerWidgetCheckable", false)
 
-        val title = prefs.getString("arcane.task.title", "") ?: ""
-        val subtitle = prefs.getString("arcane.task.subtitle", "") ?: ""
-        val isCheckpoint = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isCheckpoint", false)
+        if (dayPlannerWidgetCheckable) {
+            views.setViewVisibility(R.id.widget_running_layout, android.view.View.GONE)
+            views.setViewVisibility(R.id.widget_dayplan_layout, android.view.View.VISIBLE)
 
-        val statusLabel = if (!hasTask) {
-            "QUEUE EMPTY"
-        } else if (isCheckpoint) {
-            if (isRunning) "CHECKPOINT · ENGAGED" else "CHECKPOINT · STANDBY"
+            // Setup the 5 check buttons
+            views.setOnClickPendingIntent(R.id.widget_dayplan_btn_check_0, WidgetCommon.actionIntent(context, "task_check_0", 110))
+            views.setOnClickPendingIntent(R.id.widget_dayplan_btn_check_1, WidgetCommon.actionIntent(context, "task_check_1", 111))
+            views.setOnClickPendingIntent(R.id.widget_dayplan_btn_check_2, WidgetCommon.actionIntent(context, "task_check_2", 112))
+            views.setOnClickPendingIntent(R.id.widget_dayplan_btn_check_3, WidgetCommon.actionIntent(context, "task_check_3", 113))
+            views.setViewVisibility(R.id.widget_dayplan_btn_check_4, android.view.View.VISIBLE) // ensure visible
+            views.setOnClickPendingIntent(R.id.widget_dayplan_btn_check_4, WidgetCommon.actionIntent(context, "task_check_4", 114))
+
+            // Title areas should launch task_open to open the Day Planner in-app
+            val openPlanIntent = WidgetCommon.launchIntent(context, "task_open")
+            views.setOnClickPendingIntent(R.id.widget_dayplan_row_title_0, openPlanIntent)
+            views.setOnClickPendingIntent(R.id.widget_dayplan_row_title_1, openPlanIntent)
+            views.setOnClickPendingIntent(R.id.widget_dayplan_row_title_2, openPlanIntent)
+            views.setOnClickPendingIntent(R.id.widget_dayplan_row_title_3, openPlanIntent)
+            views.setOnClickPendingIntent(R.id.widget_dayplan_row_title_4, openPlanIntent)
         } else {
-            if (isRunning) "ACTIVE · ENGAGED" else "ACTIVE · STANDBY"
-        }
+            views.setViewVisibility(R.id.widget_running_layout, android.view.View.VISIBLE)
+            views.setViewVisibility(R.id.widget_dayplan_layout, android.view.View.GONE)
 
-        views.setTextViewText(R.id.widget_status_label, statusLabel)
+            val hasTask = WidgetCommon.getSafeBoolean(prefs, "arcane.task.hasTask", false)
+            val isRunning = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isRunning", false)
+            val accumulatedSec = WidgetCommon.getSafeLong(prefs, "arcane.task.accumulatedSec", 0L)
+            val sessionStartMs = WidgetCommon.getSafeLong(prefs, "arcane.task.sessionStartMs", 0L)
 
-        if (hasTask) {
-            views.setTextViewText(R.id.widget_task_title, title.uppercase())
-            views.setTextViewText(R.id.widget_task_subtitle, subtitle.uppercase())
-        } else {
-            views.setTextViewText(R.id.widget_task_title, "NO PLAN SET")
-            views.setTextViewText(R.id.widget_task_subtitle, "QUEUE STANDBY")
-        }
+            val title = prefs.getString("arcane.task.title", "") ?: ""
+            val subtitle = prefs.getString("arcane.task.subtitle", "") ?: ""
+            val isCheckpoint = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isCheckpoint", false)
 
-        // Time display: when running, use Chronometer. Otherwise show static accumulated total.
-        if (isRunning && sessionStartMs > 0L) {
-            views.setViewVisibility(R.id.widget_task_today, android.view.View.GONE)
-            views.setViewVisibility(R.id.widget_task_chronometer, android.view.View.VISIBLE)
-            val elapsedSinceSession = System.currentTimeMillis() - sessionStartMs
-            val base = SystemClock.elapsedRealtime() - elapsedSinceSession - (accumulatedSec * 1000L)
-            views.setChronometer(R.id.widget_task_chronometer, base, null, true)
-        } else {
-            views.setViewVisibility(R.id.widget_task_chronometer, android.view.View.GONE)
-            views.setViewVisibility(R.id.widget_task_today, android.view.View.VISIBLE)
-            views.setTextViewText(R.id.widget_task_today, WidgetCommon.fmtSeconds(accumulatedSec))
-        }
+            val statusLabel = if (!hasTask) {
+                "QUEUE EMPTY"
+            } else if (isCheckpoint) {
+                if (isRunning) "CHECKPOINT · ENGAGED" else "CHECKPOINT · STANDBY"
+            } else {
+                if (isRunning) "ACTIVE · ENGAGED" else "ACTIVE · STANDBY"
+            }
 
-        // Reserve space for the rendered progress bar only when a task is shown,
-        // keeping the transparent button overlays aligned with the image.
-        views.setViewVisibility(
-            R.id.widget_progress_spacer,
-            if (hasTask) android.view.View.VISIBLE else android.view.View.GONE,
-        )
+            views.setTextViewText(R.id.widget_status_label, statusLabel)
 
-        // Buttons. Quick actions broadcast (apply silently when the app is alive,
-        // open the app only when it's been killed); OPEN PLAN always launches.
-        if (hasTask) {
-            views.setViewVisibility(R.id.widget_btn_check, android.view.View.VISIBLE)
-            views.setOnClickPendingIntent(
-                R.id.widget_btn_engage,
-                WidgetCommon.actionIntent(context, "task_toggle", 101),
+            if (hasTask) {
+                views.setTextViewText(R.id.widget_task_title, title.uppercase())
+                views.setTextViewText(R.id.widget_task_subtitle, subtitle.uppercase())
+            } else {
+                views.setTextViewText(R.id.widget_task_title, "NO PLAN SET")
+                views.setTextViewText(R.id.widget_task_subtitle, "QUEUE STANDBY")
+            }
+
+            // Time display: when running, use Chronometer. Otherwise show static accumulated total.
+            if (isRunning && sessionStartMs > 0L) {
+                views.setViewVisibility(R.id.widget_task_today, android.view.View.GONE)
+                views.setViewVisibility(R.id.widget_task_chronometer, android.view.View.VISIBLE)
+                val elapsedSinceSession = System.currentTimeMillis() - sessionStartMs
+                val base = SystemClock.elapsedRealtime() - elapsedSinceSession - (accumulatedSec * 1000L)
+                views.setChronometer(R.id.widget_task_chronometer, base, null, true)
+            } else {
+                views.setViewVisibility(R.id.widget_task_chronometer, android.view.View.GONE)
+                views.setViewVisibility(R.id.widget_task_today, android.view.View.VISIBLE)
+                views.setTextViewText(R.id.widget_task_today, WidgetCommon.fmtSeconds(accumulatedSec))
+            }
+
+            // Reserve space for the rendered progress bar only when a task is shown,
+            // keeping the transparent button overlays aligned with the image.
+            views.setViewVisibility(
+                R.id.widget_progress_spacer,
+                if (hasTask) android.view.View.VISIBLE else android.view.View.GONE,
             )
+
+            // Buttons. Quick actions broadcast (apply silently when the app is alive,
+            // open the app only when it's been killed); OPEN PLAN always launches.
+            if (hasTask) {
+                views.setViewVisibility(R.id.widget_btn_check, android.view.View.VISIBLE)
+                views.setOnClickPendingIntent(
+                    R.id.widget_btn_engage,
+                    WidgetCommon.actionIntent(context, "task_toggle", 101),
+                )
+                views.setOnClickPendingIntent(
+                    R.id.widget_btn_check,
+                    WidgetCommon.actionIntent(context, "task_check_next", 102),
+                )
+                views.setOnClickPendingIntent(
+                    R.id.widget_btn_finish,
+                    WidgetCommon.actionIntent(context, "task_finish", 103),
+                )
+            } else {
+                // No active task: hide CHECK so ENGAGE + FINISH line up with the image.
+                views.setViewVisibility(R.id.widget_btn_check, android.view.View.GONE)
+                views.setOnClickPendingIntent(
+                    R.id.widget_btn_engage,
+                    WidgetCommon.launchIntent(context, "task_open_plan"),
+                )
+                views.setOnClickPendingIntent(
+                    R.id.widget_btn_finish,
+                    WidgetCommon.launchIntent(context, "task_open"),
+                )
+            }
+
             views.setOnClickPendingIntent(
-                R.id.widget_btn_check,
-                WidgetCommon.actionIntent(context, "task_check_next", 102),
-            )
-            views.setOnClickPendingIntent(
-                R.id.widget_btn_finish,
-                WidgetCommon.actionIntent(context, "task_finish", 103),
-            )
-        } else {
-            // No active task: hide CHECK so ENGAGE + FINISH line up with the image.
-            views.setViewVisibility(R.id.widget_btn_check, android.view.View.GONE)
-            views.setOnClickPendingIntent(
-                R.id.widget_btn_engage,
-                WidgetCommon.launchIntent(context, "task_open_plan"),
-            )
-            views.setOnClickPendingIntent(
-                R.id.widget_btn_finish,
+                R.id.widget_task_title,
                 WidgetCommon.launchIntent(context, "task_open"),
             )
         }
-
-        views.setOnClickPendingIntent(
-            R.id.widget_task_title,
-            WidgetCommon.launchIntent(context, "task_open"),
-        )
 
         mgr.updateAppWidget(widgetId, views)
     }
