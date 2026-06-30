@@ -565,8 +565,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/models/app_state_models.dart": {
-    "mtime": 1782818557.8456042,
-    "ast_hash": "1e5a3cee292dbfc70e057d661d34bd8f",
+    "mtime": 1782819741.8891838,
+    "ast_hash": "24fff2beac0f0a271269e48f1e4f13e1",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/models/finance_models.dart": {
@@ -585,8 +585,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/providers/app_provider.dart": {
-    "mtime": 1782818472.7647626,
-    "ast_hash": "112956a4e50fb67477b131b977516f17",
+    "mtime": 1782819940.879072,
+    "ast_hash": "fe4d453a064614b949287824fff1863b",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/providers/actions/timer_actions.dart": {
@@ -630,8 +630,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/providers/mixins/sync_mixin.dart": {
-    "mtime": 1779466472.6497793,
-    "ast_hash": "86044fc9c2bd4b3bb6dff3795a155596",
+    "mtime": 1782819441.5990362,
+    "ast_hash": "3efe121af461d280201d879247489e2d",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/providers/mixins/finance_mixin.dart": {
@@ -950,8 +950,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/health/health_combined_chart.dart": {
-    "mtime": 1779462009.3414228,
-    "ast_hash": "aa7adf6b37d9e253e6426522656849a1",
+    "mtime": 1782819945.9972105,
+    "ast_hash": "146ec6d7fecc99b31081d7ce3a614cf6",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/health/energy_panel.dart": {
@@ -1370,8 +1370,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/health_dashboard_view.dart": {
-    "mtime": 1782131973.5626879,
-    "ast_hash": "c7b40764da50721dc6f55a60f52d37f8",
+    "mtime": 1782819990.3157141,
+    "ast_hash": "d181bf629262941219d9ee0a107ca6f5",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/task_details_view.dart": {
@@ -1400,8 +1400,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/settings_view.dart": {
-    "mtime": 1782818580.1383731,
-    "ast_hash": "0639c42b0103808ec703a0758e071030",
+    "mtime": 1782819750.0481703,
+    "ast_hash": "31ee54a0fd9198215cb6c49438cb53a4",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/action_plan/action_plan_outcome_card.dart": {
@@ -1505,8 +1505,8 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/services/notification_service.dart": {
-    "mtime": 1782570360.3160665,
-    "ast_hash": "ead06353313b51855c9a8f334852b2ba",
+    "mtime": 1782819788.100526,
+    "ast_hash": "c9c5b0b3d6a305c66d2df1ece1ac329a",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/services/data_export_service.dart": {
@@ -1830,7 +1830,7 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/.dart_tool/extension_discovery/README.md": {
-    "mtime": 1782221512.9281979,
+    "mtime": 1782819144.2333386,
     "ast_hash": "606241196f08642dcc9f7acef0d2d8da",
     "semantic_hash": ""
   },
@@ -1900,7 +1900,7 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/packages/material_design_icons_flutter/.dart_tool/extension_discovery/README.md": {
-    "mtime": 1780405495.4620545,
+    "mtime": 1782819144.2403412,
     "ast_hash": "606241196f08642dcc9f7acef0d2d8da",
     "semantic_hash": ""
   },
@@ -2175,13 +2175,23 @@
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/screens/project_detail_screen.dart": {
-    "mtime": 1782570050.5115695,
-    "ast_hash": "27a2c82f9df3da761b7236fb636f46a1",
+    "mtime": 1782819495.921561,
+    "ast_hash": "83626ebabd527d6a116cefa7e2dffc48",
     "semantic_hash": ""
   },
   "/home/ihjas/Documents/GitHub/Arcane/lib/src/widgets/views/projects_view.dart": {
-    "mtime": 1782570046.1447062,
-    "ast_hash": "f85142e51e4c97eeba49d89c34651c4d",
+    "mtime": 1782819479.322364,
+    "ast_hash": "d10daf79a1d36c06d003d19bed31432a",
+    "semantic_hash": ""
+  },
+  "/home/ihjas/Documents/GitHub/Arcane/.dart_tool/extension_discovery/devtools.json": {
+    "mtime": 1782819144.2323382,
+    "ast_hash": "bb0991e66a87b8a419fda866b46fa77e",
+    "semantic_hash": ""
+  },
+  "/home/ihjas/Documents/GitHub/Arcane/packages/material_design_icons_flutter/.dart_tool/extension_discovery/devtools.json": {
+    "mtime": 1782819144.2383404,
+    "ast_hash": "c1b0d86e539e518e79c0265b6e6f541f",
     "semantic_hash": ""
   }
 }

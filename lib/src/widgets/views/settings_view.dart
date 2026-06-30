@@ -911,6 +911,60 @@ class _SettingsViewState extends State<SettingsView> {
             const Divider(height: 1, color: AppTheme.fhBorderColor),
             const SizedBox(height: 16),
 
+            // --- Health data reminder ---
+            Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Daily Health Update Reminder',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(
+                    s.healthReminderEnabled
+                        ? 'Fires every day at ${fmtTime(s.healthReminderHour, s.healthReminderMinute)}'
+                        : 'Disabled',
+                    style: const TextStyle(
+                        color: AppTheme.fhTextSecondary, fontSize: 12),
+                  ),
+                ]),
+              ),
+              Switch.adaptive(
+                value: s.healthReminderEnabled,
+                activeTrackColor: accent,
+                onChanged: (v) {
+                  appProvider.setSettings(s
+                    ..healthReminderEnabled = v);
+                  appProvider.rescheduleReminders();
+                },
+              ),
+            ]),
+            if (s.healthReminderEnabled) ...[
+              const SizedBox(height: 8),
+              Builder(builder: (ctx) => OutlinedButton.icon(
+                icon: Icon(MdiIcons.clockOutline, size: 16),
+                label: Text('Change Time — ${fmtTime(s.healthReminderHour, s.healthReminderMinute)}'),
+                onPressed: () => pickTime(
+                  ctx,
+                  s.healthReminderHour,
+                  s.healthReminderMinute,
+                  (h, m) {
+                    appProvider.setSettings(s
+                      ..healthReminderHour = h
+                      ..healthReminderMinute = m);
+                    appProvider.rescheduleReminders();
+                  },
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: accent,
+                  side: BorderSide(color: accent.withValues(alpha: 0.5)),
+                  minimumSize: const Size(double.infinity, 40),
+                ),
+              )),
+            ],
+
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: AppTheme.fhBorderColor),
+            const SizedBox(height: 16),
+
             // --- Manage all scheduled reminders ---
             Builder(builder: (ctx) => OutlinedButton.icon(
               icon: Icon(MdiIcons.bellCogOutline, size: 16),

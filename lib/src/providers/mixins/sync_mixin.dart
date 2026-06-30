@@ -138,7 +138,10 @@ mixin SyncMixin on ChangeNotifier {
     try {
       final appData = getFullAppState();
       
-      final tasksData = {'mainTasks': appData['mainTasks']};
+      final tasksData = {
+        'mainTasks': appData['mainTasks'],
+        'projects': appData['projects'],
+      };
       final historyData = {'completedByDay': appData['completedByDay']};
       final reflectionsData = {'reflectionLogs': appData['reflectionLogs']};
       final financeData = {

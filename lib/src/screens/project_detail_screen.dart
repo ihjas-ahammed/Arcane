@@ -122,6 +122,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: JweTheme.panel,
+          scrollable: true,
           shape: RoundedRectangleBorder(
             side: BorderSide(color: JweTheme.accentAmber, width: 2),
             borderRadius: BorderRadius.zero,
@@ -228,6 +229,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: JweTheme.panel,
+        scrollable: true,
         shape: RoundedRectangleBorder(
           side: BorderSide(color: JweTheme.accentAmber, width: 2),
           borderRadius: BorderRadius.zero,
@@ -306,6 +308,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: JweTheme.panel,
+        scrollable: true,
         shape: RoundedRectangleBorder(
           side: BorderSide(color: JweTheme.accentAmber, width: 2),
           borderRadius: BorderRadius.zero,
@@ -491,15 +494,121 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
     );
   }
 
+  ResolvedDayPlanItem? _resolveNextProjectTask(Project project, AppProvider provider) {
+    for (final key in project.linkedTaskKeys) {
+      final parts = key.split('|');
+      if (parts.length < 2) continue;
+      final mainId = parts[0];
+      final subId = parts[1];
+
+      final mainTask = provider.mainTasks.firstWhereOrNull((t) => t.id == mainId);
+      final sub = mainTask?.subTasks.firstWhereOrNull((s) => s.id == subId);
+      if (mainTask == null || sub == null || sub.completed) continue;
+
+      final cp = TaskCalculations.nextCheckpoint(sub);
+      if (cp != null) {
+        return ResolvedDayPlanItem(
+          compoundId: '$mainId|$subId|${cp.id}',
+          name: cp.name,
+          parentName: '${mainTask.name} > ${sub.name}',
+          color: mainTask.taskColor,
+          isPhoenix: false,
+          mainTaskId: mainId,
+          subTaskId: subId,
+          targetCheckpointId: cp.id,
+        );
+      } else {
+        return ResolvedDayPlanItem(
+          compoundId: '$mainId|$subId',
+          name: sub.name,
+          parentName: mainTask.name,
+          color: mainTask.taskColor,
+          isPhoenix: false,
+          mainTaskId: mainId,
+          subTaskId: subId,
+        );
+      }
+    }
+    return null;
+  }
+
   Widget _buildReleasesTab(AppProvider provider, Project project, Color accentColor) {
     final unreleased = project.releases.where((r) => !r.isReleased).toList();
     final released = project.releases.where((r) => r.isReleased).toList();
+    final nextTask = _resolveNextProjectTask(project, provider);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (nextTask != null) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.06),
+                border: Border(left: BorderSide(color: nextTask.color, width: 3)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'NEXT ACTIVE CONTRACT STEP',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.textMuted,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          nextTask.name.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.saira(
+                            color: JweTheme.textWhite,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          nextTask.parentName.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.textMuted,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    icon: Icon(MdiIcons.checkboxBlankCircleOutline, color: accentColor, size: 22),
+                    onPressed: () {
+                      if (nextTask.targetCheckpointId != null) {
+                        provider.taskActions.completeSubSubtask(
+                          nextTask.mainTaskId,
+                          nextTask.subTaskId,
+                          nextTask.targetCheckpointId!,
+                        );
+                      } else {
+                        provider.taskActions.completeSubtask(
+                          nextTask.mainTaskId,
+                          nextTask.subTaskId,
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
           Row(
             children: [
               Text(

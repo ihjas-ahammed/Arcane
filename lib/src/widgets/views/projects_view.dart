@@ -5,6 +5,7 @@ import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/screens/project_detail_screen.dart';
+import 'package:missions/src/utils/task_calculations.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:collection/collection.dart';
@@ -236,6 +237,44 @@ class _ProjectsViewState extends State<ProjectsView> {
     );
   }
 
+  ResolvedDayPlanItem? _resolveNextProjectTask(Project project, AppProvider provider) {
+    for (final key in project.linkedTaskKeys) {
+      final parts = key.split('|');
+      if (parts.length < 2) continue;
+      final mainId = parts[0];
+      final subId = parts[1];
+
+      final mainTask = provider.mainTasks.firstWhereOrNull((t) => t.id == mainId);
+      final sub = mainTask?.subTasks.firstWhereOrNull((s) => s.id == subId);
+      if (mainTask == null || sub == null || sub.completed) continue;
+
+      final cp = TaskCalculations.nextCheckpoint(sub);
+      if (cp != null) {
+        return ResolvedDayPlanItem(
+          compoundId: '$mainId|$subId|${cp.id}',
+          name: cp.name,
+          parentName: '${mainTask.name} > ${sub.name}',
+          color: mainTask.taskColor,
+          isPhoenix: false,
+          mainTaskId: mainId,
+          subTaskId: subId,
+          targetCheckpointId: cp.id,
+        );
+      } else {
+        return ResolvedDayPlanItem(
+          compoundId: '$mainId|$subId',
+          name: sub.name,
+          parentName: mainTask.name,
+          color: mainTask.taskColor,
+          isPhoenix: false,
+          mainTaskId: mainId,
+          subTaskId: subId,
+        );
+      }
+    }
+    return null;
+  }
+
   double _calculateProgress(Project project, AppProvider provider) {
     int total = 0;
     int completed = 0;
@@ -266,6 +305,122 @@ class _ProjectsViewState extends State<ProjectsView> {
       return a.date!.compareTo(b.date!);
     });
     return unreleased.first;
+  }
+
+  Widget _buildPhoenixProjectsHero(BuildContext context, AppProvider provider, List<Project> projects, Color accentColor) {
+    final phoenixProjects = projects.take(3).toList();
+    if (phoenixProjects.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: HudPanel(
+        clip: HudClip.both,
+        accent: JweTheme.accentAmber,
+        allBrackets: true,
+        padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: JweTheme.accentAmber.withValues(alpha: 0.2))),
+              ),
+              child: Row(
+                children: [
+                  Icon(MdiIcons.fire, color: JweTheme.accentAmber, size: 14),
+                  const SizedBox(width: 8),
+                  Text(
+                    'PHOENIX PROJECTS (TOP OPERATIONAL NETWORKS)',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.accentAmber,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: phoenixProjects.map((project) {
+                  final progress = _calculateProgress(project, provider);
+                  final nextRelease = _getNextRelease(project);
+                  return InkWell(
+                    onTap: () => provider.setActiveProjectId(project.id),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: JweTheme.bgCanvas.withValues(alpha: 0.4),
+                        border: Border(left: BorderSide(color: JweTheme.accentAmber, width: 2)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  project.name.toUpperCase(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.rajdhani(
+                                    color: JweTheme.textWhite,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  nextRelease != null
+                                      ? 'NEXT: ${nextRelease.version} — ${nextRelease.title}'
+                                      : 'NO ACTIVE PLANNED RELEASES',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: JweTheme.textMuted,
+                                    fontSize: 9,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '${(progress * 100).round()}%',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: JweTheme.accentAmber,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${project.linkedTaskKeys.length} CONTRACTS',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: JweTheme.textMuted,
+                                  fontSize: 8.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -332,6 +487,7 @@ class _ProjectsViewState extends State<ProjectsView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildPhoenixProjectsHero(context, provider, projectsList, accentColor),
             Row(
               children: [
                 Container(width: 4, height: 16, color: accentColor),
@@ -354,16 +510,18 @@ class _ProjectsViewState extends State<ProjectsView> {
               ],
             ),
             const SizedBox(height: 12),
-            ListView.builder(
+            ReorderableListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: projectsList.length,
+              onReorder: provider.reorderProjects,
               itemBuilder: (context, index) {
                 final project = projectsList[index];
                 final progress = _calculateProgress(project, provider);
                 final nextRelease = _getNextRelease(project);
 
                 return Padding(
+                  key: ValueKey(project.id),
                   padding: const EdgeInsets.only(bottom: 12.0),
                   child: HudPanel(
                     clip: HudClip.br,
@@ -387,6 +545,13 @@ class _ProjectsViewState extends State<ProjectsView> {
                           ),
                           child: Row(
                             children: [
+                              ReorderableDragStartListener(
+                                index: index,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 8.0),
+                                  child: Icon(MdiIcons.drag, color: JweTheme.textMuted, size: 18),
+                                ),
+                              ),
                               Icon(MdiIcons.hexagonMultipleOutline, color: accentColor, size: 16),
                               const SizedBox(width: 8),
                               Expanded(
@@ -479,6 +644,82 @@ class _ProjectsViewState extends State<ProjectsView> {
                                     ],
                                   ),
                                 ],
+                              ),
+                              // Next Contract Step
+                              Builder(
+                                builder: (context) {
+                                  final nextTask = _resolveNextProjectTask(project, provider);
+                                  if (nextTask == null) return const SizedBox.shrink();
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 12.0),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: accentColor.withValues(alpha: 0.06),
+                                        border: Border(left: BorderSide(color: nextTask.color, width: 2)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'NEXT ACTIVE CONTRACT STEP',
+                                                  style: GoogleFonts.jetBrainsMono(
+                                                    color: JweTheme.textMuted,
+                                                    fontSize: 8.5,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  nextTask.name.toUpperCase(),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: GoogleFonts.saira(
+                                                    color: JweTheme.textWhite,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  nextTask.parentName.toUpperCase(),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: GoogleFonts.jetBrainsMono(
+                                                    color: JweTheme.textMuted,
+                                                    fontSize: 9,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          IconButton(
+                                            icon: Icon(MdiIcons.checkboxBlankCircleOutline, color: accentColor, size: 20),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                            onPressed: () {
+                                              if (nextTask.targetCheckpointId != null) {
+                                                provider.taskActions.completeSubSubtask(
+                                                  nextTask.mainTaskId,
+                                                  nextTask.subTaskId,
+                                                  nextTask.targetCheckpointId!,
+                                                );
+                                              } else {
+                                                provider.taskActions.completeSubtask(
+                                                  nextTask.mainTaskId,
+                                                  nextTask.subTaskId,
+                                                );
+                                              }
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                               const SizedBox(height: 12),
                               // Progress Bar

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'package:missions/src/services/ai_service.dart';
 import 'package:missions/src/services/firebase_service.dart' as fb_service;
@@ -18,6 +17,7 @@ import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/models/finance_models.dart';
 import 'package:missions/src/models/project_models.dart';
+import 'package:missions/src/models/health_models.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
 import 'package:uuid/uuid.dart';
@@ -169,6 +169,19 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     } else {
       NotificationService.instance.cancelDailyReminder(
           NotificationService.financeReminderId);
+    }
+
+    if (s.healthReminderEnabled) {
+      NotificationService.instance.scheduleDailyReminder(
+        id: NotificationService.healthReminderId,
+        title: '◈ HEALTH METRICS UPDATE',
+        body: 'Time to update your food, water, sleep, and activity logs.',
+        hour: s.healthReminderHour,
+        minute: s.healthReminderMinute,
+      );
+    } else {
+      NotificationService.instance.cancelDailyReminder(
+          NotificationService.healthReminderId);
     }
 
     for (final r in s.scheduledReminders) {
@@ -576,6 +589,17 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
   void deleteProject(String projectId) {
     final list = projects.where((p) => p.id != projectId).toList();
+    setProjects(list);
+    notifyListeners();
+  }
+
+  void reorderProjects(int oldIndex, int newIndex) {
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+    final list = List<Project>.from(projects);
+    final item = list.removeAt(oldIndex);
+    list.insert(newIndex, item);
     setProjects(list);
     notifyListeners();
   }
@@ -1812,6 +1836,67 @@ $assetsContext
       }
     } catch (e) {
       debugPrint("Error generating writing style map: $e");
+    }
+  }
+
+  Future<FoodItem> analyzeFoodWithAI(String foodName, String amount) async {
+    try {
+      final prompt = """
+      You are an expert nutritionist and health AI. Analyze the following food item and approximate amount:
+      Food: "$foodName"
+      Amount: "$amount"
+
+      Provide the estimated nutritional profile in JSON format.
+      Output MUST be a JSON object matching this schema:
+      {
+        "calories": 250,
+        "protein": 12.5,
+        "carbs": 30.0,
+        "fat": 8.0,
+        "description": "Short explanation of the food's nutritional value.",
+        "benefits": ["Benefit 1", "Benefit 2"],
+        "warnings": ["Warning 1"]
+      }
+
+      Do NOT include markdown block wrappers (like ```json ... ```). Output ONLY the raw JSON string.
+      """;
+
+      final response = await _aiService.makeRawTextAICall(
+        prompt: prompt,
+        modelCandidates: settings.liteModels, // use settings.liteModels as default candidates
+        customApiKeys: settings.customApiKeys,
+        currentApiKeyIndex: apiKeyIndex,
+        onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
+        onLog: (log) => debugPrint("AI LOG: $log"),
+      );
+
+      final cleanJson = response.replaceFirst(RegExp(r'^```json\s*'), '').replaceFirst(RegExp(r'\s*```$'), '').trim();
+      final Map<String, dynamic> data = jsonDecode(cleanJson) as Map<String, dynamic>;
+
+      return FoodItem(
+        id: const Uuid().v4(),
+        name: '$foodName ($amount)',
+        calories: (data['calories'] as num? ?? 0).toInt(),
+        protein: (data['protein'] as num? ?? 0.0).toDouble(),
+        carbs: (data['carbs'] as num? ?? 0.0).toDouble(),
+        fat: (data['fat'] as num? ?? 0.0).toDouble(),
+        description: data['description'] as String?,
+        benefits: (data['benefits'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
+        warnings: (data['warnings'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
+      );
+    } catch (e) {
+      debugPrint("AI food analysis failed: $e. Using fallback values.");
+      return FoodItem(
+        id: const Uuid().v4(),
+        name: '$foodName ($amount)',
+        calories: 150,
+        protein: 5.0,
+        carbs: 20.0,
+        fat: 4.0,
+        description: "Estimated offline. Connect your Gemini API Key in Settings to get detailed AI nutritional profiles.",
+        benefits: ["Source of energy"],
+        warnings: ["Nutrition values are generic estimates"],
+      );
     }
   }
 }
