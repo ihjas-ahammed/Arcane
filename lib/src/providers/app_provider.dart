@@ -279,6 +279,37 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     return r?.time;
   }
 
+  Future<void> setCheckpointReminder(
+      String mainTaskId, String subtaskId, String checkpointId, DateTime? reminderTime) async {
+    final id = 'checkpoint_$checkpointId';
+    if (reminderTime == null) {
+      deleteReminder(id);
+      return;
+    }
+    final task = mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
+    final cp = sub?.findCheckpoint(checkpointId);
+    if (task == null || sub == null || cp == null) return;
+
+    upsertReminder(ScheduledReminder(
+      id: id,
+      title: '⏰ ${cp.name}',
+      body: 'Reminder for: ${task.name} › ${sub.name} › ${cp.name}',
+      type: 'task',
+      repeat: 'once',
+      time: reminderTime,
+      mainTaskId: mainTaskId,
+      subtaskId: subtaskId,
+      compoundId: '$mainTaskId|$subtaskId|$checkpointId',
+    ));
+  }
+
+  DateTime? checkpointReminderTime(String checkpointId) {
+    final r = settings.scheduledReminders
+        .firstWhereOrNull((e) => e.id == 'checkpoint_$checkpointId');
+    return r?.time;
+  }
+
   /// The reminder time currently set for a planned day-plan item, or null.
   DateTime? plannerReminderTime(String compoundId) {
     final r = settings.scheduledReminders

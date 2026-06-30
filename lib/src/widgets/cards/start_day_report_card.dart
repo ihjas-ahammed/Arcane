@@ -153,21 +153,35 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Forecast
-                  Text('AI FORECAST',
-                      style: GoogleFonts.jetBrainsMono(
-                        color: JweTheme.textMuted,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.8,
-                      )),
+                  Row(
+                    children: [
+                      Container(width: 3, height: 10, color: JweTheme.accentCyan),
+                      const SizedBox(width: 8),
+                      Text('COGNITIVE FORECAST MATRIX',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.accentCyan,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.8,
+                          )),
+                    ],
+                  ),
                   const SizedBox(height: 8),
-                  Text(
-                    forecast,
-                    style: GoogleFonts.inter(
-                      color: JweTheme.textWhite,
-                      fontSize: 13,
-                      height: 1.5,
-                      fontStyle: FontStyle.italic,
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: JweTheme.bgDeep.withValues(alpha: 0.65),
+                      border: Border.all(color: JweTheme.accentCyan.withValues(alpha: 0.25)),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      forecast,
+                      style: GoogleFonts.inter(
+                        color: JweTheme.textWhite,
+                        fontSize: 12.5,
+                        height: 1.45,
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
                   ),
 
@@ -177,7 +191,7 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                     Row(children: [
                       Container(width: 3, height: 10, color: JweTheme.accentAmber),
                       const SizedBox(width: 8),
-                      Text('DIRECTIVES',
+                      Text('TACTICAL DIRECTIVES',
                           style: GoogleFonts.jetBrainsMono(
                             color: JweTheme.accentAmber,
                             fontSize: 9,
@@ -185,29 +199,49 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                             letterSpacing: 1.8,
                           )),
                     ]),
-                    const SizedBox(height: 10),
-                    ...directives.map((d) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('> ',
-                                  style: GoogleFonts.jetBrainsMono(
-                                      color: JweTheme.accentCyan,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 12)),
-                              Expanded(
-                                child: Text(d,
-                                    style: GoogleFonts.saira(
-                                      color: JweTheme.textWhite,
-                                      fontSize: 13,
-                                      height: 1.35,
-                                      fontWeight: FontWeight.w500,
-                                    )),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: JweTheme.accentAmber.withValues(alpha: 0.04),
+                        border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.25)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: directives.map((d) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('> ',
+                                      style: GoogleFonts.jetBrainsMono(
+                                          color: JweTheme.accentAmber,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 12)),
+                                  Expanded(
+                                    child: Text(d,
+                                        style: GoogleFonts.saira(
+                                          color: JweTheme.textWhite,
+                                          fontSize: 12.5,
+                                          height: 1.35,
+                                          fontWeight: FontWeight.w500,
+                                        )),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        )),
+                            )).toList(),
+                      ),
+                    ),
+                  ],
+
+                  // Task Snapshot
+                  if (taskSnapshot != null) ...[
+                    const SizedBox(height: 18),
+                    TaskProgressSnapshotView(
+                      taskSnapshot: taskSnapshot,
+                      liveTasks: provider.mainTasks,
+                    ),
                   ],
 
                   // Metrics
@@ -215,8 +249,6 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                     const SizedBox(height: 18),
                     StartupWellbeingMetrics(metrics: metrics),
                   ],
-
-
 
                   const SizedBox(height: 18),
 

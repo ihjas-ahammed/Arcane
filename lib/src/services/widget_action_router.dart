@@ -209,6 +209,11 @@ class WidgetActionRouter {
       provider.taskActions.completeSubtask(item.mainTaskId, item.subTaskId);
       showGlobalToast('✓ Completed: ${item.name}');
     }
+    
+    // Also remove from day plan
+    final currentPlan = List<String>.from(provider.taskActions.getDayPlan(today));
+    currentPlan.remove(item.compoundId);
+    provider.taskActions.updateDayPlan(today, currentPlan);
   }
 
   void _taskFinish(AppProvider provider) {

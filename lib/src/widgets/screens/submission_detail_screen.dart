@@ -168,22 +168,28 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
 
     // Pick date then time
     final now = DateTime.now();
-    final date = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 365)),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme:  ColorScheme.dark(
-            primary: JweTheme.accentAmber,
-            surface: JweTheme.panel,
+    DateTime date;
+    if (sub.isRecurring) {
+      date = now;
+    } else {
+      final pickedDate = await showDatePicker(
+        context: context,
+        initialDate: now,
+        firstDate: now,
+        lastDate: now.add(const Duration(days: 365)),
+        builder: (ctx, child) => Theme(
+          data: Theme.of(ctx).copyWith(
+            colorScheme: ColorScheme.dark(
+              primary: JweTheme.accentAmber,
+              surface: JweTheme.panel,
+            ),
           ),
+          child: child!,
         ),
-        child: child!,
-      ),
-    );
-    if (date == null) return;
+      );
+      if (pickedDate == null) return;
+      date = pickedDate;
+    }
     if (!mounted) return;
 
     final time = await showTimePicker(
@@ -191,7 +197,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
       initialTime: TimeOfDay.fromDateTime(now),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme:  ColorScheme.dark(
+          colorScheme: ColorScheme.dark(
             primary: JweTheme.accentAmber,
             surface: JweTheme.panel,
           ),
@@ -202,7 +208,10 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     if (time == null) return;
     if (!mounted) return;
 
-    final scheduled = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    var scheduled = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    if (sub.isRecurring && scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
     await provider.setSubtaskReminder(widget.parentTask.id, sub.id, scheduled);
     if (!mounted) return;
     setState(() => _reminderTime = scheduled);

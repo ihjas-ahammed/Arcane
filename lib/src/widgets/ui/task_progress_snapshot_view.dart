@@ -29,9 +29,7 @@ class TaskProgressSnapshotView extends StatelessWidget {
 
       for (final sub in task.subTasks) {
         if (sub.isDeleted || !sub.isActive) continue;
-        if (sub.isRecurring) {
-          if (!sub.completed) continue;
-        } else {
+        if (!sub.isRecurring) {
           if (sub.completed && sub.completedDate != getTodayDateString()) {
             continue;
           }
@@ -72,11 +70,15 @@ class TaskProgressSnapshotView extends StatelessWidget {
           timeDeltaSec: timeDeltaSec,
           completedCount: completedCount,
           subCount: subCount,
+          isRecurring: sub.isRecurring,
         ));
       }
     }
 
     if (rows.isEmpty) return const SizedBox.shrink();
+
+    final standardRows = rows.where((r) => !r.isRecurring).toList();
+    final recurringRows = rows.where((r) => r.isRecurring).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,13 +105,46 @@ class TaskProgressSnapshotView extends StatelessWidget {
             border: Border.all(color: JweTheme.border),
           ),
           child: Column(
-            children: List.generate(rows.length, (i) {
-              final r = rows[i];
-              return _ProgressRow(
-                row: r,
-                showDivider: i < rows.length - 1,
-              );
-            }),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ...List.generate(standardRows.length, (i) {
+                final r = standardRows[i];
+                return _ProgressRow(
+                  row: r,
+                  showDivider: i < standardRows.length - 1 || recurringRows.isNotEmpty,
+                );
+              }),
+              if (recurringRows.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  color: JweTheme.bgDeep.withValues(alpha: 0.5),
+                  width: double.infinity,
+                  child: Row(
+                    children: [
+                      Icon(MdiIcons.cached, size: 12, color: JweTheme.textMuted),
+                      const SizedBox(width: 6),
+                      Text(
+                        'DAILY RECURRING DIRECTIVES',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: JweTheme.textMuted,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(color: JweTheme.lineSoft, height: 1),
+                ...List.generate(recurringRows.length, (i) {
+                  final r = recurringRows[i];
+                  return _ProgressRow(
+                    row: r,
+                    showDivider: i < recurringRows.length - 1,
+                  );
+                }),
+              ],
+            ],
           ),
         ),
       ],
@@ -126,6 +161,7 @@ class _SubTaskDeltaRow {
   final int timeDeltaSec;
   final int completedCount;
   final int subCount;
+  final bool isRecurring;
 
   _SubTaskDeltaRow({
     required this.name,
@@ -136,6 +172,7 @@ class _SubTaskDeltaRow {
     required this.timeDeltaSec,
     required this.completedCount,
     required this.subCount,
+    required this.isRecurring,
   });
 }
 
@@ -147,18 +184,23 @@ class _ProgressRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final deltaColor = row.delta > 0
-        ? JweTheme.accentTeal
-        : row.delta < 0
-            ? JweTheme.accentRed
-            : JweTheme.textMuted;
-    final deltaStr = row.delta > 0
-        ? '▲ +${(row.delta * 100).round()}%'
-        : row.delta < 0
-            ? '▼ ${(row.delta * 100).round()}%'
-            : '–';
+    final isRec = row.isRecurring;
+    final deltaColor = isRec
+        ? JweTheme.textMuted
+        : (row.delta > 0
+            ? JweTheme.accentTeal
+            : row.delta < 0
+                ? JweTheme.accentRed
+                : JweTheme.textMuted);
+    final deltaStr = isRec
+        ? '–'
+        : (row.delta > 0
+            ? '▲ +${(row.delta * 100).round()}%'
+            : row.delta < 0
+                ? '▼ ${(row.delta * 100).round()}%'
+                : '–');
     final timeMin = (row.timeDeltaSec / 60).round();
-    final timeStr = timeMin > 0 ? '+${timeMin}m' : timeMin < 0 ? '${timeMin}m' : '';
+    final timeStr = isRec ? '' : (timeMin > 0 ? '+${timeMin}m' : timeMin < 0 ? '${timeMin}m' : '');
 
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
@@ -204,7 +246,7 @@ class _ProgressRow extends StatelessWidget {
           const SizedBox(height: 5),
           TaskDeltaProgressBar(
             liveProgress: row.liveProgress,
-            delta: row.delta,
+            delta: isRec ? 0.0 : row.delta,
             defaultColor: row.color,
             segments: 24,
             height: 4,

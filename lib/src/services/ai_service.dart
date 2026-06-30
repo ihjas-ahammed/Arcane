@@ -1235,4 +1235,52 @@ Output ONLY the JSON object. Do not include markdown code block syntax (like ```
       },
     );
   }
+
+  Future<List<Map<String, dynamic>>> extractPeopleFromReflectionsWithLabels({
+    required String logsText,
+    required List<Map<String, String>> existingLabels,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final prompt = """
+    Analyze the following reflection logs and extract a list of specific people mentioned by the user with name.
+    For each person, infer their relationship to the user (e.g., Friend, Boss, Partner, Colleague).
+    Also, extract the short sentence or snippet from the logs where the person was mentioned (context).
+    
+    Here is a list of already identified people in the user's database:
+    ${jsonEncode(existingLabels)}
+
+    Your goal is to match newly mentioned people to this list of existing people if they are the same person (even if they are referred to by a nickname or first name).
+    If they match, output their matched existing name in "matched_existing_name".
+    If they do not match, leave "matched_existing_name" as null.
+
+    Logs:
+    $logsText
+    
+    Output JSON ONLY:
+    {
+      "people":[
+        {
+          "name": "string (extracted name)",
+          "relation": "string (inferred relation, e.g. Friend, Boss, Trainer)",
+          "context": "string (the snippet where they were mentioned)",
+          "matched_existing_name": "string (or null, matching existing name if same person)"
+        }
+      ]
+    }
+    """;
+
+    final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: modelCandidates,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog);
+
+    return (result['people'] as List?)?.map((p) => Map<String, dynamic>.from(p as Map)).toList() ?? [];
+  }
 }

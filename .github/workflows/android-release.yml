@@ -69,7 +69,7 @@ jobs:
               continue
             fi
             ABI=$(basename "$apk" | sed 's/app-//' | sed 's/-release.apk//')
-            cp "$apk" "builds/arcane-v${VERSION}-${ABI}.apk"
+            cp "$apk" "builds/missions-v${VERSION}-${ABI}.apk"
           done
           ls -lh builds/
 
@@ -91,7 +91,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v1
         with:
-          files: builds/arcane-*.apk
+          files: builds/missions-*.apk
           tag_name: build-${{ github.run_number }}
           name: Build ${{ github.run_number }}
           body: |

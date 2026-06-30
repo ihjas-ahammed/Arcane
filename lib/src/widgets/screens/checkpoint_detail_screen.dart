@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:collection/collection.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
@@ -75,6 +77,98 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
         {'name': _titleController.text.trim()}
       );
     }
+  }
+
+  bool _hasReminder(AppProvider provider, SubSubTask cp) {
+    final time = provider.checkpointReminderTime(cp.id);
+    return time != null && time.isAfter(DateTime.now());
+  }
+
+  Future<void> _showReminderPicker(
+      BuildContext context, AppProvider provider, SubSubTask cp) async {
+    final existing = provider.checkpointReminderTime(cp.id);
+    if (existing != null && existing.isAfter(DateTime.now())) {
+      final cancel = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppTheme.fhBgDark,
+          title: const Text('Reminder Set', style: TextStyle(color: AppTheme.fhTextPrimary)),
+          content: Text(
+            'Reminder at ${DateFormat('MMM d · HH:mm').format(existing)}.\nCancel it?',
+            style: const TextStyle(color: AppTheme.fhTextSecondary),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('KEEP')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('CANCEL REMINDER',
+                    style: TextStyle(color: AppTheme.fhAccentRed))),
+          ],
+        ),
+      );
+      if (cancel == true) {
+        await provider.setCheckpointReminder(widget.mainTaskId, widget.parentSubTaskId, cp.id, null);
+        if (mounted) setState(() {});
+      }
+      return;
+    }
+
+    final parentTask = provider.mainTasks.firstWhereOrNull((t) => t.id == widget.mainTaskId);
+    final parentSub = parentTask?.subTasks.firstWhereOrNull((s) => s.id == widget.parentSubTaskId);
+    final isRecurring = parentSub?.isRecurring ?? false;
+
+    final now = DateTime.now();
+    DateTime date;
+    if (isRecurring) {
+      date = now;
+    } else {
+      final pickedDate = await showDatePicker(
+        context: context,
+        initialDate: now,
+        firstDate: now,
+        lastDate: now.add(const Duration(days: 365)),
+        builder: (ctx, child) => Theme(
+          data: Theme.of(ctx).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AppTheme.fhAccentTeal,
+              surface: AppTheme.fhBgDark,
+            ),
+          ),
+          child: child!,
+        ),
+      );
+      if (pickedDate == null) return;
+      date = pickedDate;
+    }
+    if (!mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(now),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppTheme.fhAccentTeal,
+            surface: AppTheme.fhBgDark,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (time == null) return;
+    if (!mounted) return;
+
+    var scheduled = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    if (isRecurring && scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+    await provider.setCheckpointReminder(widget.mainTaskId, widget.parentSubTaskId, cp.id, scheduled);
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Reminder set for ${DateFormat('MMM d · HH:mm').format(scheduled)}'),
+      backgroundColor: AppTheme.fhAccentTeal.withValues(alpha: 0.9),
+    ));
   }
 
   void _addOne(AppProvider provider, SubSubTask parentCp, String name) {
@@ -189,6 +283,18 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                             fontFamily: AppTheme.fontDisplay
                           ),
                         ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          _hasReminder(provider, liveCheckpoint)
+                              ? MdiIcons.bellRing
+                              : MdiIcons.bellOutline,
+                          color: _hasReminder(provider, liveCheckpoint)
+                              ? AppTheme.fhAccentTeal
+                              : AppTheme.fhTextSecondary,
+                        ),
+                        onPressed: () => _showReminderPicker(context, provider, liveCheckpoint),
+                        tooltip: 'Set Reminder',
                       ),
                       IconButton(
                         icon: Icon(MdiIcons.contentCopy, color: AppTheme.fhTextSecondary),

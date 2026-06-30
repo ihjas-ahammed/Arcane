@@ -5,17 +5,22 @@ import 'package:missions/src/widgets/ui/gratitude_intel_card.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:collection/collection.dart';
 
 class TacticalBriefingCard extends StatelessWidget {
   final Map<String, dynamic> briefingData;
   final VoidCallback? onSave;
   final bool isSaved;
+  final DateTime? date;
 
   const TacticalBriefingCard({
     super.key,
     required this.briefingData,
     this.onSave,
     this.isSaved = false,
+    this.date,
   });
 
   @override
@@ -166,6 +171,18 @@ class TacticalBriefingCard extends StatelessWidget {
                   const SizedBox(height: 10),
                   ...gratefulPeople.map((person) {
                     final p = person as Map<String, dynamic>;
+                    final pName = p['name'] as String? ?? '';
+                    final provider = Provider.of<AppProvider>(context);
+                    final existingPerson = provider.chatbotMemory.people.firstWhereOrNull(
+                        (e) => e.name.toLowerCase().trim() == pName.toLowerCase().trim());
+                    
+                    final needsUpdate = existingPerson != null && (
+                      existingPerson.details == null ||
+                      existingPerson.details!.isEmpty ||
+                      existingPerson.lastUpdated == null ||
+                      (date != null && existingPerson.lastUpdated!.isBefore(date!))
+                    );
+
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(12),
@@ -178,12 +195,44 @@ class TacticalBriefingCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            p['name']?.toUpperCase() ?? 'UNKNOWN',
-                            style: GoogleFonts.chakraPetch(
-                                fontWeight: FontWeight.bold,
-                                color: JweTheme.accentCyan,
-                                fontSize: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                pName.toUpperCase(),
+                                style: GoogleFonts.chakraPetch(
+                                    fontWeight: FontWeight.bold,
+                                    color: JweTheme.accentCyan,
+                                    fontSize: 12),
+                              ),
+                              if (existingPerson != null && needsUpdate)
+                                InkWell(
+                                  onTap: provider.loadingTaskName != null
+                                      ? null
+                                      : () async {
+                                          await provider.journalingActions.generatePersonDetails(existingPerson.id);
+                                        },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: JweTheme.accentCyan.withValues(alpha: 0.1),
+                                      border: Border.all(
+                                          color: JweTheme.accentCyan
+                                              .withValues(alpha: 0.5)),
+                                    ),
+                                    child: Text(
+                                      provider.loadingTaskName == "Analyzing Profile..."
+                                          ? "SCANNING..."
+                                          : "UPDATE PROFILE",
+                                      style: GoogleFonts.jetBrainsMono(
+                                          color: JweTheme.accentCyan,
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                           const SizedBox(height: 4),
                           Text(p['reason'] ?? '',

@@ -12,6 +12,7 @@ import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
 import 'package:missions/src/utils/day_budget_helper.dart';
 import 'package:missions/src/utils/task_calculations.dart';
+import 'package:missions/src/utils/global_toast.dart';
 
 class TodayPlannerScreen extends StatefulWidget {
   const TodayPlannerScreen({super.key});
@@ -97,6 +98,25 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       _plan.remove(compoundId);
     });
     _persistPlan(provider); // updateDayPlan auto-clears a Phoenix that left the plan
+  }
+
+  void _completePlanItem(AppProvider provider, String compoundId) {
+    final parts = compoundId.split('|');
+    if (parts.length < 2) return;
+    final mainTaskId = parts[0];
+    final subTaskId = parts[1];
+    if (parts.length == 3) {
+      final checkpointId = parts[2];
+      provider.taskActions.completeSubSubtask(mainTaskId, subTaskId, checkpointId);
+      showGlobalToast('✓ Checked: checkpoint completed');
+    } else {
+      provider.taskActions.completeSubtask(mainTaskId, subTaskId);
+      showGlobalToast('✓ Completed: subtask completed');
+    }
+    setState(() {
+      _plan.remove(compoundId);
+    });
+    _persistPlan(provider);
   }
 
   void _togglePhoenix(AppProvider provider, String compoundId) {
@@ -219,21 +239,40 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     }
 
     if (!mounted) return;
+    
+    final parts = compoundId.split('|');
+    SubTask? sub;
+    if (parts.length >= 2) {
+      final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+      sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+    }
+    final isRecurring = sub?.isRecurring ?? false;
+
     final base = existing ?? DateTime.now().add(const Duration(hours: 1));
-    final date = await showDatePicker(
-      context: context,
-      initialDate: base,
-      firstDate: DateTime.now().subtract(const Duration(days: 1)),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (date == null || !mounted) return;
+    DateTime date;
+    if (isRecurring) {
+      date = DateTime.now();
+    } else {
+      final pickedDate = await showDatePicker(
+        context: context,
+        initialDate: base,
+        firstDate: DateTime.now().subtract(const Duration(days: 1)),
+        lastDate: DateTime.now().add(const Duration(days: 365)),
+      );
+      if (pickedDate == null || !mounted) return;
+      date = pickedDate;
+    }
+    if (!mounted) return;
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(base),
     );
     if (time == null) return;
-    final when =
+    var when =
         DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    if (isRecurring && when.isBefore(DateTime.now())) {
+      when = when.add(const Duration(days: 1));
+    }
     await provider.setPlannerReminder(compoundId, when);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -347,12 +386,11 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       itemCount: queue.length,
       proxyDecorator: (child, _, __) =>
           Material(color: Colors.transparent, child: child),
-      onReorder: (oldIndex, newIndex) {
-        if (oldIndex < newIndex) newIndex -= 1;
+      onReorderItem: (oldIndex, newIndex) {
         setState(() {
           final item = queue.removeAt(oldIndex);
           queue.insert(newIndex, item);
-          _plan = [if (hasPhoenix) phoenixId!, ...queue];
+          _plan = [if (hasPhoenix) phoenixId, ...queue];
         });
         _persistPlan(provider);
       },
@@ -369,6 +407,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
           onEditReminder: () => _editReminder(provider, id),
           onRemove: () => _removeFromPlan(provider, id),
           onAnoint: () => _togglePhoenix(provider, id),
+          onCheck: () => _completePlanItem(provider, id),
         );
       },
     );
@@ -378,15 +417,16 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       children: [
         if (hasPhoenix)
           _PhoenixCard(
-            compoundId: phoenixId!,
+            compoundId: phoenixId,
             provider: provider,
             minutes: _estimateFor(phoenixId, provider),
             isCustomEstimate: _estimates.containsKey(phoenixId),
             hasReminder: provider.plannerReminderTime(phoenixId) != null,
-            onEditEstimate: () => _editEstimate(provider, phoenixId!),
-            onEditReminder: () => _editReminder(provider, phoenixId!),
-            onRemove: () => _removeFromPlan(provider, phoenixId!),
-            onDemote: () => _togglePhoenix(provider, phoenixId!),
+            onEditEstimate: () => _editEstimate(provider, phoenixId),
+            onEditReminder: () => _editReminder(provider, phoenixId),
+            onRemove: () => _removeFromPlan(provider, phoenixId),
+            onDemote: () => _togglePhoenix(provider, phoenixId),
+            onCheck: () => _completePlanItem(provider, phoenixId),
           )
         else
           const _AnointHint(),
@@ -594,8 +634,8 @@ class _ActivePill extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgDark.withOpacity(0.5),
-        border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5))),
+        color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+        border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.5))),
       ),
       child: Row(
         children: [
@@ -637,6 +677,7 @@ class _PlanRow extends StatelessWidget {
   final VoidCallback onEditReminder;
   final VoidCallback onRemove;
   final VoidCallback onAnoint;
+  final VoidCallback onCheck;
 
   const _PlanRow({
     super.key,
@@ -649,6 +690,7 @@ class _PlanRow extends StatelessWidget {
     required this.onEditReminder,
     required this.onRemove,
     required this.onAnoint,
+    required this.onCheck,
   });
 
   @override
@@ -717,7 +759,7 @@ class _PlanRow extends StatelessWidget {
                 color: AppTheme.fhBgDeepDark,
                 border: Border.all(
                     color: isCustomEstimate
-                        ? AppTheme.fhAccentTeal.withOpacity(0.6)
+                        ? AppTheme.fhAccentTeal.withValues(alpha: 0.6)
                         : AppTheme.fhBorderColor),
               ),
               child: Text(formatMinutes(minutes),
@@ -747,6 +789,12 @@ class _PlanRow extends StatelessWidget {
             tooltip: 'Reminder',
           ),
           IconButton(
+            icon: const Icon(Icons.check, size: 18, color: AppTheme.fhAccentTeal),
+            onPressed: onCheck,
+            splashRadius: 18,
+            tooltip: 'Complete Task',
+          ),
+          IconButton(
             icon: const Icon(Icons.close, size: 18, color: AppTheme.fhAccentRed),
             onPressed: onRemove,
             splashRadius: 18,
@@ -766,9 +814,9 @@ class _AnointHint extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppTheme.fhAccentOrange.withOpacity(0.05),
+        color: AppTheme.fhAccentOrange.withValues(alpha: 0.05),
         border: Border.all(
-            color: AppTheme.fhAccentOrange.withOpacity(0.35),
+            color: AppTheme.fhAccentOrange.withValues(alpha: 0.35),
             style: BorderStyle.solid),
       ),
       child: Row(
@@ -795,6 +843,7 @@ class _PhoenixCard extends StatelessWidget {
   final VoidCallback onEditReminder;
   final VoidCallback onRemove;
   final VoidCallback onDemote;
+  final VoidCallback onCheck;
 
   const _PhoenixCard({
     required this.compoundId,
@@ -806,6 +855,7 @@ class _PhoenixCard extends StatelessWidget {
     required this.onEditReminder,
     required this.onRemove,
     required this.onDemote,
+    required this.onCheck,
   });
 
   @override
@@ -830,7 +880,7 @@ class _PhoenixCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 6),
       decoration: BoxDecoration(
-        color: amber.withOpacity(0.07),
+        color: amber.withValues(alpha: 0.07),
         border: Border(left: BorderSide(color: amber, width: 3)),
       ),
       child: Column(
@@ -899,7 +949,7 @@ class _PhoenixCard extends StatelessWidget {
                     color: AppTheme.fhBgDeepDark,
                     border: Border.all(
                         color: isCustomEstimate
-                            ? amber.withOpacity(0.6)
+                            ? amber.withValues(alpha: 0.6)
                             : AppTheme.fhBorderColor),
                   ),
                   child: Text(formatMinutes(minutes),
@@ -918,6 +968,12 @@ class _PhoenixCard extends StatelessWidget {
                 onPressed: onEditReminder,
                 splashRadius: 18,
                 tooltip: 'Reminder',
+              ),
+              IconButton(
+                icon: const Icon(Icons.check, size: 18, color: AppTheme.fhAccentTeal),
+                onPressed: onCheck,
+                splashRadius: 18,
+                tooltip: 'Complete Task',
               ),
               IconButton(
                 icon: const Icon(Icons.close, size: 18, color: AppTheme.fhAccentRed),
@@ -955,9 +1011,9 @@ class _AvailableRow extends StatelessWidget {
         margin: EdgeInsets.only(bottom: 4, left: isCheckpoint ? 16 : 0),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: AppTheme.fhBgDark.withOpacity(isCheckpoint ? 0.4 : 0.7),
+          color: AppTheme.fhBgDark.withValues(alpha: isCheckpoint ? 0.4 : 0.7),
           border: Border(
-              left: BorderSide(color: color.withOpacity(isCheckpoint ? 0.4 : 1.0), width: 2)),
+              left: BorderSide(color: color.withValues(alpha: isCheckpoint ? 0.4 : 1.0), width: 2)),
         ),
         child: Row(
           children: [

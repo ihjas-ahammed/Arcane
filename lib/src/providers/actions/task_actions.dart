@@ -12,6 +12,15 @@ class TaskActions {
 
   TaskActions(this._provider);
 
+  SubSubTask _markAllDescendantsCompleted(SubSubTask node, String timestamp) {
+    return node.copyWith(
+      completed: true,
+      completionTimestamp: timestamp,
+      currentCount: node.isCountable ? node.targetCount : node.currentCount,
+      substeps: node.substeps.map((child) => _markAllDescendantsCompleted(child, timestamp)).toList(),
+    );
+  }
+
   // --- Helper for SubSubTask Recursion ---
   List<SubSubTask> _recursiveNodeOperation(List<SubSubTask> nodes, String targetId, String action, dynamic payload) {
     List<SubSubTask> newNodes = [];
@@ -22,7 +31,9 @@ class TaskActions {
           continue; 
         } else if (action == 'update') {
           final updates = payload as Map<String, dynamic>;
-          final updatedNode = node.copyWith(
+          final isCompletedChange = updates.containsKey('completed') && updates['completed'] == true;
+          
+          var updatedNode = node.copyWith(
             name: updates['name'] as String?,
             completed: updates['completed'] as bool?,
             isCountable: updates['isCountable'] as bool?,
@@ -34,6 +45,12 @@ class TaskActions {
             what: updates['what'] as String?,
           );
           if (updatedNode.isCountable) updatedNode.currentCount = updatedNode.currentCount.clamp(0, updatedNode.targetCount);
+          
+          if (isCompletedChange) {
+            final ts = updates['completionTimestamp'] as String? ?? DateTime.now().toIso8601String();
+            updatedNode = _markAllDescendantsCompleted(updatedNode, ts);
+          }
+
           newNodes.add(updatedNode);
         } else if (action == 'duplicate') {
           newNodes.add(node);
@@ -833,9 +850,12 @@ class TaskActions {
           phoenixSubTaskId: nextPhx,
           subTasks: task.subTasks.map((st) {
             if (st.id == subtaskId) {
+              final ts = DateTime.now().toIso8601String();
+              final updatedSubSubTasks = st.subSubTasks.map((child) => _markAllDescendantsCompleted(child, ts)).toList();
               return st.copyWith(
                   completed: true, completedDate: getTodayDateString(),
-                  lastCompletedDate: DateTime.now(), updatedAt: DateTime.now()
+                  lastCompletedDate: DateTime.now(), updatedAt: DateTime.now(),
+                  subSubTasks: updatedSubSubTasks
               );
             }
             return st;

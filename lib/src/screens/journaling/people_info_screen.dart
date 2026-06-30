@@ -685,6 +685,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
 
   DateTime? _scanRangeStart;
   DateTime? _scanRangeEnd;
+  DateTimeRange? _customDateRange;
 
   bool isSimilar(String name1, String name2) {
     final n1 = name1.toLowerCase().trim();
@@ -749,11 +750,17 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
         limit = now.subtract(const Duration(days: 30));
       } else if (_rangeDays == 90) {
         limit = now.subtract(const Duration(days: 90));
+      } else if (_rangeDays == 365) {
+        limit = now.subtract(const Duration(days: 365));
       }
 
-      final filteredLogs = limit == null
-          ? provider.reflectionLogs
-          : provider.reflectionLogs.where((l) => l.timestamp.isAfter(limit!)).toList();
+      final filteredLogs = (_rangeDays == 0 && _customDateRange != null)
+          ? provider.reflectionLogs.where((l) =>
+              l.timestamp.isAfter(_customDateRange!.start) &&
+              l.timestamp.isBefore(_customDateRange!.end.add(const Duration(days: 1)))).toList()
+          : (limit == null
+              ? provider.reflectionLogs
+              : provider.reflectionLogs.where((l) => l.timestamp.isAfter(limit!)).toList());
 
       if (filteredLogs.isEmpty) {
         setState(() {
@@ -772,21 +779,38 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
       _scanRangeStart = minDate;
       _scanRangeEnd = maxDate;
 
-      final logsText = filteredLogs
-          .map((l) => "[${l.timestamp.toIso8601String()}] ${l.trigger}: ${l.emotion} - ${l.reason}")
-          .join('\n');
+      // Batched processing, 50 reflections per request
+      final List<Map<String, dynamic>> accumulatedResults = [];
+      const int batchSize = 50;
 
-      // Call AI Service with Lite Model per instructions
-      final results = await provider.aiService.extractPeopleFromReflections(
-        logsText: logsText,
-        modelCandidates: provider.settings.liteModels,
-        currentApiKeyIndex: provider.apiKeyIndex,
-        customApiKeys: provider.settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint("[PeopleExtraction] $msg"),
-      );
+      final existingLabels = provider.chatbotMemory.people.map((p) => {
+        "name": p.name,
+        "relation": p.relation,
+      }).toList();
 
-      if (results.isEmpty) {
+      for (int i = 0; i < filteredLogs.length; i += batchSize) {
+        final endIdx = (i + batchSize < filteredLogs.length) ? i + batchSize : filteredLogs.length;
+        final batch = filteredLogs.sublist(i, endIdx);
+
+        final logsText = batch
+            .map((l) => "[${l.timestamp.toIso8601String()}] ${l.trigger}: ${l.emotion} - ${l.reason}")
+            .join('\n');
+
+        // Call AI Service with Lite Model per instructions, passing already found labels
+        final results = await provider.aiService.extractPeopleFromReflectionsWithLabels(
+          logsText: logsText,
+          existingLabels: existingLabels,
+          modelCandidates: provider.settings.liteModels,
+          currentApiKeyIndex: provider.apiKeyIndex,
+          customApiKeys: provider.settings.customApiKeys,
+          onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
+          onLog: (msg) => debugPrint("[PeopleExtractionBatch] $msg"),
+        );
+
+        accumulatedResults.addAll(results);
+      }
+
+      if (accumulatedResults.isEmpty) {
         setState(() {
           _step = 3;
         });
@@ -794,7 +818,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
       }
 
       setState(() {
-        _extractedPeople = results;
+        _extractedPeople = accumulatedResults;
         _step = 2;
         _resolvingIndex = 0;
       });
@@ -830,8 +854,19 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
     final existingPeople = provider.chatbotMemory.people;
     final exactMatchIdx = existingPeople.indexWhere((p) => p.name.toLowerCase().trim() == name.toLowerCase().trim());
 
+    bool canRelate = false;
     if (exactMatchIdx != -1) {
-      // Match found! Auto-merge details & expand scan range
+      final existing = existingPeople[exactMatchIdx];
+      final matchedExistingName = extracted['matched_existing_name'] as String?;
+      if (matchedExistingName != null && matchedExistingName.toLowerCase().trim() == existing.name.toLowerCase().trim()) {
+        canRelate = true;
+      } else if (existing.relation.toLowerCase().trim() == relation.toLowerCase().trim()) {
+        canRelate = true;
+      }
+    }
+
+    if (exactMatchIdx != -1 && canRelate) {
+      // Match found and can relate! Auto-merge details & expand scan range
       final existing = existingPeople[exactMatchIdx];
       
       final newStart = (existing.scanRangeStart == null || _scanRangeStart!.isBefore(existing.scanRangeStart!))
@@ -877,12 +912,17 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
       return;
     }
 
-    // Similarity checking for potential duplicates (AI Confusion)
+    // Similarity checking for potential duplicates or exact match but can't relate
     PersonInfo? conflicting;
-    for (var p in existingPeople) {
-      if (isSimilar(p.name, name)) {
-        conflicting = p;
-        break;
+    if (exactMatchIdx != -1 && !canRelate) {
+      // Same name but cannot relate -> prompt user with description about both of them
+      conflicting = existingPeople[exactMatchIdx];
+    } else {
+      for (var p in existingPeople) {
+        if (isSimilar(p.name, name)) {
+          conflicting = p;
+          break;
+        }
       }
     }
 
@@ -1094,6 +1134,56 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
           _buildRangeRadioOption(30, "30 DAYS ARCHIVE MATRIX"),
           _buildRangeRadioOption(90, "90 DAYS ARCHIVE MATRIX"),
           _buildRangeRadioOption(365, "ALL-TIME SYSTEM ARCHIVES"),
+          _buildRangeRadioOption(0, "CUSTOM RANGE MATRIX"),
+          if (_rangeDays == 0) ...[
+            const SizedBox(height: 10),
+            InkWell(
+              onTap: () async {
+                final picked = await showDateRangePicker(
+                  context: context,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now().add(const Duration(days: 1)),
+                  initialDateRange: _customDateRange,
+                  builder: (context, child) => Theme(
+                    data: Theme.of(context).copyWith(
+                      colorScheme: const ColorScheme.dark(
+                        primary: PersonInfoTheme.spideyCyan,
+                        onPrimary: Colors.black,
+                        surface: PersonInfoTheme.bgPanel,
+                        onSurface: Colors.white,
+                      ),
+                    ),
+                    child: child!,
+                  ),
+                );
+                if (picked != null) {
+                  setState(() {
+                    _customDateRange = picked;
+                  });
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: PersonInfoTheme.spideyCyan.withValues(alpha: 0.5)),
+                  color: const Color(0xFF07121c),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _customDateRange == null
+                          ? "SELECT DATE RANGE"
+                          : "${DateFormat('yyyy-MM-dd').format(_customDateRange!.start)} — ${DateFormat('yyyy-MM-dd').format(_customDateRange!.end)}",
+                      style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyCyan, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                    const Icon(Icons.calendar_today, color: PersonInfoTheme.spideyCyan, size: 14),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
@@ -1101,7 +1191,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
               label: "LAUNCH INTEL EXTRACTION",
               isPrimary: true,
               color: PersonInfoTheme.spideyCyan,
-              onPressed: () => _startScan(provider),
+              onPressed: (_rangeDays == 0 && _customDateRange == null) ? null : () => _startScan(provider),
             ),
           ),
         ],
@@ -1342,6 +1432,14 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
     final existingName = _conflictingExisting!.name;
     final existingRelation = _conflictingExisting!.relation;
 
+    Map<String, dynamic> existingDetails = {};
+    if (_conflictingExisting!.details != null && _conflictingExisting!.details!.isNotEmpty) {
+      try {
+        existingDetails = jsonDecode(_conflictingExisting!.details!);
+      } catch (_) {}
+    }
+    final existingProfileText = existingDetails['psychological_profile'] as String? ?? _conflictingExisting!.manualNotes ?? "No profile description on file.";
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1369,65 +1467,64 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
           ),
           const SizedBox(height: 12),
           
-          // Show how AI found them
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF140c08),
-              border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.3)),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "AI DISCOVERY MATRIX PATHWAY (HOW AI FOUND THEM):",
-                  style: GoogleFonts.rajdhani(color: Colors.orangeAccent, fontSize: 9, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "\"$contextSnippet\"",
-                  style: GoogleFonts.rajdhani(
-                    color: PersonInfoTheme.textWhite.withValues(alpha: 0.85),
-                    fontSize: 12,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("SCANNED EXTRACT", style: GoogleFonts.rajdhani(color: Colors.orangeAccent, fontSize: 8, fontWeight: FontWeight.bold)),
+                    Text("NEW SCANNED EXTRACT", style: GoogleFonts.rajdhani(color: Colors.orangeAccent, fontSize: 8, fontWeight: FontWeight.bold)),
                     Text(scannedName.toUpperCase(), style: const TextStyle(color: PersonInfoTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 12)),
                     Text(scannedRelation.toUpperCase(), style: const TextStyle(color: PersonInfoTheme.textGrey, fontSize: 10)),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF140c08),
+                        border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.15)),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: Text(
+                        "\"$contextSnippet\"",
+                        style: GoogleFonts.rajdhani(color: PersonInfoTheme.textWhite.withValues(alpha: 0.8), fontSize: 10.5, fontStyle: FontStyle.italic),
+                      ),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(
-                height: 30,
-                child: VerticalDivider(color: Colors.orangeAccent, width: 20),
+                height: 90,
+                child: VerticalDivider(color: Colors.orangeAccent, width: 16),
               ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("EXISTING DOSSIER", style: GoogleFonts.rajdhani(color: Colors.orangeAccent, fontSize: 8, fontWeight: FontWeight.bold)),
+                    Text("EXISTING DOSSIER FILE", style: GoogleFonts.rajdhani(color: Colors.orangeAccent, fontSize: 8, fontWeight: FontWeight.bold)),
                     Text(existingName.toUpperCase(), style: const TextStyle(color: PersonInfoTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 12)),
                     Text(existingRelation.toUpperCase(), style: const TextStyle(color: PersonInfoTheme.textGrey, fontSize: 10)),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF140c08),
+                        border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.15)),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: Text(
+                        existingProfileText,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.rajdhani(color: PersonInfoTheme.textGrey, fontSize: 10.5),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
           Row(
             children: [

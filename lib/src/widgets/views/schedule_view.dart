@@ -488,6 +488,10 @@ class _ScheduleViewState extends State<ScheduleView> {
             } else {
               provider.taskActions.completeSubtask(item.mainTaskId, item.subTaskId);
             }
+            final today = helper.getTodayDateString();
+            final currentPlan = List<String>.from(provider.taskActions.getDayPlan(today));
+            currentPlan.remove(item.compoundId);
+            provider.taskActions.updateDayPlan(today, currentPlan);
           },
           onOpenPlan: () {
              Navigator.push(context, MaterialPageRoute(builder: (_) => const TodayPlannerScreen()));

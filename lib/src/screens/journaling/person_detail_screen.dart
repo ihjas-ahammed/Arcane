@@ -288,7 +288,6 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               constraints: const BoxConstraints(maxWidth: 600),
               child: Column(
                 children: [
-                  // App Bar override
                   Row(
                     children: [
                       IconButton(
@@ -296,6 +295,67 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                         onPressed: () => Navigator.pop(context),
                       ),
                       const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.refresh, color: PersonInfoTheme.spideyRed),
+                        tooltip: "RESET PERSON DATA",
+                        onPressed: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              backgroundColor: PersonInfoTheme.bgPanel,
+                              shape: const BeveledRectangleBorder(
+                                side: BorderSide(color: PersonInfoTheme.spideyRed, width: 1.5),
+                              ),
+                              title: Text(
+                                "RESET COGNITIVE DATA",
+                                style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyRed, fontWeight: FontWeight.bold),
+                              ),
+                              content: Text(
+                                "Are you sure you want to clear all manual data and AI dossier details for ${person.name}?",
+                                style: GoogleFonts.rajdhani(color: PersonInfoTheme.textWhite, fontSize: 13),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: Text("ABORT", style: GoogleFonts.rajdhani(color: PersonInfoTheme.textGrey, fontWeight: FontWeight.bold)),
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(backgroundColor: PersonInfoTheme.spideyRed),
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: Text("RESET", style: GoogleFonts.rajdhani(color: Colors.white, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            person.relation = 'Acquaintance';
+                            person.details = null;
+                            person.lastUpdated = null;
+                            person.scanRangeStart = null;
+                            person.scanRangeEnd = null;
+                            person.manualAge = null;
+                            person.manualGender = null;
+                            person.manualNotes = null;
+                            person.manualNextMeetPlan = null;
+                            person.manualLastContactIntel = null;
+                            person.manualOccupation = null;
+                            person.manualLocation = null;
+                            person.manualBirthday = null;
+                            person.manualContact = null;
+                            provider.updatePersonInfo(person);
+                            
+                            setState(() {
+                              _isInitialized = false;
+                            });
+                            
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Person dossier data has been reset.")),
+                              );
+                            }
+                          }
+                        },
+                      ),
                     ],
                   ),
 

@@ -373,10 +373,10 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                                     ),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: Icon(
+                                  child: const Icon(
                                     Icons.check,
                                     size: 14,
-                                    color: item.isPhoenix ? JweTheme.accentAmber : JweTheme.accentTeal,
+                                    color: Colors.transparent,
                                   ),
                                 ),
                               ),

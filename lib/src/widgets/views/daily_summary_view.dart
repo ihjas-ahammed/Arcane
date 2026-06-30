@@ -9,7 +9,6 @@ import 'package:missions/src/widgets/ui/chart_carousel.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/utils/chart_data_helper.dart'; 
 import 'package:missions/src/widgets/cards/tactical_briefing_card.dart';
-import 'package:missions/src/screens/nora_ai_screen.dart';
 import 'package:missions/src/screens/journaling/weekly_review_screen.dart';
 import 'package:missions/src/screens/reflections_archive_screen.dart';
 import 'package:missions/src/screens/journaling/advanced_tools_screen.dart';
@@ -58,13 +57,13 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       final newPin = await PinDialog.show(context: context, isSetupMode: true);
       if (newPin != null && newPin is String) {
         provider.setJournalPin(newPin);
-        if (mounted) {
+        if (context.mounted) {
            Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
         }
       }
     } else {
       final success = await PinDialog.show(context: context, isSetupMode: false, expectedPin: provider.settings.journalPin);
-      if (success == true && mounted) {
+      if (success == true && context.mounted) {
         Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
       }
     }
@@ -145,7 +144,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     double weekIncome = 0, weekExpense = 0;
     for (final t in provider.transactions) {
       if (t.timestamp.isAfter(weekAgo)) {
-        if (t.isIncome) weekIncome += t.amount; else weekExpense += t.amount;
+        if (t.isIncome) {
+          weekIncome += t.amount;
+        } else {
+          weekExpense += t.amount;
+        }
       }
     }
     final balance = provider.financeActions.currentBalance;
@@ -449,6 +452,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                         TacticalBriefingCard(
                           briefingData: displayBriefing,
                           isSaved: savedBriefing != null,
+                          date: _selectedDate != null ? DateTime.tryParse(_selectedDate!) : null,
                           onSave: savedBriefing == null
                               ? () {
                                   appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
