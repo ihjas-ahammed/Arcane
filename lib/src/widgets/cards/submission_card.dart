@@ -138,11 +138,17 @@ class SubmissionCard extends StatelessWidget {
                               fontSize: 10, color: JweTheme.textMuted, letterSpacing: 1.4, fontWeight: FontWeight.w600,
                             )),
                         const SizedBox(width: 6),
-                        Text('· ${parentTask.name.toUpperCase()}',
+                        Expanded(
+                          child: Text(
+                            '· ${parentTask.name.toUpperCase()}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.jetBrainsMono(
                               fontSize: 10, color: accent, letterSpacing: 1.4, fontWeight: FontWeight.w600,
-                            )),
-                        const Spacer(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
                         if (current.isRecurring) ...[
                           Icon(MdiIcons.sync, size: 11, color: JweTheme.textMuted),
                           const SizedBox(width: 6),
