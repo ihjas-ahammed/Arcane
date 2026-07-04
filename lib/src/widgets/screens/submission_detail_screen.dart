@@ -21,6 +21,7 @@ import 'package:missions/src/widgets/charts/subtask_progress_time_chart.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -40,19 +41,6 @@ class SubmissionDetailScreen extends StatefulWidget {
 
 class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
   DateTime _selectedDate = DateTime.now();
-  DateTime? _reminderTime;
-  bool _reminderLoaded = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_reminderLoaded) {
-      _reminderLoaded = true;
-      // Reflect the persisted reminder so the bell shows the real state.
-      _reminderTime = Provider.of<AppProvider>(context, listen: false)
-          .subtaskReminderTime(widget.subTask.id);
-    }
-  }
 
   SubTask? _getLiveSubTask(AppProvider provider) {
     try {
@@ -135,90 +123,181 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     }
   }
 
-  bool _hasReminder(SubTask sub) => _reminderTime != null && _reminderTime!.isAfter(DateTime.now());
+  bool _hasReminder(AppProvider provider, SubTask sub) {
+    return provider.getSubtaskReminders(sub.id).any((r) => r.isActive);
+  }
 
-  Future<void> _showReminderPicker(
-      BuildContext context, AppProvider provider, SubTask sub) async {
-    // If a reminder already exists, offer to cancel it
-    if (_hasReminder(sub)) {
-      final cancel = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: JweTheme.panel,
-          title: const Text('Reminder Set', style: TextStyle(color: JweTheme.textWhite)),
-          content: Text(
-            'Reminder at ${DateFormat('MMM d · HH:mm').format(_reminderTime!)}.\nCancel it?',
-            style: const TextStyle(color: JweTheme.textMid),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('KEEP')),
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('CANCEL REMINDER',
-                    style: TextStyle(color: JweTheme.accentRed))),
-          ],
-        ),
-      );
-      if (cancel == true) {
-        await provider.setSubtaskReminder(widget.parentTask.id, sub.id, null);
-        if (mounted) setState(() => _reminderTime = null);
-      }
-      return;
-    }
+  void _showRemindersListDialog(BuildContext context, AppProvider provider, SubTask sub) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final rems = provider.getSubtaskReminders(sub.id);
+            return AlertDialog(
+              backgroundColor: JweTheme.panel,
+              title: Text(
+                "MISSION REMINDERS",
+                style: GoogleFonts.rajdhani(
+                  color: JweTheme.accentCyan,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (rems.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Text(
+                          "No reminders configured.",
+                          style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic),
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: rems.length,
+                          itemBuilder: (context, index) {
+                            final r = rems[index];
+                            String timeStr = '';
+                            if (r.repeat == 'daily') {
+                              timeStr = '${r.hour.toString().padLeft(2, '0')}:${r.minute.toString().padLeft(2, '0')} (Daily)';
+                            } else if (r.time != null) {
+                              timeStr = '${DateFormat('MMM d, HH:mm').format(r.time!)} (Once)';
+                            }
+                            return Container(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: JweTheme.bgDeep,
+                                border: Border.all(color: JweTheme.border),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(MdiIcons.bellRing, color: JweTheme.accentCyan, size: 16),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      timeStr,
+                                      style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 12),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(MdiIcons.deleteOutline, color: JweTheme.accentRed, size: 18),
+                                    onPressed: () {
+                                      provider.deleteReminder(r.id);
+                                      setDialogState(() {});
+                                      setState(() {});
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      icon: Icon(MdiIcons.plus, size: 16),
+                      label: const Text("ADD REMINDER"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: JweTheme.accentCyan,
+                        foregroundColor: Colors.black,
+                        shape: const BeveledRectangleBorder(),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      onPressed: () async {
+                        final repeat = await showDialog<String>(
+                          context: context,
+                          builder: (ctx2) => AlertDialog(
+                            backgroundColor: JweTheme.panel,
+                            title: const Text("REPEAT OPTION", style: TextStyle(color: JweTheme.textWhite)),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ListTile(
+                                  title: const Text("ONCE", style: TextStyle(color: JweTheme.textWhite)),
+                                  onTap: () => Navigator.pop(ctx2, 'once'),
+                                ),
+                                ListTile(
+                                  title: const Text("DAILY", style: TextStyle(color: JweTheme.textWhite)),
+                                  onTap: () => Navigator.pop(ctx2, 'daily'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                        if (repeat == null) return;
 
-    // Pick date then time
-    final now = DateTime.now();
-    DateTime date;
-    if (sub.isRecurring) {
-      date = now;
-    } else {
-      final pickedDate = await showDatePicker(
-        context: context,
-        initialDate: now,
-        firstDate: now,
-        lastDate: now.add(const Duration(days: 365)),
-        builder: (ctx, child) => Theme(
-          data: Theme.of(ctx).copyWith(
-            colorScheme: ColorScheme.dark(
-              primary: JweTheme.accentAmber,
-              surface: JweTheme.panel,
-            ),
-          ),
-          child: child!,
-        ),
-      );
-      if (pickedDate == null) return;
-      date = pickedDate;
-    }
-    if (!mounted) return;
+                        final now = DateTime.now();
+                        DateTime date = now;
+                        if (repeat == 'once') {
+                          final pickedDate = await showDatePicker(
+                            context: ctx,
+                            initialDate: now,
+                            firstDate: now,
+                            lastDate: now.add(const Duration(days: 365)),
+                            builder: (ctx, child) => Theme(
+                              data: Theme.of(ctx).copyWith(
+                                colorScheme: ColorScheme.dark(
+                                  primary: JweTheme.accentAmber,
+                                  surface: JweTheme.panel,
+                                ),
+                              ),
+                              child: child!,
+                            ),
+                          );
+                          if (pickedDate == null) return;
+                          date = pickedDate;
+                        }
 
-    final time = await showTimePicker(
-      context: context, // ignore: use_build_context_synchronously
-      initialTime: TimeOfDay.fromDateTime(now),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: ColorScheme.dark(
-            primary: JweTheme.accentAmber,
-            surface: JweTheme.panel,
-          ),
-        ),
-        child: child!,
-      ),
+                        if (!ctx.mounted) return;
+                        final time = await showTimePicker(
+                          context: ctx,
+                          initialTime: TimeOfDay.fromDateTime(now),
+                          builder: (ctx, child) => Theme(
+                            data: Theme.of(ctx).copyWith(
+                              colorScheme: ColorScheme.dark(
+                                primary: JweTheme.accentAmber,
+                                surface: JweTheme.panel,
+                              ),
+                            ),
+                            child: child!,
+                          ),
+                        );
+                        if (time == null) return;
+
+                        var scheduled = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+                        if (repeat == 'daily' && scheduled.isBefore(now)) {
+                          scheduled = scheduled.add(const Duration(days: 1));
+                        }
+
+                        await provider.addSubtaskReminder(widget.parentTask.id, sub.id, scheduled, repeat);
+                        setDialogState(() {});
+                        setState(() {});
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("CLOSE", style: TextStyle(color: JweTheme.textMuted)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
-    if (time == null) return;
-    if (!mounted) return;
-
-    var scheduled = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-    if (sub.isRecurring && scheduled.isBefore(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
-    }
-    await provider.setSubtaskReminder(widget.parentTask.id, sub.id, scheduled);
-    if (!mounted) return;
-    setState(() => _reminderTime = scheduled);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar( // ignore: use_build_context_synchronously
-      content: Text('Reminder set for ${DateFormat('MMM d · HH:mm').format(scheduled)}'),
-      backgroundColor: JweTheme.accentAmber.withValues(alpha: 0.9),
-    ));
   }
 
   List<TimelineEntry> _buildTimelineEntries(AppProvider provider, String currentSubTaskId) {
@@ -397,10 +476,10 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     ),
                   const SizedBox(width: 10),
                   GestureDetector(
-                    onTap: () => _showReminderPicker(context, provider, liveSubTask),
+                    onTap: () => _showRemindersListDialog(context, provider, liveSubTask),
                     child: Icon(
                       MdiIcons.bellOutline,
-                      color: _hasReminder(liveSubTask)
+                      color: _hasReminder(provider, liveSubTask)
                           ? JweTheme.accentAmber
                           : JweTheme.textMid,
                       size: 20,
@@ -417,6 +496,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                       Clipboard.setData(ClipboardData(text: liveSubTask.toCopyStructure()));
                       showGlobalToast("Task structure copied to clipboard");
                     },
+                    onLongPress: () => _handlePaste(context, provider, liveSubTask),
+                    onSecondaryTap: () => _handlePaste(context, provider, liveSubTask),
                     child: Icon(MdiIcons.contentCopy, color: JweTheme.textMid, size: 20),
                   ),
                 ],
@@ -816,6 +897,90 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
         ),
       ),
     );
+  }
+
+  void _showPasteAlertDialog(BuildContext context, String title, Function(String) onImport) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: JweTheme.panel,
+        title: Text(title, style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text("Paste the copied structure text here to import:", style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              maxLines: 6,
+              style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 11),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: JweTheme.bgDeep,
+                border: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentCyan)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: JweTheme.accentCyan,
+              foregroundColor: Colors.black,
+              shape: const BeveledRectangleBorder(),
+            ),
+            onPressed: () {
+              final val = controller.text.trim();
+              if (val.isNotEmpty) {
+                onImport(val);
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text("IMPORT"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handlePaste(BuildContext context, AppProvider provider, SubTask liveSubTask) {
+    _showPasteAlertDialog(context, "PASTE OBJECTIVE STRUCTURE", (pastedText) {
+      final parsed = parseTaskOutline(pastedText);
+      if (parsed.isNotEmpty) {
+        final newCheckpoint = SubSubTask(
+          id: const Uuid().v4(),
+          name: parsed['name'] as String? ?? 'Unnamed Objective',
+          why: parsed['why'] as String? ?? '',
+          what: parsed['what'] as String? ?? '',
+          type: 'check',
+          substeps: (parsed['children'] as List<dynamic>).map((c) {
+            return SubSubTask(
+              id: const Uuid().v4(),
+              name: c['name'] as String? ?? 'Unnamed Objective',
+              why: c['why'] as String? ?? '',
+              what: c['what'] as String? ?? '',
+              type: 'check',
+            );
+          }).toList(),
+        );
+
+        provider.taskActions.updateSubtask(
+          widget.parentTask.id,
+          liveSubTask.id,
+          {
+            'subSubTasks': [...liveSubTask.subSubTasks, newCheckpoint],
+          },
+        );
+        showGlobalToast("Objective pasted as new child");
+      }
+    });
   }
 }
 

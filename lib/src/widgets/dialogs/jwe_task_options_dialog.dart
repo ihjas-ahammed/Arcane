@@ -7,6 +7,7 @@ import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/widgets/dialogs/add_edit_protocol_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:uuid/uuid.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class JweTaskOptionsDialog extends StatelessWidget {
@@ -105,20 +106,24 @@ class JweTaskOptionsDialog extends StatelessWidget {
               ),
               const SizedBox(height: 12),
 
-              OutlinedButton.icon(
-                icon: Icon(MdiIcons.contentCopy, size: 18),
-                label: const Text("COPY STRUCTURE"),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: JweTheme.accentCyan,
-                  side: const BorderSide(color: JweTheme.accentCyan),
-                  shape: const BeveledRectangleBorder(),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+              GestureDetector(
+                onSecondaryTap: () => _handlePaste(context, provider),
+                child: OutlinedButton.icon(
+                  icon: Icon(MdiIcons.contentCopy, size: 18),
+                  label: const Text("COPY STRUCTURE"),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: JweTheme.accentCyan,
+                    side: const BorderSide(color: JweTheme.accentCyan),
+                    shape: const BeveledRectangleBorder(),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: task.toCopyStructure()));
+                    showGlobalToast("Protocol structure copied to clipboard");
+                    Navigator.pop(context);
+                  },
+                  onLongPress: () => _handlePaste(context, provider),
                 ),
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: task.toCopyStructure()));
-                  showGlobalToast("Protocol structure copied to clipboard");
-                  Navigator.pop(context);
-                },
               ),
               const SizedBox(height: 12),
 
@@ -171,5 +176,100 @@ class JweTaskOptionsDialog extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _showPasteAlertDialog(BuildContext context, String title, Function(String) onImport) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: JweTheme.panel,
+        title: Text(title, style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text("Paste the copied structure text here to import:", style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              maxLines: 6,
+              style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 11),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: JweTheme.bgDeep,
+                border: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentCyan)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: JweTheme.accentCyan,
+              foregroundColor: Colors.black,
+              shape: const BeveledRectangleBorder(),
+            ),
+            onPressed: () {
+              final val = controller.text.trim();
+              if (val.isNotEmpty) {
+                onImport(val);
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text("IMPORT"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handlePaste(BuildContext context, AppProvider provider) {
+    _showPasteAlertDialog(context, "PASTE TASK STRUCTURE", (pastedText) {
+      final parsed = parseTaskOutline(pastedText);
+      if (parsed.isNotEmpty) {
+        final newSub = SubTask(
+          id: const Uuid().v4(),
+          name: parsed['name'] as String? ?? 'Unnamed Task',
+          why: parsed['why'] as String? ?? '',
+          what: parsed['what'] as String? ?? '',
+          subSubTasks: (parsed['children'] as List<dynamic>).map((c) {
+            return SubSubTask(
+              id: const Uuid().v4(),
+              name: c['name'] as String? ?? 'Unnamed Objective',
+              why: c['why'] as String? ?? '',
+              what: c['what'] as String? ?? '',
+              type: 'check',
+              substeps: (c['children'] as List<dynamic>?)?.map((cc) {
+                return SubSubTask(
+                  id: const Uuid().v4(),
+                  name: cc['name'] as String? ?? 'Unnamed Objective',
+                  why: cc['why'] as String? ?? '',
+                  what: cc['what'] as String? ?? '',
+                  type: 'check',
+                );
+              }).toList() ?? [],
+            );
+          }).toList(),
+        );
+
+        final newMainTasks = provider.mainTasks.map((t) {
+          if (t.id == task.id) {
+            return t.copyWith(
+              subTasks: [...t.subTasks, newSub],
+            );
+          }
+          return t;
+        }).toList();
+        provider.setProviderState(mainTasks: newMainTasks);
+        showGlobalToast("Task pasted as new child");
+        Navigator.pop(context);
+      }
+    });
   }
 }

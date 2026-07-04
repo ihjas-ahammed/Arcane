@@ -91,6 +91,7 @@ class ArchivedReportsScreen extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (ctx) => WeeklyReviewScreen(
                           reportData: reportData,
+                          provider: provider,
                         ),
                       ),
                     );

@@ -247,67 +247,110 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     upsertReminder(r.copyWith(enabled: enabled));
   }
 
-  /// Per-submission reminder. Persists a 'task' reminder so it shows up in the
-  /// Scheduled Reminders screen and is re-armed on launch (passing null clears).
-  Future<void> setSubtaskReminder(
-      String mainTaskId, String subtaskId, DateTime? reminderTime) async {
-    final id = 'task_$subtaskId';
-    if (reminderTime == null) {
-      deleteReminder(id);
-      return;
-    }
+  List<ScheduledReminder> getSubtaskReminders(String subtaskId) {
+    return settings.scheduledReminders
+        .where((e) => e.id.startsWith('task_${subtaskId}_') || e.id == 'task_$subtaskId')
+        .toList();
+  }
+
+  List<ScheduledReminder> getCheckpointReminders(String checkpointId) {
+    return settings.scheduledReminders
+        .where((e) => e.id.startsWith('checkpoint_${checkpointId}_') || e.id == 'checkpoint_$checkpointId')
+        .toList();
+  }
+
+  Future<void> addSubtaskReminder(
+      String mainTaskId, String subtaskId, DateTime reminderTime, String repeat) async {
     final task = mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
     if (task == null || sub == null) return;
 
+    final id = 'task_${subtaskId}_${DateTime.now().millisecondsSinceEpoch}';
     upsertReminder(ScheduledReminder(
       id: id,
       title: '⏰ ${sub.name}',
       body: 'Reminder for: ${task.name} › ${sub.name}',
       type: 'task',
-      repeat: 'once',
-      time: reminderTime,
+      repeat: repeat,
+      time: repeat == 'once' ? reminderTime : null,
+      hour: reminderTime.hour,
+      minute: reminderTime.minute,
       mainTaskId: mainTaskId,
       subtaskId: subtaskId,
     ));
   }
 
-  /// The reminder time currently set for a submission/subtask, or null.
-  DateTime? subtaskReminderTime(String subtaskId) {
-    final r = settings.scheduledReminders
-        .firstWhereOrNull((e) => e.id == 'task_$subtaskId');
-    return r?.time;
-  }
-
-  Future<void> setCheckpointReminder(
-      String mainTaskId, String subtaskId, String checkpointId, DateTime? reminderTime) async {
-    final id = 'checkpoint_$checkpointId';
-    if (reminderTime == null) {
-      deleteReminder(id);
-      return;
-    }
+  Future<void> addCheckpointReminder(
+      String mainTaskId, String subtaskId, String checkpointId, DateTime reminderTime, String repeat) async {
     final task = mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     final sub = task?.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
     final cp = sub?.findCheckpoint(checkpointId);
     if (task == null || sub == null || cp == null) return;
 
+    final id = 'checkpoint_${checkpointId}_${DateTime.now().millisecondsSinceEpoch}';
     upsertReminder(ScheduledReminder(
       id: id,
       title: '⏰ ${cp.name}',
       body: 'Reminder for: ${task.name} › ${sub.name} › ${cp.name}',
       type: 'task',
-      repeat: 'once',
-      time: reminderTime,
+      repeat: repeat,
+      time: repeat == 'once' ? reminderTime : null,
+      hour: reminderTime.hour,
+      minute: reminderTime.minute,
       mainTaskId: mainTaskId,
       subtaskId: subtaskId,
       compoundId: '$mainTaskId|$subtaskId|$checkpointId',
     ));
   }
 
+  Future<void> setSubtaskReminder(
+      String mainTaskId, String subtaskId, DateTime? reminderTime) async {
+    if (reminderTime == null) {
+      final rems = getSubtaskReminders(subtaskId);
+      for (final r in rems) {
+        deleteReminder(r.id);
+      }
+      return;
+    }
+    await addSubtaskReminder(mainTaskId, subtaskId, reminderTime, 'once');
+  }
+
+  Future<void> setCheckpointReminder(
+      String mainTaskId, String subtaskId, String checkpointId, DateTime? reminderTime) async {
+    if (reminderTime == null) {
+      final rems = getCheckpointReminders(checkpointId);
+      for (final r in rems) {
+        deleteReminder(r.id);
+      }
+      return;
+    }
+    await addCheckpointReminder(mainTaskId, subtaskId, checkpointId, reminderTime, 'once');
+  }
+
+  DateTime? subtaskReminderTime(String subtaskId) {
+    final active = getSubtaskReminders(subtaskId).where((e) => e.isActive).toList();
+    if (active.isEmpty) return null;
+    active.sort((a, b) {
+      final fa = a.nextFire;
+      final fb = b.nextFire;
+      if (fa == null) return 1;
+      if (fb == null) return -1;
+      return fa.compareTo(fb);
+    });
+    return active.first.nextFire;
+  }
+
   DateTime? checkpointReminderTime(String checkpointId) {
-    final r = settings.scheduledReminders
-        .firstWhereOrNull((e) => e.id == 'checkpoint_$checkpointId');
-    return r?.time;
+    final active = getCheckpointReminders(checkpointId).where((e) => e.isActive).toList();
+    if (active.isEmpty) return null;
+    active.sort((a, b) {
+      final fa = a.nextFire;
+      final fb = b.nextFire;
+      if (fa == null) return 1;
+      if (fb == null) return -1;
+      return fa.compareTo(fb);
+    });
+    return active.first.nextFire;
   }
 
   /// The reminder time currently set for a planned day-plan item, or null.
@@ -409,7 +452,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
     final next = TaskCalculations.nextCheckpoint(sub);
     NotificationService.instance.showTimerNotification(
-      taskName: sub.name,
+      taskName: next?.name ?? sub.name,
       startTime: timer.startTime,
       subtaskId: subtaskId,
       mainTaskId: mainTaskId,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/widgets/charts/wellbeing_pie_chart.dart';
@@ -174,6 +175,99 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     return buf.toString();
   }
 
+  String _buildWeeklyBriefingContext(AppProvider provider) {
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 7));
+    final buf = StringBuffer();
+
+    // 1. Completed Tasks (Last 7 Days)
+    buf.writeln('=== COMPLETED TASKS & CHECKPOINTS (LAST 7 DAYS) ===');
+    int completedCount = 0;
+    for (final task in provider.mainTasks.where((t) => !t.isDeleted)) {
+      for (final sub in task.subTasks.where((s) => !s.isDeleted)) {
+        if (sub.completed && sub.completedDate != null) {
+          try {
+            final compDate = DateTime.parse(sub.completedDate!);
+            if (compDate.isAfter(weekAgo)) {
+              buf.writeln('- [Subtask] ${task.name} > ${sub.name} (Completed: ${sub.completedDate})');
+              completedCount++;
+            }
+          } catch (_) {}
+        }
+        void checkCps(List<SubSubTask> list) {
+          for (final cp in list) {
+            if (cp.completed && cp.completionTimestamp != null) {
+              try {
+                final compDate = DateTime.parse(cp.completionTimestamp!);
+                if (compDate.isAfter(weekAgo)) {
+                  buf.writeln('- [Checkpoint] ${task.name} > ${sub.name} > ${cp.name} (Completed: ${cp.completionTimestamp})');
+                  completedCount++;
+                }
+              } catch (_) {}
+            }
+            checkCps(cp.substeps);
+          }
+        }
+        checkCps(sub.subSubTasks);
+      }
+    }
+    if (completedCount == 0) {
+      buf.writeln('No completed tasks/checkpoints found.');
+    }
+    buf.writeln('');
+
+    // 2. Finance Brief
+    buf.writeln('=== FINANCE BRIEF (LAST 7 DAYS) ===');
+    double weekIncome = 0, weekExpense = 0;
+    for (final t in provider.transactions) {
+      if (t.timestamp.isAfter(weekAgo)) {
+        if (t.isIncome) {
+          weekIncome += t.amount;
+        } else {
+          weekExpense += t.amount;
+        }
+      }
+    }
+    final balance = provider.financeActions.currentBalance;
+    buf.writeln('- Income: ₹${weekIncome.toStringAsFixed(0)}');
+    buf.writeln('- Expense: ₹${weekExpense.toStringAsFixed(0)}');
+    buf.writeln('- Net: ₹${(weekIncome - weekExpense).toStringAsFixed(0)}');
+    buf.writeln('- Current Balance: ₹${balance.toStringAsFixed(0)}');
+    buf.writeln('');
+
+    // 3. Health Brief
+    buf.writeln('=== HEALTH BRIEF (LAST 7 DAYS) ===');
+    double totalWater = 0;
+    double totalSleepMins = 0;
+    double totalWalkKm = 0;
+    double totalWorkoutMins = 0;
+    for (int i = 0; i < 7; i++) {
+      final dStr = DateFormat('yyyy-MM-dd').format(now.subtract(Duration(days: i)));
+      final log = provider.getDailyHealthLog(dStr);
+      totalWater += log.waterGlasses;
+      totalSleepMins += log.sleepLogs.fold<int>(0, (sum, s) => sum + s.durationMinutes);
+      totalWalkKm += log.activityLogs.fold<double>(0, (sum, a) => sum + a.walkDistanceKm);
+      totalWorkoutMins += log.activityLogs.fold<int>(0, (sum, a) => sum + a.workoutMinutes);
+    }
+    buf.writeln('- Average Water: ${(totalWater / 7).toStringAsFixed(1)} glasses/day');
+    buf.writeln('- Average Sleep: ${(totalSleepMins / 7 / 60).toStringAsFixed(1)} hours/day');
+    buf.writeln('- Total Walk Distance: ${totalWalkKm.toStringAsFixed(1)} km');
+    buf.writeln('- Total Workout Time: ${(totalWorkoutMins / 60).toStringAsFixed(1)} hours');
+    buf.writeln('');
+
+    // 4. Interaction Brief (People)
+    buf.writeln('=== INTERACTION BRIEF (PEOPLE) ===');
+    final people = provider.chatbotMemory.people;
+    if (people.isNotEmpty) {
+      for (final p in people) {
+        buf.writeln('- ${p.name} (${p.relation})');
+      }
+    } else {
+      buf.writeln('No contacts registered.');
+    }
+    return buf.toString();
+  }
+
   Future<void> _generateWeeklyReport(AppProvider provider) async {
     setState(() => _isGeneratingWeeklyReport = true);
     try {
@@ -182,6 +276,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       final aiService = provider.aiService;
       final financeContext = _buildFinanceWeekContext(provider);
       final agentContext = _buildAgentProgressContext(provider);
+      final weeklyContext = _buildWeeklyBriefingContext(provider);
 
       final result = await aiService.generateWeeklyReport(
         logsText: data['logs'] as String,
@@ -189,6 +284,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         wellbeingStatsText: wellbeingDiff,
         financeText: financeContext,
         agentProgressText: agentContext,
+        weeklyBriefingContext: weeklyContext,
         modelCandidates: provider.settings.liteModels,
         currentApiKeyIndex: provider.apiKeyIndex,
         customApiKeys: provider.settings.customApiKeys,
@@ -203,6 +299,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           MaterialPageRoute(
             builder: (ctx) => WeeklyReviewScreen(
               reportData: result,
+              provider: provider,
               onArchive: () async {
                 final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
                 await provider.saveWeeklyReport(dateStr, result);

@@ -120,7 +120,8 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
   @override
   Widget build(BuildContext context) {
     final isEmpty = widget.subTask == null;
-    final isCheckpoint = widget.checkpoint != null;
+    final resolvedCheckpoint = widget.checkpoint ?? (isEmpty ? null : TaskCalculations.nextCheckpoint(widget.subTask!));
+    final isCheckpoint = resolvedCheckpoint != null;
 
     final accent = isEmpty
         ? JweTheme.textMuted
@@ -133,7 +134,7 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
 
     final title = isEmpty
         ? 'NO PLAN SET'
-        : (isCheckpoint ? widget.checkpoint!.name.toUpperCase() : widget.subTask!.name.toUpperCase());
+        : (isCheckpoint ? resolvedCheckpoint.name.toUpperCase() : widget.subTask!.name.toUpperCase());
     final sub = isEmpty
         ? 'QUEUE STANDBY'
         : (isCheckpoint
@@ -228,62 +229,116 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
   
             // ── Body ─────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                if (!isEmpty)
-                  HudRing(
-                    value: ringPct,
-                    size: 58,
-                    stroke: 4,
-                    tone: tone,
-                    label: _ringLabel(ringSec),
-                    sub: widget.isRunning ? 'SESSION' : 'TODAY',
-                  ),
-                if (!isEmpty) const SizedBox(width: 12),
-                Expanded(
-                  child: InkWell(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  InkWell(
                     onTap: isEmpty ? null : widget.onTitleTap,
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
                           style: GoogleFonts.saira(
                             color: JweTheme.textWhite,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            height: 1.1,
-                            letterSpacing: 0.4,
-                          )),
-                      if (sub.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(sub,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.jetBrainsMono(
-                              color: JweTheme.textMid,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.4,
-                            )),
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            height: 1.15,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        if (sub.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: accent.withValues(alpha: 0.08),
+                              border: Border(left: BorderSide(color: accent, width: 2)),
+                            ),
+                            child: Text(
+                              sub,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.textMid,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
-                      if (!isEmpty && widget.realisticMinutes > 0) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          'CAP ${formatMinutes(widget.plannedMinutes)} / ${formatMinutes(widget.realisticMinutes)}',
-                          style: GoogleFonts.jetBrainsMono(
-                            color: widget.plannedMinutes > widget.realisticMinutes
-                                ? JweTheme.accentRed
-                                : JweTheme.textMuted,
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.2,
+                    ),
+                  ),
+                  if (!isEmpty) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        HudRing(
+                          value: ringPct,
+                          size: 64,
+                          stroke: 5,
+                          tone: tone,
+                          label: _ringLabel(ringSec),
+                          sub: widget.isRunning ? 'SESSION' : 'TODAY',
+                        ),
+                        const SizedBox(width: 20),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'OPERATIONAL CAPACITY',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: JweTheme.textMuted,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                widget.realisticMinutes > 0
+                                    ? '${formatMinutes(widget.plannedMinutes)} PLANNED / ${formatMinutes(widget.realisticMinutes)} CAPACITY'
+                                    : 'NO TARGET ESTIMATES SET',
+                                style: GoogleFonts.chakraPetch(
+                                  color: widget.plannedMinutes > widget.realisticMinutes
+                                      ? JweTheme.accentRed
+                                      : JweTheme.textWhite,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'ENGAGEMENT STATUS',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: JweTheme.textMuted,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                widget.isRunning ? 'REC LIVE TICKING' : 'STANDBY IDLE',
+                                style: GoogleFonts.chakraPetch(
+                                  color: widget.isRunning ? JweTheme.accentTeal : JweTheme.textMuted,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
-                    ]),
-                  ),
-                ),
-              ]),
+                    ),
+                  ],
+                ],
+              ),
             ),
 
             // ── Top Five Tasks Checklist (visible when expanded) ─────────

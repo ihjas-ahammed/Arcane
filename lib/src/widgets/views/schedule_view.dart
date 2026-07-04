@@ -357,7 +357,8 @@ class _ScheduleViewState extends State<ScheduleView> {
     MainTask? nextMainTask;
     SubSubTask? nextCheckpoint;
 
-    final plan = List<String>.from(provider.taskActions.getDayPlan(helper.getTodayDateString()));
+    final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final plan = List<String>.from(provider.taskActions.getDayPlan(selectedDateStr));
 
     // PRIORITY 1 — a live, running session always claims the hero spot.
     final runningEntry = provider.activeTimers.entries
@@ -370,7 +371,7 @@ class _ScheduleViewState extends State<ScheduleView> {
       if (m != null && s != null && !s.completed) {
         nextMainTask = m;
         nextSubTask = s;
-        // If this task is in today's plan, retain its queue id so the
+        // If this task is in selected date's plan, retain its queue id so the
         // "FINISH" button still drops it from the plan.
         final inPlan = plan.firstWhereOrNull((p) {
           final parts = p.split('|');
@@ -386,10 +387,10 @@ class _ScheduleViewState extends State<ScheduleView> {
       }
     }
 
-    // PRIORITY 1.5 — the Phoenix (today's most-important task) claims the hero
+    // PRIORITY 1.5 — the Phoenix (selected date's most-important task) claims the hero
     // ahead of the rest of the queue.
     final phoenixId =
-        provider.taskActions.getPhoenixId(helper.getTodayDateString());
+        provider.taskActions.getPhoenixId(selectedDateStr);
     if (nextSubTask == null && phoenixId != null) {
       final parts = phoenixId.split('|');
       if (parts.length >= 2) {
@@ -457,7 +458,7 @@ class _ScheduleViewState extends State<ScheduleView> {
     final now = DateTime.now();
     final dayWindow = resolveDayWindow(provider, now);
     final plannedMin =
-        provider.taskActions.plannedMinutesForDay(helper.getTodayDateString());
+        provider.taskActions.plannedMinutesForDay(selectedDateStr);
     final realisticMin = dayWindow.realisticMinutes(now);
 
     final topFiveTasks = TaskCalculations.resolveTopFiveDayPlanTasks(
@@ -488,13 +489,14 @@ class _ScheduleViewState extends State<ScheduleView> {
             } else {
               provider.taskActions.completeSubtask(item.mainTaskId, item.subTaskId);
             }
-            final today = helper.getTodayDateString();
-            final currentPlan = List<String>.from(provider.taskActions.getDayPlan(today));
+            final currentPlan = List<String>.from(provider.taskActions.getDayPlan(selectedDateStr));
             currentPlan.remove(item.compoundId);
-            provider.taskActions.updateDayPlan(today, currentPlan);
+            provider.taskActions.updateDayPlan(selectedDateStr, currentPlan);
           },
           onOpenPlan: () {
-             Navigator.push(context, MaterialPageRoute(builder: (_) => const TodayPlannerScreen()));
+             Navigator.push(context, MaterialPageRoute(builder: (_) => TodayPlannerScreen(
+               date: selectedDateStr,
+             )));
           },
           onPlayPause: () {
             if (nextSubTask == null || nextMainTask == null) return;
@@ -509,14 +511,14 @@ class _ScheduleViewState extends State<ScheduleView> {
             if (nextQueueId != null && nextCheckpoint != null && nextMainTask != null && nextSubTask != null) {
               provider.taskActions.completeSubSubtask(nextMainTask!.id, nextSubTask!.id, nextCheckpoint!.id);
               final newPlan = List<String>.from(plan)..remove(nextQueueId);
-              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
+              provider.taskActions.updateDayPlan(selectedDateStr, newPlan);
             }
           },
           onFinishSubTask: () {
             if (nextQueueId != null && nextMainTask != null && nextSubTask != null) {
               provider.taskActions.completeSubtask(nextMainTask!.id, nextSubTask!.id);
               final newPlan = List<String>.from(plan)..remove(nextQueueId);
-              provider.taskActions.updateDayPlan(helper.getTodayDateString(), newPlan);
+              provider.taskActions.updateDayPlan(selectedDateStr, newPlan);
             }
           },
           onTitleTap: () {

@@ -352,6 +352,7 @@ class _ProjectsViewState extends State<ProjectsView> {
                 children: phoenixProjects.map((project) {
                   final progress = _calculateProgress(project, provider);
                   final nextRelease = _getNextRelease(project);
+                  final streak = calculateProjectStreak(project, provider);
                   return InkWell(
                     onTap: () => provider.setActiveProjectId(project.id),
                     child: Container(
@@ -367,15 +368,34 @@ class _ProjectsViewState extends State<ProjectsView> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  project.name.toUpperCase(),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.rajdhani(
-                                    color: JweTheme.textWhite,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        project.name.toUpperCase(),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.rajdhani(
+                                          color: JweTheme.textWhite,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    if (streak > 0) ...[
+                                      const SizedBox(width: 6),
+                                      Icon(MdiIcons.fire, color: JweTheme.accentAmber, size: 12),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        '$streak',
+                                        style: GoogleFonts.chakraPetch(
+                                          color: JweTheme.accentAmber,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
@@ -436,11 +456,18 @@ class _ProjectsViewState extends State<ProjectsView> {
     if (provider.activeProjectId != null) {
       final activeProject = projectsList.firstWhereOrNull((p) => p.id == provider.activeProjectId);
       if (activeProject != null) {
-        return ProjectDetailView(
-          project: activeProject,
-          onBack: () {
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
             provider.setActiveProjectId(null);
           },
+          child: ProjectDetailView(
+            project: activeProject,
+            onBack: () {
+              provider.setActiveProjectId(null);
+            },
+          ),
         );
       } else {
         provider.setActiveProjectId(null);
@@ -523,6 +550,7 @@ class _ProjectsViewState extends State<ProjectsView> {
                 final project = projectsList[index];
                 final progress = _calculateProgress(project, provider);
                 final nextRelease = _getNextRelease(project);
+                final streak = calculateProjectStreak(project, provider);
 
                 return Padding(
                   key: ValueKey(project.id),
@@ -625,6 +653,36 @@ class _ProjectsViewState extends State<ProjectsView> {
                                       ],
                                     ),
                                   ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        'STREAK',
+                                        style: GoogleFonts.jetBrainsMono(
+                                          color: JweTheme.textMuted,
+                                          fontSize: 8.5,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(MdiIcons.fire, color: streak > 0 ? JweTheme.accentAmber : JweTheme.textMuted, size: 12),
+                                          const SizedBox(width: 2),
+                                          Text(
+                                            '$streak DAYS',
+                                            style: GoogleFonts.chakraPetch(
+                                              color: streak > 0 ? JweTheme.accentAmber : JweTheme.textMuted,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(width: 16),
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [

@@ -15,7 +15,8 @@ import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/utils/global_toast.dart';
 
 class TodayPlannerScreen extends StatefulWidget {
-  const TodayPlannerScreen({super.key});
+  final String? date;
+  const TodayPlannerScreen({super.key, this.date});
 
   @override
   State<TodayPlannerScreen> createState() => _TodayPlannerScreenState();
@@ -34,7 +35,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_isInit) {
-      _date = helper.getTodayDateString();
+      _date = widget.date ?? helper.getTodayDateString();
       final provider = Provider.of<AppProvider>(context, listen: false);
       _plan = provider.taskActions.getDayPlan(_date);
       _estimates = provider.taskActions.getDayPlanEstimates(_date);
@@ -78,17 +79,8 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   }
 
   void _addToPlan(AppProvider provider, String compoundId) {
-    if (_plan.contains(compoundId)) return;
     setState(() {
       _plan.add(compoundId);
-      // If we just added a subtask, drop any of its child checkpoints from the plan
-      final parts = compoundId.split('|');
-      if (parts.length == 2) {
-        _plan.removeWhere((id) {
-          final p = id.split('|');
-          return p.length == 3 && p[0] == parts[0] && p[1] == parts[1];
-        });
-      }
     });
     _persistPlan(provider);
   }
@@ -316,7 +308,10 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
       appBar: AppBar(
-        title: Text('TODAY',
+        title: Text(
+            _date == helper.getTodayDateString()
+                ? 'TODAY'
+                : DateFormat('dd MMM yyyy').format(DateTime.parse(_date)).toUpperCase(),
             style: GoogleFonts.rajdhani(
                 color: AppTheme.fhAccentTeal,
                 fontWeight: FontWeight.bold,
@@ -397,7 +392,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       itemBuilder: (context, index) {
         final id = queue[index];
         return _PlanRow(
-          key: ValueKey(id),
+          key: ValueKey('$id-$index'),
           compoundId: id,
           provider: provider,
           minutes: _estimateFor(id, provider),
@@ -443,22 +438,20 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     final widgets = <Widget>[];
 
     for (final task in activeTasks) {
-      final activeSubs =
-          task.subTasks.where((s) => !s.completed && !s.isDeleted).toList();
+      final activeSubs = task.subTasks.where((s) {
+        if (s.isDeleted) return false;
+        if (s.completed) return s.isRecurring;
+        return true;
+      }).toList();
       if (activeSubs.isEmpty) continue;
 
       final taskRows = <Widget>[];
 
       for (final sub in activeSubs) {
         final subId = '${task.id}|${sub.id}';
-        final activeCps = _getAllIncompleteCheckpoints(sub);
-        final allCpIds =
-            activeCps.map((c) => '$subId|${c.id}').toList();
-        final subInPlan = planSet.contains(subId);
-        final allCpsInPlan = activeCps.isNotEmpty &&
-            allCpIds.every((id) => planSet.contains(id));
+        final activeCps = _getAllCheckpointsForPlanning(sub);
 
-        if (!subInPlan && !allCpsInPlan && _matchesQuery(sub.name, q)) {
+        if (_matchesQuery(sub.name, q)) {
           taskRows.add(_AvailableRow(
             title: sub.name,
             color: task.taskColor,
@@ -467,19 +460,16 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
           ));
         }
 
-        if (!subInPlan) {
-          for (final cp in activeCps) {
-            final cpId = '$subId|${cp.id}';
-            if (planSet.contains(cpId)) continue;
-            if (!_matchesQuery(cp.name, q) && !_matchesQuery(sub.name, q)) continue;
-            taskRows.add(_AvailableRow(
-              title: cp.name,
-              parent: _findParentPath(sub, cp),
-              color: task.taskColor,
-              isCheckpoint: true,
-              onAdd: () => _addToPlan(provider, cpId),
-            ));
-          }
+        for (final cp in activeCps) {
+          final cpId = '$subId|${cp.id}';
+          if (!_matchesQuery(cp.name, q) && !_matchesQuery(sub.name, q)) continue;
+          taskRows.add(_AvailableRow(
+            title: cp.name,
+            parent: _findParentPath(sub, cp),
+            color: task.taskColor,
+            isCheckpoint: true,
+            onAdd: () => _addToPlan(provider, cpId),
+          ));
         }
       }
 
@@ -1071,7 +1061,7 @@ class _AddSection extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
-      height: expanded ? 340 : 52,
+      height: expanded ? 340 : 53,
       decoration: const BoxDecoration(
         color: AppTheme.fhBgDark,
         border: Border(top: BorderSide(color: AppTheme.fhBorderColor)),
@@ -1136,11 +1126,11 @@ class _AddSection extends StatelessWidget {
   }
 }
 
-List<SubSubTask> _getAllIncompleteCheckpoints(SubTask sub) {
+List<SubSubTask> _getAllCheckpointsForPlanning(SubTask sub) {
   final List<SubSubTask> result = [];
   void recurse(List<SubSubTask> currentList) {
     for (final cp in currentList) {
-      if (!cp.completed) {
+      if (sub.isRecurring || !cp.completed) {
         result.add(cp);
         recurse(cp.substeps);
       }

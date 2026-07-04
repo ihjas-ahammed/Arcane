@@ -132,9 +132,14 @@ class TaskHeaderCard extends StatelessWidget {
       currentTask = provider.mainTasks.firstWhere((t) => t.id == task.id);
     } catch (_) {}
 
+    final runningSub = currentTask.subTasks.firstWhereOrNull((st) {
+      final timer = provider.activeTimers[st.id];
+      return timer != null && timer.isRunning && !st.completed && !st.isDeleted;
+    });
+
     final String? phxId = currentTask.phoenixSubTaskId;
-    SubTask? phxSub;
-    if (phxId != null) {
+    SubTask? phxSub = runningSub;
+    if (phxSub == null && phxId != null) {
       phxSub = currentTask.subTasks.firstWhereOrNull((st) => st.id == phxId && !st.completed && !st.isDeleted);
     }
 

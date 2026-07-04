@@ -43,6 +43,7 @@ class TaskActions {
             type: updates['type'] as String?,
             why: updates['why'] as String?,
             what: updates['what'] as String?,
+            substeps: updates['substeps'] as List<SubSubTask>?,
           );
           if (updatedNode.isCountable) updatedNode.currentCount = updatedNode.currentCount.clamp(0, updatedNode.targetCount);
           
@@ -164,13 +165,13 @@ class TaskActions {
     }
   }
 
-  void removeFromDayPlan(String compoundId) {
-    final today = getTodayDateString();
-    final currentPlan = getDayPlan(today);
-    if (currentPlan.contains(compoundId)) {
-      final newPlan = List<String>.from(currentPlan)..remove(compoundId);
-      updateDayPlan(today, newPlan);
-    }
+  void removeFromDayPlan(String compoundId, [String? dateStr]) {
+    final targetDate = dateStr ?? getTodayDateString();
+    final currentPlan = getDayPlan(targetDate);
+    final newPlan = currentPlan.where((item) {
+      return item != compoundId && !item.startsWith('$compoundId|');
+    }).toList();
+    updateDayPlan(targetDate, newPlan);
   }
 
   Map<String, int> getDayPlanEstimates(String dateStr) {
@@ -749,7 +750,7 @@ class TaskActions {
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        return task.copyWith(subTasks: [...task.subTasks, newSubtask]);
+        return task.copyWith(subTasks: [newSubtask, ...task.subTasks]);
       }
       return task;
     }).toList();
@@ -775,6 +776,7 @@ class TaskActions {
     if (updates.containsKey('what')) subtaskToUpdate.what = updates['what'] as String;
     if (updates.containsKey('resources')) subtaskToUpdate.resources = updates['resources'] as String; 
     if (updates.containsKey('isActive')) subtaskToUpdate.isActive = updates['isActive'] as bool;
+    if (updates.containsKey('subSubTasks')) subtaskToUpdate.subSubTasks = updates['subSubTasks'] as List<SubSubTask>;
     
     subtaskToUpdate.updatedAt = DateTime.now();
 
@@ -943,7 +945,7 @@ class TaskActions {
     );
 
     final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) return task.copyWith(subTasks: [...task.subTasks, newSubtask]);
+      if (task.id == mainTaskId) return task.copyWith(subTasks: [newSubtask, ...task.subTasks]);
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
@@ -1213,7 +1215,7 @@ class TaskActions {
       colorHex: colorHex,
       isActive: true,
     );
-    _provider.setProviderState(mainTasks: [..._provider.mainTasks, newTask]);
+    _provider.setProviderState(mainTasks: [newTask, ..._provider.mainTasks]);
   }
 
   void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) {

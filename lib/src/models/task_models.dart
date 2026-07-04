@@ -692,3 +692,60 @@ extension SubSubTaskCopyExtension on SubSubTask {
     return buffer.toString();
   }
 }
+
+Map<String, dynamic> parseTaskOutline(String text) {
+  final lines = text.split('\n').where((l) => l.trim().isNotEmpty).toList();
+  if (lines.isEmpty) return {};
+
+  final name = lines[0].trim();
+  String why = '';
+  String what = '';
+  List<Map<String, dynamic>> children = [];
+
+  int i = 1;
+  while (i < lines.length) {
+    final line = lines[i];
+    final trimmed = line.trim();
+    if (trimmed.startsWith('Why:')) {
+      why = trimmed.substring(4).trim();
+      i++;
+    } else if (trimmed.startsWith('What:')) {
+      what = trimmed.substring(5).trim();
+      i++;
+    } else if (trimmed.startsWith('How:')) {
+      i++;
+    } else {
+      // Find bullet point child
+      final bulletIndex = line.indexOf('*');
+      if (bulletIndex != -1) {
+        final childBulletLine = line;
+        final childIndent = bulletIndex;
+        final childLines = <String>[childBulletLine.substring(childIndent + 1).trim()];
+        
+        i++;
+        while (i < lines.length) {
+          final nextLine = lines[i];
+          final firstNonSpace = nextLine.indexOf(RegExp(r'\S'));
+          if (firstNonSpace != -1 && firstNonSpace > childIndent) {
+            childLines.add(nextLine);
+            i++;
+          } else {
+            break;
+          }
+        }
+        
+        final childText = childLines.join('\n');
+        children.add(parseTaskOutline(childText));
+      } else {
+        i++;
+      }
+    }
+  }
+
+  return {
+    'name': name,
+    'why': why,
+    'what': what,
+    'children': children,
+  };
+}

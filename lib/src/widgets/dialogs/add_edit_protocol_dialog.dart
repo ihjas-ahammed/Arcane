@@ -76,6 +76,8 @@ class _AddEditProtocolDialogState extends State<AddEditProtocolDialog> {
             TextField(
               controller: _nameController, 
               style: const TextStyle(color: JweTheme.textWhite),
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
               decoration: const InputDecoration(labelText: 'CODENAME', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder())
             ),
             const SizedBox(height: 12),

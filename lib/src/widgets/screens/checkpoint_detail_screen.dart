@@ -14,6 +14,7 @@ import 'package:missions/src/widgets/action_plan/action_plan_outcome_card.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:uuid/uuid.dart';
 
 class CheckpointDetailScreen extends StatefulWidget {
   final String mainTaskId;
@@ -80,95 +81,180 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
   }
 
   bool _hasReminder(AppProvider provider, SubSubTask cp) {
-    final time = provider.checkpointReminderTime(cp.id);
-    return time != null && time.isAfter(DateTime.now());
+    return provider.getCheckpointReminders(cp.id).any((r) => r.isActive);
   }
 
-  Future<void> _showReminderPicker(
-      BuildContext context, AppProvider provider, SubSubTask cp) async {
-    final existing = provider.checkpointReminderTime(cp.id);
-    if (existing != null && existing.isAfter(DateTime.now())) {
-      final cancel = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: AppTheme.fhBgDark,
-          title: const Text('Reminder Set', style: TextStyle(color: AppTheme.fhTextPrimary)),
-          content: Text(
-            'Reminder at ${DateFormat('MMM d · HH:mm').format(existing)}.\nCancel it?',
-            style: const TextStyle(color: AppTheme.fhTextSecondary),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('KEEP')),
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('CANCEL REMINDER',
-                    style: TextStyle(color: AppTheme.fhAccentRed))),
-          ],
-        ),
-      );
-      if (cancel == true) {
-        await provider.setCheckpointReminder(widget.mainTaskId, widget.parentSubTaskId, cp.id, null);
-        if (mounted) setState(() {});
-      }
-      return;
-    }
-
-    final parentTask = provider.mainTasks.firstWhereOrNull((t) => t.id == widget.mainTaskId);
-    final parentSub = parentTask?.subTasks.firstWhereOrNull((s) => s.id == widget.parentSubTaskId);
-    final isRecurring = parentSub?.isRecurring ?? false;
-
-    final now = DateTime.now();
-    DateTime date;
-    if (isRecurring) {
-      date = now;
-    } else {
-      final pickedDate = await showDatePicker(
-        context: context,
-        initialDate: now,
-        firstDate: now,
-        lastDate: now.add(const Duration(days: 365)),
-        builder: (ctx, child) => Theme(
-          data: Theme.of(ctx).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppTheme.fhAccentTeal,
-              surface: AppTheme.fhBgDark,
-            ),
-          ),
-          child: child!,
-        ),
-      );
-      if (pickedDate == null) return;
-      date = pickedDate;
-    }
-    if (!mounted) return;
-
-    final time = await showTimePicker(
+  void _showRemindersListDialog(BuildContext context, AppProvider provider, SubSubTask cp) {
+    showDialog(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(now),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: AppTheme.fhAccentTeal,
-            surface: AppTheme.fhBgDark,
-          ),
-        ),
-        child: child!,
-      ),
-    );
-    if (time == null) return;
-    if (!mounted) return;
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final rems = provider.getCheckpointReminders(cp.id);
+            return AlertDialog(
+              backgroundColor: AppTheme.fhBgDark,
+              title: Text(
+                "OBJECTIVE REMINDERS",
+                style: GoogleFonts.rajdhani(
+                  color: AppTheme.fhAccentTeal,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (rems.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Text(
+                          "No reminders configured.",
+                          style: TextStyle(color: AppTheme.fhTextSecondary, fontStyle: FontStyle.italic),
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: rems.length,
+                          itemBuilder: (context, index) {
+                            final r = rems[index];
+                            String timeStr = '';
+                            if (r.repeat == 'daily') {
+                              timeStr = '${r.hour.toString().padLeft(2, '0')}:${r.minute.toString().padLeft(2, '0')} (Daily)';
+                            } else if (r.time != null) {
+                              timeStr = '${DateFormat('MMM d, HH:mm').format(r.time!)} (Once)';
+                            }
+                            return Container(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppTheme.fhBgDeepDark,
+                                border: Border.all(color: AppTheme.fhBorderColor),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(MdiIcons.bellRing, color: AppTheme.fhAccentTeal, size: 16),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      timeStr,
+                                      style: GoogleFonts.jetBrainsMono(color: AppTheme.fhTextPrimary, fontSize: 12),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(MdiIcons.deleteOutline, color: AppTheme.fhAccentRed, size: 18),
+                                    onPressed: () {
+                                      provider.deleteReminder(r.id);
+                                      setDialogState(() {});
+                                      setState(() {});
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      icon: Icon(MdiIcons.plus, size: 16),
+                      label: const Text("ADD REMINDER"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.fhAccentTeal,
+                        foregroundColor: Colors.black,
+                        shape: const BeveledRectangleBorder(),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      onPressed: () async {
+                        final repeat = await showDialog<String>(
+                          context: context,
+                          builder: (ctx2) => AlertDialog(
+                            backgroundColor: AppTheme.fhBgDark,
+                            title: const Text("REPEAT OPTION", style: TextStyle(color: AppTheme.fhTextPrimary)),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ListTile(
+                                  title: const Text("ONCE", style: TextStyle(color: AppTheme.fhTextPrimary)),
+                                  onTap: () => Navigator.pop(ctx2, 'once'),
+                                ),
+                                ListTile(
+                                  title: const Text("DAILY", style: TextStyle(color: AppTheme.fhTextPrimary)),
+                                  onTap: () => Navigator.pop(ctx2, 'daily'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                        if (repeat == null) return;
 
-    var scheduled = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-    if (isRecurring && scheduled.isBefore(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
-    }
-    await provider.setCheckpointReminder(widget.mainTaskId, widget.parentSubTaskId, cp.id, scheduled);
-    if (!mounted) return;
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('Reminder set for ${DateFormat('MMM d · HH:mm').format(scheduled)}'),
-      backgroundColor: AppTheme.fhAccentTeal.withValues(alpha: 0.9),
-    ));
+                        final now = DateTime.now();
+                        DateTime date = now;
+                        if (repeat == 'once') {
+                          final pickedDate = await showDatePicker(
+                            context: ctx,
+                            initialDate: now,
+                            firstDate: now,
+                            lastDate: now.add(const Duration(days: 365)),
+                            builder: (ctx, child) => Theme(
+                              data: Theme.of(ctx).copyWith(
+                                colorScheme: const ColorScheme.dark(
+                                  primary: AppTheme.fhAccentTeal,
+                                  surface: AppTheme.fhBgDark,
+                                ),
+                              ),
+                              child: child!,
+                            ),
+                          );
+                          if (pickedDate == null) return;
+                          date = pickedDate;
+                        }
+
+                        if (!ctx.mounted) return;
+                        final time = await showTimePicker(
+                          context: ctx,
+                          initialTime: TimeOfDay.fromDateTime(now),
+                          builder: (ctx, child) => Theme(
+                            data: Theme.of(ctx).copyWith(
+                              colorScheme: const ColorScheme.dark(
+                                primary: AppTheme.fhAccentTeal,
+                                surface: AppTheme.fhBgDark,
+                              ),
+                            ),
+                            child: child!,
+                          ),
+                        );
+                        if (time == null) return;
+
+                        var scheduled = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+                        if (repeat == 'daily' && scheduled.isBefore(now)) {
+                          scheduled = scheduled.add(const Duration(days: 1));
+                        }
+
+                        await provider.addCheckpointReminder(widget.mainTaskId, widget.parentSubTaskId, cp.id, scheduled, repeat);
+                        setDialogState(() {});
+                        setState(() {});
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("CLOSE", style: TextStyle(color: AppTheme.fhTextSecondary)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _addOne(AppProvider provider, SubSubTask parentCp, String name) {
@@ -293,15 +379,19 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                               ? AppTheme.fhAccentTeal
                               : AppTheme.fhTextSecondary,
                         ),
-                        onPressed: () => _showReminderPicker(context, provider, liveCheckpoint),
+                        onPressed: () => _showRemindersListDialog(context, provider, liveCheckpoint),
                         tooltip: 'Set Reminder',
                       ),
-                      IconButton(
-                        icon: Icon(MdiIcons.contentCopy, color: AppTheme.fhTextSecondary),
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: liveCheckpoint.toCopyStructure()));
-                          showGlobalToast("Objective structure copied to clipboard");
-                        },
+                      GestureDetector(
+                        onLongPress: () => _handlePaste(context, provider, liveCheckpoint),
+                        onSecondaryTap: () => _handlePaste(context, provider, liveCheckpoint),
+                        child: IconButton(
+                          icon: Icon(MdiIcons.contentCopy, color: AppTheme.fhTextSecondary),
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: liveCheckpoint.toCopyStructure()));
+                            showGlobalToast("Objective structure copied to clipboard");
+                          },
+                        ),
                       ),
                       IconButton(
                         icon:  Icon(MdiIcons.deleteOutline, color: AppTheme.fhAccentRed),
@@ -327,6 +417,8 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                       controller: _titleController,
                       style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 24, fontWeight: FontWeight.bold),
                       decoration: const InputDecoration(border: InputBorder.none, hintText: "Objective Name"),
+                      maxLines: null,
+                      keyboardType: TextInputType.multiline,
                       onChanged: (_) => _saveTitle(provider, liveCheckpoint),
                       onSubmitted: (_) => _saveTitle(provider, liveCheckpoint),
                       onEditingComplete: () => _saveTitle(provider, liveCheckpoint),
@@ -494,5 +586,90 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
         ),
       ),
     );
+  }
+
+  void _showPasteAlertDialog(BuildContext context, String title, Function(String) onImport) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgDark,
+        title: Text(title, style: GoogleFonts.rajdhani(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text("Paste the copied structure text here to import:", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              maxLines: 6,
+              style: GoogleFonts.jetBrainsMono(color: AppTheme.fhTextPrimary, fontSize: 11),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: AppTheme.fhBgDeepDark,
+                border: OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhAccentTeal)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("CANCEL", style: TextStyle(color: AppTheme.fhTextSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.fhAccentTeal,
+              foregroundColor: Colors.black,
+              shape: const BeveledRectangleBorder(),
+            ),
+            onPressed: () {
+              final val = controller.text.trim();
+              if (val.isNotEmpty) {
+                onImport(val);
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text("IMPORT"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handlePaste(BuildContext context, AppProvider provider, SubSubTask liveCheckpoint) {
+    _showPasteAlertDialog(context, "PASTE NESTED OBJECTIVE", (pastedText) {
+      final parsed = parseTaskOutline(pastedText);
+      if (parsed.isNotEmpty) {
+        final newSubstep = SubSubTask(
+          id: const Uuid().v4(),
+          name: parsed['name'] as String? ?? 'Unnamed Objective',
+          why: parsed['why'] as String? ?? '',
+          what: parsed['what'] as String? ?? '',
+          type: 'check',
+          substeps: (parsed['children'] as List<dynamic>).map((c) {
+            return SubSubTask(
+              id: const Uuid().v4(),
+              name: c['name'] as String? ?? 'Unnamed Objective',
+              why: c['why'] as String? ?? '',
+              what: c['what'] as String? ?? '',
+              type: 'check',
+            );
+          }).toList(),
+        );
+
+        provider.taskActions.updateSubSubtask(
+          widget.mainTaskId,
+          widget.parentSubTaskId,
+          liveCheckpoint.id,
+          {
+            'substeps': [...liveCheckpoint.substeps, newSubstep],
+          },
+        );
+        showGlobalToast("Nested objective pasted as new child");
+      }
+    });
   }
 }

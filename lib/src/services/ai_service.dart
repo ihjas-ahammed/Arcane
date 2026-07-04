@@ -815,6 +815,7 @@ Output ONLY the JSON object. Do not include markdown code block syntax (like ```
     required Function(String) onLog,
     String? financeText,
     String? agentProgressText,
+    String? weeklyBriefingContext,
     String? writingStyleMap,
   }) async {
     String systemStyle = "";
@@ -830,6 +831,7 @@ Output ONLY the JSON object. Do not include markdown code block syntax (like ```
     Wellbeing Progress: $wellbeingStatsText
     ${financeText != null && financeText.isNotEmpty ? 'Finance: $financeText' : ''}
     ${agentProgressText != null && agentProgressText.isNotEmpty ? 'Agent Progress (Tasks): $agentProgressText' : ''}
+    ${weeklyBriefingContext != null && weeklyBriefingContext.isNotEmpty ? 'Weekly Context (Completed Tasks, Finance, Health, People): \n$weeklyBriefingContext' : ''}
 
     Task:
     1. "summary": Honest read of the week. Name 1-2 specific emotional themes. If the week was hard, say so plainly. Close with one actionable insight.
