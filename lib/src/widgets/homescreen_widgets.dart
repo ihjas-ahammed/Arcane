@@ -88,7 +88,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             // List of top 5 tasks
             Expanded(
               child: topFiveTasks.isEmpty
@@ -105,11 +105,11 @@ class RunningTaskHomeWidget extends StatelessWidget {
                   : Column(
                       children: List.generate(5, (index) {
                         if (index >= topFiveTasks.length) {
-                          return const SizedBox(height: 30);
+                          return const SizedBox(height: 26);
                         }
                         final item = topFiveTasks[index];
                         return Container(
-                          height: 30,
+                          height: 26,
                           margin: const EdgeInsets.only(bottom: 2),
                           child: Row(
                             children: [
@@ -271,7 +271,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                 ],
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
             // Title
             Text(
               hasTask ? title.toUpperCase() : 'NO PLAN SET',
@@ -280,11 +280,11 @@ class RunningTaskHomeWidget extends StatelessWidget {
               style: const TextStyle(
                 color: AppTheme.fhTextPrimary,
                 fontFamily: AppTheme.fontDisplay,
-                fontSize: 22,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             // Subtitle
             Text(
               hasTask ? subtitle.toUpperCase() : 'QUEUE STANDBY',
@@ -297,7 +297,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                 letterSpacing: 1.0,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
             // Timer Area (we render the label, but leave blank space on the right
             // where the native ticking Chronometer will overlay)
             Row(
@@ -337,14 +337,14 @@ class RunningTaskHomeWidget extends StatelessWidget {
                       isRunning ? AppTheme.fhAccentRed : AppTheme.fhAccentGold),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
             ],
             // Buttons Row (Visuals matching the clickable transparent areas in XML)
             Row(
               children: [
                 Expanded(
                   child: Container(
-                    height: 40,
+                    height: 34,
                     decoration: BoxDecoration(
                       color: hasTask
                           ? (isRunning ? AppTheme.fhAccentRed : AppTheme.fhAccentGold)
@@ -369,7 +369,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                   const SizedBox(width: 10),
                   Container(
                     width: 88,
-                    height: 40,
+                    height: 34,
                     decoration: BoxDecoration(
                       border: Border.all(color: AppTheme.fhAccentTeal, width: 1.5),
                       borderRadius: BorderRadius.circular(6),
@@ -390,7 +390,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                 const SizedBox(width: 10),
                 Container(
                   width: 88,
-                  height: 40,
+                  height: 34,
                   decoration: BoxDecoration(
                     border: Border.all(
                       color: hasTask ? AppTheme.fhAccentGold : AppTheme.fhAccentGold.withValues(alpha: 0.5),
@@ -498,14 +498,14 @@ class FinanceHomeWidget extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             // Balance
             Text(
               _fmtMoney(balance),
               style:  TextStyle(
                 color: AppTheme.fhAccentGold,
                 fontFamily: AppTheme.fontDisplay,
-                fontSize: 32,
+                fontSize: 28,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -519,7 +519,7 @@ class FinanceHomeWidget extends StatelessWidget {
                 _buildCol("BUDGET", "$budgetPct%", AppTheme.fhAccentTeal),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             // Progress Bar
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
@@ -530,13 +530,13 @@ class FinanceHomeWidget extends StatelessWidget {
                 valueColor: AlwaysStoppedAnimation<Color>(AppTheme.fhAccentGold),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             // Buttons Row
             Row(
               children: [
                 Expanded(
                   child: Container(
-                    height: 34,
+                    height: 30,
                     decoration: BoxDecoration(
                       border: Border.all(color: AppTheme.fhAccentTeal, width: 1.5),
                       borderRadius: BorderRadius.circular(6),
@@ -557,7 +557,7 @@ class FinanceHomeWidget extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Container(
-                    height: 34,
+                    height: 30,
                     decoration: BoxDecoration(
                       color: AppTheme.fhAccentRed,
                       borderRadius: BorderRadius.circular(6),
@@ -682,7 +682,7 @@ class JournalHomeWidget extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -707,7 +707,7 @@ class JournalHomeWidget extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
             // Progress segments
             Row(
               children: [
@@ -728,7 +728,7 @@ class JournalHomeWidget extends StatelessWidget {
               children: [
                 Expanded(
                   child: Container(
-                    height: 36,
+                    height: 32,
                     decoration: BoxDecoration(
                       border: Border.all(color: AppTheme.fhAccentTeal, width: 1.5),
                       borderRadius: BorderRadius.circular(6),
@@ -749,7 +749,7 @@ class JournalHomeWidget extends StatelessWidget {
                 const SizedBox(width: 10),
                 Container(
                   width: 100,
-                  height: 36,
+                  height: 32,
                   decoration: BoxDecoration(
                     border: Border.all(color: AppTheme.fhAccentGold, width: 1.5),
                     borderRadius: BorderRadius.circular(6),

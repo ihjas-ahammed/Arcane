@@ -330,13 +330,17 @@ class _ProjectsViewState extends State<ProjectsView> {
                 children: [
                   Icon(MdiIcons.fire, color: JweTheme.accentAmber, size: 14),
                   const SizedBox(width: 8),
-                  Text(
-                    'PHOENIX PROJECTS (TOP OPERATIONAL NETWORKS)',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: JweTheme.accentAmber,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
+                  Expanded(
+                    child: Text(
+                      'PHOENIX PROJECTS (TOP OPERATIONAL NETWORKS)',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.accentAmber,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
                     ),
                   ),
                 ],

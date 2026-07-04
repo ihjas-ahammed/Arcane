@@ -226,14 +226,17 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
         const SizedBox(height: 20),
-        Text(
-          'MISSIONS',
-          style: GoogleFonts.saira(
-            color: JweTheme.textWhite,
-            fontSize: 52,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 8.0,
-            height: 0.9,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            'MISSIONS',
+            style: GoogleFonts.saira(
+              color: JweTheme.textWhite,
+              fontSize: 52,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 8.0,
+              height: 0.9,
+            ),
           ),
         ),
         const SizedBox(height: 10),
