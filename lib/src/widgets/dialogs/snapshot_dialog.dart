@@ -42,7 +42,7 @@ class _SnapshotDialogState extends State<SnapshotDialog> {
       backgroundColor: AppTheme.fhBgMedium,
       title: Text(
         widget.isEditing ? "EDIT SNAPSHOT" : "LOG PROGRESS",
-        style: const TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay),
+        style:   TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay),
       ),
       content: SingleChildScrollView(
         child: Column(
@@ -64,11 +64,11 @@ class _SnapshotDialogState extends State<SnapshotDialog> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text("NOTE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+              Text("NOTE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextField(
               controller: _noteController,
-              style: const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
+              style:   TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
               maxLines: 3,
               decoration: InputDecoration(
                 filled: true,
@@ -86,7 +86,7 @@ class _SnapshotDialogState extends State<SnapshotDialog> {
         if (widget.isEditing)
           TextButton(
             onPressed: () => Navigator.pop(context, {'action': 'delete'}),
-            child: const Text("DELETE", style: TextStyle(color: AppTheme.fhAccentRed)),
+            child:   Text("DELETE", style: TextStyle(color: AppTheme.fhAccentRed)),
           )
         else
           TextButton(
@@ -111,8 +111,8 @@ class _SnapshotDialogState extends State<SnapshotDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 9, fontWeight: FontWeight.bold)),
-        Text(value, style: const TextStyle(color: AppTheme.fhAccentTeal, fontSize: 16, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold)),
+        Text(label, style:   TextStyle(color: AppTheme.fhTextSecondary, fontSize: 9, fontWeight: FontWeight.bold)),
+        Text(value, style:   TextStyle(color: AppTheme.fhAccentTeal, fontSize: 16, fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold)),
       ],
     );
   }

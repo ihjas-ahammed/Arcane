@@ -61,7 +61,7 @@ class TourSlide extends StatelessWidget {
             ),
             child: Text(
               content,
-              style: const TextStyle(
+              style:   TextStyle(
                 color: JweTheme.textWhite,
                 fontSize: 14,
                 height: 1.6,

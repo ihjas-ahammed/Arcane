@@ -63,22 +63,22 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
           children: [
             TextField(
               controller: startController,
-              style: const TextStyle(color: JweTheme.textWhite),
+              style:  TextStyle(color: JweTheme.textWhite),
               decoration: InputDecoration(
                 labelText: 'BED TIME (HH:MM)',
                 labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
-                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                 focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentCyan)),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: endController,
-              style: const TextStyle(color: JweTheme.textWhite),
+              style:  TextStyle(color: JweTheme.textWhite),
               decoration: InputDecoration(
                 labelText: 'WAKE TIME (HH:MM)',
                 labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
-                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                 focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentCyan)),
               ),
             ),
@@ -147,11 +147,11 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
             TextField(
               controller: distanceController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: JweTheme.textWhite),
+              style:  TextStyle(color: JweTheme.textWhite),
               decoration: InputDecoration(
                 labelText: 'WALK DISTANCE (KM)',
                 labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
-                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                 focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentTeal)),
               ),
             ),
@@ -159,11 +159,11 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
             TextField(
               controller: workoutController,
               keyboardType: TextInputType.number,
-              style: const TextStyle(color: JweTheme.textWhite),
+              style:  TextStyle(color: JweTheme.textWhite),
               decoration: InputDecoration(
                 labelText: 'WORKOUT DURATION (MINUTES)',
                 labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
-                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                 focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentTeal)),
               ),
             ),
@@ -239,11 +239,11 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                const SizedBox(height: 12),
                TextField(
                  controller: noteController,
-                 style: const TextStyle(color: JweTheme.textWhite),
+                 style:  TextStyle(color: JweTheme.textWhite),
                  decoration: InputDecoration(
                    labelText: 'STATUS NOTE (OPTIONAL)',
                    labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
-                   enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                   enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
                  ),
                ),
@@ -471,7 +471,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.remove, color: JweTheme.textMuted),
+                      icon:  Icon(Icons.remove, color: JweTheme.textMuted),
                       onPressed: () => provider.updateWater(dateStr, (log.waterGlasses - 1).clamp(0, 99)),
                     ),
                     const SizedBox(width: 16),
@@ -485,7 +485,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                     ),
                     const SizedBox(width: 16),
                     IconButton(
-                      icon: const Icon(Icons.add, color: JweTheme.accentCyan),
+                      icon:  Icon(Icons.add, color: JweTheme.accentCyan),
                       onPressed: () => provider.updateWater(dateStr, log.waterGlasses + 1),
                     ),
                   ],
@@ -567,7 +567,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.close, color: JweTheme.accentRed, size: 14),
+                                icon:  Icon(Icons.close, color: JweTheme.accentRed, size: 14),
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
                                 onPressed: () => provider.deleteSleepLog(dateStr, s.id),
@@ -653,7 +653,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.close, color: JweTheme.accentRed, size: 14),
+                                icon:  Icon(Icons.close, color: JweTheme.accentRed, size: 14),
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
                                 onPressed: () => provider.deleteActivityLog(dateStr, a.id),
@@ -726,7 +726,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.close, color: JweTheme.accentRed, size: 14),
+                                icon:  Icon(Icons.close, color: JweTheme.accentRed, size: 14),
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
                                 onPressed: () => provider.deleteEnergyLog(dateStr, e.id),
@@ -795,22 +795,22 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                 const SizedBox(height: 12),
                 TextField(
                   controller: _foodNameController,
-                  style: const TextStyle(color: JweTheme.textWhite),
+                  style:  TextStyle(color: JweTheme.textWhite),
                   decoration: InputDecoration(
                     labelText: 'FOOD CONSUMED (e.g. Grilled Chicken)',
                     labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
-                    enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                    enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                     focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _foodAmountController,
-                  style: const TextStyle(color: JweTheme.textWhite),
+                  style:  TextStyle(color: JweTheme.textWhite),
                   decoration: InputDecoration(
                     labelText: 'APPROXIMATE PORTION AMOUNT (e.g. 150 grams / 1 cup)',
                     labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
-                    enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                    enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                     focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
                   ),
                 ),
@@ -933,7 +933,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                             ),
                             const SizedBox(width: 8),
                             IconButton(
-                              icon: const Icon(Icons.close, color: JweTheme.accentRed, size: 14),
+                              icon:  Icon(Icons.close, color: JweTheme.accentRed, size: 14),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               onPressed: () => provider.deleteMealLog(dateStr, meal.id),
@@ -981,7 +981,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: food.warnings!.map((w) => Row(
                                         children: [
-                                          const Icon(Icons.warning_amber_rounded, color: JweTheme.accentRed, size: 12),
+                                           Icon(Icons.warning_amber_rounded, color: JweTheme.accentRed, size: 12),
                                           const SizedBox(width: 6),
                                           Expanded(
                                             child: Text(

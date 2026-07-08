@@ -86,7 +86,7 @@ class BusScheduleGrid extends StatelessWidget {
                     top: -8,
                     right: -8,
                     child: IconButton(
-                      icon: const Icon(Icons.close, color: JweTheme.accentRed, size: 14),
+                      icon:  Icon(Icons.close, color: JweTheme.accentRed, size: 14),
                       onPressed: () => onRemove(time),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),

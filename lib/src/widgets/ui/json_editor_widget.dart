@@ -15,8 +15,8 @@ class JsonEditorWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textStyle = TextStyle(fontFamily: 'RobotoMono', fontSize: 13, color: AppTheme.fhTextPrimary);
-    const keyStyle = TextStyle(fontFamily: 'RobotoMono', fontSize: 13, color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold);
+    final textStyle = TextStyle(fontFamily: 'RobotoMono', fontSize: 13, color: AppTheme.fhTextPrimary);
+    final keyStyle = TextStyle(fontFamily: 'RobotoMono', fontSize: 13, color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold);
 
     if (data is Map) {
       final map = data as Map;
@@ -25,7 +25,7 @@ class JsonEditorWidget extends StatelessWidget {
         child: ExpansionTile(
           tilePadding: EdgeInsets.zero,
           title: Text(label, style: keyStyle),
-          subtitle: Text("{ ${map.length} entries }", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, fontFamily: 'RobotoMono')),
+          subtitle: Text("{ ${map.length} entries }", style:   TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, fontFamily: 'RobotoMono')),
           collapsedIconColor: AppTheme.fhTextSecondary,
           iconColor: AppTheme.fhAccentTeal,
           childrenPadding: const EdgeInsets.only(left: 16),
@@ -49,7 +49,7 @@ class JsonEditorWidget extends StatelessWidget {
         child: ExpansionTile(
           tilePadding: EdgeInsets.zero,
           title: Text(label, style: keyStyle),
-          subtitle: Text("[ ${list.length} items ]", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, fontFamily: 'RobotoMono')),
+          subtitle: Text("[ ${list.length} items ]", style:   TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, fontFamily: 'RobotoMono')),
           collapsedIconColor: AppTheme.fhTextSecondary,
           iconColor: AppTheme.fhAccentTeal,
           childrenPadding: const EdgeInsets.only(left: 16),
@@ -71,7 +71,7 @@ class JsonEditorWidget extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 4.0),
         child: Row(
           children: [
-            Text("$label: ", style: const TextStyle(color: AppTheme.fhTextSecondary, fontFamily: 'RobotoMono', fontSize: 12)),
+            Text("$label: ", style:   TextStyle(color: AppTheme.fhTextSecondary, fontFamily: 'RobotoMono', fontSize: 12)),
             Expanded(
               child: InkWell(
                 onTap: () => _editValue(context, data),
@@ -99,10 +99,10 @@ class JsonEditorWidget extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.fhBgMedium,
-        title: Text("EDIT VALUE", style: const TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
+        title: Text("EDIT VALUE", style:   TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
         content: TextField(
           controller: controller,
-          style: const TextStyle(color: AppTheme.fhTextPrimary, fontFamily: 'RobotoMono'),
+          style:   TextStyle(color: AppTheme.fhTextPrimary, fontFamily: 'RobotoMono'),
           decoration: const InputDecoration(
             filled: true,
             fillColor: Colors.black,

@@ -21,7 +21,7 @@ class AdvancedToolsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
+              Text(
               "CLASSIFIED SUITE",
               style: TextStyle(
                 color: AppTheme.fhAccentPurple,
@@ -85,7 +85,7 @@ class AdvancedToolsScreen extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style:   TextStyle(
                     color: AppTheme.fhTextPrimary,
                     fontFamily: AppTheme.fontDisplay,
                     fontSize: 20,
@@ -96,7 +96,7 @@ class AdvancedToolsScreen extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   description,
-                  style: const TextStyle(
+                  style:   TextStyle(
                     color: AppTheme.fhTextSecondary,
                     fontSize: 12,
                     height: 1.4,

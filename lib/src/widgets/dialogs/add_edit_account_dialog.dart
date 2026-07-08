@@ -80,7 +80,7 @@ class _AddEditAccountDialogState extends State<AddEditAccountDialog> {
               controller: _nameController,
               style: const TextStyle(color: Colors.white),
               autofocus: true,
-              decoration: const InputDecoration(
+              decoration:   InputDecoration(
                 labelText: 'ACCOUNT NAME',
                 labelStyle: TextStyle(color: JweTheme.textMuted, fontSize: 11),
               ),
@@ -90,7 +90,7 @@ class _AddEditAccountDialogState extends State<AddEditAccountDialog> {
               controller: _balanceController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(color: Colors.white, fontSize: 20),
-              decoration: const InputDecoration(
+              decoration:   InputDecoration(
                 prefixText: '₹ ',
                 labelText: 'BALANCE',
                 labelStyle: TextStyle(color: JweTheme.textMuted, fontSize: 11),
@@ -162,7 +162,7 @@ class _AddEditAccountDialogState extends State<AddEditAccountDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+          child:  Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(

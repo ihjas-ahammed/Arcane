@@ -348,7 +348,7 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Divider(color: JweTheme.lineSoft, height: 16),
+                     Divider(color: JweTheme.lineSoft, height: 16),
                     Text(
                       'DAILY QUEUE (TOP 5)',
                       style: GoogleFonts.jetBrainsMono(

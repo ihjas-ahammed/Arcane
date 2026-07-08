@@ -82,7 +82,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
                 color: JweTheme.cyanSoft,
                 border: Border.all(color: JweTheme.accentCyan.withOpacity(0.4), width: 1),
               ),
-              child: const SizedBox(
+              child:   SizedBox(
                 width: 10, height: 10,
                 child: CircularProgressIndicator(
                   strokeWidth: 1.4,
@@ -104,7 +104,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
         child: Container(
           height: _stripH,
           padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: const BoxDecoration(
+          decoration:   BoxDecoration(
             color: JweTheme.bgCanvas,
             border: Border(bottom: BorderSide(color: JweTheme.lineSoft, width: 1)),
           ),
@@ -179,7 +179,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
             counterText: '',
             hintText: 'OPERATOR',
             hintStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 14),
-            enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: JweTheme.lineSoft)),
+            enabledBorder:  OutlineInputBorder(borderSide: BorderSide(color: JweTheme.lineSoft)),
             focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: primaryColor)),
           ),
         ),

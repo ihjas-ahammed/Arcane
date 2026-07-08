@@ -53,7 +53,7 @@ class _QuickTherapyScreenState extends State<QuickTherapyScreen> {
       appBar: AppBar(
         title: Text("EMERGENCY THERAPY", style: GoogleFonts.rajdhani(color: JweTheme.accentRed, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
         backgroundColor: JweTheme.bgBase,
-        iconTheme: const IconThemeData(color: JweTheme.accentRed),
+        iconTheme:  IconThemeData(color: JweTheme.accentRed),
       ),
       body: SafeArea(
         child: Center(
@@ -85,19 +85,19 @@ class _QuickTherapyScreenState extends State<QuickTherapyScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  const Text("SITUATION REPORT", style: TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
+                   Text("SITUATION REPORT", style: TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
                   const SizedBox(height: 8),
                   GrowingTextField(controller: _reasonController, hint: "Why do you need triage right now?", minLines: 3),
                   
                   const SizedBox(height: 24),
                   
-                  const Text("CURRENT STATE", style: TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
+                   Text("CURRENT STATE", style: TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
                   const SizedBox(height: 8),
                   GrowingTextField(controller: _feelingController, hint: "How are you feeling?", minLines: 2),
 
                   const SizedBox(height: 24),
 
-                  const Text("PLANNED ACTION (OPTIONAL)", style: TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
+                   Text("PLANNED ACTION (OPTIONAL)", style: TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
                   const SizedBox(height: 8),
                   GrowingTextField(controller: _actionController, hint: "What were you planning to do?", minLines: 2),
 
@@ -105,7 +105,7 @@ class _QuickTherapyScreenState extends State<QuickTherapyScreen> {
                   
                   SwitchListTile(
                     title: Text("REQUIRE COMMS ASSISTANCE", style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 16)),
-                    subtitle: const Text("Request AI to scan known allies and provide a conversation strategy.", style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+                    subtitle:  Text("Request AI to scan known allies and provide a conversation strategy.", style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
                     value: _requestComms,
                     onChanged: (v) => setState(() => _requestComms = v),
                     activeColor: JweTheme.accentCyan,

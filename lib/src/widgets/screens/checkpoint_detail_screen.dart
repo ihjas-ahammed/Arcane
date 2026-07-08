@@ -108,7 +108,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (rems.isEmpty)
-                      const Padding(
+                        Padding(
                         padding: EdgeInsets.symmetric(vertical: 20),
                         child: Text(
                           "No reminders configured.",
@@ -175,16 +175,16 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                           context: context,
                           builder: (ctx2) => AlertDialog(
                             backgroundColor: AppTheme.fhBgDark,
-                            title: const Text("REPEAT OPTION", style: TextStyle(color: AppTheme.fhTextPrimary)),
+                            title:   Text("REPEAT OPTION", style: TextStyle(color: AppTheme.fhTextPrimary)),
                             content: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 ListTile(
-                                  title: const Text("ONCE", style: TextStyle(color: AppTheme.fhTextPrimary)),
+                                  title:   Text("ONCE", style: TextStyle(color: AppTheme.fhTextPrimary)),
                                   onTap: () => Navigator.pop(ctx2, 'once'),
                                 ),
                                 ListTile(
-                                  title: const Text("DAILY", style: TextStyle(color: AppTheme.fhTextPrimary)),
+                                  title:   Text("DAILY", style: TextStyle(color: AppTheme.fhTextPrimary)),
                                   onTap: () => Navigator.pop(ctx2, 'daily'),
                                 ),
                               ],
@@ -203,7 +203,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                             lastDate: now.add(const Duration(days: 365)),
                             builder: (ctx, child) => Theme(
                               data: Theme.of(ctx).copyWith(
-                                colorScheme: const ColorScheme.dark(
+                                colorScheme:   ColorScheme.dark(
                                   primary: AppTheme.fhAccentTeal,
                                   surface: AppTheme.fhBgDark,
                                 ),
@@ -221,7 +221,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                           initialTime: TimeOfDay.fromDateTime(now),
                           builder: (ctx, child) => Theme(
                             data: Theme.of(ctx).copyWith(
-                              colorScheme: const ColorScheme.dark(
+                              colorScheme:   ColorScheme.dark(
                                 primary: AppTheme.fhAccentTeal,
                                 surface: AppTheme.fhBgDark,
                               ),
@@ -247,7 +247,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text("CLOSE", style: TextStyle(color: AppTheme.fhTextSecondary)),
+                  child:   Text("CLOSE", style: TextStyle(color: AppTheme.fhTextSecondary)),
                 ),
               ],
             );
@@ -316,7 +316,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
     final liveCheckpoint = _getLiveCheckpoint(provider);
 
     if (liveCheckpoint == null) {
-      return const Scaffold(backgroundColor: AppTheme.fhBgDeepDark, body: Center(child: Text("Checkpoint not found", style: TextStyle(color: AppTheme.fhTextPrimary))));
+      return   Scaffold(backgroundColor: AppTheme.fhBgDeepDark, body: Center(child: Text("Checkpoint not found", style: TextStyle(color: AppTheme.fhTextPrimary))));
     }
 
     Color agentColor = AppTheme.fhAccentTeal;
@@ -355,7 +355,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                           _saveTitle(provider, liveCheckpoint);
                           Navigator.pop(context);
                         },
-                        child: const Icon(Icons.arrow_back, color: AppTheme.fhTextSecondary, size: 24),
+                        child:   Icon(Icons.arrow_back, color: AppTheme.fhTextSecondary, size: 24),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -447,12 +447,12 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                       decoration: BoxDecoration(
                         border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3)))
                       ),
-                      child: const Text("SUB-ROUTINES (NESTED)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
+                      child:   Text("SUB-ROUTINES (NESTED)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(height: 12),
                     
                     if (liveCheckpoint.substeps.isEmpty)
-                      const Padding(
+                        Padding(
                         padding: EdgeInsets.symmetric(vertical: 16.0),
                         child: Text("No nested instructions.", style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic)),
                       )
@@ -524,8 +524,8 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                               onSelected: (val) => setState(() => _newStepType = val),
                               color: AppTheme.fhBgDark,
                               itemBuilder: (context) =>[
-                                const PopupMenuItem(value: 'check', child: Text("Checkable", style: TextStyle(color: AppTheme.fhTextPrimary))),
-                                const PopupMenuItem(value: 'info', child: Text("Info", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                                  PopupMenuItem(value: 'check', child: Text("Checkable", style: TextStyle(color: AppTheme.fhTextPrimary))),
+                                  PopupMenuItem(value: 'info', child: Text("Info", style: TextStyle(color: AppTheme.fhTextPrimary))),
                               ],
                             ),
                           ),
@@ -540,7 +540,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                                 hintText: _aiMode
                                     ? "DESCRIBE NESTED STEPS FOR AI..."
                                     : "ADD NESTED STEP...   (try  Rep*8  or  Set %d * 4)",
-                                hintStyle: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12),
+                                hintStyle:   TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12),
                                 border: InputBorder.none,
                                 enabledBorder: InputBorder.none,
                                 focusedBorder: InputBorder.none,
@@ -599,7 +599,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text("Paste the copied structure text here to import:", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+              Text("Paste the copied structure text here to import:", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
             const SizedBox(height: 10),
             TextField(
               controller: controller,
@@ -617,7 +617,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text("CANCEL", style: TextStyle(color: AppTheme.fhTextSecondary)),
+            child:   Text("CANCEL", style: TextStyle(color: AppTheme.fhTextSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(

@@ -31,7 +31,7 @@ class SessionHistoryDrawer extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
+              decoration:   BoxDecoration(
                 border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor, width: 1)),
               ),
               child: Column(
@@ -39,7 +39,7 @@ class SessionHistoryDrawer extends StatelessWidget {
                 children: [
                   Text("SESSION LOG", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
                   const SizedBox(height: 4),
-                  Text(subTask.name.toUpperCase(), style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
+                  Text(subTask.name.toUpperCase(), style:   TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -69,9 +69,9 @@ class SessionHistoryDrawer extends StatelessWidget {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(dateStr.toUpperCase(), style: const TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, fontSize: 10)),
+                                      Text(dateStr.toUpperCase(), style:   TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, fontSize: 10)),
                                       Text(timeStr, style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: "RobotoMono")),
-                                      Text("${duration.inMinutes} MIN", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11)),
+                                      Text("${duration.inMinutes} MIN", style:   TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11)),
                                     ],
                                   ),
                                 ),

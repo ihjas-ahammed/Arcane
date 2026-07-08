@@ -24,7 +24,7 @@ class JweSyncOverlay extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(
+                  SizedBox(
                   height: 40,
                   width: 40,
                   child: CircularProgressIndicator(
@@ -44,7 +44,7 @@ class JweSyncOverlay extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
+                  Text(
                   "Uplink in progress. Validating local cache and remote server parity.",
                   textAlign: TextAlign.center,
                   style: TextStyle(

@@ -291,19 +291,19 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                   Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_back, color: PersonInfoTheme.textWhite),
+                        icon:  Icon(Icons.arrow_back, color: PersonInfoTheme.textWhite),
                         onPressed: () => Navigator.pop(context),
                       ),
                       const Spacer(),
                       IconButton(
-                        icon: const Icon(Icons.refresh, color: PersonInfoTheme.spideyRed),
+                        icon:  Icon(Icons.refresh, color: PersonInfoTheme.spideyRed),
                         tooltip: "RESET PERSON DATA",
                         onPressed: () async {
                           final confirm = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
                               backgroundColor: PersonInfoTheme.bgPanel,
-                              shape: const BeveledRectangleBorder(
+                              shape:   BeveledRectangleBorder(
                                 side: BorderSide(color: PersonInfoTheme.spideyRed, width: 1.5),
                               ),
                               title: Text(
@@ -387,7 +387,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                                 decoration: BoxDecoration(
                                   color: _activeTab == 0 ? const Color(0xFF0f2136) : Colors.transparent,
                                   border: _activeTab == 0
-                                      ? const Border(bottom: BorderSide(color: PersonInfoTheme.spideyCyan, width: 2))
+                                      ?  Border(bottom: BorderSide(color: PersonInfoTheme.spideyCyan, width: 2))
                                       : null,
                                 ),
                                 child: Text(
@@ -410,7 +410,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                                 decoration: BoxDecoration(
                                   color: _activeTab == 1 ? const Color(0xFF0f2136) : Colors.transparent,
                                   border: _activeTab == 1
-                                      ? const Border(bottom: BorderSide(color: PersonInfoTheme.spideyCyan, width: 2))
+                                      ?  Border(bottom: BorderSide(color: PersonInfoTheme.spideyCyan, width: 2))
                                       : null,
                                 ),
                                 child: Text(
@@ -433,7 +433,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                                 decoration: BoxDecoration(
                                   color: _activeTab == 2 ? const Color(0xFF0f2136) : Colors.transparent,
                                   border: _activeTab == 2
-                                      ? const Border(bottom: BorderSide(color: PersonInfoTheme.spideyCyan, width: 2))
+                                      ?  Border(bottom: BorderSide(color: PersonInfoTheme.spideyCyan, width: 2))
                                       : null,
                                 ),
                                 child: Text(
@@ -577,7 +577,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                        Text(
                         "Format: 'Highlight Prefix: description text' (one per line)",
                         style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 10, fontStyle: FontStyle.italic),
                       ),
@@ -608,7 +608,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                        Text(
                         "Format: 'Highlight Prefix: description text' (one per line)",
                         style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 10, fontStyle: FontStyle.italic),
                       ),
@@ -625,7 +625,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         padding: const EdgeInsets.all(20),
         child: Text(
           legacyText,
-          style: const TextStyle(color: PersonInfoTheme.textWhite, fontSize: 15, height: 1.6),
+          style:  TextStyle(color: PersonInfoTheme.textWhite, fontSize: 15, height: 1.6),
         ),
       );
     } else {
@@ -636,7 +636,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+                Text(
                 "Profile not yet analyzed.\nScan reflections first, then click below to generate intelligence dossier.",
                 style: TextStyle(color: PersonInfoTheme.textGrey, height: 1.5),
                 textAlign: TextAlign.center,
@@ -665,7 +665,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         children: [
           Container(
             padding: const EdgeInsets.only(left: 10),
-            decoration: const BoxDecoration(
+            decoration:   BoxDecoration(
               border: Border(left: BorderSide(color: PersonInfoTheme.spideyRed, width: 3)),
             ),
             child: Text(
@@ -681,7 +681,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
           const Spacer(),
           if (isEditing) ...[
             IconButton(
-              icon: const Icon(Icons.close, color: PersonInfoTheme.spideyRed, size: 18),
+              icon:  Icon(Icons.close, color: PersonInfoTheme.spideyRed, size: 18),
               onPressed: onCancel,
               constraints: const BoxConstraints(),
               padding: EdgeInsets.zero,
@@ -695,7 +695,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
             ),
           ] else
             IconButton(
-              icon: const Icon(Icons.edit, color: PersonInfoTheme.spideyCyan, size: 16),
+              icon:  Icon(Icons.edit, color: PersonInfoTheme.spideyCyan, size: 16),
               onPressed: onEditSave,
               constraints: const BoxConstraints(),
               padding: EdgeInsets.zero,
@@ -752,7 +752,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                         if (highlight.isNotEmpty)
                           TextSpan(
                             text: "$highlight ",
-                            style: const TextStyle(
+                            style:   TextStyle(
                               color: PersonInfoTheme.spideyCyan,
                               fontWeight: FontWeight.bold,
                             ),
@@ -934,7 +934,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
           Expanded(
             child: Container(
               height: 1,
-              decoration: const BoxDecoration(
+              decoration:   BoxDecoration(
                 gradient: LinearGradient(
                   colors: [PersonInfoTheme.spideyCyanDim, Colors.transparent],
                   begin: Alignment.centerLeft,
@@ -1035,7 +1035,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline, color: PersonInfoTheme.spideyRed, size: 16),
+                        icon:  Icon(Icons.delete_outline, color: PersonInfoTheme.spideyRed, size: 16),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: () {
@@ -1058,7 +1058,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 child: TextField(
                   controller: _newIntelBulletController,
                   style: GoogleFonts.rajdhani(color: PersonInfoTheme.textWhite, fontSize: 13),
-                  decoration: const InputDecoration(
+                  decoration:   InputDecoration(
                     hintText: "ADD MANUAL INTEL MEMORY...",
                     hintStyle: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 11),
                     border: InputBorder.none,
@@ -1067,7 +1067,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.add_box, color: PersonInfoTheme.spideyCyan, size: 24),
+                icon:  Icon(Icons.add_box, color: PersonInfoTheme.spideyCyan, size: 24),
                 onPressed: () {
                   final text = _newIntelBulletController.text.trim();
                   if (text.isNotEmpty) {

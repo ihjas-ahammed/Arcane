@@ -285,19 +285,19 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
         title: Text("NEW LOCATION", style: GoogleFonts.rajdhani(color: JweTheme.accentAmber, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
         content: TextField(
           autofocus: true,
-          style: const TextStyle(color: JweTheme.textWhite),
+          style:  TextStyle(color: JweTheme.textWhite),
           decoration: InputDecoration(
             hintText: "Location Name",
-            hintStyle: const TextStyle(color: JweTheme.textMuted),
-            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.textMuted)),
+            hintStyle:  TextStyle(color: JweTheme.textMuted),
+            enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.textMuted)),
             focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
           ),
           onChanged: (val) => newLoc = val.trim(),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child:  Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: Colors.black, shape: const BeveledRectangleBorder()),
+            style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: Colors.black, shape:  BeveledRectangleBorder()),
             onPressed: () => Navigator.pop(ctx, newLoc), 
             child: const Text("ADD", style: TextStyle(fontWeight: FontWeight.bold))
           )
@@ -334,14 +334,14 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                 // Top Header (JWE Style)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  decoration: const BoxDecoration(
+                  decoration:   BoxDecoration(
                     border: Border(bottom: BorderSide(color: JweTheme.border)),
                     color: JweTheme.panel,
                   ),
                   child: Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_back, color: JweTheme.textWhite),
+                        icon:  Icon(Icons.arrow_back, color: JweTheme.textWhite),
                         onPressed: () => Navigator.pop(context),
                       ),
                       const SizedBox(width: 8),
@@ -362,7 +362,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                           border: Border.all(color: JweTheme.accentCyan),
                         ),
                         child: Text(_currentTimeStr,
-                            style: const TextStyle(
+                            style:   TextStyle(
                                 color: JweTheme.accentCyan,
                                 fontFamily: 'RobotoMono',
                                 fontWeight: FontWeight.bold)),
@@ -390,7 +390,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text("ROUTE CONFIGURATION", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                                   Text("ROUTE CONFIGURATION", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
                                   InkWell(
                                     onTap: _addLocation,
                                     child: Text("+ ADD LOC", style: TextStyle(color: JweTheme.accentAmber, fontSize: 10, fontWeight: FontWeight.bold)),
@@ -429,7 +429,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                  Text(
                                   "NEXT DEPLOYMENT",
                                   style: TextStyle(
                                       color: JweTheme.textMuted,
@@ -455,14 +455,14 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                                     const SizedBox(width: 8),
                                     Text(
                                       "T-MINUS ${nextBus['minutes']} MINUTES",
-                                      style: const TextStyle(
+                                      style:   TextStyle(
                                           color: JweTheme.textWhite,
                                           fontFamily: 'RobotoMono',
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold),
                                     ),
                                     if (nextBus['tomorrow'] == true)
-                                      const Padding(
+                                        Padding(
                                         padding: EdgeInsets.only(left: 8.0),
                                         child: Text("(TOMORROW)",
                                             style: TextStyle(
@@ -508,7 +508,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                         const SizedBox(height: 12),
                         
                         if (scheduleList.isEmpty)
-                          const Text("NO INTEL AVAILABLE.",
+                            Text("NO INTEL AVAILABLE.",
                               style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic))
                         else
                           BusScheduleGrid(
@@ -539,7 +539,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: const TextStyle(
+            style:   TextStyle(
                 color: JweTheme.textMuted,
                 fontSize: 10,
                 letterSpacing: 1.0,

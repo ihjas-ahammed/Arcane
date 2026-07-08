@@ -83,7 +83,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
         builder: (context, setStateDialog) {
           return AlertDialog(
             backgroundColor: AppTheme.fhBgMedium,
-            title: const Text("INITIALIZE NORA LINK", style: TextStyle(color: AppTheme.fhAccentPurple, fontFamily: AppTheme.fontDisplay)),
+            title:   Text("INITIALIZE NORA LINK", style: TextStyle(color: AppTheme.fhAccentPurple, fontFamily: AppTheme.fontDisplay)),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -108,7 +108,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                     onChanged: (val) => setStateDialog(() => tone = val!),
                   ),
                   const SizedBox(height: 16),
-                  const Text("DATA CONTEXT RANGE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                    Text("DATA CONTEXT RANGE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -240,7 +240,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                        Text(
                         "NORA LIVE LINK",
                         style: TextStyle(
                           color: AppTheme.fhAccentPurple,
@@ -442,7 +442,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
       key: _scaffoldKey,
       backgroundColor: AppTheme.fhBgDeepDark,
       appBar: AppBar(
-        title: const Text("NORA ASSISTANT", style: TextStyle(color: AppTheme.fhAccentPurple, letterSpacing: 2.0, fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay)),
+        title:   Text("NORA ASSISTANT", style: TextStyle(color: AppTheme.fhAccentPurple, letterSpacing: 2.0, fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay)),
         centerTitle: true,
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
         actions: [
@@ -504,7 +504,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                       Navigator.pop(context);
                     },
                     trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 16, color: AppTheme.fhAccentRed),
+                      icon:   Icon(Icons.delete_outline, size: 16, color: AppTheme.fhAccentRed),
                       onPressed: () => appProvider.deleteNoraSession(session.id),
                     ),
                   );
@@ -523,7 +523,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                   children: [
                     Icon(MdiIcons.creation, size: 64, color: AppTheme.fhTextDisabled.withOpacity(0.2)),
                     const SizedBox(height: 16),
-                    const Text("NO ACTIVE LINK", style: TextStyle(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay, fontSize: 20)),
+                      Text("NO ACTIVE LINK", style: TextStyle(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay, fontSize: 20)),
                     const SizedBox(height: 24),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentPurple, foregroundColor: Colors.white),
@@ -542,9 +542,9 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                     child: Row(
                       children: [
                         Icon(MdiIcons.circleSmall, color: AppTheme.fhAccentPurple),
-                        Text("TONE: ${activeSession.tone.toUpperCase()}", style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                        Text("TONE: ${activeSession.tone.toUpperCase()}", style:   TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
                         const Spacer(),
-                        Text("${DateFormat('MM/dd/yy').format(activeSession.startDate)} - ${DateFormat('MM/dd/yy').format(activeSession.endDate)}", style: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 10)),
+                        Text("${DateFormat('MM/dd/yy').format(activeSession.startDate)} - ${DateFormat('MM/dd/yy').format(activeSession.endDate)}", style:   TextStyle(color: AppTheme.fhTextDisabled, fontSize: 10)),
                       ],
                     ),
                   ),
@@ -578,7 +578,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                                     ),
                                   ).animate().fadeIn(delay: 200.ms),
                                   const SizedBox(height: 8),
-                                  const Text(
+                                    Text(
                                     "I can assist you with your tasks, database records, reflections, and more. Try one of the suggested actions below or type a query.",
                                     textAlign: TextAlign.center,
                                     style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13, height: 1.5),
@@ -650,7 +650,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                         const SizedBox(width: 8),
                         IconButton(
                           icon: _isSending 
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentPurple))
+                            ?   SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentPurple))
                             : Icon(MdiIcons.send, color: AppTheme.fhAccentPurple),
                           onPressed: _isSending ? null : () => _sendMessage(),
                         )

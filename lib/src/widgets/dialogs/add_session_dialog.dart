@@ -95,7 +95,7 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, fontSize: 12)),
+          Text(label, style:   TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, fontSize: 12)),
           InkWell(
             onTap: () async {
               final picked = await showDatePicker(
@@ -105,7 +105,7 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
                 lastDate: DateTime.now(),
                 builder: (context, child) => Theme(
                   data: Theme.of(context).copyWith(
-                    colorScheme: const ColorScheme.dark(
+                    colorScheme:   ColorScheme.dark(
                       primary: AppTheme.fhAccentTeal,
                       onPrimary: Colors.black,
                       surface: AppTheme.fhBgDeepDark,
@@ -119,7 +119,7 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
             },
             child: Text(
               DateFormat('MMM dd, yyyy').format(date).toUpperCase(),
-              style: const TextStyle(
+              style:   TextStyle(
                 fontFamily: "RobotoMono",
                 fontWeight: FontWeight.bold, 
                 fontSize: 14,
@@ -142,7 +142,7 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, fontSize: 12)),
+          Text(label, style:   TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, fontSize: 12)),
           InkWell(
             onTap: () async {
               final picked = await showTimePicker(
@@ -150,7 +150,7 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
                 initialTime: time ?? TimeOfDay.now(),
                 builder: (context, child) => Theme(
                   data: Theme.of(context).copyWith(
-                    colorScheme: const ColorScheme.dark(
+                    colorScheme:   ColorScheme.dark(
                       primary: AppTheme.fhAccentTeal,
                       onPrimary: Colors.black,
                       surface: AppTheme.fhBgDeepDark,
@@ -164,7 +164,7 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
             },
             child: Text(
               time?.format(context) ?? "--:--",
-              style: const TextStyle(
+              style:   TextStyle(
                 fontFamily: "RobotoMono",
                 fontWeight: FontWeight.bold, 
                 fontSize: 16,

@@ -31,19 +31,19 @@ class _AddHabitRuleDialogState extends State<AddHabitRuleDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: JweTheme.panel,
-      shape: const BeveledRectangleBorder(side: BorderSide(color: JweTheme.accentRed, width: 2)),
+      shape:  BeveledRectangleBorder(side: BorderSide(color: JweTheme.accentRed, width: 2)),
       title: Text("CONFIGURE RESTRICTION", style: GoogleFonts.rajdhani(color: JweTheme.accentRed, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("APP/BEHAVIOR NAME", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+             Text("APP/BEHAVIOR NAME", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             TextField(
               controller: _nameController,
-              style: const TextStyle(color: JweTheme.textWhite, fontSize: 14),
-              decoration: const InputDecoration(
+              style:  TextStyle(color: JweTheme.textWhite, fontSize: 14),
+              decoration:   InputDecoration(
                 filled: true,
                 fillColor: JweTheme.bgBase,
                 border: OutlineInputBorder(),
@@ -53,13 +53,13 @@ class _AddHabitRuleDialogState extends State<AddHabitRuleDialog> {
             ),
             const SizedBox(height: 16),
             
-            const Text("FRICTION DELAY (SECONDS)", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+             Text("FRICTION DELAY (SECONDS)", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             TextField(
               controller: _delayController,
               keyboardType: TextInputType.number,
-              style: const TextStyle(color: JweTheme.textWhite, fontSize: 14, fontFamily: 'RobotoMono'),
-              decoration: const InputDecoration(
+              style:  TextStyle(color: JweTheme.textWhite, fontSize: 14, fontFamily: 'RobotoMono'),
+              decoration:   InputDecoration(
                 filled: true,
                 fillColor: JweTheme.bgBase,
                 border: OutlineInputBorder(),
@@ -68,13 +68,13 @@ class _AddHabitRuleDialogState extends State<AddHabitRuleDialog> {
             ),
             const SizedBox(height: 16),
 
-            const Text("DAILY CAP (MINUTES)", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+             Text("DAILY CAP (MINUTES)", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             TextField(
               controller: _limitController,
               keyboardType: TextInputType.number,
-              style: const TextStyle(color: JweTheme.textWhite, fontSize: 14, fontFamily: 'RobotoMono'),
-              decoration: const InputDecoration(
+              style:  TextStyle(color: JweTheme.textWhite, fontSize: 14, fontFamily: 'RobotoMono'),
+              decoration:   InputDecoration(
                 filled: true,
                 fillColor: JweTheme.bgBase,
                 border: OutlineInputBorder(),
@@ -84,7 +84,7 @@ class _AddHabitRuleDialogState extends State<AddHabitRuleDialog> {
             const SizedBox(height: 16),
 
             SwitchListTile(
-              title: const Text("Grayscale Context", style: TextStyle(color: JweTheme.textWhite, fontSize: 13)),
+              title:  Text("Grayscale Context", style: TextStyle(color: JweTheme.textWhite, fontSize: 13)),
               value: _isGrayscale,
               activeColor: JweTheme.accentRed,
               contentPadding: EdgeInsets.zero,
@@ -94,9 +94,9 @@ class _AddHabitRuleDialogState extends State<AddHabitRuleDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
+        TextButton(onPressed: () => Navigator.pop(context), child:  Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentRed, foregroundColor: Colors.white, shape: const BeveledRectangleBorder()),
+          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentRed, foregroundColor: Colors.white, shape:  BeveledRectangleBorder()),
           onPressed: () {
             if (_nameController.text.trim().isNotEmpty) {
               final rule = HabitRule(

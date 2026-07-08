@@ -67,7 +67,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
           // Header Section
           Container(
             padding: EdgeInsets.fromLTRB(20, widget.isEmbedded ? 20 : MediaQuery.of(context).padding.top + 16, 20, 18),
-            decoration: const BoxDecoration(
+            decoration:   BoxDecoration(
               border: Border(bottom: BorderSide(color: JweTheme.lineSoft, width: 1)),
               color: JweTheme.bgCanvas,
             ),

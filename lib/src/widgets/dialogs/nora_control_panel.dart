@@ -57,16 +57,16 @@ class _NoraControlPanelState extends State<NoraControlPanel> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("NORA PARAMETERS", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 20, color: AppTheme.fhAccentPurple, fontWeight: FontWeight.bold)),
+              Text("NORA PARAMETERS", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 20, color: AppTheme.fhAccentPurple, fontWeight: FontWeight.bold)),
             const SizedBox(height: 24),
             
-            const Text("SYSTEM PROMPT OVERRIDE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+              Text("SYSTEM PROMPT OVERRIDE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextField(
               controller: _promptController,
               maxLines: 4,
               style: const TextStyle(color: Colors.white, fontSize: 13),
-              decoration: const InputDecoration(
+              decoration:   InputDecoration(
                 filled: true,
                 fillColor: AppTheme.fhBgDark,
                 hintText: "Override Nora's base instructions...",
@@ -82,13 +82,13 @@ class _NoraControlPanelState extends State<NoraControlPanel> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("MAX BUBBLES/REPLY", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                        Text("MAX BUBBLES/REPLY", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       TextField(
                         controller: _limitController,
                         keyboardType: TextInputType.number,
                         style: const TextStyle(color: Colors.white, fontFamily: 'RobotoMono'),
-                        decoration: const InputDecoration(filled: true, fillColor: AppTheme.fhBgDark, border: OutlineInputBorder(), hintText: "e.g. 3 (0 = Auto)"),
+                        decoration:   InputDecoration(filled: true, fillColor: AppTheme.fhBgDark, border: OutlineInputBorder(), hintText: "e.g. 3 (0 = Auto)"),
                       ),
                     ],
                   ),
@@ -98,13 +98,13 @@ class _NoraControlPanelState extends State<NoraControlPanel> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text("CONTEXT (DAYS)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                        Text("CONTEXT (DAYS)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       TextField(
                         controller: _daysController,
                         keyboardType: TextInputType.number,
                         style: const TextStyle(color: Colors.white, fontFamily: 'RobotoMono'),
-                        decoration: const InputDecoration(filled: true, fillColor: AppTheme.fhBgDark, border: OutlineInputBorder(), hintText: "e.g. 7"),
+                        decoration:   InputDecoration(filled: true, fillColor: AppTheme.fhBgDark, border: OutlineInputBorder(), hintText: "e.g. 7"),
                       ),
                     ],
                   ),
@@ -114,14 +114,14 @@ class _NoraControlPanelState extends State<NoraControlPanel> {
 
             const SizedBox(height: 16),
             
-            const Text("MODEL OVERRIDE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+              Text("MODEL OVERRIDE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             DropdownButtonFormField<String>(
               value: _selectedModel,
               dropdownColor: AppTheme.fhBgDark,
-              decoration: const InputDecoration(filled: true, fillColor: AppTheme.fhBgDark, border: OutlineInputBorder()),
+              decoration:   InputDecoration(filled: true, fillColor: AppTheme.fhBgDark, border: OutlineInputBorder()),
               items: [
-                const DropdownMenuItem(value: null, child: Text("System Default", style: TextStyle(color: AppTheme.fhTextSecondary))),
+                  DropdownMenuItem(value: null, child: Text("System Default", style: TextStyle(color: AppTheme.fhTextSecondary))),
                 ...availableModels.map((m) => DropdownMenuItem(value: m, child: Text(m, style: const TextStyle(color: Colors.white)))),
               ],
               onChanged: (val) => setState(() => _selectedModel = val),

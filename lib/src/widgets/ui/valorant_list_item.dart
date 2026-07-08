@@ -82,7 +82,7 @@ class ValorantListItem extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 4.0),
                     child: Text(
                       subtitle!,
-                      style: const TextStyle(
+                      style:   TextStyle(
                         color: AppTheme.fhTextSecondary,
                         fontSize: 11,
                       ),

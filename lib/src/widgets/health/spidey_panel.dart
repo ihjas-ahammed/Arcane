@@ -6,17 +6,18 @@ import 'package:missions/src/theme/spidey_theme.dart';
 class SpideyPanel extends StatelessWidget {
   final String? title;
   final Widget child;
-  final Color accentColor;
+  final Color? accentColor;
 
   const SpideyPanel({
     super.key,
     this.title,
     required this.child,
-    this.accentColor = SpideyTheme.spideyRed,
+    this.accentColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final activeAccent = accentColor ?? SpideyTheme.spideyRed;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -24,7 +25,7 @@ class SpideyPanel extends StatelessWidget {
         border: Border.all(color: SpideyTheme.border),
         boxShadow: [
           BoxShadow(
-            color: accentColor.withOpacity(0.05),
+            color: activeAccent.withValues(alpha: 0.05),
             blurRadius: 18,
             offset: const Offset(0, 4),
           ),
@@ -38,7 +39,7 @@ class SpideyPanel extends StatelessWidget {
             if (title != null)
               Container(
                 height: 38,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: SpideyTheme.panelGradient,
                   border: Border(
                     bottom: BorderSide(color: SpideyTheme.border),
@@ -64,9 +65,9 @@ class SpideyPanel extends StatelessWidget {
                       width: 6,
                       height: 6,
                       decoration: BoxDecoration(
-                        color: accentColor,
+                        color: activeAccent,
                         boxShadow: [
-                          BoxShadow(color: accentColor.withOpacity(0.7), blurRadius: 6),
+                          BoxShadow(color: activeAccent.withValues(alpha: 0.7), blurRadius: 6),
                         ],
                       ),
                     ),

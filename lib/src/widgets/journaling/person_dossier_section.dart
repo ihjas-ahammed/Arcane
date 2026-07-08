@@ -68,7 +68,7 @@ class PersonDossierSection extends StatelessWidget {
           Expanded(
             child: Container(
               height: 1,
-              decoration: const BoxDecoration(
+              decoration:   BoxDecoration(
                 gradient: LinearGradient(
                   colors: [PersonInfoTheme.spideyCyanDim, Colors.transparent],
                   begin: Alignment.centerLeft,
@@ -86,7 +86,7 @@ class PersonDossierSection extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(top: 15, bottom: 10), // Adjust top margin slightly from CSS 25px for flutter flow
       padding: const EdgeInsets.only(left: 10),
-      decoration: const BoxDecoration(
+      decoration:   BoxDecoration(
         border: Border(left: BorderSide(color: PersonInfoTheme.spideyRed, width: 3)),
       ),
       child: Text(
@@ -136,7 +136,7 @@ class PersonDossierSection extends StatelessWidget {
                         if (highlight.isNotEmpty)
                           TextSpan(
                             text: "$highlight ",
-                            style: const TextStyle(
+                            style:   TextStyle(
                               color: PersonInfoTheme.spideyCyan,
                               fontWeight: FontWeight.bold,
                             ),

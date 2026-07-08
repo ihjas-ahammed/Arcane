@@ -233,17 +233,22 @@ class _HudBarsPainter extends CustomPainter {
       final isToday = i == n - 1;
       final isPeak = v > 0 && v == maxV;
 
-      final dayColor = perBarColor[i];
+      final baseColor = perBarColor[i];
+      final calBarColor = JweTheme.isLight ? JweTheme.calibrate(baseColor) : baseColor;
+      final dayColor = JweTheme.isLight ? calBarColor : baseColor;
+
       final color = v == 0
-          ? const Color(0x1AA8B3C7)
-          : (isToday || isPeak ? dayColor : dayColor.withValues(alpha: 0.40));
+          ? (JweTheme.isLight ? const Color(0x0F000000) : const Color(0x1AA8B3C7))
+          : (isToday || isPeak
+              ? (JweTheme.isLight ? dayColor.withValues(alpha: 0.35) : dayColor)
+              : (JweTheme.isLight ? dayColor.withValues(alpha: 0.15) : dayColor.withValues(alpha: 0.40)));
 
       final rect = Rect.fromLTWH(left, size.height - h, barW, math.max(2.0, h));
       if ((isToday || isPeak) && v > 0) {
         canvas.drawRect(
           rect,
           Paint()
-            ..color = dayColor.withValues(alpha: 0.45)
+            ..color = dayColor.withValues(alpha: JweTheme.isLight ? 0.20 : 0.45)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
         );
       }

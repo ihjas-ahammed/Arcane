@@ -39,11 +39,11 @@ class ScheduledRemindersScreen extends StatelessWidget {
                 letterSpacing: 3)),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: AppTheme.fhTextPrimary),
+        iconTheme:   IconThemeData(color: AppTheme.fhTextPrimary),
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppTheme.fhAccentTeal,
-        icon: const Icon(Icons.add, color: AppTheme.fhBgDeepDark),
+        icon:   Icon(Icons.add, color: AppTheme.fhBgDeepDark),
         label: Text('CUSTOM',
             style: GoogleFonts.rajdhani(
                 color: AppTheme.fhBgDeepDark,
@@ -74,7 +74,7 @@ class ScheduledRemindersScreen extends StatelessWidget {
                             letterSpacing: 2,
                             fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
-                    const Text(
+                      Text(
                       'Add a reminder time on a submission or a planned task,\nor tap CUSTOM below.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
@@ -94,7 +94,7 @@ class ScheduledRemindersScreen extends StatelessWidget {
   Widget _sectionLabel(String text) => Padding(
         padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
         child: Text(text,
-            style: const TextStyle(
+            style:   TextStyle(
                 color: AppTheme.fhTextSecondary,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
@@ -117,8 +117,8 @@ class ScheduledRemindersScreen extends StatelessWidget {
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: AppTheme.fhTextPrimary),
-          decoration: const InputDecoration(
+          style:   TextStyle(color: AppTheme.fhTextPrimary),
+          decoration:   InputDecoration(
             hintText: 'What should I remind you about?',
             hintStyle: TextStyle(color: AppTheme.fhTextDisabled),
             enabledBorder: UnderlineInputBorder(
@@ -130,11 +130,11 @@ class ScheduledRemindersScreen extends StatelessWidget {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('CANCEL',
+              child:   Text('CANCEL',
                   style: TextStyle(color: AppTheme.fhTextSecondary))),
           TextButton(
               onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-              child: const Text('NEXT',
+              child:   Text('NEXT',
                   style: TextStyle(color: AppTheme.fhAccentTeal))),
         ],
       ),
@@ -199,13 +199,13 @@ class _ReflectionReminderRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Daily Reflection',
+                  Text('Daily Reflection',
                     style: TextStyle(
                         color: AppTheme.fhTextPrimary,
                         fontSize: 13,
                         fontWeight: FontWeight.bold)),
                 Text(enabled ? 'Every day · $timeStr' : 'Disabled',
-                    style: const TextStyle(
+                    style:   TextStyle(
                         color: AppTheme.fhTextSecondary, fontSize: 11)),
               ],
             ),
@@ -227,7 +227,7 @@ class _ReflectionReminderRow extends StatelessWidget {
                 }
               },
               child: Text(timeStr,
-                  style: const TextStyle(color: AppTheme.fhAccentTeal)),
+                  style:   TextStyle(color: AppTheme.fhAccentTeal)),
             ),
           Switch.adaptive(
             value: enabled,
@@ -320,7 +320,7 @@ class _ReminderRow extends StatelessWidget {
                         child: Text(reminder.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style:   TextStyle(
                                 color: AppTheme.fhTextPrimary,
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold)),

@@ -30,14 +30,14 @@ class _AiGenerationPromptDialogState extends State<AiGenerationPromptDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.title.toUpperCase(), style: const TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.0)),
+      title: Text(widget.title.toUpperCase(), style:   TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay, letterSpacing: 1.0)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: _controller,
-              style: const TextStyle(color: AppTheme.fhTextPrimary),
+              style:   TextStyle(color: AppTheme.fhTextPrimary),
               decoration: InputDecoration(
                 hintText: widget.hintText,
                 hintStyle: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.5), fontSize: 13),

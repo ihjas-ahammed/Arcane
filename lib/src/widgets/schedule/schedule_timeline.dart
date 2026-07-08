@@ -167,7 +167,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
               child: Stack(
                 children: [
                   // Hairline gutter divider
-                  const Positioned(
+                    Positioned(
                     top: 0, bottom: 0, left: 55,
                     width: 1,
                     child: ColoredBox(color: JweTheme.lineSoft),

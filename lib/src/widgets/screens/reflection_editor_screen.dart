@@ -116,7 +116,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       lastDate: DateTime.now(),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
+          colorScheme:   ColorScheme.dark(
             primary: SpideyTheme.spideyCyan,
             onPrimary: Colors.black,
             surface: SpideyTheme.bgPanel,
@@ -135,7 +135,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
+          colorScheme:   ColorScheme.dark(
             primary: SpideyTheme.spideyCyan,
             onPrimary: Colors.black,
             surface: SpideyTheme.bgPanel,
@@ -229,12 +229,12 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         backgroundColor: SpideyTheme.bgPanel,
         title: Text("DELETE LOG?",
             style: GoogleFonts.rajdhani(color: SpideyTheme.spideyRed, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-        content: const Text(
+        content:   Text(
           "This action cannot be undone. XP gained from this reflection will be removed.",
           style: TextStyle(color: SpideyTheme.textGrey),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL", style: TextStyle(color: SpideyTheme.textGrey))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child:  Text("CANCEL", style: TextStyle(color: SpideyTheme.textGrey))),
           ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: SpideyTheme.spideyRed, foregroundColor: Colors.white),
               onPressed: () {
@@ -265,14 +265,14 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       },
       child: Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: SpideyTheme.backdropGradient),
+        decoration:  BoxDecoration(gradient: SpideyTheme.backdropGradient),
         child: SafeArea(
           child: Column(
             children: [
               // Top Bar
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: const BoxDecoration(
+                decoration:   BoxDecoration(
                   border: Border(bottom: BorderSide(color: SpideyTheme.border)),
                 ),
                 child: Row(
@@ -284,7 +284,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                         _saveDraft();
                         Navigator.pop(context);
                       },
-                      icon: const Icon(Icons.arrow_back, color: SpideyTheme.textWhite),
+                      icon:  Icon(Icons.arrow_back, color: SpideyTheme.textWhite),
                     ),
                     Expanded(
                       child: Text("REFLECTION LOG",
@@ -331,7 +331,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                                         letterSpacing: 1.5)),
                                 const SizedBox(height: 4),
                                 Text(DateFormat('MMM dd, yyyy - HH:mm').format(_selectedDateTime),
-                                    style: const TextStyle(
+                                    style:   TextStyle(
                                         color: SpideyTheme.textWhite,
                                         fontFamily: 'RobotoMono',
                                         fontWeight: FontWeight.bold)),
@@ -391,7 +391,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                             child: TextButton(
                               onPressed: () => _saveReflection(analyze: false),
                               style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                              child: const Text("QUICK SAVE (NO AI)",
+                              child:   Text("QUICK SAVE (NO AI)",
                                   style: TextStyle(color: SpideyTheme.textGrey, fontWeight: FontWeight.bold, fontSize: 12)),
                             ),
                           ),
@@ -435,7 +435,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       child: Row(
         children: [
           Container(width: 3, height: 12, color: SpideyTheme.spideyRed),
-          const SizedBox(width: 8),
+            SizedBox(width: 8),
           Text(title.toUpperCase(),
               style: GoogleFonts.rajdhani(
                   color: SpideyTheme.spideyCyan,
@@ -450,7 +450,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
   Widget _buildEnergySlider() {
     final color = _energyColor(_energyLevel);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      padding:   EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
         color: SpideyTheme.bgPanel,
         border: Border.all(color: color.withOpacity(0.5)),
@@ -464,7 +464,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
               Row(
                 children: [
                   Icon(MdiIcons.lightningBolt, color: color, size: 18),
-                  const SizedBox(width: 8),
+                    SizedBox(width: 8),
                   Text("ENERGY LEVEL",
                       style: GoogleFonts.rajdhani(
                           color: color, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
@@ -493,7 +493,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
+            children:   [
               Text("DRAINED", style: TextStyle(color: SpideyTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold)),
               Text("CHARGED", style: TextStyle(color: SpideyTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold)),
             ],

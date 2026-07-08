@@ -83,9 +83,9 @@ class _DraggableCheckpointWrapperState extends State<DraggableCheckpointWrapper>
           return Container(
             decoration: BoxDecoration(
               border: _hoverPosition == 'before' 
-                  ? const Border(top: BorderSide(color: AppTheme.fhAccentTeal, width: 3)) 
+                  ?   Border(top: BorderSide(color: AppTheme.fhAccentTeal, width: 3)) 
                   : _hoverPosition == 'after' 
-                      ? const Border(bottom: BorderSide(color: AppTheme.fhAccentTeal, width: 3)) 
+                      ?   Border(bottom: BorderSide(color: AppTheme.fhAccentTeal, width: 3)) 
                       : _hoverPosition == 'inside' 
                           ? Border.all(color: AppTheme.fhAccentTeal, width: 2) 
                           : null,

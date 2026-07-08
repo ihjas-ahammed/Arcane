@@ -78,7 +78,7 @@ class _PinDialogState extends State<PinDialog> {
       backgroundColor: AppTheme.fhBgDeepDark,
       title: Text(
         widget.isSetupMode ? "SETUP SECURITY PIN" : "AUTH REQUIRED",
-        style: const TextStyle(
+        style:   TextStyle(
           color: AppTheme.fhTextPrimary, 
           fontFamily: AppTheme.fontDisplay, 
           letterSpacing: 1.5
@@ -93,14 +93,14 @@ class _PinDialogState extends State<PinDialog> {
               widget.isSetupMode 
                 ? "This PIN protects your Reflection Logs and Nora AI." 
                 : "Enter your classified access PIN.",
-              style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13),
+              style:   TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _pinController,
               keyboardType: TextInputType.number,
               obscureText: true,
-              style: const TextStyle(color: AppTheme.fhAccentTeal, fontSize: 24, letterSpacing: 8.0, fontFamily: 'RobotoMono'),
+              style:   TextStyle(color: AppTheme.fhAccentTeal, fontSize: 24, letterSpacing: 8.0, fontFamily: 'RobotoMono'),
               textAlign: TextAlign.center,
               decoration: InputDecoration(
                 filled: true,
@@ -118,7 +118,7 @@ class _PinDialogState extends State<PinDialog> {
                 controller: _confirmController,
                 keyboardType: TextInputType.number,
                 obscureText: true,
-                style: const TextStyle(color: AppTheme.fhAccentTeal, fontSize: 24, letterSpacing: 8.0, fontFamily: 'RobotoMono'),
+                style:   TextStyle(color: AppTheme.fhAccentTeal, fontSize: 24, letterSpacing: 8.0, fontFamily: 'RobotoMono'),
                 textAlign: TextAlign.center,
                 decoration: InputDecoration(
                   filled: true,
@@ -133,7 +133,7 @@ class _PinDialogState extends State<PinDialog> {
             if (_error.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 12.0),
-                child: Text(_error, style: const TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold, fontSize: 12)),
+                child: Text(_error, style:   TextStyle(color: AppTheme.fhAccentRed, fontWeight: FontWeight.bold, fontSize: 12)),
               ),
           ],
         ),

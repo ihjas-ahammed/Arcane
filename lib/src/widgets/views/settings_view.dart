@@ -78,7 +78,7 @@ class _SettingsViewState extends State<SettingsView> {
           children: [
             Icon(MdiIcons.pencilOutline, color: AppTheme.fhAccentPurple),
             const SizedBox(width: 10),
-            const Text('Edit Writing Style Map', style: TextStyle(color: AppTheme.fhTextPrimary)),
+              Text('Edit Writing Style Map', style: TextStyle(color: AppTheme.fhTextPrimary)),
           ],
         ),
         content: SizedBox(
@@ -87,7 +87,7 @@ class _SettingsViewState extends State<SettingsView> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+                Text(
                 'Manually define or tweak the map describing your writing style. Downstream AI models will reference this description to align their tone.',
                 style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
               ),
@@ -97,7 +97,7 @@ class _SettingsViewState extends State<SettingsView> {
                   controller: controller,
                   maxLines: 8,
                   minLines: 3,
-                  style: const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
+                  style:   TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
                   decoration: const InputDecoration(
                     hintText: 'Describe your writing style (e.g. casual tone, uses analytical terms, prefers short sentences...)',
                     alignLabelWithHint: true,
@@ -110,13 +110,13 @@ class _SettingsViewState extends State<SettingsView> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('CANCEL', style: TextStyle(color: AppTheme.fhTextSecondary)),
+            child:   Text('CANCEL', style: TextStyle(color: AppTheme.fhTextSecondary)),
           ),
           ElevatedButton(
             onPressed: () {
               appProvider.setSettings(appProvider.settings..writingStyleMap = controller.text.trim().isEmpty ? null : controller.text.trim());
               Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              ScaffoldMessenger.of(context).showSnackBar(  SnackBar(
                 content: Text('Writing style map updated.'),
                 backgroundColor: AppTheme.fhAccentGreen,
               ));
@@ -280,7 +280,7 @@ class _SettingsViewState extends State<SettingsView> {
                   
                   ElevatedButton.icon(
                     icon: appProvider.isSyncing 
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhTextPrimary))
+                        ?   SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhTextPrimary))
                         : Icon(MdiIcons.cloudUploadOutline, size: 18),
                     label: const Text('FORCE CLOUD SYNC'),
                     onPressed: appProvider.isSyncing ? null : () => appProvider.manuallySaveToCloud(),
@@ -313,7 +313,7 @@ class _SettingsViewState extends State<SettingsView> {
                         minimumSize: const Size(double.infinity, 44),
                         backgroundColor: AppTheme.fhBgDark,
                         foregroundColor: AppTheme.fhTextPrimary,
-                        side: const BorderSide(color: AppTheme.fhAccentTealFixed)),
+                        side:   BorderSide(color: AppTheme.fhAccentTealFixed)),
                   ),
                   
                   const SizedBox(height: 12),
@@ -348,7 +348,7 @@ class _SettingsViewState extends State<SettingsView> {
           // 2. SECURITY
           _buildSettingsSection(appProvider, theme,
               icon: MdiIcons.shieldLockOutline,
-              title: 'Security & Nora Privacy',
+              title: 'Security, Privacy & Theme',
               children: [
                 OutlinedButton.icon(
                   icon: Icon(MdiIcons.dialpad, size: 18),
@@ -361,7 +361,7 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text("Nora AI Context Access", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
+                  Text("Nora AI Context Access", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
                 SwitchListTile.adaptive(
                   title: const Text('Access Session Logs', style: TextStyle(fontSize: 14)),
                   value: appProvider.settings.noraAccessSessions,
@@ -380,6 +380,29 @@ class _SettingsViewState extends State<SettingsView> {
                     appProvider.setSettings(appProvider.settings..noraAccessFinance = value);
                   },
                 ),
+                const Divider(height: 32),
+                  Text("App Theme", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
+                SwitchListTile.adaptive(
+                  title: const Text('Use System Theme', style: TextStyle(fontSize: 14)),
+                  value: appProvider.settings.themeMode == 'system',
+                  activeTrackColor: AppTheme.fhAccentPurple,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (bool value) {
+                    appProvider.setSettings(appProvider.settings
+                      ..themeMode = value ? 'system' : 'dark');
+                  },
+                ),
+                if (appProvider.settings.themeMode != 'system')
+                  SwitchListTile.adaptive(
+                    title: const Text('Dark Mode', style: TextStyle(fontSize: 14)),
+                    value: appProvider.settings.themeMode == 'dark',
+                    activeTrackColor: AppTheme.fhAccentPurple,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (bool value) {
+                      appProvider.setSettings(appProvider.settings
+                        ..themeMode = value ? 'dark' : 'light');
+                    },
+                  ),
               ]),
 
           // 3. AI MODELS
@@ -395,7 +418,7 @@ class _SettingsViewState extends State<SettingsView> {
               icon: MdiIcons.keyVariant,
               title: 'Advanced AI Settings',
               children: [
-                const Text("Custom Gemini API Keys", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
+                  Text("Custom Gemini API Keys", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
                 const SizedBox(height: 8),
                 const ApiKeyManager(),
 
@@ -463,7 +486,7 @@ class _SettingsViewState extends State<SettingsView> {
                         ),
                       ],
                       if (_regeneratingStyleMap)
-                        const SizedBox(
+                          SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
@@ -509,7 +532,7 @@ class _SettingsViewState extends State<SettingsView> {
                   },
                 ),
                 const SizedBox(height: 8),
-                const Text("Leave blank to use built-in defaults.",
+                  Text("Leave blank to use built-in defaults.",
                     style: TextStyle(
                         color: AppTheme.fhTextSecondary, fontSize: 11)),
               ]
@@ -582,7 +605,7 @@ class _SettingsViewState extends State<SettingsView> {
               icon: MdiIcons.tools,
               title: 'System Diagnostics',
               children: [
-                const Text(
+                  Text(
                   'Use these tools to repair data inconsistencies or replay tutorials.',
                   style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 13),
                 ),
@@ -594,7 +617,7 @@ class _SettingsViewState extends State<SettingsView> {
                     try {
                       await appProvider.recalibrateTimeLogs();
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        ScaffoldMessenger.of(context).showSnackBar(  SnackBar(
                           content: Text('Time logs successfully recalibrated from session history.'),
                           backgroundColor: AppTheme.fhAccentGreen
                         ));
@@ -656,20 +679,20 @@ class _SettingsViewState extends State<SettingsView> {
                     Padding(
                       padding: const EdgeInsets.only(top: 10.0),
                       child: Text(_passwordChangeError,
-                          style: const TextStyle(
+                          style:   TextStyle(
                               color: AppTheme.fhAccentRed, fontSize: 12)),
                     ),
                   if (_passwordChangeSuccess.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 10.0),
                       child: Text(_passwordChangeSuccess,
-                          style: const TextStyle(
+                          style:   TextStyle(
                               color: AppTheme.fhAccentGreen, fontSize: 12)),
                     ),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     icon: _passwordChangeLoading
-                        ? const SizedBox(
+                        ?   SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
@@ -731,7 +754,7 @@ class _SettingsViewState extends State<SettingsView> {
                           Icon(MdiIcons.alertOutline,
                               color: AppTheme.fhAccentRed),
                           const SizedBox(width: 10),
-                          const Text('Confirm System Purge',
+                            Text('Confirm System Purge',
                               style: TextStyle(color: AppTheme.fhAccentRed))
                         ]),
                         content: const Text(
@@ -753,7 +776,7 @@ class _SettingsViewState extends State<SettingsView> {
                     if (confirm == true) {
                       appProvider.clearAllData();
                       if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      ScaffoldMessenger.of(context).showSnackBar(  SnackBar(
                           content: Text('All data has been purged.'),
                           backgroundColor: AppTheme.fhAccentGreen));
                     }
@@ -814,7 +837,7 @@ class _SettingsViewState extends State<SettingsView> {
                     s.reflectionReminderEnabled
                         ? 'Fires every day at ${fmtTime(s.reflectionReminderHour, s.reflectionReminderMinute)}'
                         : 'Disabled',
-                    style: const TextStyle(
+                    style:   TextStyle(
                         color: AppTheme.fhTextSecondary, fontSize: 12),
                   ),
                 ]),
@@ -854,7 +877,7 @@ class _SettingsViewState extends State<SettingsView> {
             ],
 
             const SizedBox(height: 16),
-            const Divider(height: 1, color: AppTheme.fhBorderColor),
+              Divider(height: 1, color: AppTheme.fhBorderColor),
             const SizedBox(height: 16),
 
             // --- Finance data reminder ---
@@ -868,7 +891,7 @@ class _SettingsViewState extends State<SettingsView> {
                     s.financeReminderEnabled
                         ? 'Fires every day at ${fmtTime(s.financeReminderHour, s.financeReminderMinute)}'
                         : 'Disabled',
-                    style: const TextStyle(
+                    style:   TextStyle(
                         color: AppTheme.fhTextSecondary, fontSize: 12),
                   ),
                 ]),
@@ -908,7 +931,7 @@ class _SettingsViewState extends State<SettingsView> {
             ],
 
             const SizedBox(height: 16),
-            const Divider(height: 1, color: AppTheme.fhBorderColor),
+              Divider(height: 1, color: AppTheme.fhBorderColor),
             const SizedBox(height: 16),
 
             // --- Health data reminder ---
@@ -922,7 +945,7 @@ class _SettingsViewState extends State<SettingsView> {
                     s.healthReminderEnabled
                         ? 'Fires every day at ${fmtTime(s.healthReminderHour, s.healthReminderMinute)}'
                         : 'Disabled',
-                    style: const TextStyle(
+                    style:   TextStyle(
                         color: AppTheme.fhTextSecondary, fontSize: 12),
                   ),
                 ]),
@@ -962,7 +985,7 @@ class _SettingsViewState extends State<SettingsView> {
             ],
 
             const SizedBox(height: 16),
-            const Divider(height: 1, color: AppTheme.fhBorderColor),
+              Divider(height: 1, color: AppTheme.fhBorderColor),
             const SizedBox(height: 16),
 
             // --- Manage all scheduled reminders ---

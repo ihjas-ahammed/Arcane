@@ -108,7 +108,7 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
                 suffixText: '%',
                 suffixStyle: TextStyle(color: widget.accentColor, fontSize: 20),
                 hintText: '0',
-                hintStyle: const TextStyle(color: JweTheme.textMuted),
+                hintStyle:  TextStyle(color: JweTheme.textMuted),
               ),
             ),
           ],
@@ -116,7 +116,7 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+            child:  Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(

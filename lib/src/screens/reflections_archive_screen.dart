@@ -30,7 +30,7 @@ class _ReflectionsArchiveScreenState extends State<ReflectionsArchiveScreen> {
       lastDate: DateTime.now(),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
+          colorScheme:   ColorScheme.dark(
             primary: JweTheme.accentCyan,
             onPrimary: Colors.black,
             surface: JweTheme.panel,
@@ -135,7 +135,7 @@ class _ReflectionsArchiveScreenState extends State<ReflectionsArchiveScreen> {
           : Text("ARCHIVES", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
         centerTitle: true,
         backgroundColor: JweTheme.panel,
-        iconTheme: const IconThemeData(color: JweTheme.accentCyan),
+        iconTheme:  IconThemeData(color: JweTheme.accentCyan),
         leading: _isSelectionMode 
           ? IconButton(
               icon: const Icon(Icons.close),
@@ -151,12 +151,12 @@ class _ReflectionsArchiveScreenState extends State<ReflectionsArchiveScreen> {
         actions: _isSelectionMode 
           ?[
               IconButton(
-                icon: const Icon(Icons.copy, color: JweTheme.accentCyan),
+                icon:  Icon(Icons.copy, color: JweTheme.accentCyan),
                 tooltip: "Copy Selected",
                 onPressed: () => _copySelectedLogs(logs),
               ),
               IconButton(
-                icon: const Icon(Icons.select_all, color: JweTheme.textMuted),
+                icon:  Icon(Icons.select_all, color: JweTheme.textMuted),
                 tooltip: "Select All",
                 onPressed: () {
                   setState(() {
@@ -172,9 +172,9 @@ class _ReflectionsArchiveScreenState extends State<ReflectionsArchiveScreen> {
                 onPressed: () async {
                   try {
                     await provider.importReflections();
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Import successful.", style: TextStyle(color: Colors.black)), backgroundColor: JweTheme.accentCyan));
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text("Import successful.", style: TextStyle(color: Colors.black)), backgroundColor: JweTheme.accentCyan));
                   } catch(e) {
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Import failed: $e", style: const TextStyle(color: Colors.white)), backgroundColor: JweTheme.accentRed));
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Import failed: $e", style:  TextStyle(color: Colors.white)), backgroundColor: JweTheme.accentRed));
                   }
                 },
               ),
@@ -185,7 +185,7 @@ class _ReflectionsArchiveScreenState extends State<ReflectionsArchiveScreen> {
                    try {
                     await provider.exportReflections();
                   } catch(e) {
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Export failed: $e", style: const TextStyle(color: Colors.white)), backgroundColor: JweTheme.accentRed));
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Export failed: $e", style:  TextStyle(color: Colors.white)), backgroundColor: JweTheme.accentRed));
                   }
                 },
               ),
@@ -199,7 +199,7 @@ class _ReflectionsArchiveScreenState extends State<ReflectionsArchiveScreen> {
               // Filter Bar
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: const BoxDecoration(
+                decoration:   BoxDecoration(
                   color: JweTheme.panel,
                   border: Border(bottom: BorderSide(color: JweTheme.border))
                 ),
@@ -212,7 +212,7 @@ class _ReflectionsArchiveScreenState extends State<ReflectionsArchiveScreen> {
                         const SizedBox(width: 8),
                         Text(
                           _filterDate != null ? DateFormat('MMM dd, yyyy').format(_filterDate!) : "ALL RECORDS",
-                          style: const TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono', fontSize: 12),
+                          style:  TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono', fontSize: 12),
                         ),
                       ],
                     ),
@@ -220,13 +220,13 @@ class _ReflectionsArchiveScreenState extends State<ReflectionsArchiveScreen> {
                       children:[
                         if (_filterDate != null)
                           IconButton(
-                            icon: const Icon(Icons.clear, size: 18, color: JweTheme.accentRed),
+                            icon:  Icon(Icons.clear, size: 18, color: JweTheme.accentRed),
                             onPressed: () => setState(() => _filterDate = null),
                             constraints: const BoxConstraints(),
                             padding: const EdgeInsets.all(8),
                           ),
                         IconButton(
-                          icon: const Icon(Icons.calendar_today, size: 18, color: JweTheme.accentCyan),
+                          icon:  Icon(Icons.calendar_today, size: 18, color: JweTheme.accentCyan),
                           onPressed: _pickDate,
                           constraints: const BoxConstraints(),
                           padding: const EdgeInsets.all(8),
@@ -245,7 +245,7 @@ class _ReflectionsArchiveScreenState extends State<ReflectionsArchiveScreen> {
                           children:[
                             Icon(MdiIcons.folderOpenOutline, size: 48, color: JweTheme.textMuted.withOpacity(0.5)),
                             const SizedBox(height: 16),
-                            const Text("NO RECORDS FOUND.", style: TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                             Text("NO RECORDS FOUND.", style: TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
                           ],
                         )
                       )

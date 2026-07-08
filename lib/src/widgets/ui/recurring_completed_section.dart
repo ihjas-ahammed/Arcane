@@ -48,7 +48,7 @@ class RecurringCompletedSection extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: AppTheme.fhAccentTeal.withOpacity(0.3)),
                   ),
-                  child: const Text(
+                  child:   Text(
                     "RESETS 00:00",
                     style: TextStyle(
                       color: AppTheme.fhAccentTeal,

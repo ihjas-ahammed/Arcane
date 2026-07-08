@@ -27,11 +27,11 @@ class GrowingTextField extends StatelessWidget {
         minLines: minLines,
         maxLines: null, // Allows unlimited growth
         keyboardType: TextInputType.multiline,
-        style: const TextStyle(color: AppTheme.fhTextPrimary, height: 1.5, fontSize: 14),
+        style: TextStyle(color: AppTheme.fhTextPrimary, height: 1.5, fontSize: 14),
         decoration: InputDecoration(
           border: InputBorder.none,
           hintText: hint,
-          hintStyle: const TextStyle(color: AppTheme.fhTextDisabled),
+          hintStyle: TextStyle(color: AppTheme.fhTextDisabled),
           contentPadding: EdgeInsets.zero,
           filled: false,
           isDense: true,

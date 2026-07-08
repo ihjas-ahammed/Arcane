@@ -103,13 +103,13 @@ class _AppTourScreenState extends State<AppTourScreen> {
             const SizedBox(height: 16),
             TextField(
               controller: _apiController,
-              style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono', fontSize: 14),
+              style:  TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono', fontSize: 14),
               decoration: InputDecoration(
                 filled: true,
                 fillColor: JweTheme.bgBase,
                 hintText: "Paste Gemini API Key here (Optional)",
                 hintStyle: TextStyle(color: JweTheme.textMuted.withOpacity(0.5)),
-                border: const OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                border:  OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                 focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF8A2BE2))),
               ),
             )
@@ -142,7 +142,7 @@ class _AppTourScreenState extends State<AppTourScreen> {
                       SmoothPageIndicator(
                         controller: _pageController,
                         count: slides.length,
-                        effect: const ExpandingDotsEffect(
+                        effect:   ExpandingDotsEffect(
                           dotHeight: 6,
                           dotWidth: 6,
                           expansionFactor: 4,
@@ -154,7 +154,7 @@ class _AppTourScreenState extends State<AppTourScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _currentPage == slides.length - 1 ? JweTheme.accentCyan : JweTheme.panel,
                           foregroundColor: _currentPage == slides.length - 1 ? Colors.black : JweTheme.textWhite,
-                          shape: const BeveledRectangleBorder(
+                          shape:   BeveledRectangleBorder(
                             side: BorderSide(color: JweTheme.accentCyan)
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),

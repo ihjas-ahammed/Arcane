@@ -63,7 +63,7 @@ class _PeopleInfoScreenState extends State<PeopleInfoScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: PersonInfoTheme.bgPanel,
-        shape: const BeveledRectangleBorder(
+        shape:   BeveledRectangleBorder(
           side: BorderSide(color: PersonInfoTheme.spideyRed, width: 1.5),
         ),
         title: Text(
@@ -180,7 +180,7 @@ class _PeopleInfoScreenState extends State<PeopleInfoScreen> {
       appBar: AppBar(
         leading: _isSelectionMode
             ? IconButton(
-                icon: const Icon(Icons.close, color: PersonInfoTheme.textWhite),
+                icon:  Icon(Icons.close, color: PersonInfoTheme.textWhite),
                 onPressed: () {
                   setState(() {
                     _isSelectionMode = false;
@@ -206,14 +206,14 @@ class _PeopleInfoScreenState extends State<PeopleInfoScreen> {
         actions: [
           if (_isSelectionMode)
             IconButton(
-              icon: const Icon(Icons.delete, color: PersonInfoTheme.spideyRed),
+              icon:  Icon(Icons.delete, color: PersonInfoTheme.spideyRed),
               onPressed: _selectedIds.isEmpty
                   ? null
                   : () => _confirmMultiDelete(context, provider),
             )
           else if (people.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.checklist, color: PersonInfoTheme.spideyCyan),
+              icon:  Icon(Icons.checklist, color: PersonInfoTheme.spideyCyan),
               onPressed: () {
                 setState(() {
                   _isSelectionMode = true;
@@ -260,7 +260,7 @@ class _PeopleInfoScreenState extends State<PeopleInfoScreen> {
                         });
                       },
                       style: GoogleFonts.rajdhani(color: AppTheme.fhTextPrimary, fontSize: 13, fontWeight: FontWeight.bold),
-                      decoration: const InputDecoration(
+                      decoration:   InputDecoration(
                         hintText: "SEARCH IDENTIFIED TARGET...",
                         hintStyle: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 11),
                         prefixIcon: Icon(Icons.search, size: 16, color: AppTheme.fhTextSecondary),
@@ -283,7 +283,7 @@ class _PeopleInfoScreenState extends State<PeopleInfoScreen> {
                     child: DropdownButton<String>(
                       value: _sortBy,
                       dropdownColor: AppTheme.fhBgDeepDark,
-                      icon: const Icon(Icons.sort, color: PersonInfoTheme.spideyCyan, size: 16),
+                      icon:  Icon(Icons.sort, color: PersonInfoTheme.spideyCyan, size: 16),
                       style: GoogleFonts.rajdhani(
                         color: AppTheme.fhTextPrimary,
                         fontSize: 12,
@@ -321,7 +321,7 @@ class _PeopleInfoScreenState extends State<PeopleInfoScreen> {
           // LIST CONTENT
           Expanded(
             child: people.isEmpty
-                ? const Center(child: Text("NO INTEL AVAILABLE.", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay, fontSize: 20)))
+                ?   Center(child: Text("NO INTEL AVAILABLE.", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: AppTheme.fontDisplay, fontSize: 20)))
                 : ListView(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                     children: [
@@ -380,7 +380,7 @@ class _PeopleInfoScreenState extends State<PeopleInfoScreen> {
                           const SizedBox(height: 16),
                         ],
                       if (filteredList.isEmpty)
-                        const Padding(
+                          Padding(
                           padding: EdgeInsets.only(top: 80.0),
                           child: Center(
                             child: Text(
@@ -478,7 +478,7 @@ class TacticalPersonCard extends StatelessWidget {
         color: isSelected ? const Color(0xFF0e2133) : AppTheme.fhBgDark,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: isSelected ? PersonInfoTheme.spideyCyan : const Color(0xFF1f2f40), 
+          color: isSelected ? PersonInfoTheme.spideyCyan :  Color(0xFF1f2f40), 
           width: 1,
         ),
       ),
@@ -1061,7 +1061,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
           // Cyberpunk glowing title bar
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
+            decoration:   BoxDecoration(
               gradient: LinearGradient(
                 colors: [PersonInfoTheme.headerGradientStart, Color(0xFF0b1623)],
               ),
@@ -1069,7 +1069,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.radar, color: PersonInfoTheme.spideyCyan, size: 18),
+                 Icon(Icons.radar, color: PersonInfoTheme.spideyCyan, size: 18),
                 const SizedBox(width: 8),
                 Text(
                   "TACTICAL COGNITIVE SCANNER",
@@ -1083,7 +1083,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
                 const Spacer(),
                 if (_step != 1)
                   IconButton(
-                    icon: const Icon(Icons.close, color: PersonInfoTheme.textGrey, size: 18),
+                    icon:  Icon(Icons.close, color: PersonInfoTheme.textGrey, size: 18),
                     onPressed: () => Navigator.pop(context),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -1146,7 +1146,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
                   initialDateRange: _customDateRange,
                   builder: (context, child) => Theme(
                     data: Theme.of(context).copyWith(
-                      colorScheme: const ColorScheme.dark(
+                      colorScheme:   ColorScheme.dark(
                         primary: PersonInfoTheme.spideyCyan,
                         onPrimary: Colors.black,
                         surface: PersonInfoTheme.bgPanel,
@@ -1178,7 +1178,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
                           : "${DateFormat('yyyy-MM-dd').format(_customDateRange!.start)} — ${DateFormat('yyyy-MM-dd').format(_customDateRange!.end)}",
                       style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyCyan, fontWeight: FontWeight.bold, fontSize: 12),
                     ),
-                    const Icon(Icons.calendar_today, color: PersonInfoTheme.spideyCyan, size: 14),
+                     Icon(Icons.calendar_today, color: PersonInfoTheme.spideyCyan, size: 14),
                   ],
                 ),
               ),
@@ -1204,7 +1204,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(
+                SizedBox(
                 width: 48,
                 height: 48,
                 child: CircularProgressIndicator(
@@ -1223,7 +1223,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+                Text(
                 "AI is parsing your raw reflections to identify referenced individuals using highly optimized Lite intelligence models...",
                 style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 11, height: 1.4),
                 textAlign: TextAlign.center,
@@ -1284,7 +1284,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: isCurrent ? const Color(0xFF0d1e2f) : const Color(0xFF07121c),
-                  border: Border.all(color: isCurrent ? PersonInfoTheme.spideyCyan : const Color(0xFF1f2f40)),
+                  border: Border.all(color: isCurrent ? PersonInfoTheme.spideyCyan :  Color(0xFF1f2f40)),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(
@@ -1329,7 +1329,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.gpp_good, color: PersonInfoTheme.spideyCyan, size: 48),
+               Icon(Icons.gpp_good, color: PersonInfoTheme.spideyCyan, size: 48),
               const SizedBox(height: 16),
               Text(
                 "INTEGRATION SPECS REGISTERED",
@@ -1382,7 +1382,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: isSelected ? const Color(0xFF0d1e2f) : const Color(0xFF07121c),
-        border: Border.all(color: isSelected ? PersonInfoTheme.spideyCyan : const Color(0xFF1f2f40)),
+        border: Border.all(color: isSelected ? PersonInfoTheme.spideyCyan :  Color(0xFF1f2f40)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: RadioListTile<int>(
@@ -1475,8 +1475,8 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text("NEW SCANNED EXTRACT", style: GoogleFonts.rajdhani(color: Colors.orangeAccent, fontSize: 8, fontWeight: FontWeight.bold)),
-                    Text(scannedName.toUpperCase(), style: const TextStyle(color: PersonInfoTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 12)),
-                    Text(scannedRelation.toUpperCase(), style: const TextStyle(color: PersonInfoTheme.textGrey, fontSize: 10)),
+                    Text(scannedName.toUpperCase(), style:  TextStyle(color: PersonInfoTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 12)),
+                    Text(scannedRelation.toUpperCase(), style:  TextStyle(color: PersonInfoTheme.textGrey, fontSize: 10)),
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.all(6),
@@ -1502,8 +1502,8 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text("EXISTING DOSSIER FILE", style: GoogleFonts.rajdhani(color: Colors.orangeAccent, fontSize: 8, fontWeight: FontWeight.bold)),
-                    Text(existingName.toUpperCase(), style: const TextStyle(color: PersonInfoTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 12)),
-                    Text(existingRelation.toUpperCase(), style: const TextStyle(color: PersonInfoTheme.textGrey, fontSize: 10)),
+                    Text(existingName.toUpperCase(), style:  TextStyle(color: PersonInfoTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 12)),
+                    Text(existingRelation.toUpperCase(), style:  TextStyle(color: PersonInfoTheme.textGrey, fontSize: 10)),
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.all(6),

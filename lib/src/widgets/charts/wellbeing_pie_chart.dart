@@ -105,7 +105,7 @@ class WellbeingPieChart extends StatelessWidget {
             Text(
               centerTopText, 
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 9, color: JweTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 0.5)
+              style:  TextStyle(fontSize: 9, color: JweTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 0.5)
             ),
             Text(
               centerBottomText, 

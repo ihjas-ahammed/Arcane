@@ -20,7 +20,7 @@ class JweDateSelector extends StatelessWidget {
         accent: JweTheme.accentCyan,
         padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
         child: Row(children: [
-          const HudReticle(size: 18, color: JweTheme.accentCyan),
+           HudReticle(size: 18, color: JweTheme.accentCyan),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

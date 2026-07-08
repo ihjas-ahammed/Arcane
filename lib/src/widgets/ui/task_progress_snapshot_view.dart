@@ -135,7 +135,7 @@ class TaskProgressSnapshotView extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Divider(color: JweTheme.lineSoft, height: 1),
+                 Divider(color: JweTheme.lineSoft, height: 1),
                 ...List.generate(recurringRows.length, (i) {
                   final r = recurringRows[i];
                   return _ProgressRow(
@@ -206,7 +206,7 @@ class _ProgressRow extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
       decoration: BoxDecoration(
         border: showDivider
-            ? const Border(bottom: BorderSide(color: JweTheme.lineSoft))
+            ?  Border(bottom: BorderSide(color: JweTheme.lineSoft))
             : null,
       ),
       child: Column(

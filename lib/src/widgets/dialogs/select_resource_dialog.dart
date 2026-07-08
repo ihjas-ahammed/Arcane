@@ -94,11 +94,11 @@ class _SelectResourceDialogState extends State<SelectResourceDialog> {
             child: TextField(
               controller: _searchController,
               onChanged: (val) => setState(() => _searchQuery = val),
-              style: const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 14),
+              style:   TextStyle(color: AppTheme.fhTextPrimary, fontSize: 14),
               decoration: InputDecoration(
                 hintText: "SEARCH...",
                 hintStyle: TextStyle(color: AppTheme.fhTextDisabled.withOpacity(0.5), fontSize: 12, letterSpacing: 1.0),
-                prefixIcon: const Icon(Icons.search, color: AppTheme.fhTextSecondary, size: 18),
+                prefixIcon:   Icon(Icons.search, color: AppTheme.fhTextSecondary, size: 18),
                 filled: true,
                 fillColor: AppTheme.fhBgDark,
                 contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
@@ -109,7 +109,7 @@ class _SelectResourceDialogState extends State<SelectResourceDialog> {
           
           Flexible(
             child: items.isEmpty
-              ? const Padding(
+              ?   Padding(
                   padding: EdgeInsets.all(32.0),
                   child: Text("No matching assets found.", style: TextStyle(color: AppTheme.fhTextDisabled), textAlign: TextAlign.center),
                 )
@@ -161,7 +161,7 @@ class _SelectResourceDialogState extends State<SelectResourceDialog> {
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.fhTextSecondary,
-                      side: const BorderSide(color: AppTheme.fhBorderColor),
+                      side:   BorderSide(color: AppTheme.fhBorderColor),
                       shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
                     ),
                     onPressed: () => Navigator.pop(context),

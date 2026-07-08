@@ -34,7 +34,7 @@ class SavingsGoalsView extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           if (goals.isEmpty)
-             const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No active savings goals.", style: TextStyle(color: JweTheme.textMuted))))
+              Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No active savings goals.", style: TextStyle(color: JweTheme.textMuted))))
           else
             ...goals.map((g) {
               final progress = g.targetAmount > 0 ? (g.currentAmount / g.targetAmount).clamp(0.0, 1.0) : 0.0;
@@ -56,7 +56,7 @@ class SavingsGoalsView extends StatelessWidget {
                           Expanded(
                             child: Text(g.name.toUpperCase(), style: GoogleFonts.rajdhani(fontSize: 18, fontWeight: FontWeight.bold, color: JweTheme.textWhite)),
                           ),
-                          Text("â‚¹${g.currentAmount.toStringAsFixed(0)} / â‚¹${g.targetAmount.toStringAsFixed(0)}", style: const TextStyle(color: JweTheme.textMuted, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold)),
+                          Text("â‚¹${g.currentAmount.toStringAsFixed(0)} / â‚¹${g.targetAmount.toStringAsFixed(0)}", style:  TextStyle(color: JweTheme.textMuted, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold)),
                         ],
                       ),
                       const SizedBox(height: 12),

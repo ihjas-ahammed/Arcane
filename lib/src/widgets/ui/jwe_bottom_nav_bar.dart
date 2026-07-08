@@ -113,16 +113,16 @@ class JweBottomNavBar extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppTheme.fhAccentPurple.withValues(alpha: 0.08), // Subtle purple base
+                color: AppTheme.fhAccentPurple.withValues(alpha: JweTheme.isLight ? 0.16 : 0.08), // Subtle purple base
                 border: Border.all(
                   color: AppTheme.fhAccentPurple.withValues(alpha: 0.35), // Subtle purple border
                   width: 1.2,
                 ),
               ),
-              child: const Center(
+              child: Center(
                 child: Icon(
                   MdiIcons.creation, // Sparkles icon
-                  color: Colors.white, // Clean white
+                  color: JweTheme.isLight ? AppTheme.fhAccentPurple : Colors.white, // Dynamic color for light theme contrast
                   size: 20,
                 ),
               ),
@@ -152,9 +152,9 @@ class JweBottomNavBar extends StatelessWidget {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                 child: Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0x8008101C), // Glassy 50% opacity
-                    border: Border(top: BorderSide(color: JweTheme.lineSoft, width: 1)),
+                  decoration: BoxDecoration(
+                    color: JweTheme.isLight ?  Color(0x80FFFFFF) :  Color(0x8008101C), // Glassy 50% opacity
+                    border:  Border(top: BorderSide(color: JweTheme.lineSoft, width: 1)),
                   ),
                 ),
               ),

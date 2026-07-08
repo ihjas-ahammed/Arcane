@@ -13,7 +13,7 @@ class AssetInfoDialog extends StatelessWidget {
     return Dialog(
       backgroundColor: PersonInfoTheme.bgPanel,
       shape: RoundedRectangleBorder(
-        side: const BorderSide(color: PersonInfoTheme.spideyCyan, width: 2),
+        side:  BorderSide(color: PersonInfoTheme.spideyCyan, width: 2),
       ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -45,7 +45,7 @@ class AssetInfoDialog extends StatelessWidget {
             if (item.what.isNotEmpty) _buildSection("EXPECTED YIELD (WHAT)", item.what),
             
             if (item.why.isEmpty && item.how.isEmpty && item.what.isEmpty)
-              const Text("No detailed intelligence available for this asset.", style: TextStyle(color: PersonInfoTheme.textGrey, fontStyle: FontStyle.italic)),
+               Text("No detailed intelligence available for this asset.", style: TextStyle(color: PersonInfoTheme.textGrey, fontStyle: FontStyle.italic)),
 
             const SizedBox(height: 32),
             SizedBox(
@@ -74,14 +74,14 @@ class AssetInfoDialog extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.only(left: 8),
-            decoration: const BoxDecoration(border: Border(left: BorderSide(color: PersonInfoTheme.spideyRed, width: 2))),
+            decoration:  BoxDecoration(border: Border(left: BorderSide(color: PersonInfoTheme.spideyRed, width: 2))),
             child: Text(
               title,
               style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyRed, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.0),
             ),
           ),
           const SizedBox(height: 6),
-          Text(content, style: const TextStyle(color: PersonInfoTheme.textWhite, fontSize: 14, height: 1.5)),
+          Text(content, style:  TextStyle(color: PersonInfoTheme.textWhite, fontSize: 14, height: 1.5)),
         ],
       ),
     );

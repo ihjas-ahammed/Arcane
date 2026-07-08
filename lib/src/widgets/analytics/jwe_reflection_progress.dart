@@ -172,7 +172,7 @@ class _Segment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = on ? JweTheme.accentAmber : const Color(0x1AA8B3C7);
+    final color = on ? JweTheme.accentAmber :  Color(0x1AA8B3C7);
     return Column(children: [
       Container(
         height: 4,

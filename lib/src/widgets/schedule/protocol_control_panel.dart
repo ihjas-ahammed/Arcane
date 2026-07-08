@@ -43,7 +43,7 @@ class ProtocolControlPanel extends StatelessWidget {
               children: [
                 Icon(MdiIcons.consoleLine, color: AppTheme.fhAccentTeal),
                 const SizedBox(width: 12),
-                const Text(
+                  Text(
                   "PROTOCOL CONTROL",
                   style: TextStyle(
                     fontFamily: AppTheme.fontDisplay,
@@ -55,7 +55,7 @@ class ProtocolControlPanel extends StatelessWidget {
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.close, color: AppTheme.fhTextSecondary),
+                  icon:   Icon(Icons.close, color: AppTheme.fhTextSecondary),
                   onPressed: () => Navigator.pop(context),
                 )
               ],

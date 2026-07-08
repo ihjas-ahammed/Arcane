@@ -31,70 +31,80 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Missions',
-      navigatorKey: WidgetActionRouter.instance.navigatorKey,
-      scaffoldMessengerKey: rootScaffoldMessengerKey,
-      builder: (context, child) {
-        final isDesktop = defaultTargetPlatform == TargetPlatform.linux ||
-            defaultTargetPlatform == TargetPlatform.macOS ||
-            defaultTargetPlatform == TargetPlatform.windows;
-        if (isDesktop) return child!;
-        // On mobile/web constrain to phone-sized column
-        return Container(
-          color: Colors.black,
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
-              child: child,
-            ),
-          ),
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, child) {
+        final themeMode = appProvider.settings.themeMode;
+        final isSystemDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+        final bool isLightTheme = themeMode == 'light' || (themeMode == 'system' && !isSystemDark);
+
+        // Sync JweTheme brightness
+        JweTheme.isLight = isLightTheme;
+
+        final Color currentTaskColor =
+            appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
+
+        // Sync JweTheme and AppTheme accent colors dynamically
+        JweTheme.accentAmber = currentTaskColor;
+        JweTheme.amberDim = currentTaskColor.withValues(alpha: 0.8);
+        JweTheme.amberSoft = currentTaskColor.withValues(alpha: 0.14);
+        JweTheme.amberGlow = currentTaskColor.withValues(alpha: 0.55);
+        JweTheme.lineAmber = currentTaskColor.withValues(alpha: 0.3);
+        AppTheme.fhAccentGold = currentTaskColor;
+        AppTheme.fhAccentOrange = currentTaskColor;
+
+        return MaterialApp(
+          title: 'Missions',
+          navigatorKey: WidgetActionRouter.instance.navigatorKey,
+          scaffoldMessengerKey: rootScaffoldMessengerKey,
+          builder: (context, child) {
+            final isDesktop = defaultTargetPlatform == TargetPlatform.linux ||
+                defaultTargetPlatform == TargetPlatform.macOS ||
+                defaultTargetPlatform == TargetPlatform.windows;
+            if (isDesktop) return child!;
+            // On mobile/web constrain to phone-sized column
+            return Container(
+              color: isLightTheme ? AppTheme.fhLightBgDeepDark : Colors.black,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: child,
+                ),
+              ),
+            );
+          },
+          theme: AppTheme.getThemeData(
+              primaryAccent: AppTheme.fhAccentTealFixed,
+              isLightTheme: isLightTheme),
+          debugShowCheckedModeBanner: false,
+          home: appProvider.authLoading
+              ? Scaffold(
+                  backgroundColor: isLightTheme ? AppTheme.fhLightBgDeepDark : AppTheme.fhBgDeepDark,
+                  body: Center(
+                    child: CircularProgressIndicator(
+                      color: isLightTheme ? AppTheme.fhLightTextPrimary : AppTheme.fhAccentTeal,
+                    ),
+                  ),
+                )
+              : appProvider.currentUser == null
+                  ? const LoginScreen()
+                  : !appProvider.settings.hasCompletedTour
+                      ? Theme(
+                          data: AppTheme.getThemeData(
+                              primaryAccent: AppTheme.fhAccentTealFixed,
+                              isLightTheme: isLightTheme),
+                          child: const AppTourScreen(),
+                        )
+                      : Theme(
+                          data: AppTheme.getThemeData(
+                              primaryAccent: currentTaskColor,
+                              isLightTheme: isLightTheme),
+                          child: HomeWidgetHost(
+                            provider: appProvider,
+                            child: const InsightWatcher(child: HomeScreen()),
+                          ),
+                        ),
         );
       },
-      theme: AppTheme.getThemeData(primaryAccent: AppTheme.fhAccentTealFixed),
-      debugShowCheckedModeBanner: false,
-      home: Consumer<AppProvider>(
-        builder: (context, appProvider, child) {
-          if (appProvider.authLoading) {
-            return const Scaffold(
-              backgroundColor: AppTheme.fhBgDeepDark,
-              body: Center(child: CircularProgressIndicator(color: AppTheme.fhAccentTeal)),
-            );
-          }
-
-          if (appProvider.currentUser == null) {
-            return const LoginScreen();
-          }
-
-          // Check if onboarding is completed
-          if (!appProvider.settings.hasCompletedTour) {
-            return Theme(
-              data: AppTheme.getThemeData(primaryAccent: AppTheme.fhAccentTealFixed),
-              child: const AppTourScreen(),
-            );
-          }
-
-          final Color currentTaskColor =
-              appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
-
-          // Sync JweTheme and AppTheme accent colors dynamically
-          JweTheme.accentAmber = currentTaskColor;
-          JweTheme.amberDim = currentTaskColor.withOpacity(0.8);
-          JweTheme.amberSoft = currentTaskColor.withOpacity(0.14);
-          JweTheme.amberGlow = currentTaskColor.withOpacity(0.55);
-          JweTheme.lineAmber = currentTaskColor.withOpacity(0.3);
-          AppTheme.fhAccentGold = currentTaskColor;
-          AppTheme.fhAccentOrange = currentTaskColor;
-
-          return Theme(
-            data: AppTheme.getThemeData(primaryAccent: currentTaskColor),
-            child: HomeWidgetHost(
-              provider: appProvider,
-              child: const InsightWatcher(child: HomeScreen()),
-            ),
-          );
-        },
-      ),
     );
   }
 }

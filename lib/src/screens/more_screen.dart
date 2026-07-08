@@ -26,7 +26,7 @@ class MoreScreen extends StatelessWidget {
         child: ListView(
           padding: EdgeInsets.fromLTRB(16, 16, 16, bottomPadding),
           children: [
-            const Text("UTILITIES & SYSTEM",
+              Text("UTILITIES & SYSTEM",
                 style: TextStyle(
                     color: JweTheme.textMuted, letterSpacing: 1.5, fontWeight: FontWeight.bold, fontSize: 12)),
             const SizedBox(height: 12),
@@ -89,7 +89,7 @@ class MoreScreen extends StatelessWidget {
             }),
 
             const SizedBox(height: 32),
-            const Text("CONFIGURATION",
+              Text("CONFIGURATION",
                 style: TextStyle(
                     color: JweTheme.textMuted, letterSpacing: 1.5, fontWeight: FontWeight.bold, fontSize: 12)),
             const SizedBox(height: 12),
@@ -118,7 +118,7 @@ class MoreScreen extends StatelessWidget {
                             appBar: AppBar(
                               title: Text("SETTINGS", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
                               backgroundColor: JweTheme.bgBase,
-                              iconTheme: const IconThemeData(color: JweTheme.accentCyan)
+                              iconTheme:  IconThemeData(color: JweTheme.accentCyan)
                             ),
                             backgroundColor: JweTheme.bgBase,
                             body: Center(
@@ -142,7 +142,7 @@ class MoreScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text("SYSTEM & UTILITIES", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 2.0, color: JweTheme.accentCyan)),
         backgroundColor: JweTheme.bgBase,
-        iconTheme: const IconThemeData(color: JweTheme.accentCyan),
+        iconTheme:  IconThemeData(color: JweTheme.accentCyan),
       ),
       body: SafeArea(
         child: bodyContent,
@@ -181,7 +181,7 @@ class MoreScreen extends StatelessWidget {
                 fontWeight: FontWeight.bold, color: JweTheme.textWhite, fontSize: 16)),
         subtitle: Text(subtitle,
             style:
-                const TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+                 TextStyle(color: JweTheme.textMuted, fontSize: 12)),
         trailing: Icon(MdiIcons.chevronRight, color: JweTheme.textMuted),
         onTap: onTap,
       ),

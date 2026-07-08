@@ -72,7 +72,7 @@ class ActionPlanResourcesCard extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+                Text(
                 "REQUIRED ASSETS",
                 style: TextStyle(
                   color: AppTheme.fhTextSecondary,
@@ -118,7 +118,7 @@ class ActionPlanResourcesCard extends StatelessWidget {
             border: Border.all(color: AppTheme.fhBorderColor),
           ),
           child: selectedIds.isEmpty
-            ? const Text(
+            ?   Text(
                 "No assets assigned.", 
                 style: TextStyle(color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic, fontSize: 12)
               )

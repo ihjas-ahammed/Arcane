@@ -44,7 +44,7 @@ class SleepPanel extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (log.sleepLogs.isEmpty)
-            const Text("No sleep data recorded for this cycle.",
+              Text("No sleep data recorded for this cycle.",
                 style: TextStyle(color: SpideyTheme.textMuted, fontStyle: FontStyle.italic, fontSize: 12))
           else
             ListView.builder(
@@ -65,18 +65,18 @@ class SleepPanel extends StatelessWidget {
                           children: [
                             Text(
                               "${DateFormat('HH:mm').format(sLog.startTime)} - ${DateFormat('HH:mm').format(sLog.endTime)}",
-                              style: const TextStyle(
+                              style:   TextStyle(
                                   color: SpideyTheme.textWhite, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono'),
                             ),
                             Text(
                               "${(sLog.durationMinutes / 60).floor()}h ${sLog.durationMinutes % 60}m",
-                              style: const TextStyle(color: SpideyTheme.textMuted, fontSize: 11),
+                              style:  TextStyle(color: SpideyTheme.textMuted, fontSize: 11),
                             ),
                           ],
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, color: SpideyTheme.spideyRed, size: 16),
+                        icon:  Icon(Icons.close, color: SpideyTheme.spideyRed, size: 16),
                         onPressed: () => provider.deleteSleepLog(dateStr, sLog.id),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -93,7 +93,7 @@ class SleepPanel extends StatelessWidget {
                 style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
             style: OutlinedButton.styleFrom(
               foregroundColor: SpideyTheme.spideyCyan,
-              side: const BorderSide(color: SpideyTheme.spideyCyan),
+              side:  BorderSide(color: SpideyTheme.spideyCyan),
               shape: const BeveledRectangleBorder(
                   borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(6), bottomRight: Radius.circular(6))),

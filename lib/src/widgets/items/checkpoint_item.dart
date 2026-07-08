@@ -117,8 +117,8 @@ class _CheckpointItemState extends State<CheckpointItem> {
             context: context,
             builder: (ctx) => AlertDialog(
               backgroundColor: AppTheme.fhBgDark,
-              title: const Text("Delete Objective?", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
-              content: const Text("This action cannot be undone.", style: TextStyle(color: AppTheme.fhTextSecondary)),
+              title:   Text("Delete Objective?", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
+              content:   Text("This action cannot be undone.", style: TextStyle(color: AppTheme.fhTextSecondary)),
               actions: [
                 TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
                 ElevatedButton(
@@ -217,19 +217,19 @@ class _CheckpointItemState extends State<CheckpointItem> {
                       ),
                         PopupMenuItem(
                         value: 'duplicate',
-                        child: Row(children:[Icon(MdiIcons.contentCopy, size: 16, color: AppTheme.fhTextPrimary), const SizedBox(width: 8), const Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))]),
+                        child: Row(children:[Icon(MdiIcons.contentCopy, size: 16, color: AppTheme.fhTextPrimary),   SizedBox(width: 8),   Text("Duplicate", style: TextStyle(color: AppTheme.fhTextPrimary))]),
                       ),
                       PopupMenuItem(
                         value: 'toggle_type',
                         child: Row(children:[
                           Icon(isInfo ? MdiIcons.checkboxMarkedOutline : MdiIcons.informationOutline, size: 16, color: AppTheme.fhTextPrimary), 
                           const SizedBox(width: 8), 
-                          Text(isInfo ? "Make Checkable" : "Make Info", style: const TextStyle(color: AppTheme.fhTextPrimary))
+                          Text(isInfo ? "Make Checkable" : "Make Info", style:   TextStyle(color: AppTheme.fhTextPrimary))
                         ]),
                       ),
                         PopupMenuItem(
                         value: 'delete',
-                        child: Row(children:[Icon(MdiIcons.deleteOutline, size: 16, color: AppTheme.fhAccentRed), const SizedBox(width: 8), const Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))]),
+                        child: Row(children:[Icon(MdiIcons.deleteOutline, size: 16, color: AppTheme.fhAccentRed),   SizedBox(width: 8),   Text("Delete", style: TextStyle(color: AppTheme.fhAccentRed))]),
                       ),
                     ],
                   ),

@@ -20,7 +20,7 @@ class SavingsDetailScreen extends StatelessWidget {
     final goal = provider.savingsGoals.firstWhereOrNull((g) => g.id == goalId);
     
     if (goal == null) {
-      return const Scaffold(backgroundColor: JweTheme.bgBase, body: SizedBox.shrink());
+      return  Scaffold(backgroundColor: JweTheme.bgBase, body: SizedBox.shrink());
     }
     
     final actualProgress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0) : 0.0;
@@ -75,14 +75,14 @@ class SavingsDetailScreen extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("ACCUMULATED FUNDS", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                     Text("ACCUMULATED FUNDS", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
                     Text("â‚¹${goal.currentAmount.toStringAsFixed(2)}", style: GoogleFonts.rajdhani(color: JweTheme.accentAmber, fontSize: 32, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text("TARGET", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                     Text("TARGET", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
                     Text("â‚¹${goal.targetAmount.toStringAsFixed(0)}", style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 24, fontWeight: FontWeight.bold)),
                   ],
                 ),
@@ -90,7 +90,7 @@ class SavingsDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             
-            const Text("PROGRESS TRAJECTORY", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+             Text("PROGRESS TRAJECTORY", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Container(
               height: 16,
@@ -113,7 +113,7 @@ class SavingsDetailScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("Target: ${DateFormat('MMM dd, yyyy').format(goal.targetDate)}", style: const TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+                Text("Target: ${DateFormat('MMM dd, yyyy').format(goal.targetDate)}", style:  TextStyle(color: JweTheme.textMuted, fontSize: 12)),
                 if (predictedDate != null)
                   Text("Projected: ${DateFormat('MMM dd, yyyy').format(predictedDate)}", style: TextStyle(color: predictedDate.isBefore(goal.targetDate) ? JweTheme.accentCyan : JweTheme.accentRed, fontSize: 12)),
               ],
@@ -133,7 +133,7 @@ class SavingsDetailScreen extends StatelessWidget {
             ),
             
             const SizedBox(height: 32),
-            const Text("INVESTMENT LOG", style: TextStyle(color: JweTheme.textMuted, fontSize: 12, fontWeight: FontWeight.bold)),
+             Text("INVESTMENT LOG", style: TextStyle(color: JweTheme.textMuted, fontSize: 12, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             ...goal.logs.map((log) {
               return Container(
@@ -151,13 +151,13 @@ class SavingsDetailScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("â‚¹${log.amount.toStringAsFixed(2)}", style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold)),
-                          Text(DateFormat('MMM dd, HH:mm').format(log.timestamp), style: const TextStyle(color: JweTheme.textMuted, fontSize: 11)),
+                          Text("â‚¹${log.amount.toStringAsFixed(2)}", style:  TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono', fontWeight: FontWeight.bold)),
+                          Text(DateFormat('MMM dd, HH:mm').format(log.timestamp), style:  TextStyle(color: JweTheme.textMuted, fontSize: 11)),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete, color: JweTheme.accentRed, size: 20),
+                      icon:  Icon(Icons.delete, color: JweTheme.accentRed, size: 20),
                       onPressed: () => provider.financeActions.deleteSavingsLog(goal.id, log.id),
                     ),
                   ],

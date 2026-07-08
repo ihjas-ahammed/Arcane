@@ -36,7 +36,7 @@ class _EditSubtaskDialogState extends State<EditSubtaskDialog> {
           children: [
             TextField(
               controller: _controller,
-              style: const TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay, fontSize: 18),
+              style:   TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay, fontSize: 18),
               decoration: const InputDecoration(
                 labelText: "MISSION NAME",
                 filled: true,

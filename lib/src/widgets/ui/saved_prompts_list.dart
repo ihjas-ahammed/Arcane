@@ -23,7 +23,7 @@ class SavedPromptsList extends StatelessWidget {
                 ?.copyWith(fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay)),
         const SizedBox(height: 12),
         if (savedPrompts.isEmpty)
-          const Center(
+            Center(
               child: Padding(
             padding: EdgeInsets.symmetric(vertical: 20),
             child: Text("NO SAVED PROMPTS FOUND.",
@@ -50,7 +50,7 @@ class SavedPromptsList extends StatelessWidget {
                     prompt,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style:   TextStyle(
                         fontSize: 12, color: AppTheme.fhTextPrimary, fontFamily: 'RobotoMono'),
                   ),
                   onTap: () => onSelect(prompt),

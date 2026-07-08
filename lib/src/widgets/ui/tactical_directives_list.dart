@@ -14,7 +14,7 @@ class TacticalDirectivesList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+          Text(
           "TACTICAL DIRECTIVES",
           style: TextStyle(
             color: AppTheme.fhAccentPurple,
@@ -37,7 +37,7 @@ class TacticalDirectivesList extends StatelessWidget {
               Expanded(
                 child: Text(
                   d,
-                  style: const TextStyle(
+                  style:   TextStyle(
                     color: AppTheme.fhTextPrimary,
                     fontSize: 13,
                     height: 1.3,

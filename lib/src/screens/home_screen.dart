@@ -130,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildDesktopNavRail(Color activeColor) {
     return Container(
       width: 72,
-      decoration: const BoxDecoration(
+      decoration:   BoxDecoration(
         color: Color(0xFF08101C),
         border: Border(right: BorderSide(color: JweTheme.lineSoft, width: 1)),
       ),
@@ -200,17 +200,21 @@ class _HomeScreenState extends State<HomeScreen> {
     final Color currentTaskColor =
         appProvider.getSelectedTask()?.taskColor ?? JweTheme.accentCyan;
 
+    final themeMode = appProvider.settings.themeMode;
+    final isSystemDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final bool isLightTheme = themeMode == 'light' || (themeMode == 'system' && !isSystemDark);
+
     // Sync JweTheme and AppTheme accent colors dynamically
     JweTheme.accentAmber = currentTaskColor;
-    JweTheme.amberDim = currentTaskColor.withOpacity(0.8);
-    JweTheme.amberSoft = currentTaskColor.withOpacity(0.14);
-    JweTheme.amberGlow = currentTaskColor.withOpacity(0.55);
-    JweTheme.lineAmber = currentTaskColor.withOpacity(0.3);
+    JweTheme.amberDim = currentTaskColor.withValues(alpha: 0.8);
+    JweTheme.amberSoft = currentTaskColor.withValues(alpha: 0.14);
+    JweTheme.amberGlow = currentTaskColor.withValues(alpha: 0.55);
+    JweTheme.lineAmber = currentTaskColor.withValues(alpha: 0.3);
     AppTheme.fhAccentGold = currentTaskColor;
     AppTheme.fhAccentOrange = currentTaskColor;
 
     final ThemeData dynamicTheme =
-        AppTheme.getThemeData(primaryAccent: currentTaskColor);
+        AppTheme.getThemeData(primaryAccent: currentTaskColor, isLightTheme: isLightTheme);
 
     final List<Widget> widgetOptions = <Widget>[
       Align(
@@ -240,7 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (project != null) {
         headerLabel = 'PROJECT: ${project.name}';
         customLeading = IconButton(
-          icon: const Icon(Icons.arrow_back, color: JweTheme.textWhite, size: 18),
+          icon:  Icon(Icons.arrow_back, color: JweTheme.textWhite, size: 18),
           onPressed: () => appProvider.setActiveProjectId(null),
         );
       }
@@ -285,14 +289,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     accent: currentTaskColor,
                     brackets: true,
                     allBrackets: true,
-                    background: Colors.white.withOpacity(0.07),
+                    background: isLightTheme ? Colors.black.withValues(alpha: 0.07) : Colors.white.withOpacity(0.07),
                     padding: EdgeInsets.zero,
                     onTap: () => _checkPinAndNavigate(context, const NoraAiScreen()),
-                    child: const Center(
+                    child: Center(
                       child: Icon(
                         MdiIcons.creation,
                         size: 24,
-                        color: Colors.white,
+                        color: isLightTheme ? AppTheme.fhLightTextPrimary : Colors.white,
                       ),
                     ),
                   ),

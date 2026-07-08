@@ -26,21 +26,21 @@ class _AddSavingsLogDialogState extends State<AddSavingsLogDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Available Balance: â‚¹${bal.toStringAsFixed(2)}", style: const TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+          Text("Available Balance: â‚¹${bal.toStringAsFixed(2)}", style:  TextStyle(color: JweTheme.textMuted, fontSize: 12)),
           const SizedBox(height: 16),
           TextField(
             controller: _amountController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(color: JweTheme.textWhite, fontSize: 24, fontFamily: 'RobotoMono'),
-            decoration: const InputDecoration(prefixText: "â‚¹ ", hintStyle: TextStyle(color: JweTheme.textMuted)),
+            style:  TextStyle(color: JweTheme.textWhite, fontSize: 24, fontFamily: 'RobotoMono'),
+            decoration:  InputDecoration(prefixText: "â‚¹ ", hintStyle: TextStyle(color: JweTheme.textMuted)),
             autofocus: true,
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
+        TextButton(onPressed: () => Navigator.pop(context), child:  Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: Colors.black, shape: const BeveledRectangleBorder()),
+          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: Colors.black, shape:  BeveledRectangleBorder()),
           onPressed: () {
             final amt = double.tryParse(_amountController.text);
             if (amt != null && amt > 0) {

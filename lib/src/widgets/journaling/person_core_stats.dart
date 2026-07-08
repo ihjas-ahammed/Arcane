@@ -49,7 +49,7 @@ class PersonCoreStats extends StatelessWidget {
           Expanded(
             child: Container(
               height: 1,
-              decoration: const BoxDecoration(
+              decoration:   BoxDecoration(
                 gradient: LinearGradient(
                   colors: [PersonInfoTheme.spideyCyanDim, Colors.transparent],
                   begin: Alignment.centerLeft,

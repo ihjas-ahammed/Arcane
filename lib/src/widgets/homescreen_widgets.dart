@@ -79,7 +79,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                 if (capacity.isNotEmpty)
                   Text(
                     "CAP $capacity",
-                    style: const TextStyle(
+                    style:   TextStyle(
                       color: AppTheme.fhTextDisabled,
                       fontFamily: 'monospace',
                       fontSize: 11,
@@ -92,7 +92,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
             // List of top 5 tasks
             Expanded(
               child: topFiveTasks.isEmpty
-                  ? const Center(
+                  ?   Center(
                       child: Text(
                         "NO PLAN SET",
                         style: TextStyle(
@@ -153,7 +153,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                                       item.parentName.toUpperCase(),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
+                                      style:   TextStyle(
                                         color: AppTheme.fhTextSecondary,
                                         fontSize: 9,
                                         fontFamily: 'monospace',
@@ -277,7 +277,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
               hasTask ? title.toUpperCase() : 'NO PLAN SET',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style:   TextStyle(
                 color: AppTheme.fhTextPrimary,
                 fontFamily: AppTheme.fontDisplay,
                 fontSize: 18,
@@ -290,7 +290,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
               hasTask ? subtitle.toUpperCase() : 'QUEUE STANDBY',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style:   TextStyle(
                 color: AppTheme.fhTextSecondary,
                 fontFamily: 'monospace',
                 fontSize: 11,
@@ -302,7 +302,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
             // where the native ticking Chronometer will overlay)
             Row(
               children: [
-                const Text(
+                  Text(
                   "TODAY",
                   style: TextStyle(
                     color: AppTheme.fhTextDisabled,
@@ -315,7 +315,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                 if (hasTask && capacity.isNotEmpty)
                   Text(
                     "CAP $capacity",
-                    style: const TextStyle(
+                    style:   TextStyle(
                       color: AppTheme.fhTextDisabled,
                       fontFamily: 'monospace',
                       fontSize: 11,
@@ -354,7 +354,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                     alignment: Alignment.center,
                     child: Text(
                       hasTask ? (isRunning ? "HALT SESSION" : "ENGAGE") : "OPEN PLAN",
-                      style: const TextStyle(
+                      style:   TextStyle(
                         color: AppTheme.fhBgDeepDark,
                         fontFamily: AppTheme.fontDisplay,
                         fontSize: 13,
@@ -375,7 +375,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     alignment: Alignment.center,
-                    child: const Text(
+                    child:   Text(
                       "CHECK",
                       style: TextStyle(
                         color: AppTheme.fhAccentTeal,
@@ -490,7 +490,7 @@ class FinanceHomeWidget extends StatelessWidget {
                 ),
                 Text(
                   DateFormat('HH:mm').format(DateTime.now()), // last updated time
-                  style: const TextStyle(
+                  style:   TextStyle(
                     color: AppTheme.fhTextDisabled,
                     fontSize: 10,
                     fontFamily: 'monospace',
@@ -542,7 +542,7 @@ class FinanceHomeWidget extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     alignment: Alignment.center,
-                    child: const Text(
+                    child:   Text(
                       "+ INCOME",
                       style: TextStyle(
                         color: AppTheme.fhAccentTeal,
@@ -563,7 +563,7 @@ class FinanceHomeWidget extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     alignment: Alignment.center,
-                    child: const Text(
+                    child:   Text(
                       "− EXPENSE",
                       style: TextStyle(
                         color: AppTheme.fhTextPrimary,
@@ -589,7 +589,7 @@ class FinanceHomeWidget extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style:   TextStyle(
             color: AppTheme.fhTextDisabled,
             fontFamily: 'monospace',
             fontSize: 10,
@@ -659,7 +659,7 @@ class JournalHomeWidget extends StatelessWidget {
                       color: AppTheme.fhAccentTeal,
                     ),
                     const SizedBox(width: 8),
-                    const Text(
+                      Text(
                       "// REFLECTION LOG",
                       style: TextStyle(
                         color: AppTheme.fhAccentTeal,
@@ -673,7 +673,7 @@ class JournalHomeWidget extends StatelessWidget {
                 ),
                 Text(
                   "$count ${count == 1 ? 'ENTRY' : 'ENTRIES'}",
-                  style: const TextStyle(
+                  style:   TextStyle(
                     color: AppTheme.fhTextSecondary,
                     fontSize: 11,
                     fontFamily: 'monospace',
@@ -686,7 +686,7 @@ class JournalHomeWidget extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                  Text(
                   "REFLECTION PROTOCOL",
                   style: TextStyle(
                     color: AppTheme.fhTextSecondary,
@@ -698,7 +698,7 @@ class JournalHomeWidget extends StatelessWidget {
                 ),
                 Text(
                   "$todayCount/5 COMPLETE",
-                  style: const TextStyle(
+                  style:   TextStyle(
                     color: AppTheme.fhAccentTeal,
                     fontFamily: 'monospace',
                     fontSize: 11,
@@ -734,7 +734,7 @@ class JournalHomeWidget extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     alignment: Alignment.center,
-                    child: const Text(
+                    child:   Text(
                       "+ NEW LOG",
                       style: TextStyle(
                         color: AppTheme.fhAccentTeal,

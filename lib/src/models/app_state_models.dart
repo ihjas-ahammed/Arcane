@@ -265,6 +265,9 @@ class AppSettings {
   // Story Mode Character Choice
   String storyCharacter;
 
+  // Theme settings ('system', 'light', 'dark')
+  String themeMode;
+
   AppSettings({
     this.descriptionsVisible = true,
     this.dailyAutoGenerateContent = true,
@@ -317,6 +320,7 @@ class AppSettings {
     this.adaptWritingStyle = false,
     this.writingStyleMap,
     this.storyCharacter = 'Ayan',
+    this.themeMode = 'system',
   })  : scheduledReminders = scheduledReminders ?? [],
         lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
 
@@ -400,6 +404,7 @@ class AppSettings {
       adaptWritingStyle: json['adaptWritingStyle'] as bool? ?? false,
       writingStyleMap: json['writingStyleMap'] as String?,
       storyCharacter: json['storyCharacter'] as String? ?? 'Ayan',
+      themeMode: json['themeMode'] as String? ?? 'system',
     );
   }
   
@@ -446,6 +451,7 @@ class AppSettings {
       'adaptWritingStyle': adaptWritingStyle,
       'writingStyleMap': writingStyleMap,
       'storyCharacter': storyCharacter,
+      'themeMode': themeMode,
     };
   }
 }

@@ -75,21 +75,21 @@ class _AddEditProtocolDialogState extends State<AddEditProtocolDialog> {
           children: <Widget>[
             TextField(
               controller: _nameController, 
-              style: const TextStyle(color: JweTheme.textWhite),
+              style:  TextStyle(color: JweTheme.textWhite),
               maxLines: null,
               keyboardType: TextInputType.multiline,
-              decoration: const InputDecoration(labelText: 'CODENAME', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder())
+              decoration:  InputDecoration(labelText: 'CODENAME', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder())
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _descController, 
               maxLines: 2,
-              style: const TextStyle(color: JweTheme.textWhite),
-              decoration: const InputDecoration(labelText: 'BRIEFING', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder())
+              style:  TextStyle(color: JweTheme.textWhite),
+              decoration:  InputDecoration(labelText: 'BRIEFING', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder())
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              decoration: const InputDecoration(labelText: 'CLASS', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder()),
+              decoration:  InputDecoration(labelText: 'CLASS', filled: true, fillColor: JweTheme.bgBase, border: OutlineInputBorder()),
               dropdownColor: JweTheme.panel,
               value: _selectedTheme,
               items: _availableThemes.map((themeMap) => DropdownMenuItem(
@@ -107,7 +107,7 @@ class _AddEditProtocolDialogState extends State<AddEditProtocolDialog> {
               },
             ),
             const SizedBox(height: 16),
-            const Text("CLASS COLOR", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+             Text("CLASS COLOR", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             GestureDetector(
               onTap: () {
@@ -137,9 +137,9 @@ class _AddEditProtocolDialogState extends State<AddEditProtocolDialog> {
         ),
       ),
       actions: [
-        TextButton(child: const Text('ABORT', style: TextStyle(color: JweTheme.textMuted)), onPressed: () => Navigator.pop(context)),
+        TextButton(child:  Text('ABORT', style: TextStyle(color: JweTheme.textMuted)), onPressed: () => Navigator.pop(context)),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: Colors.black, shape: const BeveledRectangleBorder()),
+          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: Colors.black, shape:  BeveledRectangleBorder()),
           onPressed: () {
             if (_nameController.text.isNotEmpty) {
               final provider = Provider.of<AppProvider>(context, listen: false);

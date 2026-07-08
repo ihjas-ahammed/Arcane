@@ -70,7 +70,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 autofocus: true,
                 style: const TextStyle(color: Colors.white, fontSize: 22),
-                decoration: const InputDecoration(
+                decoration:   InputDecoration(
                   prefixText: '₹ ',
                   hintText: '0.00',
                   hintStyle: TextStyle(color: JweTheme.textMuted),
@@ -81,7 +81,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+              child:  Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -112,7 +112,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
         return AlertDialog(
           backgroundColor: JweTheme.panel,
           shape: RoundedRectangleBorder(
-            side: const BorderSide(color: JweTheme.accentRed),
+            side:  BorderSide(color: JweTheme.accentRed),
             borderRadius: BorderRadius.zero,
           ),
           title: Text('RESET LEDGER',
@@ -128,7 +128,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+              child:  Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -461,7 +461,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
                   border: Border.all(color: JweTheme.lineSoft),
                 ),
                 child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  const Icon(Icons.add, color: JweTheme.accentCyan, size: 14),
+                   Icon(Icons.add, color: JweTheme.accentCyan, size: 14),
                   const SizedBox(width: 6),
                   Text('ADD ACCOUNT',
                       style: GoogleFonts.jetBrainsMono(
@@ -662,7 +662,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
                         padding: const EdgeInsets.only(top: 12, bottom: 6),
                         child: Row(
                           children: [
-                            const Icon(MdiIcons.chevronDoubleRight, size: 10, color: JweTheme.textMuted),
+                             Icon(MdiIcons.chevronDoubleRight, size: 10, color: JweTheme.textMuted),
                             const SizedBox(width: 6),
                             Text(
                               "${tx.timestamp.year}-${tx.timestamp.month.toString().padLeft(2, '0')}-${tx.timestamp.day.toString().padLeft(2, '0')}",
@@ -820,7 +820,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 autofocus: true,
                 style: const TextStyle(color: Colors.white, fontSize: 22),
-                decoration: const InputDecoration(
+                decoration:   InputDecoration(
                   prefixText: '₹ ',
                   hintText: '0.00',
                   hintStyle: TextStyle(color: JweTheme.textMuted),
@@ -831,7 +831,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+              child:  Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(

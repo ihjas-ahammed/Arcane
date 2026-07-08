@@ -34,12 +34,12 @@ class QuickActionCard extends StatelessWidget {
             Icon(icon, color: AppTheme.fhTextSecondary, size: 20),
             const SizedBox(width: 12),
             Text(label,
-                style: const TextStyle(
+                style:   TextStyle(
                     color: AppTheme.fhTextPrimary,
                     fontWeight: FontWeight.w500)),
             if (isFullWidth) ...[
               const Spacer(),
-              const Icon(Icons.arrow_forward_ios,
+                Icon(Icons.arrow_forward_ios,
                   color: AppTheme.fhTextSecondary, size: 14),
             ]
           ],

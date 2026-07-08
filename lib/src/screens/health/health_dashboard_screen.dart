@@ -30,10 +30,10 @@ class HealthDashboardScreen extends StatelessWidget {
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: SpideyTheme.spideyCyan),
+        iconTheme:  IconThemeData(color: SpideyTheme.spideyCyan),
       ),
       body: Container(
-        decoration: const BoxDecoration(gradient: SpideyTheme.backdropGradient),
+        decoration:  BoxDecoration(gradient: SpideyTheme.backdropGradient),
         child: SafeArea(
           child: Center(
             child: ConstrainedBox(

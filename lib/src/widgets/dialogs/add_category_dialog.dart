@@ -92,7 +92,7 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
             TextField(
               controller: _nameController,
               style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
+              decoration:   InputDecoration(
                 labelText: "CATEGORY NAME",
                 labelStyle: TextStyle(color: JweTheme.textMuted),
               ),
@@ -185,7 +185,7 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted)),
+          child:  Text("CANCEL", style: TextStyle(color: JweTheme.textMuted)),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(

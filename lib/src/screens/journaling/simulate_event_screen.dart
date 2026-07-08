@@ -37,15 +37,15 @@ class _SimulateEventScreenState extends State<SimulateEventScreen> {
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
       appBar: AppBar(
-        title: const Text("SITUATION SIMULATOR", style: TextStyle(color: AppTheme.fhAccentPurple)),
-        iconTheme: const IconThemeData(color: AppTheme.fhAccentPurple),
+        title:   Text("SITUATION SIMULATOR", style: TextStyle(color: AppTheme.fhAccentPurple)),
+        iconTheme:   IconThemeData(color: AppTheme.fhAccentPurple),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("SCENARIO PARAMETERS", style: TextStyle(color: AppTheme.fhAccentPurple, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
+              Text("SCENARIO PARAMETERS", style: TextStyle(color: AppTheme.fhAccentPurple, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
             const SizedBox(height: 8),
             GrowingTextField(controller: _inputController, hint: "Describe the future event you want to simulate...", minLines: 3),
             
@@ -65,7 +65,7 @@ class _SimulateEventScreenState extends State<SimulateEventScreen> {
                 children: [
                   Icon(MdiIcons.eyeSettingsOutline, color: AppTheme.fhAccentPurple),
                   const SizedBox(width: 8),
-                  const Text("SIMULATION RESULTS", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay, fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text("SIMULATION RESULTS", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay, fontSize: 20, fontWeight: FontWeight.bold)),
                 ],
               ),
               const SizedBox(height: 16),
@@ -75,7 +75,7 @@ class _SimulateEventScreenState extends State<SimulateEventScreen> {
                   color: AppTheme.fhBgDark,
                   border: Border(left: BorderSide(color: AppTheme.fhAccentPurple, width: 3)),
                 ),
-                child: Text(_result!, style: const TextStyle(color: AppTheme.fhTextPrimary, height: 1.5, fontSize: 14)),
+                child: Text(_result!, style:   TextStyle(color: AppTheme.fhTextPrimary, height: 1.5, fontSize: 14)),
               )
             ]
           ],

@@ -43,7 +43,7 @@ class SubmissionSessionsScreen extends StatelessWidget {
       liveParentTask = provider.mainTasks.firstWhere((t) => t.id == parentTask.id);
       liveSubTask = liveParentTask.subTasks.firstWhere((s) => s.id == subTask.id);
     } catch (e) {
-      return const Scaffold(backgroundColor: JweTheme.bgDeep, body: SizedBox());
+      return  Scaffold(backgroundColor: JweTheme.bgDeep, body: SizedBox());
     }
 
     final sessions = List<TaskSession>.from(liveSubTask.sessions)
@@ -60,7 +60,7 @@ class SubmissionSessionsScreen extends StatelessWidget {
             // ── Header ───────────────────────────────────────────────
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: const BoxDecoration(
+              decoration:   BoxDecoration(
                 color: JweTheme.panel,
                 border: Border(bottom: BorderSide(color: JweTheme.line)),
               ),
@@ -74,7 +74,7 @@ class SubmissionSessionsScreen extends StatelessWidget {
                         border: Border.all(color: JweTheme.border),
                         color: JweTheme.bgBase,
                       ),
-                      child: const Icon(Icons.arrow_back, color: JweTheme.textMid, size: 18),
+                      child:  Icon(Icons.arrow_back, color: JweTheme.textMid, size: 18),
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -139,7 +139,7 @@ class SubmissionSessionsScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(border: Border.all(color: JweTheme.border)),
-                    child: const Text("SORTED BY DATE",
+                    child:   Text("SORTED BY DATE",
                         style: TextStyle(
                             color: JweTheme.textMuted,
                             fontSize: 9,
@@ -168,7 +168,7 @@ class SubmissionSessionsScreen extends StatelessWidget {
                                 fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
-                          const Text(
+                            Text(
                             "Start a timer on the detail screen to log sessions",
                             style: TextStyle(color: JweTheme.textMuted, fontSize: 11),
                             textAlign: TextAlign.center,
@@ -214,7 +214,7 @@ class SubmissionSessionsScreen extends StatelessWidget {
                                           ),
                                           const SizedBox(width: 6),
                                           Text(yearStr,
-                                              style: const TextStyle(
+                                              style:   TextStyle(
                                                   color: JweTheme.textMuted, fontSize: 11)),
                                         ],
                                       ),
@@ -249,7 +249,7 @@ class SubmissionSessionsScreen extends StatelessWidget {
                                         children: [
                                           Icon(MdiIcons.pencilOutline, size: 12, color: JweTheme.textMuted),
                                           const SizedBox(width: 3),
-                                          const Text("EDIT",
+                                            Text("EDIT",
                                               style: TextStyle(
                                                   color: JweTheme.textMuted,
                                                   fontSize: 9,

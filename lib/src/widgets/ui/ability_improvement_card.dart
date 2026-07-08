@@ -40,7 +40,7 @@ class AbilityImprovementCard extends StatelessWidget {
                     Icon(MdiIcons.chevronUp, size: 16, color: AppTheme.fhAccentGreen),
                     Text(
                       "$score",
-                      style: const TextStyle(
+                      style:   TextStyle(
                         color: AppTheme.fhAccentGreen,
                         fontWeight: FontWeight.w900,
                         fontSize: 16,
@@ -61,7 +61,7 @@ class AbilityImprovementCard extends StatelessWidget {
                   children: [
                     Text(
                       name.toUpperCase(),
-                      style: const TextStyle(
+                      style:   TextStyle(
                         fontWeight: FontWeight.bold,
                         color: AppTheme.fhTextPrimary,
                         fontSize: 13,
@@ -74,7 +74,7 @@ class AbilityImprovementCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       reason,
-                      style: const TextStyle(
+                      style:   TextStyle(
                         color: AppTheme.fhTextSecondary,
                         fontSize: 12,
                         height: 1.3,

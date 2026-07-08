@@ -41,7 +41,7 @@ class _SimulateTalkScreenState extends State<SimulateTalkScreen> {
       return Scaffold(
         backgroundColor: AppTheme.fhBgDeepDark,
         appBar: AppBar(title: const Text("COMMS SIMULATOR")),
-        body: const Center(child: Text("No People Intel found. Extract from logs first.", style: TextStyle(color: AppTheme.fhTextDisabled))),
+        body:   Center(child: Text("No People Intel found. Extract from logs first.", style: TextStyle(color: AppTheme.fhTextDisabled))),
       );
     }
 
@@ -65,7 +65,7 @@ class _SimulateTalkScreenState extends State<SimulateTalkScreen> {
             
             const SizedBox(height: 24),
             
-            const Text("CONTEXTUAL CHAT HISTORY (OPTIONAL)", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
+              Text("CONTEXTUAL CHAT HISTORY (OPTIONAL)", style: TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
             const SizedBox(height: 8),
             GrowingTextField(controller: _chatHistoryController, hint: "Paste recent texts/WhatsApp logs here so the AI learns their exact speaking style...", minLines: 6),
 

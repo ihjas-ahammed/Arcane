@@ -148,7 +148,7 @@ class SessionLogDrawer extends StatelessWidget {
                                   "Confirm Delete",
                                   style: TextStyle(color: Colors.white),
                                 ),
-                                content: const Text(
+                                content:   Text(
                                   "Are you sure you want to delete this session log?",
                                   style: TextStyle(
                                       color: AppTheme.fhTextSecondary),
@@ -157,14 +157,14 @@ class SessionLogDrawer extends StatelessWidget {
                                   TextButton(
                                     onPressed: () =>
                                         Navigator.of(context).pop(false),
-                                    child: const Text("CANCEL",
+                                    child:   Text("CANCEL",
                                         style: TextStyle(
                                             color: AppTheme.fhTextSecondary)),
                                   ),
                                   TextButton(
                                     onPressed: () =>
                                         Navigator.of(context).pop(true),
-                                    child: const Text("DELETE",
+                                    child:   Text("DELETE",
                                         style: TextStyle(
                                             color: AppTheme.fhAccentRed)),
                                   ),

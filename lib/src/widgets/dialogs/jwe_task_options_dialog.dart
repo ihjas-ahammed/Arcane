@@ -22,7 +22,7 @@ class JweTaskOptionsDialog extends StatelessWidget {
 
     return Dialog(
       backgroundColor: JweTheme.panel,
-      shape: const RoundedRectangleBorder(
+      shape:   RoundedRectangleBorder(
         side: BorderSide(color: JweTheme.accentCyan, width: 2),
         borderRadius: BorderRadius.zero,
       ),
@@ -61,7 +61,7 @@ class JweTaskOptionsDialog extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                      Text(
                       "TARGET:",
                       style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold),
                     ),
@@ -79,7 +79,7 @@ class JweTaskOptionsDialog extends StatelessWidget {
                 label: const Text("EDIT PROTOCOL"),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: JweTheme.textWhite,
-                  side: const BorderSide(color: JweTheme.border),
+                  side:  BorderSide(color: JweTheme.border),
                   shape: const BeveledRectangleBorder(),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -113,7 +113,7 @@ class JweTaskOptionsDialog extends StatelessWidget {
                   label: const Text("COPY STRUCTURE"),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: JweTheme.accentCyan,
-                    side: const BorderSide(color: JweTheme.accentCyan),
+                    side:  BorderSide(color: JweTheme.accentCyan),
                     shape: const BeveledRectangleBorder(),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
@@ -132,7 +132,7 @@ class JweTaskOptionsDialog extends StatelessWidget {
                 label: const Text("DELETE PROTOCOL"),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: JweTheme.accentRed,
-                  side: const BorderSide(color: JweTheme.accentRed),
+                  side:  BorderSide(color: JweTheme.accentRed),
                   shape: const BeveledRectangleBorder(),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -142,9 +142,9 @@ class JweTaskOptionsDialog extends StatelessWidget {
                     builder: (ctx) => AlertDialog(
                       backgroundColor: JweTheme.panel,
                       title: Text("DELETE PROTOCOL?", style: GoogleFonts.rajdhani(color: JweTheme.accentRed, fontWeight: FontWeight.bold)),
-                      content: const Text("This action cannot be undone and will delete all nested missions.", style: TextStyle(color: JweTheme.textMuted)),
+                      content:  Text("This action cannot be undone and will delete all nested missions.", style: TextStyle(color: JweTheme.textMuted)),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child:  Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentRed, foregroundColor: Colors.white),
                           onPressed: () => Navigator.pop(ctx, true),
@@ -189,7 +189,7 @@ class JweTaskOptionsDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text("Paste the copied structure text here to import:", style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+             Text("Paste the copied structure text here to import:", style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
             const SizedBox(height: 10),
             TextField(
               controller: controller,
@@ -207,7 +207,7 @@ class JweTaskOptionsDialog extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted)),
+            child:  Text("CANCEL", style: TextStyle(color: JweTheme.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(

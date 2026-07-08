@@ -30,13 +30,13 @@ class _InitializeActionPlanDialogState extends State<InitializeActionPlanDialog>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("CODENAME", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+              Text("CODENAME", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             GrowingTextField(controller: _nameController, hint: "Plan Name...", minLines: 1),
             
             const SizedBox(height: 16),
             
-            const Text("STRATEGIC INTENT (WHY)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+              Text("STRATEGIC INTENT (WHY)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             GrowingTextField(controller: _whyController, hint: "Why is this action required?", minLines: 2),
           ],

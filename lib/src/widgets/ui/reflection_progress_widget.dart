@@ -62,7 +62,7 @@ class ReflectionProgressWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+                Text(
                 "REFLECTION PROTOCOL",
                 style: TextStyle(
                   color: AppTheme.fhTextSecondary,
@@ -73,7 +73,7 @@ class ReflectionProgressWidget extends StatelessWidget {
               ),
               Text(
                 "$total/5 LOGS",
-                style: const TextStyle(
+                style:   TextStyle(
                   color: AppTheme.fhAccentTeal,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -105,7 +105,7 @@ class ReflectionProgressWidget extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 8.0),
               child: Text(
                 "LAST LOGGED AT: ${DateFormat('HH:mm').format(lastLog.timestamp)}", 
-                style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono')
+                style:   TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono')
               ),
             ),
           

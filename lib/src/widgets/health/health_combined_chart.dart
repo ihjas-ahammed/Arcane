@@ -49,7 +49,7 @@ class HealthCombinedChart extends StatelessWidget {
               gridData: FlGridData(
                 show: true,
                 drawVerticalLine: false,
-                getDrawingHorizontalLine: (val) => const FlLine(color: JweTheme.border, strokeWidth: 1),
+                getDrawingHorizontalLine: (val) =>  FlLine(color: JweTheme.border, strokeWidth: 1),
               ),
               titlesData: FlTitlesData(
                 leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -64,7 +64,7 @@ class HealthCombinedChart extends StatelessWidget {
                       final date = now.subtract(Duration(days: 6 - value.toInt()));
                       return Padding(
                         padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(DateFormat('E').format(date).toUpperCase(), style: const TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                        child: Text(DateFormat('E').format(date).toUpperCase(), style:  TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
                       );
                     }
                   )
@@ -85,10 +85,10 @@ class HealthCombinedChart extends StatelessWidget {
               ),
               lineBarsData: [
                 LineChartBarData(
-                  spots: sleepSpots, color: JweTheme.accentCyan, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, belowBarData: BarAreaData(show: true, color: JweTheme.accentCyan.withValues(alpha: 0.1))
+                  spots: sleepSpots, color: JweTheme.accentCyan, isCurved: true, dotData:  FlDotData(show: false), barWidth: 2, belowBarData: BarAreaData(show: true, color: JweTheme.accentCyan.withValues(alpha: 0.1))
                 ),
                 LineChartBarData(
-                  spots: workSpots, color: JweTheme.accentAmber, isCurved: true, dotData: const FlDotData(show: false), barWidth: 2, dashArray: [5, 5], belowBarData: BarAreaData(show: true, color: JweTheme.accentAmber.withValues(alpha: 0.1))
+                  spots: workSpots, color: JweTheme.accentAmber, isCurved: true, dotData:  FlDotData(show: false), barWidth: 2, dashArray: [5, 5], belowBarData: BarAreaData(show: true, color: JweTheme.accentAmber.withValues(alpha: 0.1))
                 ),
               ]
             )

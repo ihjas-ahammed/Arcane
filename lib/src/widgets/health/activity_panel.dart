@@ -38,24 +38,24 @@ class ActivityPanel extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-                decoration: const InputDecoration(
+                decoration:   InputDecoration(
                     labelText: "WALK DISTANCE (KM)",
                     labelStyle: TextStyle(color: SpideyTheme.textMuted, fontSize: 12)),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (v) => d = double.tryParse(v) ?? d,
-                style: const TextStyle(color: SpideyTheme.textWhite, fontFamily: 'RobotoMono')),
+                style:  TextStyle(color: SpideyTheme.textWhite, fontFamily: 'RobotoMono')),
             const SizedBox(height: 16),
             TextField(
-                decoration: const InputDecoration(
+                decoration:   InputDecoration(
                     labelText: "WORKOUT DURATION (MIN)",
                     labelStyle: TextStyle(color: SpideyTheme.textMuted, fontSize: 12)),
                 keyboardType: TextInputType.number,
                 onChanged: (v) => m = int.tryParse(v) ?? m,
-                style: const TextStyle(color: SpideyTheme.textWhite, fontFamily: 'RobotoMono')),
+                style:  TextStyle(color: SpideyTheme.textWhite, fontFamily: 'RobotoMono')),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL", style: TextStyle(color: SpideyTheme.textMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child:  Text("CANCEL", style: TextStyle(color: SpideyTheme.textMuted))),
           ElevatedButton(
               onPressed: () {
                 if (d > 0 || m > 0) {
@@ -120,7 +120,7 @@ class ActivityPanel extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (log.activityLogs.isEmpty)
-            const Text("No activity data recorded for this cycle.",
+              Text("No activity data recorded for this cycle.",
                 style: TextStyle(color: SpideyTheme.textMuted, fontStyle: FontStyle.italic, fontSize: 12))
           else
             ListView.builder(
@@ -138,11 +138,11 @@ class ActivityPanel extends StatelessWidget {
                       Expanded(
                           child: Text(
                               "${aLog.walkDistanceKm > 0 ? '${aLog.walkDistanceKm.toStringAsFixed(1)} KM' : ''}${aLog.walkDistanceKm > 0 && aLog.workoutMinutes > 0 ? ' | ' : ''}${aLog.workoutMinutes > 0 ? '${aLog.workoutMinutes} MIN' : ''}",
-                              style: const TextStyle(color: SpideyTheme.textWhite, fontSize: 14, fontWeight: FontWeight.bold))),
+                              style:  TextStyle(color: SpideyTheme.textWhite, fontSize: 14, fontWeight: FontWeight.bold))),
                       Text(DateFormat('HH:mm').format(aLog.timestamp),
-                          style: const TextStyle(color: SpideyTheme.textMuted, fontSize: 11, fontFamily: 'RobotoMono')),
+                          style:  TextStyle(color: SpideyTheme.textMuted, fontSize: 11, fontFamily: 'RobotoMono')),
                       IconButton(
-                        icon: const Icon(Icons.close, color: SpideyTheme.spideyRed, size: 16),
+                        icon:  Icon(Icons.close, color: SpideyTheme.spideyRed, size: 16),
                         onPressed: () => provider.deleteActivityLog(dateStr, aLog.id),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -159,7 +159,7 @@ class ActivityPanel extends StatelessWidget {
                 style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
             style: OutlinedButton.styleFrom(
               foregroundColor: SpideyTheme.spideyRed,
-              side: const BorderSide(color: SpideyTheme.spideyRed),
+              side:  BorderSide(color: SpideyTheme.spideyRed),
               shape: const BeveledRectangleBorder(
                   borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(6), bottomRight: Radius.circular(6))),

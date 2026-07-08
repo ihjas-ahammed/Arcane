@@ -35,7 +35,7 @@ class _SessionEditDialogState extends State<SessionEditDialog> {
       initialTime: TimeOfDay.fromDateTime(initial),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(primary: AppTheme.fhAccentTeal, onPrimary: Colors.black, surface: AppTheme.fhBgDeepDark, onSurface: Colors.white),
+          colorScheme:   ColorScheme.dark(primary: AppTheme.fhAccentTeal, onPrimary: Colors.black, surface: AppTheme.fhBgDeepDark, onSurface: Colors.white),
         ),
         child: child!,
       ),
@@ -67,7 +67,7 @@ class _SessionEditDialogState extends State<SessionEditDialog> {
             const SizedBox(height: 12),
             _buildTimeRow("END", _endTime, () => _pickTime(false)),
             const SizedBox(height: 16),
-            Text("DURATION: ${_endTime.difference(_startTime).inMinutes} MIN", style: const TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+            Text("DURATION: ${_endTime.difference(_startTime).inMinutes} MIN", style:   TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
           ],
         ),
       ),
@@ -110,7 +110,7 @@ class _SessionEditDialogState extends State<SessionEditDialog> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
+            Text(label, style:   TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
             Text(DateFormat('HH:mm').format(dt), style: const TextStyle(color: Colors.white, fontFamily: "RobotoMono", fontSize: 16)),
           ],
         ),

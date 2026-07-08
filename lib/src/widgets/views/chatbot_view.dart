@@ -81,7 +81,7 @@ class _ChatbotViewState extends State<ChatbotView> {
               child: TextButton.icon(
                 icon: Icon(MdiIcons.refresh,
                     size: 16, color: AppTheme.fhTextSecondary),
-                label: const Text("Restart Session",
+                label:   Text("Restart Session",
                     style: TextStyle(
                         color: AppTheme.fhTextSecondary, fontSize: 12)),
                 onPressed: () async {
@@ -188,7 +188,7 @@ class _ChatbotViewState extends State<ChatbotView> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(25.0),
                         borderSide:
-                            const BorderSide(color: AppTheme.fhBorderColor),
+                              BorderSide(color: AppTheme.fhBorderColor),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(25.0),
@@ -199,7 +199,7 @@ class _ChatbotViewState extends State<ChatbotView> {
                           horizontal: 16, vertical: 10),
                     ),
                     onSubmitted: (_) => _sendMessage(),
-                    style: const TextStyle(
+                    style:   TextStyle(
                         color: AppTheme.fhTextPrimary, fontSize: 14),
                   ),
                 ),
@@ -246,7 +246,7 @@ class _ChatbotViewState extends State<ChatbotView> {
 
     // Emotion tracking removed, returning error for legacy emotion graphs.
     if (graphType == 'emotion_trend_bar' || source == 'emotion_logs') {
-      return const Text("Emotion tracking is no longer supported.",
+      return   Text("Emotion tracking is no longer supported.",
           style: TextStyle(
               color: AppTheme.fhTextDisabled, fontStyle: FontStyle.italic));
     }

@@ -116,7 +116,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children:[
-              const Text("TACTICAL EXECUTION (HOW)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
+                Text("TACTICAL EXECUTION (HOW)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
               if (widget.steps.isEmpty)
                 TextButton.icon(
                   onPressed: isLoading ? null : () async {
@@ -155,7 +155,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
               border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5)),
               color: AppTheme.fhBgDark.withOpacity(0.5)
             ),
-            child: const Text("No steps defined yet.", style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
+            child:   Text("No steps defined yet.", style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
           )
         else
           ListView.builder(
@@ -223,9 +223,9 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
                     hintText: _aiMode
                         ? "DESCRIBE STEPS FOR AI..."
                         : "ADD STEP...   (try  Push-ups*5  or  Lap %d * 3)",
-                    hintStyle: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12, letterSpacing: 1.0),
-                    border: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
-                    enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+                    hintStyle:   TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12, letterSpacing: 1.0),
+                    border:   OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+                    enabledBorder:   OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
                     focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: widget.accentColor)),
                     filled: true,
                     fillColor: AppTheme.fhBgDark.withOpacity(0.5),

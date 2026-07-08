@@ -151,7 +151,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (rems.isEmpty)
-                      const Padding(
+                        Padding(
                         padding: EdgeInsets.symmetric(vertical: 20),
                         child: Text(
                           "No reminders configured.",
@@ -218,16 +218,16 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                           context: context,
                           builder: (ctx2) => AlertDialog(
                             backgroundColor: JweTheme.panel,
-                            title: const Text("REPEAT OPTION", style: TextStyle(color: JweTheme.textWhite)),
+                            title:  Text("REPEAT OPTION", style: TextStyle(color: JweTheme.textWhite)),
                             content: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 ListTile(
-                                  title: const Text("ONCE", style: TextStyle(color: JweTheme.textWhite)),
+                                  title:  Text("ONCE", style: TextStyle(color: JweTheme.textWhite)),
                                   onTap: () => Navigator.pop(ctx2, 'once'),
                                 ),
                                 ListTile(
-                                  title: const Text("DAILY", style: TextStyle(color: JweTheme.textWhite)),
+                                  title:  Text("DAILY", style: TextStyle(color: JweTheme.textWhite)),
                                   onTap: () => Navigator.pop(ctx2, 'daily'),
                                 ),
                               ],
@@ -290,7 +290,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text("CLOSE", style: TextStyle(color: JweTheme.textMuted)),
+                  child:  Text("CLOSE", style: TextStyle(color: JweTheme.textMuted)),
                 ),
               ],
             );
@@ -362,7 +362,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
             // ── Header ───────────────────────────────────────────────
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: const BoxDecoration(
+              decoration:   BoxDecoration(
                 color: JweTheme.panel,
                 border: Border(bottom: BorderSide(color: JweTheme.line)),
               ),
@@ -376,7 +376,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         border: Border.all(color: JweTheme.border),
                         color: JweTheme.bgBase,
                       ),
-                      child: const Icon(Icons.arrow_back, color: JweTheme.textMid, size: 18),
+                      child:  Icon(Icons.arrow_back, color: JweTheme.textMid, size: 18),
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -910,7 +910,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text("Paste the copied structure text here to import:", style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+             Text("Paste the copied structure text here to import:", style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
             const SizedBox(height: 10),
             TextField(
               controller: controller,
@@ -928,7 +928,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted)),
+            child:  Text("CANCEL", style: TextStyle(color: JweTheme.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -1064,12 +1064,12 @@ class _TemplateSetsTabs extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: JweTheme.panel,
-        title: const Text('New Template Set', style: TextStyle(color: JweTheme.textWhite)),
+        title:  Text('New Template Set', style: TextStyle(color: JweTheme.textWhite)),
         content: TextField(
           controller: textController,
           autofocus: true,
-          style: const TextStyle(color: JweTheme.textWhite),
-          decoration: const InputDecoration(
+          style:  TextStyle(color: JweTheme.textWhite),
+          decoration:   InputDecoration(
             hintText: 'e.g. Monday, Routine A',
             hintStyle: TextStyle(color: JweTheme.textMuted),
             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
@@ -1079,7 +1079,7 @@ class _TemplateSetsTabs extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+            child:  Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
           ),
           TextButton(
             onPressed: () {
@@ -1089,7 +1089,7 @@ class _TemplateSetsTabs extends StatelessWidget {
               }
               Navigator.pop(ctx);
             },
-            child: const Text('ADD', style: TextStyle(color: JweTheme.accentCyan)),
+            child:  Text('ADD', style: TextStyle(color: JweTheme.accentCyan)),
           ),
         ],
       ),
@@ -1101,14 +1101,14 @@ class _TemplateSetsTabs extends StatelessWidget {
       context: context,
       builder: (ctx) => SimpleDialog(
         backgroundColor: JweTheme.panel,
-        title: Text('Template Set: ${templateSet.name}', style: const TextStyle(color: JweTheme.textWhite)),
+        title: Text('Template Set: ${templateSet.name}', style:  TextStyle(color: JweTheme.textWhite)),
         children: [
           SimpleDialogOption(
             onPressed: () {
               Navigator.pop(ctx);
               _showRenameDialog(context, templateSet);
             },
-            child: const Row(
+            child:   Row(
               children: [
                 Icon(Icons.edit, color: JweTheme.accentCyan, size: 18),
                 SizedBox(width: 12),
@@ -1122,7 +1122,7 @@ class _TemplateSetsTabs extends StatelessWidget {
                 Navigator.pop(ctx);
                 provider.taskActions.deleteTemplateSet(parentTask.id, subTask.id, templateSet.id);
               },
-              child: const Row(
+              child:   Row(
                 children: [
                   Icon(Icons.delete, color: JweTheme.accentRed, size: 18),
                   SizedBox(width: 12),
@@ -1141,12 +1141,12 @@ class _TemplateSetsTabs extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: JweTheme.panel,
-        title: const Text('Rename Template Set', style: TextStyle(color: JweTheme.textWhite)),
+        title:  Text('Rename Template Set', style: TextStyle(color: JweTheme.textWhite)),
         content: TextField(
           controller: textController,
           autofocus: true,
-          style: const TextStyle(color: JweTheme.textWhite),
-          decoration: const InputDecoration(
+          style:  TextStyle(color: JweTheme.textWhite),
+          decoration:   InputDecoration(
             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
             focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentCyan)),
           ),
@@ -1154,7 +1154,7 @@ class _TemplateSetsTabs extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+            child:  Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
           ),
           TextButton(
             onPressed: () {
@@ -1164,7 +1164,7 @@ class _TemplateSetsTabs extends StatelessWidget {
               }
               Navigator.pop(ctx);
             },
-            child: const Text('SAVE', style: TextStyle(color: JweTheme.accentCyan)),
+            child:  Text('SAVE', style: TextStyle(color: JweTheme.accentCyan)),
           ),
         ],
       ),
@@ -1196,7 +1196,7 @@ class _TemplateSetsTabs extends StatelessWidget {
                   color: Colors.transparent,
                 ),
                 alignment: Alignment.center,
-                child: const Icon(Icons.add, color: JweTheme.textMid, size: 16),
+                child:  Icon(Icons.add, color: JweTheme.textMid, size: 16),
               ),
             );
           }

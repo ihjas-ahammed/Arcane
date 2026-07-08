@@ -136,22 +136,22 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
             children: [
               TextField(
                 controller: versionController,
-                style: const TextStyle(color: JweTheme.textWhite),
+                style:  TextStyle(color: JweTheme.textWhite),
                 decoration: InputDecoration(
                   labelText: 'VERSION (e.g. v1.0.0)',
-                  labelStyle: const TextStyle(color: JweTheme.textMuted),
-                  enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                  labelStyle:  TextStyle(color: JweTheme.textMuted),
+                  enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                   focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: titleController,
-                style: const TextStyle(color: JweTheme.textWhite),
+                style:  TextStyle(color: JweTheme.textWhite),
                 decoration: InputDecoration(
                   labelText: 'RELEASE TITLE / MILESTONE',
-                  labelStyle: const TextStyle(color: JweTheme.textMuted),
-                  enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                  labelStyle:  TextStyle(color: JweTheme.textMuted),
+                  enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                   focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
                 ),
               ),
@@ -177,7 +177,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('MARK AS SHIPPED', style: TextStyle(color: JweTheme.textWhite, fontSize: 13)),
+                title:  Text('MARK AS SHIPPED', style: TextStyle(color: JweTheme.textWhite, fontSize: 13)),
                 activeThumbColor: JweTheme.accentAmber,
                 value: isReleased,
                 onChanged: (val) => setDialogState(() => isReleased = val),
@@ -187,7 +187,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('ABORT', style: TextStyle(color: JweTheme.textMuted)),
+              child:  Text('ABORT', style: TextStyle(color: JweTheme.textMuted)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -243,11 +243,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
           children: [
             TextField(
               controller: titleController,
-              style: const TextStyle(color: JweTheme.textWhite),
+              style:  TextStyle(color: JweTheme.textWhite),
               decoration: InputDecoration(
                 labelText: 'NOTE TITLE',
-                labelStyle: const TextStyle(color: JweTheme.textMuted),
-                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                labelStyle:  TextStyle(color: JweTheme.textMuted),
+                enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                 focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
               ),
             ),
@@ -255,11 +255,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
             TextField(
               controller: contentController,
               maxLines: 4,
-              style: const TextStyle(color: JweTheme.textWhite),
+              style:  TextStyle(color: JweTheme.textWhite),
               decoration: InputDecoration(
                 labelText: 'CONTENT',
-                labelStyle: const TextStyle(color: JweTheme.textMuted),
-                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                labelStyle:  TextStyle(color: JweTheme.textMuted),
+                enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                 focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
               ),
             ),
@@ -268,7 +268,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+            child:  Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -322,11 +322,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
           children: [
             TextField(
               controller: nameController,
-              style: const TextStyle(color: JweTheme.textWhite),
+              style:  TextStyle(color: JweTheme.textWhite),
               decoration: InputDecoration(
                 labelText: 'FILE NAME (e.g. roadmap.md)',
-                labelStyle: const TextStyle(color: JweTheme.textMuted),
-                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                labelStyle:  TextStyle(color: JweTheme.textMuted),
+                enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                 focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
               ),
             ),
@@ -334,11 +334,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
             TextField(
               controller: contentController,
               maxLines: 4,
-              style: const TextStyle(color: JweTheme.textWhite),
+              style:  TextStyle(color: JweTheme.textWhite),
               decoration: InputDecoration(
                 labelText: 'FILE MARKDOWN CONTENT',
-                labelStyle: const TextStyle(color: JweTheme.textMuted),
-                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                labelStyle:  TextStyle(color: JweTheme.textMuted),
+                enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                 focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
               ),
             ),
@@ -347,7 +347,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+            child:  Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -405,8 +405,8 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
             keyboardType: TextInputType.multiline,
             style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 12),
             decoration: InputDecoration(
-              border: const OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
-              enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+              border:  OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+              enabledBorder:  OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
               focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
             ),
           ),
@@ -414,7 +414,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('CLOSE', style: TextStyle(color: JweTheme.textMuted)),
+            child:  Text('CLOSE', style: TextStyle(color: JweTheme.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -631,7 +631,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
                 border: Border.all(color: JweTheme.border),
               ),
               alignment: Alignment.center,
-              child: const Text('NO PLANNED RELEASES AVAILABLE.', style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+              child:  Text('NO PLANNED RELEASES AVAILABLE.', style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
             )
           else ...[
             if (unreleased.isNotEmpty) ...[
@@ -725,7 +725,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
               },
             ),
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: JweTheme.accentRed),
+              icon:  Icon(Icons.delete_outline, color: JweTheme.accentRed),
               onPressed: () {
                 final updatedReleases = project.releases.where((rel) => rel.id != release.id).toList();
                 provider.updateProject(project.copyWith(releases: updatedReleases));
@@ -826,7 +826,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
                             ),
                             const SizedBox(width: 8),
                             IconButton(
-                              icon: const Icon(MdiIcons.linkOff, color: JweTheme.accentRed, size: 16),
+                              icon:  Icon(MdiIcons.linkOff, color: JweTheme.accentRed, size: 16),
                               constraints: const BoxConstraints(),
                               padding: EdgeInsets.zero,
                               onPressed: () async {
@@ -834,7 +834,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
                                   context: context,
                                   builder: (confirmCtx) => AlertDialog(
                                     backgroundColor: JweTheme.panel,
-                                    title: const Text('UNLINK CONTRACT?', style: TextStyle(color: JweTheme.accentRed)),
+                                    title:  Text('UNLINK CONTRACT?', style: TextStyle(color: JweTheme.accentRed)),
                                     content: Text('Unlink "${sub.name}" from project?'),
                                     actions: [
                                       TextButton(onPressed: () => Navigator.pop(confirmCtx, false), child: const Text('CANCEL')),
@@ -936,7 +936,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
                 border: Border.all(color: JweTheme.border),
               ),
               alignment: Alignment.center,
-              child: const Text('NO CONTRACTS LINKED TO THIS MISSION.', style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+              child:  Text('NO CONTRACTS LINKED TO THIS MISSION.', style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
             )
           else
             ReorderableListView(
@@ -986,7 +986,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
                 border: Border.all(color: JweTheme.border),
               ),
               alignment: Alignment.center,
-              child: const Text('NO LOG ENTRIES CREATED.', style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+              child:  Text('NO LOG ENTRIES CREATED.', style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
             )
           else
             ...project.notes.map((n) => _ProjectNoteCard(note: n, onDelete: () {
@@ -1039,7 +1039,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: const Icon(MdiIcons.deleteOutline, color: JweTheme.accentRed, size: 16),
+                  icon:  Icon(MdiIcons.deleteOutline, color: JweTheme.accentRed, size: 16),
                   constraints: const BoxConstraints(),
                   padding: EdgeInsets.zero,
                   onPressed: () {
@@ -1210,7 +1210,7 @@ class _ProjectNoteCardState extends State<_ProjectNoteCard> {
     return Card(
       color: JweTheme.panel,
       margin: const EdgeInsets.only(bottom: 10),
-      shape: const Border(left: BorderSide(color: JweTheme.textMuted, width: 2)),
+      shape:  Border(left: BorderSide(color: JweTheme.textMuted, width: 2)),
       child: InkWell(
         onTap: () => setState(() => _expanded = !_expanded),
         child: Padding(
@@ -1230,7 +1230,7 @@ class _ProjectNoteCardState extends State<_ProjectNoteCard> {
                         ),
                         Text(
                           DateFormat('yyyy-MM-dd HH:mm').format(widget.note.createdAt),
-                          style: const TextStyle(color: JweTheme.textMuted, fontSize: 9),
+                          style:  TextStyle(color: JweTheme.textMuted, fontSize: 9),
                         ),
                       ],
                     ),
@@ -1242,7 +1242,7 @@ class _ProjectNoteCardState extends State<_ProjectNoteCard> {
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    icon: const Icon(MdiIcons.deleteOutline, color: JweTheme.accentRed, size: 18),
+                    icon:  Icon(MdiIcons.deleteOutline, color: JweTheme.accentRed, size: 18),
                     constraints: const BoxConstraints(),
                     padding: EdgeInsets.zero,
                     onPressed: widget.onDelete,
@@ -1316,12 +1316,12 @@ class _LinkTaskDialogState extends State<_LinkTaskDialog> {
           children: [
             TextField(
               controller: _searchController,
-              style: const TextStyle(color: JweTheme.textWhite),
+              style:  TextStyle(color: JweTheme.textWhite),
               decoration: InputDecoration(
                 hintText: 'SEARCH CONTRACTS...',
-                hintStyle: const TextStyle(color: JweTheme.textMuted),
-                prefixIcon: const Icon(Icons.search, color: JweTheme.textMuted),
-                enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                hintStyle:  TextStyle(color: JweTheme.textMuted),
+                prefixIcon:  Icon(Icons.search, color: JweTheme.textMuted),
+                enabledBorder:  OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                 focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
               ),
               onChanged: (val) => setState(() => _searchQuery = val),
@@ -1329,7 +1329,7 @@ class _LinkTaskDialogState extends State<_LinkTaskDialog> {
             const SizedBox(height: 12),
             Expanded(
               child: availableTasks.isEmpty
-                  ? const Center(child: Text('NO CONTRACTS DETECTED.', style: TextStyle(color: JweTheme.textMuted)))
+                  ?  Center(child: Text('NO CONTRACTS DETECTED.', style: TextStyle(color: JweTheme.textMuted)))
                   : ListView.builder(
                       itemCount: availableTasks.length,
                       itemBuilder: (ctx, idx) {
@@ -1342,7 +1342,7 @@ class _LinkTaskDialogState extends State<_LinkTaskDialog> {
                           color: JweTheme.bgDeep,
                           margin: const EdgeInsets.only(bottom: 8),
                           child: ListTile(
-                            title: Text(sub.name, style: const TextStyle(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold)),
+                            title: Text(sub.name, style:  TextStyle(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold)),
                             subtitle: Text('${parent.name.toUpperCase()} • ${sub.completed ? "COMPLETED" : "ONGOING"}', style: TextStyle(color: parent.taskColor, fontSize: 10)),
                             trailing: Icon(MdiIcons.plus, color: JweTheme.accentAmber),
                             onTap: () {
@@ -1363,7 +1363,7 @@ class _LinkTaskDialogState extends State<_LinkTaskDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('ABORT', style: TextStyle(color: JweTheme.textMuted)),
+          child:  Text('ABORT', style: TextStyle(color: JweTheme.textMuted)),
         ),
       ],
     );

@@ -68,7 +68,7 @@ class _EditLogDialogState extends State<EditLogDialog> {
       actions: [
         TextButton.icon(
           icon:  Icon(MdiIcons.deleteForever, size: 18),
-          label: const Text("DELETE", style: TextStyle(color: AppTheme.fhAccentRed)),
+          label:   Text("DELETE", style: TextStyle(color: AppTheme.fhAccentRed)),
           onPressed: () async {
              final confirm = await showDialog<bool>(
                context: context,

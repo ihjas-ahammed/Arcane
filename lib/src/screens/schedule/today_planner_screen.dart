@@ -151,7 +151,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                     label: Text('${preset}m'),
                     selected: false,
                     backgroundColor: AppTheme.fhBgDeepDark,
-                    labelStyle: const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 12),
+                    labelStyle:   TextStyle(color: AppTheme.fhTextPrimary, fontSize: 12),
                     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                     onSelected: (_) => Navigator.pop(ctx, preset),
                   );
@@ -161,8 +161,8 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
               TextField(
                 controller: controller,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(color: AppTheme.fhTextPrimary),
-                decoration: const InputDecoration(
+                style:   TextStyle(color: AppTheme.fhTextPrimary),
+                decoration:   InputDecoration(
                   labelText: 'Minutes',
                   labelStyle: TextStyle(color: AppTheme.fhTextSecondary),
                   enabledBorder: UnderlineInputBorder(
@@ -176,13 +176,13 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('CANCEL', style: TextStyle(color: AppTheme.fhTextSecondary))),
+                child:   Text('CANCEL', style: TextStyle(color: AppTheme.fhTextSecondary))),
             TextButton(
               onPressed: () {
                 final v = int.tryParse(controller.text.trim()) ?? current;
                 Navigator.pop(ctx, v.clamp(0, 600));
               },
-              child: const Text('SET', style: TextStyle(color: AppTheme.fhAccentTeal)),
+              child:   Text('SET', style: TextStyle(color: AppTheme.fhAccentTeal)),
             ),
           ],
         );
@@ -209,16 +209,16 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                   fontWeight: FontWeight.bold)),
           content: Text(
             'Set for ${DateFormat('MMM d · hh:mm a').format(existing)}.',
-            style: const TextStyle(color: AppTheme.fhTextSecondary),
+            style:   TextStyle(color: AppTheme.fhTextSecondary),
           ),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, 'clear'),
-                child: const Text('CLEAR',
+                child:   Text('CLEAR',
                     style: TextStyle(color: AppTheme.fhAccentRed))),
             TextButton(
                 onPressed: () => Navigator.pop(ctx, 'change'),
-                child: const Text('CHANGE',
+                child:   Text('CHANGE',
                     style: TextStyle(color: AppTheme.fhAccentTeal))),
           ],
         ),
@@ -318,7 +318,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                 letterSpacing: 3)),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: AppTheme.fhTextPrimary),
+        iconTheme:   IconThemeData(color: AppTheme.fhTextPrimary),
       ),
       body: SafeArea(
         child: Column(
@@ -365,7 +365,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                     letterSpacing: 2,
                     fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            const Text('Open ADD below to queue work.',
+              Text('Open ADD below to queue work.',
                 style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
           ],
         ),
@@ -493,7 +493,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
           padding: const EdgeInsets.all(24),
           child: Text(
             q.isEmpty ? 'No available items.' : 'No matches for "$_searchQuery".',
-            style: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12),
+            style:   TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12),
             textAlign: TextAlign.center,
           ),
         ),
@@ -538,7 +538,7 @@ class _BudgetBar extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      decoration: const BoxDecoration(
+      decoration:   BoxDecoration(
         color: AppTheme.fhBgDark,
         border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor)),
       ),
@@ -643,7 +643,7 @@ class _ActivePill extends StatelessWidget {
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
+              style:   TextStyle(
                   color: AppTheme.fhTextPrimary,
                   fontSize: 12,
                   fontWeight: FontWeight.w600),
@@ -712,7 +712,7 @@ class _PlanRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Padding(
+            Padding(
             padding: EdgeInsets.symmetric(horizontal: 8),
             child: Icon(Icons.drag_indicator,
                 color: AppTheme.fhTextDisabled, size: 18),
@@ -725,14 +725,14 @@ class _PlanRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(title,
-                      style: const TextStyle(
+                      style:   TextStyle(
                           color: AppTheme.fhTextPrimary,
                           fontSize: 13,
                           fontWeight: FontWeight.bold),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                   Text(parent,
-                      style: const TextStyle(
+                      style:   TextStyle(
                           color: AppTheme.fhTextSecondary, fontSize: 10),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
@@ -779,13 +779,13 @@ class _PlanRow extends StatelessWidget {
             tooltip: 'Reminder',
           ),
           IconButton(
-            icon: const Icon(Icons.check, size: 18, color: AppTheme.fhAccentTeal),
+            icon:   Icon(Icons.check, size: 18, color: AppTheme.fhAccentTeal),
             onPressed: onCheck,
             splashRadius: 18,
             tooltip: 'Complete Task',
           ),
           IconButton(
-            icon: const Icon(Icons.close, size: 18, color: AppTheme.fhAccentRed),
+            icon:   Icon(Icons.close, size: 18, color: AppTheme.fhAccentRed),
             onPressed: onRemove,
             splashRadius: 18,
           ),
@@ -813,7 +813,7 @@ class _AnointHint extends StatelessWidget {
         children: [
           Icon(MdiIcons.fireCircle, size: 16, color: AppTheme.fhAccentOrange),
           const SizedBox(width: 10),
-          const Expanded(
+            Expanded(
             child: Text('Anoint your Phoenix — the one thing that must rise today.',
                 style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11.5)),
           ),
@@ -915,14 +915,14 @@ class _PhoenixCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(title,
-                          style: const TextStyle(
+                          style:   TextStyle(
                               color: AppTheme.fhTextPrimary,
                               fontSize: 15,
                               fontWeight: FontWeight.bold),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis),
                       Text(parent,
-                          style: const TextStyle(
+                          style:   TextStyle(
                               color: AppTheme.fhTextSecondary, fontSize: 10),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
@@ -960,13 +960,13 @@ class _PhoenixCard extends StatelessWidget {
                 tooltip: 'Reminder',
               ),
               IconButton(
-                icon: const Icon(Icons.check, size: 18, color: AppTheme.fhAccentTeal),
+                icon:   Icon(Icons.check, size: 18, color: AppTheme.fhAccentTeal),
                 onPressed: onCheck,
                 splashRadius: 18,
                 tooltip: 'Complete Task',
               ),
               IconButton(
-                icon: const Icon(Icons.close, size: 18, color: AppTheme.fhAccentRed),
+                icon:   Icon(Icons.close, size: 18, color: AppTheme.fhAccentRed),
                 onPressed: onRemove,
                 splashRadius: 18,
               ),
@@ -1026,14 +1026,14 @@ class _AvailableRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis),
                   if (parent != null)
                     Text(parent!,
-                        style: const TextStyle(
+                        style:   TextStyle(
                             color: AppTheme.fhTextDisabled, fontSize: 10),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
-            const Icon(Icons.add, color: AppTheme.fhAccentTeal, size: 18),
+              Icon(Icons.add, color: AppTheme.fhAccentTeal, size: 18),
           ],
         ),
       ),
@@ -1062,7 +1062,7 @@ class _AddSection extends StatelessWidget {
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
       height: expanded ? 340 : 53,
-      decoration: const BoxDecoration(
+      decoration:   BoxDecoration(
         color: AppTheme.fhBgDark,
         border: Border(top: BorderSide(color: AppTheme.fhBorderColor)),
       ),
@@ -1101,19 +1101,19 @@ class _AddSection extends StatelessWidget {
               child: TextField(
                 controller: searchController,
                 onChanged: onSearchChanged,
-                style: const TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
+                style:   TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
                 decoration: InputDecoration(
                   isDense: true,
                   hintText: 'Search…',
-                  hintStyle: const TextStyle(color: AppTheme.fhTextDisabled, fontSize: 13),
-                  prefixIcon: const Icon(Icons.search,
+                  hintStyle:   TextStyle(color: AppTheme.fhTextDisabled, fontSize: 13),
+                  prefixIcon:   Icon(Icons.search,
                       size: 16, color: AppTheme.fhTextSecondary),
                   prefixIconConstraints:
                       const BoxConstraints(minWidth: 32, minHeight: 32),
                   contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                  enabledBorder: const UnderlineInputBorder(
+                  enabledBorder:   UnderlineInputBorder(
                       borderSide: BorderSide(color: AppTheme.fhBorderColor)),
-                  focusedBorder: const UnderlineInputBorder(
+                  focusedBorder:   UnderlineInputBorder(
                       borderSide: BorderSide(color: AppTheme.fhAccentTeal)),
                 ),
               ),

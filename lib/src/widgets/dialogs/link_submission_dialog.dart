@@ -44,7 +44,7 @@ class _LinkSubmissionDialogState extends State<LinkSubmissionDialog> {
 
     return AlertDialog(
       backgroundColor: AppTheme.fhBgMedium,
-      title: const Text("Link to Submission",
+      title:   Text("Link to Submission",
           style: TextStyle(color: AppTheme.fhTextPrimary)),
       content: SingleChildScrollView(
         child: Column(
@@ -53,16 +53,16 @@ class _LinkSubmissionDialogState extends State<LinkSubmissionDialog> {
           children: [
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(
+              decoration:   InputDecoration(
                 labelText: "Name",
                 labelStyle: TextStyle(color: AppTheme.fhTextSecondary),
                 enabledBorder: UnderlineInputBorder(
                     borderSide: BorderSide(color: AppTheme.fhBorderColor)),
               ),
-              style: const TextStyle(color: AppTheme.fhTextPrimary),
+              style:   TextStyle(color: AppTheme.fhTextPrimary),
             ),
             const SizedBox(height: 16),
-            const Text("Type:",
+              Text("Type:",
                 style: TextStyle(
                     color: AppTheme.fhTextSecondary,
                     fontWeight: FontWeight.bold)),
@@ -74,7 +74,7 @@ class _LinkSubmissionDialogState extends State<LinkSubmissionDialog> {
                   onChanged: (val) => setState(() => _type = val!),
                   activeColor: AppTheme.fhAccentTeal,
                 ),
-                const Text("Task",
+                  Text("Task",
                     style: TextStyle(color: AppTheme.fhTextPrimary)),
                 if (canBeCheckpoint) ...[
                   const SizedBox(width: 16),
@@ -84,14 +84,14 @@ class _LinkSubmissionDialogState extends State<LinkSubmissionDialog> {
                     onChanged: (val) => setState(() => _type = val!),
                     activeColor: AppTheme.fhAccentTeal,
                   ),
-                  const Text("Step",
+                    Text("Step",
                       style: TextStyle(color: AppTheme.fhTextPrimary)),
                 ],
               ],
             ),
             if (_type == 'checkpoint' && canBeCheckpoint) ...[
               const SizedBox(height: 16),
-              const Text("Parent Sub-Mission:",
+                Text("Parent Sub-Mission:",
                   style: TextStyle(
                       color: AppTheme.fhTextSecondary,
                       fontWeight: FontWeight.bold)),
@@ -100,7 +100,7 @@ class _LinkSubmissionDialogState extends State<LinkSubmissionDialog> {
                 value: _selectedParentId,
                 dropdownColor: AppTheme.fhBgDeepDark,
                 isExpanded: true,
-                style: const TextStyle(color: AppTheme.fhTextPrimary),
+                style:   TextStyle(color: AppTheme.fhTextPrimary),
                 items: widget.availableSubmissions.map((sub) {
                   return DropdownMenuItem<String>(
                     value: sub.id,
@@ -112,7 +112,7 @@ class _LinkSubmissionDialogState extends State<LinkSubmissionDialog> {
                 },
               ),
             ] else if (_type == 'checkpoint' && !canBeCheckpoint) ...[
-              const Padding(
+                Padding(
                 padding: EdgeInsets.only(top: 8.0),
                 child: Text(
                   "No Sub-Missions available to add a checkpoint to. Please create a Sub-Mission first.",

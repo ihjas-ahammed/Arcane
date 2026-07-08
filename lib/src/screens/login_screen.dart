@@ -124,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
                                     color: JweTheme.accentRed.withOpacity(0.08),
-                                    border: const Border(
+                                    border:   Border(
                                       left: BorderSide(color: JweTheme.accentRed, width: 3),
                                     ),
                                   ),
@@ -316,11 +316,11 @@ class _LoginScreenState extends State<LoginScreen> {
               borderRadius: BorderRadius.zero,
               borderSide: BorderSide(color: JweTheme.accentAmber, width: 1.5),
             ),
-            errorBorder: const OutlineInputBorder(
+            errorBorder:   OutlineInputBorder(
               borderRadius: BorderRadius.zero,
               borderSide: BorderSide(color: JweTheme.accentRed),
             ),
-            focusedErrorBorder: const OutlineInputBorder(
+            focusedErrorBorder:   OutlineInputBorder(
               borderRadius: BorderRadius.zero,
               borderSide: BorderSide(color: JweTheme.accentRed, width: 1.5),
             ),

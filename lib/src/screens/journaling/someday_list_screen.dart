@@ -64,7 +64,7 @@ class _SomedayListScreenState extends State<SomedayListScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.warning_amber_rounded, color: JweTheme.accentRed, size: 20),
+                         Icon(Icons.warning_amber_rounded, color: JweTheme.accentRed, size: 20),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
@@ -82,16 +82,16 @@ class _SomedayListScreenState extends State<SomedayListScreen> {
                     accentColor: JweTheme.accentCyan,
                     child: TextField(
                       controller: _inputController,
-                      style: const TextStyle(color: JweTheme.textWhite, fontSize: 14),
+                      style:  TextStyle(color: JweTheme.textWhite, fontSize: 14),
                       decoration: InputDecoration(
                         hintText: "ZERO-FRICTION CAPTURE...",
                         hintStyle: TextStyle(color: JweTheme.textMuted.withValues(alpha: 0.5), fontSize: 12, letterSpacing: 1.0),
                         filled: true,
                         fillColor: JweTheme.bgBase,
                         border: const OutlineInputBorder(borderSide: BorderSide.none),
-                        focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentCyan, width: 1)),
+                        focusedBorder:  OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentCyan, width: 1)),
                         suffixIcon: IconButton(
-                          icon: const Icon(Icons.subdirectory_arrow_left, color: JweTheme.accentCyan),
+                          icon:  Icon(Icons.subdirectory_arrow_left, color: JweTheme.accentCyan),
                           onPressed: () => _submit(provider),
                         )
                       ),
@@ -132,7 +132,7 @@ class _SomedayListScreenState extends State<SomedayListScreen> {
                                 color: JweTheme.panel,
                                 border: Border(
                                   left: BorderSide(color: isOld ? JweTheme.accentRed : JweTheme.textMuted, width: 3),
-                                  bottom: const BorderSide(color: JweTheme.border),
+                                  bottom:  BorderSide(color: JweTheme.border),
                                 )
                               ),
                               child: Row(
@@ -143,7 +143,7 @@ class _SomedayListScreenState extends State<SomedayListScreen> {
                                       children: [
                                         Text(
                                           item.title,
-                                          style: const TextStyle(color: JweTheme.textWhite, fontSize: 14, fontWeight: FontWeight.w500),
+                                          style:  TextStyle(color: JweTheme.textWhite, fontSize: 14, fontWeight: FontWeight.w500),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
@@ -154,7 +154,7 @@ class _SomedayListScreenState extends State<SomedayListScreen> {
                                     ),
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.check, color: JweTheme.accentCyan, size: 20),
+                                    icon:  Icon(Icons.check, color: JweTheme.accentCyan, size: 20),
                                     tooltip: "Keep in list (Dismiss Review)",
                                     onPressed: () {
                                       // Essentially just updates the timestamp to reset the review nudge

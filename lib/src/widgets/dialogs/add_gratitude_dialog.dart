@@ -64,7 +64,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
     return Dialog(
       backgroundColor: PersonInfoTheme.bgPanel,
       shape: RoundedRectangleBorder(
-        side: const BorderSide(color: PersonInfoTheme.spideyCyan, width: 2),
+        side:  BorderSide(color: PersonInfoTheme.spideyCyan, width: 2),
         borderRadius: BorderRadius.circular(0), // Sharp edges
       ),
       child: SingleChildScrollView(
@@ -105,7 +105,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
               _buildLabel("NAME / TITLE"),
               TextField(
                 controller: _nameController,
-                style: const TextStyle(color: PersonInfoTheme.textWhite),
+                style:  TextStyle(color: PersonInfoTheme.textWhite),
                 decoration: _inputDecoration(hint: "e.g. Flutter, My Mentor, Good Coffee"),
               ),
 
@@ -114,7 +114,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
               TextField(
                 controller: _whyController,
                 maxLines: 2,
-                style: const TextStyle(color: PersonInfoTheme.textWhite, fontSize: 13),
+                style:  TextStyle(color: PersonInfoTheme.textWhite, fontSize: 13),
                 decoration: _inputDecoration(hint: "Why is this important?"),
               ),
 
@@ -123,7 +123,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
               TextField(
                 controller: _howController,
                 maxLines: 2,
-                style: const TextStyle(color: PersonInfoTheme.textWhite, fontSize: 13),
+                style:  TextStyle(color: PersonInfoTheme.textWhite, fontSize: 13),
                 decoration: _inputDecoration(hint: "How do you utilize or interact with this?"),
               ),
 
@@ -132,7 +132,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
               TextField(
                 controller: _whatController,
                 maxLines: 2,
-                style: const TextStyle(color: PersonInfoTheme.textWhite, fontSize: 13),
+                style:  TextStyle(color: PersonInfoTheme.textWhite, fontSize: 13),
                 decoration: _inputDecoration(hint: "What is the direct benefit or outcome?"),
               ),
 
@@ -192,7 +192,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
       fillColor: PersonInfoTheme.bgDark,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       border: const OutlineInputBorder(borderSide: BorderSide.none),
-      focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: PersonInfoTheme.spideyCyan, width: 1)),
+      focusedBorder:  OutlineInputBorder(borderSide: BorderSide(color: PersonInfoTheme.spideyCyan, width: 1)),
     );
   }
 }

@@ -14,17 +14,17 @@ import 'package:missions/src/theme/jwe_theme.dart';
 // regardless of bundled assets).
 // ─────────────────────────────────────────────────────────────
 class HudType {
-  static TextStyle display({double size = 16, FontWeight weight = FontWeight.w700, Color color = JweTheme.textWhite, double letter = 0.4}) =>
-      GoogleFonts.saira(fontSize: size, fontWeight: weight, color: color, letterSpacing: letter, height: 1.15);
+  static TextStyle display({double size = 16, FontWeight weight = FontWeight.w700, Color? color, double letter = 0.4}) =>
+      GoogleFonts.saira(fontSize: size, fontWeight: weight, color: color ?? JweTheme.textWhite, letterSpacing: letter, height: 1.15);
 
-  static TextStyle body({double size = 13, FontWeight weight = FontWeight.w400, Color color = JweTheme.textWhite, double letter = 0.05}) =>
-      GoogleFonts.inter(fontSize: size, fontWeight: weight, color: color, letterSpacing: letter, height: 1.4);
+  static TextStyle body({double size = 13, FontWeight weight = FontWeight.w400, Color? color, double letter = 0.05}) =>
+      GoogleFonts.inter(fontSize: size, fontWeight: weight, color: color ?? JweTheme.textWhite, letterSpacing: letter, height: 1.4);
 
-  static TextStyle mono({double size = 11, FontWeight weight = FontWeight.w500, Color color = JweTheme.textMid, double letter = 1.2}) =>
-      GoogleFonts.jetBrainsMono(fontSize: size, fontWeight: weight, color: color, letterSpacing: letter);
+  static TextStyle mono({double size = 11, FontWeight weight = FontWeight.w500, Color? color, double letter = 1.2}) =>
+      GoogleFonts.jetBrainsMono(fontSize: size, fontWeight: weight, color: color ?? JweTheme.textMid, letterSpacing: letter);
 
-  static TextStyle cap({Color color = JweTheme.textMuted, double size = 10}) =>
-      GoogleFonts.jetBrainsMono(fontSize: size, fontWeight: FontWeight.w600, color: color, letterSpacing: 1.8);
+  static TextStyle cap({Color? color, double size = 10}) =>
+      GoogleFonts.jetBrainsMono(fontSize: size, fontWeight: FontWeight.w600, color: color ?? JweTheme.textMuted, letterSpacing: 1.8);
 }
 
 // ─────────────────────────────────────────────────────────────

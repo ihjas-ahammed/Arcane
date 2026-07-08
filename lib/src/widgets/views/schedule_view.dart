@@ -51,13 +51,13 @@ class _ScheduleViewState extends State<ScheduleView> {
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
+          colorScheme:   ColorScheme.dark(
             primary: AppTheme.fhAccentTeal,
             onPrimary: Colors.black,
             surface: AppTheme.fhBgDark,
             onSurface: Colors.white,
           ),
-          dialogTheme: const DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
+          dialogTheme:   DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
         ),
         child: child!,
       ),
@@ -256,7 +256,7 @@ class _ScheduleViewState extends State<ScheduleView> {
                   title: Text(task.name, style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold)),
                   children: activeSubtasks.map((sub) {
                     return ListTile(
-                      title: Text(sub.name, style: const TextStyle(color: AppTheme.fhTextPrimary)),
+                      title: Text(sub.name, style:   TextStyle(color: AppTheme.fhTextPrimary)),
                       onTap: () {
                         provider.addSessionToSubtask(task.id, sub.id, start, end);
                         Navigator.pop(ctx);
@@ -327,7 +327,7 @@ class _ScheduleViewState extends State<ScheduleView> {
               });
               Navigator.pop(ctx);
             }, 
-            child: const Text("REMOVE", style: TextStyle(color: AppTheme.fhAccentRed))
+            child:   Text("REMOVE", style: TextStyle(color: AppTheme.fhAccentRed))
           ),
           ElevatedButton(
             onPressed: () {
@@ -542,7 +542,7 @@ class _ScheduleViewState extends State<ScheduleView> {
         // CONTROLS — tactical date strip
         Container(
           padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: JweTheme.bgCanvas,
             border: Border(
               top: BorderSide(color: JweTheme.lineSoft, width: 1),
@@ -698,7 +698,7 @@ class _CarryoverBanner extends StatelessWidget {
           Expanded(
             child: Text(
               '$unfinishedCount unfinished from yesterday',
-              style: const TextStyle(
+              style:   TextStyle(
                   color: AppTheme.fhTextPrimary,
                   fontSize: 12,
                   fontWeight: FontWeight.w600),
@@ -710,7 +710,7 @@ class _CarryoverBanner extends StatelessWidget {
               minimumSize: const Size(0, 32),
               padding: const EdgeInsets.symmetric(horizontal: 8),
             ),
-            child: const Text('DISMISS',
+            child:   Text('DISMISS',
                 style: TextStyle(
                     color: AppTheme.fhTextSecondary,
                     fontSize: 11,
@@ -724,7 +724,7 @@ class _CarryoverBanner extends StatelessWidget {
               minimumSize: const Size(0, 32),
               padding: const EdgeInsets.symmetric(horizontal: 8),
             ),
-            child: const Text('CARRY OVER',
+            child:   Text('CARRY OVER',
                 style: TextStyle(
                     color: AppTheme.fhAccentTeal,
                     fontSize: 11,
@@ -740,14 +740,14 @@ class _CarryoverBanner extends StatelessWidget {
 class _ScheduleControlIcon extends StatelessWidget {
   final IconData? icon;
   final VoidCallback? onTap;
-  final Color accent;
+  final Color? accent;
   final String? tooltip;
   final bool loading;
 
   const _ScheduleControlIcon({
     this.icon,
     this.onTap,
-    this.accent = JweTheme.accentCyan,
+    this.accent,
     this.tooltip,
     this.loading = false,
   });
@@ -755,22 +755,23 @@ class _ScheduleControlIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final disabled = onTap == null;
+    final activeAccent = accent ?? JweTheme.accentCyan;
     Widget child = Container(
       width: 36,
       height: 36,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         border: Border.all(
-          color: disabled ? JweTheme.lineSoft : accent.withValues(alpha: 0.40),
+          color: disabled ? JweTheme.lineSoft : activeAccent.withValues(alpha: 0.40),
           width: 1,
         ),
       ),
       child: loading
           ? SizedBox(
               width: 14, height: 14,
-              child: CircularProgressIndicator(strokeWidth: 1.6, valueColor: AlwaysStoppedAnimation<Color>(accent)),
+              child: CircularProgressIndicator(strokeWidth: 1.6, valueColor: AlwaysStoppedAnimation<Color>(activeAccent)),
             )
-          : Icon(icon, size: 16, color: disabled ? JweTheme.textMuted : accent),
+          : Icon(icon, size: 16, color: disabled ? JweTheme.textMuted : activeAccent),
     );
     if (onTap != null) {
       child = InkWell(onTap: onTap, child: child);

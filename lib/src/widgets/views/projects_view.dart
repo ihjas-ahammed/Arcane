@@ -45,11 +45,11 @@ class _ProjectsViewState extends State<ProjectsView> {
             TextField(
               controller: nameController,
               autofocus: true,
-              style: const TextStyle(color: JweTheme.textWhite),
+              style:  TextStyle(color: JweTheme.textWhite),
               decoration: InputDecoration(
                 labelText: 'PROJECT CODE / NAME',
                 labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
-                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                 focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
               ),
             ),
@@ -57,11 +57,11 @@ class _ProjectsViewState extends State<ProjectsView> {
             TextField(
               controller: descController,
               maxLines: 3,
-              style: const TextStyle(color: JweTheme.textWhite),
+              style:  TextStyle(color: JweTheme.textWhite),
               decoration: InputDecoration(
                 labelText: 'OPERATIONAL OUTLINE / PLAN',
                 labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
-                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                 focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
               ),
             ),
@@ -131,14 +131,14 @@ class _ProjectsViewState extends State<ProjectsView> {
                     'TERMINATE PROJECT PROTOCOL?',
                     style: GoogleFonts.rajdhani(color: JweTheme.accentRed, fontWeight: FontWeight.bold),
                   ),
-                  content: const Text(
+                  content:   Text(
                     'This will delete the project plan and releases. Linked tasks themselves will NOT be deleted.',
                     style: TextStyle(color: JweTheme.textMuted),
                   ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(confirmCtx, false),
-                      child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+                      child:  Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
                     ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentRed, foregroundColor: Colors.white),
@@ -186,11 +186,11 @@ class _ProjectsViewState extends State<ProjectsView> {
           children: [
             TextField(
               controller: nameController,
-              style: const TextStyle(color: JweTheme.textWhite),
+              style:  TextStyle(color: JweTheme.textWhite),
               decoration: InputDecoration(
                 labelText: 'PROJECT NAME',
-                labelStyle: const TextStyle(color: JweTheme.textMuted),
-                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                labelStyle:  TextStyle(color: JweTheme.textMuted),
+                enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                 focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
               ),
             ),
@@ -198,11 +198,11 @@ class _ProjectsViewState extends State<ProjectsView> {
             TextField(
               controller: descController,
               maxLines: 3,
-              style: const TextStyle(color: JweTheme.textWhite),
+              style:  TextStyle(color: JweTheme.textWhite),
               decoration: InputDecoration(
                 labelText: 'PROJECT DESCRIPTION',
-                labelStyle: const TextStyle(color: JweTheme.textMuted),
-                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                labelStyle:  TextStyle(color: JweTheme.textMuted),
+                enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                 focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
               ),
             ),
@@ -211,7 +211,7 @@ class _ProjectsViewState extends State<ProjectsView> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+            child:  Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(

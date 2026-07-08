@@ -27,7 +27,7 @@ class ArchivedReportsScreen extends StatelessWidget {
           }
 
           if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}", style: const TextStyle(color: AppTheme.fhAccentRed)));
+            return Center(child: Text("Error: ${snapshot.error}", style:   TextStyle(color: AppTheme.fhAccentRed)));
           }
 
           final reports = snapshot.data ?? [];
@@ -39,7 +39,7 @@ class ArchivedReportsScreen extends StatelessWidget {
                 children: [
                   Icon(MdiIcons.fileDocumentOutline, size: 64, color: AppTheme.fhTextDisabled.withOpacity(0.3)),
                   const SizedBox(height: 16),
-                  const Text(
+                    Text(
                     "NO ARCHIVED REPORTS", 
                     style: TextStyle(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay, fontSize: 18)
                   ),
@@ -82,8 +82,8 @@ class ArchivedReportsScreen extends StatelessWidget {
                     ),
                     child: Icon(MdiIcons.medalOutline, color: AppTheme.fhAccentGold),
                   ),
-                  title: const Text("WEEKLY DEBRIEF", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
-                  subtitle: Text(displayDate, style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+                  title:   Text("WEEKLY DEBRIEF", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
+                  subtitle: Text(displayDate, style:   TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
                   trailing: Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary),
                   onTap: () {
                     Navigator.push(

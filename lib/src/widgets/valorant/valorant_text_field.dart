@@ -24,7 +24,7 @@ class ValorantTextField extends StatelessWidget {
       children: [
         Text(
           label.toUpperCase(),
-          style: const TextStyle(
+          style:   TextStyle(
             color: AppTheme.fhTextSecondary,
             fontFamily: AppTheme.fontDisplay,
             fontWeight: FontWeight.bold,
@@ -46,7 +46,7 @@ class ValorantTextField extends StatelessWidget {
                   controller: controller,
                   maxLines: maxLines,
                   autofocus: autofocus,
-                  style: const TextStyle(
+                  style:   TextStyle(
                     color: AppTheme.fhTextPrimary,
                     fontFamily: AppTheme.fontBody,
                     fontSize: 14,

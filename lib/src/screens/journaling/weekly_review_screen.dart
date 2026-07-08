@@ -361,7 +361,7 @@ class _TextBlock extends StatelessWidget {
           ),
           child: Text(
             text,
-            style: const TextStyle(
+            style:   TextStyle(
               color: JweTheme.textWhite,
               fontSize: 13,
               height: 1.55,
@@ -439,7 +439,7 @@ class _GTDItemCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   description,
-                  style: const TextStyle(
+                  style:   TextStyle(
                     color: JweTheme.textWhite,
                     fontSize: 12,
                     height: 1.4,
@@ -481,7 +481,7 @@ class _FrictionCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     struggle,
-                    style: const TextStyle(
+                    style:   TextStyle(
                       color: JweTheme.textWhite,
                       fontSize: 12,
                       fontStyle: FontStyle.italic,
@@ -501,7 +501,7 @@ class _FrictionCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     adjustment,
-                    style: const TextStyle(
+                    style:   TextStyle(
                       color: JweTheme.textWhite,
                       fontSize: 13,
                       height: 1.4,
@@ -537,7 +537,7 @@ class _IdentityCard extends StatelessWidget {
         children: [
           Text(
             '"$action"',
-            style: const TextStyle(
+            style:   TextStyle(
               color: JweTheme.textMid,
               fontSize: 12,
               fontStyle: FontStyle.italic,
@@ -599,7 +599,7 @@ class _GratefulPersonCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             reason,
-            style: const TextStyle(color: JweTheme.textMid, fontSize: 12, height: 1.4),
+            style:  TextStyle(color: JweTheme.textMid, fontSize: 12, height: 1.4),
           ),
         ],
       ),
@@ -793,7 +793,7 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
                         _buildBriefMetricRow('OUTFLOW', '₹${weekExpense.toStringAsFixed(0)}', JweTheme.accentRed),
                         const SizedBox(height: 8),
                         _buildBriefMetricRow('NET INFLOW', '₹${(weekIncome - weekExpense).toStringAsFixed(0)}', (weekIncome - weekExpense) >= 0 ? JweTheme.accentTeal : JweTheme.accentRed),
-                        const Divider(color: JweTheme.lineSoft, height: 16),
+                         Divider(color: JweTheme.lineSoft, height: 16),
                         _buildBriefMetricRow('BALANCE', '₹${balance.toStringAsFixed(0)}', JweTheme.textWhite),
                       ],
                     ),

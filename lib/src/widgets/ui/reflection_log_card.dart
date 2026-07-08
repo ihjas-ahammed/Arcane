@@ -70,7 +70,7 @@ class ReflectionLogCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   DateFormat('MMM dd, yyyy - HH:mm').format(log.timestamp),
-                  style: const TextStyle(color: JweTheme.textMuted, fontSize: 10, fontFamily: 'RobotoMono'),
+                  style:  TextStyle(color: JweTheme.textMuted, fontSize: 10, fontFamily: 'RobotoMono'),
                 ),
                 const SizedBox(height: 12),
                 if (log.emotion.isNotEmpty)
@@ -81,7 +81,7 @@ class ReflectionLogCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     "ACTION: ${log.action}",
-                    style: const TextStyle(
+                    style:   TextStyle(
                       color: JweTheme.textWhite, 
                       fontSize: 12, 
                     ),
@@ -95,11 +95,11 @@ class ReflectionLogCard extends StatelessWidget {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.3),
-                      border: const Border(left: BorderSide(color: JweTheme.accentCyan, width: 2))
+                      border:  Border(left: BorderSide(color: JweTheme.accentCyan, width: 2))
                     ),
                     child: Text(
                       log.aiFeedback,
-                      style: const TextStyle(
+                      style:   TextStyle(
                         color: JweTheme.textMuted, 
                         fontSize: 11, 
                         fontStyle: FontStyle.italic,
@@ -114,7 +114,7 @@ class ReflectionLogCard extends StatelessWidget {
             ),
           ),
           if (isSelected)
-            const Positioned(
+              Positioned(
               right: 16,
               bottom: 16,
               child: Icon(Icons.check_circle, color: JweTheme.accentCyan, size: 24),
@@ -134,7 +134,7 @@ class ReflectionLogCard extends StatelessWidget {
             width: 40,
             child: Text(
               label,
-              style: const TextStyle(
+              style:   TextStyle(
                 color: JweTheme.textMuted,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
@@ -144,7 +144,7 @@ class ReflectionLogCard extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
+              style:   TextStyle(
                 color: JweTheme.textWhite,
                 fontSize: 12,
               ),

@@ -84,7 +84,7 @@ class EnergyPanel extends StatelessWidget {
           SizedBox(
             height: 160,
             child: entries.isEmpty
-                ? const Center(
+                ?   Center(
                     child: Text("No energy logs for this cycle. Tap LOG ENERGY.",
                         style: TextStyle(color: SpideyTheme.textMuted, fontSize: 12, fontStyle: FontStyle.italic)),
                   )
@@ -114,7 +114,7 @@ class EnergyPanel extends StatelessWidget {
                             style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'RobotoMono')),
                         const SizedBox(width: 6),
                         Text(DateFormat('HH:mm').format(e.timestamp),
-                            style: const TextStyle(color: SpideyTheme.textGrey, fontSize: 10, fontFamily: 'RobotoMono')),
+                            style:  TextStyle(color: SpideyTheme.textGrey, fontSize: 10, fontFamily: 'RobotoMono')),
                       ],
                     ),
                   ),
@@ -130,7 +130,7 @@ class EnergyPanel extends StatelessWidget {
                 style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
             style: OutlinedButton.styleFrom(
               foregroundColor: SpideyTheme.spideyRed,
-              side: const BorderSide(color: SpideyTheme.spideyRed),
+              side:  BorderSide(color: SpideyTheme.spideyRed),
               shape: const BeveledRectangleBorder(
                   borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(6),
@@ -174,9 +174,9 @@ class _EnergyChart extends StatelessWidget {
           horizontalInterval: 2,
           verticalInterval: 6,
           getDrawingHorizontalLine: (_) =>
-              const FlLine(color: SpideyTheme.borderSoft, strokeWidth: 1),
+               FlLine(color: SpideyTheme.borderSoft, strokeWidth: 1),
           getDrawingVerticalLine: (_) =>
-              const FlLine(color: SpideyTheme.borderSoft, strokeWidth: 1),
+               FlLine(color: SpideyTheme.borderSoft, strokeWidth: 1),
         ),
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(
@@ -189,7 +189,7 @@ class _EnergyChart extends StatelessWidget {
                   if (v != 0 && v != 10) return const SizedBox.shrink();
                 }
                 return Text("${v.toInt()}",
-                    style: const TextStyle(color: SpideyTheme.textMuted, fontSize: 9, fontFamily: 'RobotoMono'));
+                    style:  TextStyle(color: SpideyTheme.textMuted, fontSize: 9, fontFamily: 'RobotoMono'));
               },
             ),
           ),
@@ -206,7 +206,7 @@ class _EnergyChart extends StatelessWidget {
                 return Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text("${h.toString().padLeft(2, '0')}h",
-                      style: const TextStyle(color: SpideyTheme.textMuted, fontSize: 9, fontFamily: 'RobotoMono')),
+                      style:  TextStyle(color: SpideyTheme.textMuted, fontSize: 9, fontFamily: 'RobotoMono')),
                 );
               },
             ),
@@ -219,7 +219,7 @@ class _EnergyChart extends StatelessWidget {
             getTooltipItems: (touched) => touched
                 .map((s) => LineTooltipItem(
                       "${s.y.toInt()} @ ${s.x.toInt().toString().padLeft(2, '0')}:${(((s.x - s.x.toInt()) * 60).round()).toString().padLeft(2, '0')}",
-                      const TextStyle(color: SpideyTheme.spideyCyan, fontSize: 11, fontWeight: FontWeight.bold),
+                       TextStyle(color: SpideyTheme.spideyCyan, fontSize: 11, fontWeight: FontWeight.bold),
                     ))
                 .toList(),
           ),
@@ -289,7 +289,7 @@ class _EnergyLogDialogState extends State<_EnergyLogDialog> {
       initialTime: TimeOfDay.fromDateTime(_timestamp),
       builder: (c, ch) => Theme(
         data: Theme.of(c).copyWith(
-          colorScheme: const ColorScheme.dark(
+          colorScheme:   ColorScheme.dark(
             primary: SpideyTheme.spideyCyan,
             onPrimary: Colors.black,
             surface: SpideyTheme.bgPanel,
@@ -366,7 +366,7 @@ class _EnergyLogDialogState extends State<_EnergyLogDialog> {
                   Icon(MdiIcons.clockOutline, color: SpideyTheme.spideyCyan, size: 16),
                   const SizedBox(width: 8),
                   Text(DateFormat('MMM dd - HH:mm').format(_timestamp),
-                      style: const TextStyle(color: SpideyTheme.textWhite, fontFamily: 'RobotoMono')),
+                      style:  TextStyle(color: SpideyTheme.textWhite, fontFamily: 'RobotoMono')),
                 ],
               ),
             ),
@@ -376,7 +376,7 @@ class _EnergyLogDialogState extends State<_EnergyLogDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text("CANCEL", style: TextStyle(color: SpideyTheme.textGrey)),
+          child:  Text("CANCEL", style: TextStyle(color: SpideyTheme.textGrey)),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(

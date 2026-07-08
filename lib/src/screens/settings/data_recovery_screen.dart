@@ -76,11 +76,11 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: JweTheme.panel,
-        title: const Text("Restore Backup?", style: TextStyle(color: JweTheme.textWhite)),
-        content: const Text("This will overwrite your current data with the data from this backup. Are you sure?", style: TextStyle(color: JweTheme.textMuted)),
+        title:  Text("Restore Backup?", style: TextStyle(color: JweTheme.textWhite)),
+        content:  Text("This will overwrite your current data with the data from this backup. Are you sure?", style: TextStyle(color: JweTheme.textMuted)),
         actions:[
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Restore", style: TextStyle(color: JweTheme.accentCyan))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child:  Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child:  Text("Restore", style: TextStyle(color: JweTheme.accentCyan))),
         ],
       ),
     );
@@ -105,11 +105,11 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: JweTheme.panel,
-        title: const Text("Delete Backup?", style: TextStyle(color: JweTheme.textWhite)),
-        content: const Text("This action cannot be undone.", style: TextStyle(color: JweTheme.textMuted)),
+        title:  Text("Delete Backup?", style: TextStyle(color: JweTheme.textWhite)),
+        content:  Text("This action cannot be undone.", style: TextStyle(color: JweTheme.textMuted)),
         actions:[
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Delete", style: TextStyle(color: JweTheme.accentRed))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child:  Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child:  Text("Delete", style: TextStyle(color: JweTheme.accentRed))),
         ],
       ),
     );
@@ -143,11 +143,11 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
           context: context,
           builder: (ctx) => AlertDialog(
             backgroundColor: JweTheme.panel,
-            title: const Text("Import Data?", style: TextStyle(color: JweTheme.textWhite)),
-            content: const Text("This will overwrite your current data with the imported file. Are you sure?", style: TextStyle(color: JweTheme.textMuted)),
+            title:  Text("Import Data?", style: TextStyle(color: JweTheme.textWhite)),
+            content:  Text("This will overwrite your current data with the imported file. Are you sure?", style: TextStyle(color: JweTheme.textMuted)),
             actions:[
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
-              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Import", style: TextStyle(color: JweTheme.accentCyan))),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child:  Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child:  Text("Import", style: TextStyle(color: JweTheme.accentCyan))),
             ],
           ),
         );
@@ -172,7 +172,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
       appBar: AppBar(
         title: Text("DATA ARCHIVE & RECOVERY", style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
         backgroundColor: JweTheme.bgBase,
-        iconTheme: const IconThemeData(color: JweTheme.accentCyan),
+        iconTheme:  IconThemeData(color: JweTheme.accentCyan),
       ),
       body: SafeArea(
         child: Center(
@@ -195,7 +195,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                             label: Text("EXPORT JSON", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: JweTheme.accentCyan,
-                              side: const BorderSide(color: JweTheme.accentCyan),
+                              side:  BorderSide(color: JweTheme.accentCyan),
                               shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
                             ),
                           ),
@@ -208,7 +208,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                             label: Text("IMPORT JSON", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: JweTheme.accentCyan,
-                              side: const BorderSide(color: JweTheme.accentCyan),
+                              side:  BorderSide(color: JweTheme.accentCyan),
                               shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
                             ),
                           ),
@@ -235,9 +235,9 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                         ),
                         const SizedBox(height: 16),
                         if (_isLoading)
-                          const Center(child: CircularProgressIndicator(color: JweTheme.textWhite))
+                           Center(child: CircularProgressIndicator(color: JweTheme.textWhite))
                         else if (_backupFiles.isEmpty)
-                          const Text("No local backups found.", style: TextStyle(color: JweTheme.textMuted))
+                           Text("No local backups found.", style: TextStyle(color: JweTheme.textMuted))
                         else
                           ..._backupFiles.map((file) {
                             final date = file.lastModifiedSync();
@@ -247,7 +247,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: JweTheme.border.withOpacity(0.3),
-                                border: const Border(left: BorderSide(color: JweTheme.textMuted, width: 2))
+                                border:  Border(left: BorderSide(color: JweTheme.textMuted, width: 2))
                               ),
                               child: Row(
                                 children:[
@@ -257,13 +257,13 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children:[
-                                        Text(DateFormat('yyyy-MM-dd HH:mm').format(date), style: const TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 14)),
-                                        Text("${(size / 1024).toStringAsFixed(1)} KB", style: const TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+                                        Text(DateFormat('yyyy-MM-dd HH:mm').format(date), style:  TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 14)),
+                                        Text("${(size / 1024).toStringAsFixed(1)} KB", style:  TextStyle(color: JweTheme.textMuted, fontSize: 12)),
                                       ]
                                     )
                                   ),
-                                  IconButton(icon: const Icon(Icons.restore, color: JweTheme.textWhite), onPressed: () => _restoreBackup(file)),
-                                  IconButton(icon: const Icon(Icons.delete, color: JweTheme.accentRed), onPressed: () => _deleteBackup(file)),
+                                  IconButton(icon:  Icon(Icons.restore, color: JweTheme.textWhite), onPressed: () => _restoreBackup(file)),
+                                  IconButton(icon:  Icon(Icons.delete, color: JweTheme.accentRed), onPressed: () => _deleteBackup(file)),
                                 ]
                               )
                             );

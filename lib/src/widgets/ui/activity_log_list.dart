@@ -81,7 +81,7 @@ class ActivityLogList extends StatelessWidget {
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Icon(icon, color: AppTheme.fhTextSecondary),
         title: Text(title,
-            style: const TextStyle(
+            style:   TextStyle(
                 fontWeight: FontWeight.w600, color: AppTheme.fhTextPrimary)),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -89,7 +89,7 @@ class ActivityLogList extends StatelessWidget {
               color: AppTheme.fhBgMedium,
               borderRadius: BorderRadius.circular(12)),
           child: Text("$count",
-              style: const TextStyle(
+              style:   TextStyle(
                   fontSize: 12, color: AppTheme.fhTextSecondary)),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -148,7 +148,7 @@ class ActivityLogList extends StatelessWidget {
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style:   TextStyle(
                       color: AppTheme.fhTextSecondary, fontSize: 11),
                 ),
               ],

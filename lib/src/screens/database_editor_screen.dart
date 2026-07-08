@@ -96,14 +96,14 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppTheme.fhTextPrimary),
+                    icon:   Icon(Icons.arrow_back, color: AppTheme.fhTextPrimary),
                     onPressed: () => Navigator.pop(context),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       "firestore", 
-                      style: const TextStyle(
+                      style:   TextStyle(
                         fontFamily: AppTheme.fontDisplay,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -124,7 +124,7 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
                     onPressed: _importJson,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.save, color: AppTheme.fhAccentRed),
+                    icon:   Icon(Icons.save, color: AppTheme.fhAccentRed),
                     tooltip: "COMMIT",
                     onPressed: _saveChanges,
                   ),
@@ -141,7 +141,7 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
                   border: Border.all(color: AppTheme.fhBorderColor),
                 ),
                 child: _localData.isEmpty
-                  ? const Center(child: Text("NO DATA", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: 'RobotoMono')))
+                  ?   Center(child: Text("NO DATA", style: TextStyle(color: AppTheme.fhTextDisabled, fontFamily: 'RobotoMono')))
                   : SingleChildScrollView(
                       padding: const EdgeInsets.all(16),
                       child: JsonEditorWidget(

@@ -72,13 +72,13 @@ class TherapyReportScreen extends StatelessWidget {
                       color: JweTheme.panel,
                       border: Border(left: BorderSide(color: JweTheme.accentCyan, width: 4)),
                     ),
-                    child: Text(actionPlan, style: const TextStyle(color: JweTheme.textWhite, height: 1.5, fontSize: 14)),
+                    child: Text(actionPlan, style:  TextStyle(color: JweTheme.textWhite, height: 1.5, fontSize: 14)),
                   ),
 
                   const SizedBox(height: 32),
 
                   if (suggestedPerson != null && suggestedPerson.toLowerCase() != 'null') ...[
-                    const Text("SUGGESTED COMMS TARGET", style: TextStyle(color: JweTheme.textMuted, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                     Text("SUGGESTED COMMS TARGET", style: TextStyle(color: JweTheme.textMuted, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -97,7 +97,7 @@ class TherapyReportScreen extends StatelessWidget {
 
                     if (convoMap.isNotEmpty) ...[
                       const SizedBox(height: 24),
-                      const Text("CONVERSATION MAP", style: TextStyle(color: JweTheme.textMuted, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                       Text("CONVERSATION MAP", style: TextStyle(color: JweTheme.textMuted, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
                       const SizedBox(height: 12),
                       ...convoMap.asMap().entries.map((e) {
                         return Padding(
@@ -105,9 +105,9 @@ class TherapyReportScreen extends StatelessWidget {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text("0${e.key + 1}", style: const TextStyle(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono')),
+                              Text("0${e.key + 1}", style:  TextStyle(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono')),
                               const SizedBox(width: 12),
-                              Expanded(child: Text(e.value, style: const TextStyle(color: JweTheme.textWhite, height: 1.4))),
+                              Expanded(child: Text(e.value, style:  TextStyle(color: JweTheme.textWhite, height: 1.4))),
                             ],
                           ),
                         );
@@ -124,7 +124,7 @@ class TherapyReportScreen extends StatelessWidget {
                           onPressed: () => Navigator.pop(context),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: JweTheme.textMuted,
-                            side: const BorderSide(color: JweTheme.border),
+                            side:  BorderSide(color: JweTheme.border),
                             shape: const BeveledRectangleBorder(),
                             padding: const EdgeInsets.symmetric(vertical: 16)
                           ),

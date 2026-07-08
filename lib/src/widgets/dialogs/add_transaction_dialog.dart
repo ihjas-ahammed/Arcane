@@ -58,7 +58,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(color: Colors.white, fontFamily: 'RobotoMono', fontSize: 24),
-              decoration: const InputDecoration(
+              decoration:   InputDecoration(
                 prefixText: "₹ ",
                 hintText: "0.00",
                 hintStyle: TextStyle(color: JweTheme.textMuted),
@@ -69,7 +69,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
             DropdownButtonFormField<String>(
               initialValue: _selectedCategoryId,
               dropdownColor: JweTheme.bgBase,
-              decoration: const InputDecoration(
+              decoration:   InputDecoration(
                 labelText: "CATEGORY",
                 labelStyle: TextStyle(color: JweTheme.textMuted),
               ),
@@ -99,7 +99,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
             DropdownButtonFormField<String>(
               initialValue: _selectedAccountId,
               dropdownColor: JweTheme.bgBase,
-              decoration: const InputDecoration(
+              decoration:   InputDecoration(
                 labelText: "ACCOUNT",
                 labelStyle: TextStyle(color: JweTheme.textMuted),
               ),
@@ -129,7 +129,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
             TextField(
               controller: _noteController,
               style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
+              decoration:   InputDecoration(
                 labelText: "NOTE (Optional)",
                 labelStyle: TextStyle(color: JweTheme.textMuted),
               ),
@@ -167,7 +167,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text("DATE", style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+                     Text("DATE", style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
                     Row(
                       children: [
                         Text(
@@ -188,7 +188,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted)),
+          child:  Text("CANCEL", style: TextStyle(color: JweTheme.textMuted)),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(

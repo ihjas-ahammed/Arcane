@@ -37,7 +37,7 @@ class HabitControlScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text("Habits are driven by a continuous loop. Overriding the loop requires attacking these specific vectors:", style: TextStyle(color: JweTheme.textWhite, fontSize: 12, fontStyle: FontStyle.italic)),
+                         Text("Habits are driven by a continuous loop. Overriding the loop requires attacking these specific vectors:", style: TextStyle(color: JweTheme.textWhite, fontSize: 12, fontStyle: FontStyle.italic)),
                         const SizedBox(height: 12),
                         _buildFrameworkItem(MdiIcons.eyeOff, "CUE REMOVAL", "Hide triggers. Enable scheduled grayscale.", JweTheme.textMuted),
                         _buildFrameworkItem(MdiIcons.timerSand, "FRICTION BOOST", "Mandatory delay before response execution.", JweTheme.accentCyan),
@@ -53,8 +53,8 @@ class HabitControlScreen extends StatelessWidget {
                     child: Column(
                       children: [
                         SwitchListTile(
-                          title: const Text("SYSTEM GRAYSCALE", style: TextStyle(color: JweTheme.textWhite, fontSize: 14)),
-                          subtitle: const Text("Desaturate interface to reduce dopamine response.", style: TextStyle(color: JweTheme.textMuted, fontSize: 11)),
+                          title:  Text("SYSTEM GRAYSCALE", style: TextStyle(color: JweTheme.textWhite, fontSize: 14)),
+                          subtitle:  Text("Desaturate interface to reduce dopamine response.", style: TextStyle(color: JweTheme.textMuted, fontSize: 11)),
                           value: false, // Mock toggle
                           activeColor: JweTheme.accentCyan,
                           onChanged: (val) {
@@ -71,7 +71,7 @@ class HabitControlScreen extends StatelessWidget {
                     child: Column(
                       children: [
                         if (rules.isEmpty)
-                           const Padding(
+                             Padding(
                              padding: EdgeInsets.all(16.0),
                              child: Text("No behavioral overrides configured.", style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic)),
                            )
@@ -88,7 +88,7 @@ class HabitControlScreen extends StatelessWidget {
                                  // Header
                                  Container(
                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                   decoration: const BoxDecoration(
+                                   decoration:   BoxDecoration(
                                      border: Border(bottom: BorderSide(color: JweTheme.border)),
                                      color: Color(0x0DFFFFFF),
                                    ),
@@ -97,7 +97,7 @@ class HabitControlScreen extends StatelessWidget {
                                      children: [
                                        Text(r.appName.toUpperCase(), style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 16)),
                                        IconButton(
-                                         icon: const Icon(Icons.delete, color: JweTheme.accentRed, size: 18),
+                                         icon:  Icon(Icons.delete, color: JweTheme.accentRed, size: 18),
                                          padding: EdgeInsets.zero,
                                          constraints: const BoxConstraints(),
                                          onPressed: () => provider.deleteHabitRule(r.id),
@@ -126,7 +126,7 @@ class HabitControlScreen extends StatelessWidget {
                                          child: OutlinedButton(
                                            style: OutlinedButton.styleFrom(
                                              foregroundColor: JweTheme.textWhite,
-                                             side: const BorderSide(color: JweTheme.border),
+                                             side:  BorderSide(color: JweTheme.border),
                                              shape: const BeveledRectangleBorder()
                                            ),
                                            onPressed: () {
@@ -141,7 +141,7 @@ class HabitControlScreen extends StatelessWidget {
                                          child: OutlinedButton(
                                            style: OutlinedButton.styleFrom(
                                              foregroundColor: JweTheme.accentRed,
-                                             side: const BorderSide(color: JweTheme.accentRed),
+                                             side:  BorderSide(color: JweTheme.accentRed),
                                              shape: const BeveledRectangleBorder()
                                            ),
                                            onPressed: () {
@@ -199,7 +199,7 @@ class HabitControlScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: GoogleFonts.rajdhani(color: color, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1.0)),
-                Text(desc, style: const TextStyle(color: JweTheme.textMuted, fontSize: 11)),
+                Text(desc, style:  TextStyle(color: JweTheme.textMuted, fontSize: 11)),
               ],
             ),
           )
@@ -211,7 +211,7 @@ class HabitControlScreen extends StatelessWidget {
   Widget _buildStatCol(String label, String value, Color color) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(color: JweTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold)),
+        Text(label, style:  TextStyle(color: JweTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
         Text(value, style: GoogleFonts.rajdhani(color: color, fontWeight: FontWeight.bold, fontSize: 20)),
       ],

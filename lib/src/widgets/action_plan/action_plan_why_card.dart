@@ -54,7 +54,7 @@ class _ActionPlanWhyCardState extends State<ActionPlanWhyCard> {
           decoration: BoxDecoration(
             border: Border(left: BorderSide(color: widget.accentColor, width: 2)),
           ),
-          child: const Text(
+          child:   Text(
             "STRATEGIC INTENT (WHY)",
             style: TextStyle(
               color: AppTheme.fhTextSecondary,
@@ -71,11 +71,11 @@ class _ActionPlanWhyCardState extends State<ActionPlanWhyCard> {
           style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, height: 1.5, fontSize: 14),
           decoration: InputDecoration(
             hintText: "Reason for action...",
-            hintStyle: const TextStyle(color: AppTheme.fhTextDisabled),
+            hintStyle:   TextStyle(color: AppTheme.fhTextDisabled),
             filled: true,
             fillColor: AppTheme.fhBgDark.withOpacity(0.5),
-            border: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
-            enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+            border:   OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+            enabledBorder:   OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
             focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: widget.accentColor)),
             contentPadding: const EdgeInsets.all(12),
           ),

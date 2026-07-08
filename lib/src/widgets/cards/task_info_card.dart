@@ -34,16 +34,16 @@ class TaskInfoCard extends StatelessWidget {
               children: [
                 Icon(Icons.cached, color: AppTheme.fhAccentTeal, size: 16),
                 const SizedBox(width: 8),
-                const Text("RECURRING PROTOCOL", style: TextStyle(color: AppTheme.fhAccentTeal, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                  Text("RECURRING PROTOCOL", style: TextStyle(color: AppTheme.fhAccentTeal, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
               ],
             ),
             const SizedBox(height: 12),
           ],
           
           if (description.isNotEmpty) ...[
-            const Text("BRIEFING", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+              Text("BRIEFING", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            Text(description, style: const TextStyle(color: AppTheme.fhTextPrimary, height: 1.4, fontSize: 13)),
+            Text(description, style:   TextStyle(color: AppTheme.fhTextPrimary, height: 1.4, fontSize: 13)),
             const SizedBox(height: 16),
           ],
 
@@ -65,7 +65,7 @@ class TaskInfoCard extends StatelessWidget {
       children: [
         Text(label, style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.6), fontSize: 9, fontWeight: FontWeight.bold)),
         const SizedBox(height: 2),
-        Text(DateFormat('MMM dd, yyyy').format(date), style: const TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, fontFamily: 'RobotoMono')),
+        Text(DateFormat('MMM dd, yyyy').format(date), style:   TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, fontFamily: 'RobotoMono')),
       ],
     );
   }

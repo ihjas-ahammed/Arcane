@@ -337,8 +337,8 @@ class SubmissionCard extends StatelessWidget {
           context: context,
           builder: (ctx) => AlertDialog(
             backgroundColor: AppTheme.fhBgDark,
-            title: const Text('DELETE MISSION?', style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
-            content: const Text('This action cannot be undone.', style: TextStyle(color: AppTheme.fhTextSecondary)),
+            title:   Text('DELETE MISSION?', style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
+            content:   Text('This action cannot be undone.', style: TextStyle(color: AppTheme.fhTextSecondary)),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
               ElevatedButton(

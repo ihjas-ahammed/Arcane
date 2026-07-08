@@ -231,14 +231,27 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     notifyListeners();
   }
 
-  void deleteReminder(String id) {
+  void deleteReminder(String id, {bool silent = false}) {
     final list = List<ScheduledReminder>.from(settings.scheduledReminders);
     final idx = list.indexWhere((e) => e.id == id);
     if (idx < 0) return;
     final removed = list.removeAt(idx);
+    final previousSettings = AppSettings.fromJson(settings.toJson());
+
     setSettings(settings..scheduledReminders = list);
     NotificationService.instance.cancelOneTimeReminder(removed.notificationId);
     notifyListeners();
+
+    if (!silent) {
+      showUndoSnackBar(
+        message: 'Deleted reminder "${removed.title}"',
+        onUndo: () {
+          setSettings(previousSettings);
+          rescheduleReminders();
+          notifyListeners();
+        },
+      );
+    }
   }
 
   void setReminderEnabled(String id, bool enabled) {
@@ -661,10 +674,23 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     notifyListeners();
   }
 
-  void deleteProject(String projectId) {
+  void deleteProject(String projectId, {bool silent = false}) {
+    final project = projects.firstWhereOrNull((p) => p.id == projectId);
+    if (project == null) return;
+    final savedProjects = projects;
     final list = projects.where((p) => p.id != projectId).toList();
     setProjects(list);
     notifyListeners();
+
+    if (!silent) {
+      showUndoSnackBar(
+        message: 'Deleted project "${project.name}"',
+        onUndo: () {
+          setProjects(savedProjects);
+          notifyListeners();
+        },
+      );
+    }
   }
 
   void reorderProjects(int oldIndex, int newIndex) {
@@ -842,10 +868,22 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     setSettings(newSettings);
   }
 
-  void removeSomedayItem(String id) {
+  void removeSomedayItem(String id, {bool silent = false}) {
+    final item = settings.somedayList.firstWhereOrNull((i) => i.id == id);
+    if (item == null) return;
+    final previousSettings = AppSettings.fromJson(settings.toJson());
     final newSettings = AppSettings.fromJson(settings.toJson());
     newSettings.somedayList.removeWhere((i) => i.id == id);
     setSettings(newSettings);
+
+    if (!silent) {
+      showUndoSnackBar(
+        message: 'Removed "${item.title}"',
+        onUndo: () {
+          setSettings(previousSettings);
+        },
+      );
+    }
   }
 
   // --- Reports Logic ---

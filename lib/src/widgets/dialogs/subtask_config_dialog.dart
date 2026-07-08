@@ -58,13 +58,13 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("NAME", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+              Text("NAME", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             GrowingTextField(controller: _nameController, hint: "Objective title...", minLines: 1),
 
             const SizedBox(height: 16),
 
-            const Text("BRIEFING", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+              Text("BRIEFING", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             GrowingTextField(controller: _descController, hint: "Description and notes...", minLines: 3),
 
@@ -97,8 +97,8 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
             const SizedBox(height: 20),
 
             SwitchListTile(
-              title: const Text("ACTIVE STATUS", style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: const Text("Suspend this objective temporarily", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+              title:   Text("ACTIVE STATUS", style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle:   Text("Suspend this objective temporarily", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
               value: _isActive,
               activeThumbColor: AppTheme.fhAccentTeal,
               contentPadding: EdgeInsets.zero,
@@ -106,8 +106,8 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
             ),
 
             SwitchListTile(
-              title: const Text("RECURRING PROTOCOL", style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
-              subtitle: const Text("Resets daily at 00:00", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+              title:   Text("RECURRING PROTOCOL", style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle:   Text("Resets daily at 00:00", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
               value: _isRecurring,
               activeThumbColor: AppTheme.fhAccentTeal,
               contentPadding: EdgeInsets.zero,

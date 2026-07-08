@@ -4,6 +4,8 @@ import 'package:missions/src/theme/person_info_theme.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/widgets/dialogs/add_gratitude_dialog.dart';
+import 'package:missions/src/utils/global_toast.dart';
+import 'package:collection/collection.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -37,9 +39,19 @@ class _GratitudeListScreenState extends State<GratitudeListScreen> {
   }
 
   void _removeItem(AppProvider provider, String id) {
+    final item = provider.chatbotMemory.gratitudeList.firstWhereOrNull((i) => i.id == id);
+    if (item == null) return;
+    final savedList = List<GratitudeItem>.from(provider.chatbotMemory.gratitudeList);
     final currentList = List<GratitudeItem>.from(provider.chatbotMemory.gratitudeList);
     currentList.removeWhere((item) => item.id == id);
     provider.updateGratitudeList(currentList);
+
+    showUndoSnackBar(
+      message: 'Removed gratitude entry',
+      onUndo: () {
+        provider.updateGratitudeList(savedList);
+      },
+    );
   }
 
   Future<void> _scanLogsForAssets(BuildContext context, AppProvider provider) async {
@@ -81,10 +93,10 @@ class _GratitudeListScreenState extends State<GratitudeListScreen> {
       appBar: AppBar(
         title: Text("GRATITUDE & ASSETS", style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyCyan, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
         backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: PersonInfoTheme.textWhite),
+        iconTheme:  IconThemeData(color: PersonInfoTheme.textWhite),
         actions: [
           provider.loadingTaskName == "Extracting Assets..." 
-            ? const Center(child: Padding(padding: EdgeInsets.only(right: 16.0), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentPurple))))
+            ?   Center(child: Padding(padding: EdgeInsets.only(right: 16.0), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.fhAccentPurple))))
             : IconButton(
                 icon: Icon(MdiIcons.databaseSearchOutline, color: AppTheme.fhAccentPurple),
                 tooltip: "Scan Logs for Assets",
@@ -106,16 +118,16 @@ class _GratitudeListScreenState extends State<GratitudeListScreen> {
               child: TextField(
                 controller: _searchController,
                 onChanged: (val) => setState(() => _searchQuery = val),
-                style: const TextStyle(color: PersonInfoTheme.textWhite, fontSize: 14),
+                style:  TextStyle(color: PersonInfoTheme.textWhite, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: "SEARCH ASSETS...",
                   hintStyle: TextStyle(color: PersonInfoTheme.textGrey.withOpacity(0.5), fontSize: 12, letterSpacing: 1.0),
-                  prefixIcon: const Icon(Icons.search, color: PersonInfoTheme.spideyCyan, size: 20),
+                  prefixIcon:  Icon(Icons.search, color: PersonInfoTheme.spideyCyan, size: 20),
                   filled: true,
                   fillColor: PersonInfoTheme.bgPanel,
                   contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide.none),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: PersonInfoTheme.spideyCyan, width: 1)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide:  BorderSide(color: PersonInfoTheme.spideyCyan, width: 1)),
                 ),
               ),
             ),
@@ -181,7 +193,7 @@ class _GratitudeListScreenState extends State<GratitudeListScreen> {
                               if (item.how.isNotEmpty) _buildDetailRow("HOW", item.how),
                               if (item.what.isNotEmpty) _buildDetailRow("WHAT", item.what),
                               if (item.why.isEmpty && item.how.isEmpty && item.what.isEmpty)
-                                const Text("No additional details provided.", style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 12, fontStyle: FontStyle.italic)),
+                                 Text("No additional details provided.", style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 12, fontStyle: FontStyle.italic)),
                               
                               const SizedBox(height: 16),
                               Align(
@@ -217,7 +229,7 @@ class _GratitudeListScreenState extends State<GratitudeListScreen> {
         children: [
           Text(label, style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyRed, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.0)),
           const SizedBox(height: 4),
-          Text(text, style: const TextStyle(color: PersonInfoTheme.textWhite, fontSize: 13, height: 1.4)),
+          Text(text, style:  TextStyle(color: PersonInfoTheme.textWhite, fontSize: 13, height: 1.4)),
         ],
       ),
     );

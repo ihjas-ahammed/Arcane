@@ -43,7 +43,7 @@ class PersonInfoHeader extends StatelessWidget {
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  decoration: const BoxDecoration(
+                  decoration:   BoxDecoration(
                     gradient: LinearGradient(
                       colors: [PersonInfoTheme.headerGradientStart, PersonInfoTheme.bgPanel],
                       begin: Alignment.centerLeft,
@@ -98,7 +98,7 @@ class PersonInfoHeader extends StatelessWidget {
                               child: FractionallySizedBox(
                                 widthFactor: xpProgress,
                                 child: Container(
-                                  decoration: const BoxDecoration(
+                                  decoration:   BoxDecoration(
                                     color: PersonInfoTheme.spideyCyan,
                                     boxShadow: [
                                       BoxShadow(
@@ -134,7 +134,7 @@ class PersonInfoHeader extends StatelessWidget {
           width: double.infinity,
           margin: const EdgeInsets.only(top: 20, bottom: 10),
           padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: const BoxDecoration(
+          decoration:   BoxDecoration(
             color: Color(0x0D00f0ff), // rgba(0, 240, 255, 0.05)
             border: Border(
               top: BorderSide(color: PersonInfoTheme.spideyCyanDim),

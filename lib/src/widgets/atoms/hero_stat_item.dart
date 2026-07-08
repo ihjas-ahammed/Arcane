@@ -29,7 +29,7 @@ class HeroStatItem extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
-                style: const TextStyle(
+                style:   TextStyle(
                   color: AppTheme.fhTextSecondary,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,

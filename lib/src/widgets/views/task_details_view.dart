@@ -361,7 +361,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                     ),
                     child: Column(
                       children: [
-                        const Text(
+                          Text(
                             'NO ACTIVE TASKS',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, letterSpacing: 0.5)
@@ -369,7 +369,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                         const SizedBox(height: 8),
                         TextButton(
                           onPressed: () => _showAddActionPlanDialog(context, appProvider, currentTask),
-                          child: const Text("INITIALIZE NEW CONTRACT", style: TextStyle(color: AppTheme.fhAccentTeal)),
+                          child:   Text("INITIALIZE NEW CONTRACT", style: TextStyle(color: AppTheme.fhAccentTeal)),
                         )
                       ],
                     ),

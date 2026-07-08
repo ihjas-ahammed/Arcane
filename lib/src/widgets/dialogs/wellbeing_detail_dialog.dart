@@ -59,7 +59,7 @@ class WellbeingDetailDialog extends StatelessWidget {
             Text(
               skill.description,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style:   TextStyle(
                 color: PersonInfoTheme.textGrey,
                 fontSize: 13,
                 height: 1.4,

@@ -95,7 +95,7 @@ class TimePieChart extends StatelessWidget {
           children: [
             Text(
               centerTopText,
-              style: const TextStyle(
+              style:   TextStyle(
                 fontSize: 10, 
                 color: JweTheme.textMuted, 
                 fontWeight: FontWeight.bold,

@@ -57,13 +57,13 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
                   
                   return Row(
                     children: [
-                      const Icon(Icons.info_outline, color: SpideyTheme.textMuted, size: 14),
+                       Icon(Icons.info_outline, color: SpideyTheme.textMuted, size: 14),
                       const SizedBox(width: 8),
                       Text(
                         end.day != start.day 
                           ? "Crosses midnight (${diff.inHours}h ${diff.inMinutes % 60}m)" 
                           : "Same day (${diff.inHours}h ${diff.inMinutes % 60}m)", 
-                        style: const TextStyle(color: SpideyTheme.textMuted, fontSize: 12)
+                        style:  TextStyle(color: SpideyTheme.textMuted, fontSize: 12)
                       )
                     ],
                   );
@@ -75,7 +75,7 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text("CANCEL", style: TextStyle(color: SpideyTheme.textMuted)),
+          child:  Text("CANCEL", style: TextStyle(color: SpideyTheme.textMuted)),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: SpideyTheme.spideyCyan, foregroundColor: Colors.black),
@@ -114,7 +114,7 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: SpideyTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
+          Text(label, style:  TextStyle(color: SpideyTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
           InkWell(
             onTap: () async {
               final picked = await showDatePicker(
@@ -124,7 +124,7 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
                 lastDate: DateTime.now().add(const Duration(days: 1)),
                 builder: (context, child) => Theme(
                   data: Theme.of(context).copyWith(
-                    colorScheme: const ColorScheme.dark(
+                    colorScheme:   ColorScheme.dark(
                       primary: SpideyTheme.spideyCyan,
                       onPrimary: Colors.black,
                       surface: SpideyTheme.bgPanel,
@@ -138,7 +138,7 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
             },
             child: Text(
               DateFormat('MMM dd, yyyy').format(date).toUpperCase(),
-              style: const TextStyle(
+              style:   TextStyle(
                 fontFamily: "RobotoMono",
                 fontWeight: FontWeight.bold, 
                 fontSize: 14,
@@ -161,7 +161,7 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: SpideyTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
+          Text(label, style:  TextStyle(color: SpideyTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
           InkWell(
             onTap: () async {
               final picked = await showTimePicker(
@@ -169,7 +169,7 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
                 initialTime: time ?? TimeOfDay.now(),
                 builder: (context, child) => Theme(
                   data: Theme.of(context).copyWith(
-                    colorScheme: const ColorScheme.dark(
+                    colorScheme:   ColorScheme.dark(
                       primary: SpideyTheme.spideyCyan,
                       onPrimary: Colors.black,
                       surface: SpideyTheme.bgPanel,
@@ -183,7 +183,7 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
             },
             child: Text(
               time?.format(context) ?? "--:--",
-              style: const TextStyle(
+              style:   TextStyle(
                 fontFamily: "RobotoMono",
                 fontWeight: FontWeight.bold, 
                 fontSize: 16,

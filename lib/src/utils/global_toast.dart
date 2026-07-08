@@ -19,7 +19,7 @@ void showGlobalToast(String message) {
     ..showSnackBar(
       SnackBar(
         content: Text(message,
-            style: const TextStyle(
+            style:   TextStyle(
                 color: AppTheme.fhTextPrimary,
                 fontSize: 13,
                 fontWeight: FontWeight.w600)),
@@ -28,7 +28,41 @@ void showGlobalToast(String message) {
         duration: const Duration(seconds: 2),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(6),
-          side: const BorderSide(color: AppTheme.fhBorderColor),
+          side:   BorderSide(color: AppTheme.fhBorderColor),
+        ),
+      ),
+    );
+}
+
+/// Show a SnackBar with an action to undo a deletion/action.
+void showUndoSnackBar({
+  required String message,
+  required VoidCallback onUndo,
+}) {
+  final messenger = rootScaffoldMessengerKey.currentState;
+  if (messenger == null) return;
+  messenger
+    ..clearSnackBars()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style:   TextStyle(
+              color: AppTheme.fhTextPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: AppTheme.fhBgDark,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side:   BorderSide(color: AppTheme.fhBorderColor),
+        ),
+        action: SnackBarAction(
+          label: 'UNDO',
+          textColor: AppTheme.fhAccentTealFixed,
+          onPressed: onUndo,
         ),
       ),
     );

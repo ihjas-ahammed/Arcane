@@ -30,7 +30,7 @@ class ValorantFormField extends StatelessWidget {
       children: [
         Text(
           label.toUpperCase(),
-          style: const TextStyle(
+          style:   TextStyle(
             color: AppTheme.fhTextSecondary,
             fontFamily: AppTheme.fontDisplay,
             fontWeight: FontWeight.bold,
@@ -45,7 +45,7 @@ class ValorantFormField extends StatelessWidget {
           keyboardType: keyboardType,
           validator: validator,
           onSaved: onSaved,
-          style: const TextStyle(
+          style:   TextStyle(
             color: AppTheme.fhTextPrimary,
             fontFamily: AppTheme.fontBody,
             fontSize: 14,
@@ -56,7 +56,7 @@ class ValorantFormField extends StatelessWidget {
             contentPadding: const EdgeInsets.all(16),
             prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: AppTheme.fhTextSecondary) : null,
             suffixIcon: suffixIcon,
-            border: const OutlineInputBorder(
+            border:   OutlineInputBorder(
               borderRadius: BorderRadius.zero,
               borderSide: BorderSide(color: AppTheme.fhBorderColor),
             ),
@@ -64,15 +64,15 @@ class ValorantFormField extends StatelessWidget {
               borderRadius: BorderRadius.zero,
               borderSide: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5)),
             ),
-            focusedBorder: const OutlineInputBorder(
+            focusedBorder:   OutlineInputBorder(
               borderRadius: BorderRadius.zero,
               borderSide: BorderSide(color: AppTheme.fhAccentRed, width: 1.0),
             ),
-            errorBorder: const OutlineInputBorder(
+            errorBorder:   OutlineInputBorder(
               borderRadius: BorderRadius.zero,
               borderSide: BorderSide(color: AppTheme.fhAccentRed),
             ),
-            errorStyle: const TextStyle(
+            errorStyle:   TextStyle(
               color: AppTheme.fhAccentRed,
               fontFamily: AppTheme.fontBody,
               fontSize: 11

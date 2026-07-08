@@ -24,7 +24,7 @@ class WellbeingDrawer extends StatelessWidget {
           // Header
           Container(
             padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
-            decoration: const BoxDecoration(
+            decoration:   BoxDecoration(
               border: Border(bottom: BorderSide(color: Color(0xFF1f2f40), width: 2)),
               color: PersonInfoTheme.bgPanel,
             ),
@@ -124,7 +124,7 @@ class WellbeingDrawer extends StatelessWidget {
                   await appProvider.syncWeeklyWellbeing();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Well-Being Progress Synchronized"), backgroundColor: AppTheme.fhAccentGreen)
+                        SnackBar(content: Text("Well-Being Progress Synchronized"), backgroundColor: AppTheme.fhAccentGreen)
                     );
                   }
                 } catch (e) {

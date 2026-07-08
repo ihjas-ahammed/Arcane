@@ -27,11 +27,11 @@ class _AddSavingsGoalDialogState extends State<AddSavingsGoalDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(controller: _nameController, style: const TextStyle(color: JweTheme.textWhite), decoration: const InputDecoration(labelText: "Goal Name", labelStyle: TextStyle(color: JweTheme.textMuted))),
+            TextField(controller: _nameController, style:  TextStyle(color: JweTheme.textWhite), decoration:  InputDecoration(labelText: "Goal Name", labelStyle: TextStyle(color: JweTheme.textMuted))),
             const SizedBox(height: 16),
-            TextField(controller: _amountController, style: const TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono'), keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Target Amount", prefixText: "â‚¹ ", labelStyle: TextStyle(color: JweTheme.textMuted))),
+            TextField(controller: _amountController, style:  TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono'), keyboardType: TextInputType.number, decoration:  InputDecoration(labelText: "Target Amount", prefixText: "â‚¹ ", labelStyle: TextStyle(color: JweTheme.textMuted))),
             const SizedBox(height: 16),
-            const Text("TARGET DATE", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+             Text("TARGET DATE", style: TextStyle(color: JweTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             GestureDetector(
               onTap: () async {
@@ -63,9 +63,9 @@ class _AddSavingsGoalDialogState extends State<AddSavingsGoalDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
+        TextButton(onPressed: () => Navigator.pop(context), child:  Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: Colors.black, shape: const BeveledRectangleBorder()),
+          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: Colors.black, shape:  BeveledRectangleBorder()),
           onPressed: () {
             final amt = double.tryParse(_amountController.text);
             if (amt != null && _nameController.text.isNotEmpty) {

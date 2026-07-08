@@ -1,6 +1,8 @@
 import 'package:uuid/uuid.dart';
 import 'package:missions/src/models/finance_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/utils/global_toast.dart';
+import 'package:collection/collection.dart';
 
 class FinanceActions {
   final AppProvider _provider;
@@ -99,10 +101,12 @@ class FinanceActions {
     }
   }
 
-  void deleteTransaction(String id) {
+  void deleteTransaction(String id, {bool silent = false}) {
     final matches = _provider.transactions.where((t) => t.id == id).toList();
     if (matches.isEmpty) return;
     final tx = matches.first;
+    final savedTransactions = _provider.transactions;
+    final savedAccounts = _provider.accounts;
     final newTransactions = _provider.transactions.where((t) => t.id != id).toList();
 
     if (tx.accountId != null) {
@@ -115,6 +119,15 @@ class FinanceActions {
       _provider.setProviderState(transactions: newTransactions, accounts: newAccounts);
     } else {
       _provider.setProviderState(transactions: newTransactions);
+    }
+
+    if (!silent) {
+      showUndoSnackBar(
+        message: 'Deleted transaction: ${tx.isIncome ? "+" : "-"}${tx.amount.toStringAsFixed(2)}',
+        onUndo: () {
+          _provider.setProviderState(transactions: savedTransactions, accounts: savedAccounts);
+        },
+      );
     }
   }
 

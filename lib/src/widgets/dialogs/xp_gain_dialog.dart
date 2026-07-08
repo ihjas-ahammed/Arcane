@@ -78,7 +78,7 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-      decoration: const BoxDecoration(
+      decoration:   BoxDecoration(
         border: Border(bottom: BorderSide(color: JweTheme.lineSoft)),
       ),
       child: Row(
@@ -370,7 +370,7 @@ class _Footer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-      decoration: const BoxDecoration(
+      decoration:   BoxDecoration(
         border: Border(top: BorderSide(color: JweTheme.lineSoft)),
       ),
       child: InkWell(

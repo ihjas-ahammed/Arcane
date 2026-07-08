@@ -97,13 +97,13 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
+            colorScheme:   ColorScheme.dark(
               primary: JweTheme.accentCyan,
               onPrimary: Colors.black,
               surface: JweTheme.panel,
               onSurface: JweTheme.textWhite,
             ),
-            dialogTheme: const DialogThemeData(backgroundColor: JweTheme.bgBase),
+            dialogTheme:  DialogThemeData(backgroundColor: JweTheme.bgBase),
           ),
           child: child!,
         );
@@ -377,7 +377,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 allBrackets: true,
                 padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
                 child: Row(children: [
-                  const HudReticle(size: 22, color: JweTheme.accentCyan),
+                   HudReticle(size: 22, color: JweTheme.accentCyan),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [

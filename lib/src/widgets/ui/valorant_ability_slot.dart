@@ -74,7 +74,7 @@ class ValorantAbilitySlot extends StatelessWidget {
           // Label and Value Text
           Text(
             label.toUpperCase(),
-            style: const TextStyle(
+            style:   TextStyle(
               color: AppTheme.fhTextSecondary,
               fontSize: 10,
               fontWeight: FontWeight.bold,
@@ -84,7 +84,7 @@ class ValorantAbilitySlot extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(
+            style:   TextStyle(
               color: AppTheme.fhTextPrimary,
               fontSize: 12,
               fontWeight: FontWeight.bold,

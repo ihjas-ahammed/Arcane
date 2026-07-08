@@ -117,7 +117,7 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                               height: 14,
                               child: CircularProgressIndicator(
                                   strokeWidth: 1.4,
-                                  valueColor: const AlwaysStoppedAnimation<Color>(
+                                  valueColor:   AlwaysStoppedAnimation<Color>(
                                       JweTheme.accentCyan)),
                             )
                           : Icon(MdiIcons.refresh,
@@ -486,7 +486,7 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                 const SizedBox(height: 6),
               ],
               if (timeRows.isNotEmpty && subtaskRows.isNotEmpty)
-                const Divider(color: JweTheme.lineSoft, height: 1),
+                 Divider(color: JweTheme.lineSoft, height: 1),
               if (subtaskRows.isNotEmpty) ...[
                 Padding(
                   padding: const EdgeInsets.only(left: 12, top: 10, bottom: 6),
@@ -660,7 +660,7 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
           ),
         ),
         if (showDivider)
-          const Divider(color: JweTheme.lineSoft, height: 1),
+           Divider(color: JweTheme.lineSoft, height: 1),
       ],
     );
   }
@@ -904,7 +904,7 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                     ),
                   ),
                   if (index < recommendations.length - 1)
-                    const Divider(color: JweTheme.lineSoft, height: 1),
+                     Divider(color: JweTheme.lineSoft, height: 1),
                 ],
               );
             }),

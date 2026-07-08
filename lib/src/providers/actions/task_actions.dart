@@ -1,6 +1,7 @@
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/utils/helpers.dart';
+import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/utils/time_validation_helper.dart';
 import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/utils/id_generator.dart';
@@ -416,7 +417,14 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) {
+  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool silent = false}) {
+    final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final subtask = task?.subTasks.firstWhereOrNull((s) => s.id == parentSubtaskId);
+    final subSubtask = subtask?.findCheckpoint(subSubtaskId);
+    final String name = subSubtask?.name ?? 'Checkpoint';
+
+    final savedTasks = _provider.mainTasks;
+
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(subTasks: task.subTasks.map((st) {
@@ -432,6 +440,15 @@ class TaskActions {
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
+
+    if (!silent) {
+      showUndoSnackBar(
+        message: 'Deleted "$name"',
+        onUndo: () {
+          _provider.setProviderState(mainTasks: savedTasks);
+        },
+      );
+    }
   }
 
   void duplicateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) {
@@ -899,8 +916,11 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  // FIX: Perform soft deletion to preserve session logs for schedule history
-  void deleteSubtask(String mainTaskId, String subtaskId) {
+  void deleteSubtask(String mainTaskId, String subtaskId, {bool silent = false}) {
+    final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final subtask = task?.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
+    if (subtask == null) return;
+
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         final nextPhx = task.phoenixSubTaskId == subtaskId ? null : task.phoenixSubTaskId;
@@ -913,9 +933,30 @@ class TaskActions {
     }).toList();
 
     final newActiveTimers = Map<String, dynamic>.from(_provider.activeTimers.map((k, v) => MapEntry(k, v.toJson())));
-    newActiveTimers.remove(subtaskId);
+    final previousTimer = newActiveTimers.remove(subtaskId);
     
     _provider.setProviderState(mainTasks: newMainTasks, activeTimers: newActiveTimers);
+
+    if (!silent) {
+      showUndoSnackBar(
+        message: 'Deleted "${subtask.name}"',
+        onUndo: () {
+          final restoreMainTasks = _provider.mainTasks.map((t) {
+            if (t.id == mainTaskId) {
+              return t.copyWith(
+                subTasks: t.subTasks.map((st) => st.id == subtaskId ? st.copyWith(isDeleted: false) : st).toList(),
+              );
+            }
+            return t;
+          }).toList();
+          final restoreActiveTimers = Map<String, dynamic>.from(_provider.activeTimers.map((k, v) => MapEntry(k, v.toJson())));
+          if (previousTimer != null) {
+            restoreActiveTimers[subtaskId] = previousTimer;
+          }
+          _provider.setProviderState(mainTasks: restoreMainTasks, activeTimers: restoreActiveTimers);
+        },
+      );
+    }
   }
 
   void duplicateCompletedSubtask(String mainTaskId, String subtaskId) {
@@ -1049,14 +1090,17 @@ class TaskActions {
     recalibrateTimeLogs(silent: true);
   }
 
-  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) {
+  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId, {bool silent = false}) {
     final oldTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     final oldSub = oldTask?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
     final oldSession = oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
+    if (oldSession == null) return;
+
+    final savedTasks = _provider.mainTasks;
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        int deduction = oldSession?.durationSeconds ?? 0;
+        int deduction = oldSession.durationSeconds;
         return task.copyWith(
             dailyTimeSpent: (task.dailyTimeSpent - deduction).clamp(0, 999999),
             subTasks: task.subTasks.map((st) {
@@ -1076,6 +1120,18 @@ class TaskActions {
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
     recalibrateTimeLogs(silent: true);
+
+    if (!silent) {
+      final formatter = DateFormat('jm');
+      final formattedTime = '${formatter.format(oldSession.startTime)} - ${formatter.format(oldSession.endTime)}';
+      showUndoSnackBar(
+        message: 'Deleted session ($formattedTime)',
+        onUndo: () {
+          _provider.setProviderState(mainTasks: savedTasks);
+          recalibrateTimeLogs(silent: true);
+        },
+      );
+    }
   }
 
   // --- Task Toggling ---

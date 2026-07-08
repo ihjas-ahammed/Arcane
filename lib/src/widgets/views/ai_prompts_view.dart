@@ -47,7 +47,7 @@ class _AiPromptsViewState extends State<AiPromptsView> {
     if (!currentPrompts.contains(newPrompt)) {
       currentPrompts.add(newPrompt);
       provider.setSettings(provider.settings..savedPrompts = currentPrompts);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(  SnackBar(
           content: Text("Prompt Saved!"),
           backgroundColor: AppTheme.fhAccentGreen));
     }
@@ -98,12 +98,12 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                   TextField(
                     controller: _promptController,
                     maxLines: 5,
-                    decoration: const InputDecoration.collapsed(
+                    decoration:   InputDecoration.collapsed(
                       hintText:
                           "DEFINE MISSION PARAMETERS...\ne.g., 'Learn Python in 90 days with a focus on web development.'",
                       hintStyle: TextStyle(color: AppTheme.fhTextSecondary, fontStyle: FontStyle.italic),
                     ),
-                    style: const TextStyle(color: AppTheme.fhTextPrimary, fontFamily: 'RobotoMono', fontSize: 13),
+                    style:   TextStyle(color: AppTheme.fhTextPrimary, fontFamily: 'RobotoMono', fontSize: 13),
                   ),
                   const SizedBox(height: 12),
                   Align(
@@ -154,13 +154,13 @@ class _AiPromptsViewState extends State<AiPromptsView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(t['title']!,
-                            style: const TextStyle(
+                            style:   TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.fhAccentTeal)),
                         const SizedBox(height: 8),
                         Expanded(
                           child: Text(
                             t['prompt']!,
-                            style: const TextStyle(
+                            style:   TextStyle(
                                 color: AppTheme.fhTextSecondary, fontSize: 11),
                             maxLines: 4,
                             overflow: TextOverflow.ellipsis,

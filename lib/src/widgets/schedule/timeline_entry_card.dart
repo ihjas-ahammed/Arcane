@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/models/timeline_models.dart';
 import 'package:intl/intl.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 
 class TimelineEntryCard extends StatelessWidget {
   final TimelineEntry entry;
@@ -19,8 +20,22 @@ class TimelineEntryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPredicted = entry.isPredicted;
-    final effectiveColor = isPredicted ? entry.color.withOpacity(0.15) : entry.color.withOpacity(0.25);
-    final borderColor = isPredicted ? entry.color.withOpacity(0.3) : entry.color;
+    
+    final calColor = JweTheme.isLight ? JweTheme.calibrate(entry.color) : entry.color;
+    final effectiveColor = JweTheme.isLight
+        ? calColor.withValues(alpha: 0.12)
+        : (isPredicted ? entry.color.withValues(alpha: 0.15) : entry.color.withValues(alpha: 0.25));
+    final borderColor = JweTheme.isLight
+        ? calColor.withValues(alpha: 0.4)
+        : (isPredicted ? entry.color.withValues(alpha: 0.3) : entry.color);
+
+    final textColor = JweTheme.isLight
+        ? calColor
+        : (isPredicted ? Colors.white70 : Colors.white);
+    
+    final timeColor = JweTheme.isLight
+        ? calColor.withValues(alpha: 0.8)
+        : Colors.white.withValues(alpha: 0.7);
     
     // Hide content if height is extremely small to prevent overflow UI breaks
     final bool showTitle = height >= 14;
@@ -58,7 +73,7 @@ class TimelineEntryCard extends StatelessWidget {
                         child: Text(
                           entry.title,
                           style: TextStyle(
-                            color: isPredicted ? Colors.white70 : Colors.white,
+                            color: textColor,
                             fontSize: 9,
                             fontWeight: isPredicted ? FontWeight.normal : FontWeight.bold
                           ),
@@ -72,7 +87,7 @@ class TimelineEntryCard extends StatelessWidget {
                   Text(
                     "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
+                      color: timeColor,
                       fontSize: 8,
                       fontFamily: 'RobotoMono'
                     ),

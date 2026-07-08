@@ -32,9 +32,9 @@ class JweCompactTaskCard extends StatelessWidget {
             color: isSelected ? color.withValues(alpha: 0.1) : JweTheme.panel,
             border: Border(
               left: BorderSide(color: isSelected ? color : color.withValues(alpha: 0.35), width: 3),
-              top: const BorderSide(color: JweTheme.border),
-              right: const BorderSide(color: JweTheme.border),
-              bottom: const BorderSide(color: JweTheme.border),
+              top:  BorderSide(color: JweTheme.border),
+              right:  BorderSide(color: JweTheme.border),
+              bottom:  BorderSide(color: JweTheme.border),
             ),
           ),
           child: Row(

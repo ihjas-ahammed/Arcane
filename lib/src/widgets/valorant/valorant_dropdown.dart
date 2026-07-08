@@ -22,7 +22,7 @@ class ValorantDropdown<T> extends StatelessWidget {
       children: [
         Text(
           label.toUpperCase(),
-          style: const TextStyle(
+          style:   TextStyle(
             color: AppTheme.fhTextSecondary,
             fontFamily: AppTheme.fontDisplay,
             fontWeight: FontWeight.bold,
@@ -47,14 +47,14 @@ class ValorantDropdown<T> extends StatelessWidget {
                       value: value,
                       items: items,
                       onChanged: onChanged,
-                      style: const TextStyle(
+                      style:   TextStyle(
                         color: AppTheme.fhTextPrimary,
                         fontFamily: AppTheme.fontBody,
                         fontSize: 14,
                         fontWeight: FontWeight.w600
                       ),
                       dropdownColor: AppTheme.fhBgDark,
-                      icon: const Icon(Icons.arrow_drop_down, color: AppTheme.fhTextSecondary),
+                      icon:   Icon(Icons.arrow_drop_down, color: AppTheme.fhTextSecondary),
                       isExpanded: true,
                     ),
                   ),

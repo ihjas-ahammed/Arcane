@@ -43,7 +43,7 @@ class _AddEditProjectDialogState extends State<AddEditProjectDialog> {
     return AlertDialog(
       backgroundColor: AppTheme.fhBgMedium,
       title: Text(widget.projectId == null ? "New Project" : "Edit Project",
-          style: const TextStyle(color: AppTheme.fhTextPrimary)),
+          style:   TextStyle(color: AppTheme.fhTextPrimary)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -51,7 +51,7 @@ class _AddEditProjectDialogState extends State<AddEditProjectDialog> {
             TextField(
               controller: _titleController,
               autofocus: widget.projectId == null,
-              style: const TextStyle(color: AppTheme.fhTextPrimary),
+              style:   TextStyle(color: AppTheme.fhTextPrimary),
               decoration: const InputDecoration(
                 labelText: "Project Title",
                 hintText: "e.g., Launch Website",
@@ -61,7 +61,7 @@ class _AddEditProjectDialogState extends State<AddEditProjectDialog> {
             TextField(
               controller: _descController,
               maxLines: 3,
-              style: const TextStyle(color: AppTheme.fhTextPrimary),
+              style:   TextStyle(color: AppTheme.fhTextPrimary),
               decoration: const InputDecoration(
                 labelText: "Description",
                 hintText: "Brief objectives...",
@@ -137,7 +137,7 @@ class _AddEditStepDialogState extends State<AddEditStepDialog> {
               color: AppTheme.fhAccentTeal),
           const SizedBox(width: 8),
           Text(widget.isEditing ? "Edit Step" : "Add Step",
-              style: const TextStyle(color: AppTheme.fhTextPrimary)),
+              style:   TextStyle(color: AppTheme.fhTextPrimary)),
         ],
       ),
       content: SingleChildScrollView(
@@ -147,7 +147,7 @@ class _AddEditStepDialogState extends State<AddEditStepDialog> {
             TextField(
               controller: _titleController,
               autofocus: true,
-              style: const TextStyle(color: AppTheme.fhTextPrimary),
+              style:   TextStyle(color: AppTheme.fhTextPrimary),
               decoration: const InputDecoration(
                 labelText: "Step Title",
                 filled: true,
@@ -157,7 +157,7 @@ class _AddEditStepDialogState extends State<AddEditStepDialog> {
             TextField(
               controller: _descController,
               maxLines: 3,
-              style: const TextStyle(color: AppTheme.fhTextPrimary),
+              style:   TextStyle(color: AppTheme.fhTextPrimary),
               decoration: const InputDecoration(
                 labelText: "Description / Notes (Optional)",
                 filled: true,

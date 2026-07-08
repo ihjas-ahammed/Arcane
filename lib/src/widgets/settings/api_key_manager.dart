@@ -39,7 +39,7 @@ class _ApiKeyManagerState extends State<ApiKeyManager> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (keys.isEmpty)
-          const Padding(
+            Padding(
             padding: EdgeInsets.symmetric(vertical: 8.0),
             child: Text(
               "No custom API keys added. Using built-in keys.",
@@ -65,7 +65,7 @@ class _ApiKeyManagerState extends State<ApiKeyManager> {
                   leading: Icon(MdiIcons.keyVariant, color: AppTheme.fhAccentTeal, size: 20),
                   title: Text(
                     "${key.substring(0, 4)}...${key.substring(key.length - 4)}",
-                    style: const TextStyle(fontFamily: 'RobotoMono', color: AppTheme.fhTextPrimary),
+                    style:   TextStyle(fontFamily: 'RobotoMono', color: AppTheme.fhTextPrimary),
                   ),
                   trailing: IconButton(
                     icon: Icon(MdiIcons.deleteOutline, color: AppTheme.fhAccentRed, size: 20),

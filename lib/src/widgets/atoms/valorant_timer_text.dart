@@ -99,7 +99,7 @@ class _ValorantTimerTextState extends State<ValorantTimerText> {
   Widget build(BuildContext context) {
     return Text(
       _displayTime,
-      style: widget.style ?? const TextStyle(
+      style: widget.style ??   TextStyle(
         fontFamily: "RobotoMono",
         color: AppTheme.fhTextSecondary,
         fontSize: 12,
