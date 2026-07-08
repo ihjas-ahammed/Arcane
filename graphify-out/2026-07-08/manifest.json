@@ -865,8 +865,8 @@
     "semantic_hash": ""
   },
   "lib/src/widgets/cards/submission_card.dart": {
-    "mtime": 1783483774.254158,
-    "ast_hash": "c15b76f44450bfc6531ffea39c956c0a",
+    "mtime": 1783483578.2118874,
+    "ast_hash": "b7876ae04180f45d51c157d6e1276fc1",
     "semantic_hash": ""
   },
   "lib/src/widgets/items/draggable_checkpoint_wrapper.dart": {

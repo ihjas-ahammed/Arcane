@@ -1080,6 +1080,32 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
   Widget _buildAnalyticsTab(AppProvider provider, Project project, Color accentColor) {
     final streak = calculateProjectStreak(project, provider);
 
+    double totalSeconds = 0;
+    for (final key in project.linkedTaskKeys) {
+      final parts = key.split('|');
+      if (parts.length < 2) continue;
+      final mainId = parts[0];
+      final subId = parts[1];
+
+      final mainTask = provider.mainTasks.firstWhereOrNull((t) => t.id == mainId);
+      final sub = mainTask?.subTasks.firstWhereOrNull((s) => s.id == subId);
+      if (sub == null) continue;
+
+      for (final session in sub.sessions) {
+        totalSeconds += session.durationSeconds;
+      }
+
+      final timer = provider.activeTimers[sub.id];
+      if (timer != null && timer.isRunning) {
+        final elapsed = DateTime.now().difference(timer.startTime).inSeconds;
+        totalSeconds += elapsed;
+      }
+    }
+
+    final totalHours = (totalSeconds / 3600).floor();
+    final totalMinutes = ((totalSeconds / 60) % 60).floor();
+    final totalTimeDisplay = '${totalHours}h ${totalMinutes.toString().padLeft(2, '0')}m';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1117,6 +1143,37 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
                 Text(
                   'MIN 15m / DAY',
                   style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8.5),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Total Time Spent
+          HudPanel(
+            clip: HudClip.br,
+            accent: accentColor,
+            brackets: true,
+            allBrackets: true,
+            background: accentColor.withValues(alpha: 0.06),
+            child: Row(
+              children: [
+                Icon(MdiIcons.clockOutline, color: accentColor, size: 36),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'TOTAL TIME SPENT',
+                        style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        totalTimeDisplay,
+                        style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1290,7 +1347,7 @@ class _LinkTaskDialogState extends State<_LinkTaskDialog> {
                             trailing: Icon(MdiIcons.plus, color: JweTheme.accentAmber),
                             onTap: () {
                               final updated = widget.project.copyWith(
-                                linkedTaskKeys: [...widget.project.linkedTaskKeys, key],
+                                linkedTaskKeys: [key, ...widget.project.linkedTaskKeys],
                               );
                               widget.provider.updateProject(updated);
                               Navigator.pop(context);

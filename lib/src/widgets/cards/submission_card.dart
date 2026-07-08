@@ -10,7 +10,6 @@ import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/widgets/atoms/valorant_timer_text.dart';
 import 'package:missions/src/widgets/screens/submission_detail_screen.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
-import 'package:missions/src/widgets/ui/step_bars_row.dart';
 import 'package:provider/provider.dart';
 
 /// Operator HUD QueueRow — ported submission card. Preserves
@@ -57,6 +56,7 @@ class SubmissionCard extends StatelessWidget {
 
     final isRunning = timerState?.isRunning ?? false;
     final isCompleted = current.completed;
+    final nextCp = isCompleted ? null : TaskCalculations.nextCheckpoint(current);
 
     final displayBaseTime = isRunning
         ? TaskCalculations.getHistoricalTodaySeconds(current)
@@ -228,16 +228,17 @@ class SubmissionCard extends StatelessWidget {
                         ),
                       ]),
                       if (!isCompleted && current.subSubTasks.isNotEmpty)
-                        StepBarsRow(
+                        CheckpointDropdownRow(
                           steps: current.subSubTasks,
                           accent: accent,
-                          onToggle: (step) {
-                            if (step.completed) {
-                              provider.taskActions.uncompleteSubSubtask(
-                                  parentTask.id, current.id, step.id);
-                            } else {
+                          nextCp: nextCp,
+                          onCheckNext: () {
+                            if (nextCp != null) {
                               provider.taskActions.completeSubSubtask(
-                                  parentTask.id, current.id, step.id);
+                                parentTask.id,
+                                current.id,
+                                nextCp.id,
+                              );
                             }
                           },
                         ),
@@ -349,5 +350,186 @@ class SubmissionCard extends StatelessWidget {
           ),
         ) ??
         false;
+  }
+}
+
+class CheckpointDropdownRow extends StatefulWidget {
+  final List<SubSubTask> steps;
+  final Color accent;
+  final SubSubTask? nextCp;
+  final VoidCallback onCheckNext;
+
+  const CheckpointDropdownRow({
+    super.key,
+    required this.steps,
+    required this.accent,
+    required this.nextCp,
+    required this.onCheckNext,
+  });
+
+  @override
+  State<CheckpointDropdownRow> createState() => _CheckpointDropdownRowState();
+}
+
+class _CheckpointDropdownRowState extends State<CheckpointDropdownRow> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.steps.isEmpty) return const SizedBox.shrink();
+
+    final completedCount =
+        widget.steps.where((s) => s.type == 'check' && s.completed).length;
+    final checkableCount =
+        widget.steps.where((s) => s.type == 'check').length;
+    final allDone = checkableCount > 0 && completedCount == checkableCount;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Caption/Header
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Text(
+                    'STEPS',
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 8.5,
+                      color: JweTheme.textMuted,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.4,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 2,
+                    height: 8,
+                    color: widget.accent.withValues(alpha: 0.45),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$completedCount/$checkableCount',
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 9,
+                      color: allDone ? widget.accent : JweTheme.textMid,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                  if (allDone) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      '· COMPLETE',
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 8.5,
+                        color: widget.accent,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  Icon(
+                    _expanded ? MdiIcons.chevronUp : MdiIcons.chevronDown,
+                    size: 14,
+                    color: JweTheme.textMuted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: _expanded
+                ? (widget.nextCp != null
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: InkWell(
+                          onTap: widget.onCheckNext,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: widget.accent.withValues(alpha: 0.05),
+                              border: Border.all(color: widget.accent.withValues(alpha: 0.15)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  MdiIcons.checkboxBlankCircleOutline,
+                                  color: widget.accent,
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    widget.nextCp!.name.toUpperCase(),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: JweTheme.textMid,
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'NEXT STEP',
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: widget.accent.withValues(alpha: 0.7),
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.0,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: JweTheme.accentTeal.withValues(alpha: 0.05),
+                            border: Border.all(color: JweTheme.accentTeal.withValues(alpha: 0.15)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                MdiIcons.checkboxMarkedCircleOutline,
+                                color: JweTheme.accentTeal,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'ALL CHECKPOINTS COMPLETE',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: JweTheme.textMuted,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ))
+                : const SizedBox(width: double.infinity),
+          ),
+        ],
+      ),
+    );
   }
 }
