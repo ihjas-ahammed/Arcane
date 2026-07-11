@@ -82,9 +82,10 @@ class _ActiveSessionTimerDisplayState extends State<ActiveSessionTimerDisplay> {
       secondsToDisplay = currentSessionSeconds < 0 ? 0 : currentSessionSeconds; 
     }
 
-    if (mounted) {
+    final formatted = helper.formatTime(secondsToDisplay);
+    if (mounted && formatted != _displayTime) {
       setState(() {
-        _displayTime = helper.formatTime(secondsToDisplay);
+        _displayTime = formatted;
       });
     }
   }
@@ -104,16 +105,18 @@ class _ActiveSessionTimerDisplayState extends State<ActiveSessionTimerDisplay> {
           ),
         ),
         const SizedBox(height: 4),
-        FittedBox(
+        RepaintBoundary(
+          child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
             _displayTime,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppTheme.fhTextPrimary,
               fontSize: 32,
               fontFamily: AppTheme.fontDisplay,
               fontWeight: FontWeight.bold,
             ),
+          ),
           ),
         ),
       ],

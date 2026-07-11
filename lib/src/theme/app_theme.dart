@@ -43,8 +43,23 @@ class AppTheme {
   static const String fontDisplay = 'RobotoCondensed';
   static const String fontBody = 'OpenSans';
 
+  // ThemeData construction is expensive and a fresh instance invalidates every
+  // Theme.of dependent in the tree, so results are memoized. The palette getters
+  // used below depend only on (primaryAccent, isLightTheme), which is the key.
+  static final Map<(int, bool), ThemeData> _themeCache = {};
+
   // Method to generate ThemeData with a dynamic primary accent color
   static ThemeData getThemeData({required Color primaryAccent, bool isLightTheme = false}) {
+    final key = (primaryAccent.toARGB32(), isLightTheme);
+    final cached = _themeCache[key];
+    if (cached != null) return cached;
+    if (_themeCache.length > 32) _themeCache.clear();
+    return _themeCache[key] = _buildThemeData(
+        primaryAccent: primaryAccent, isLightTheme: isLightTheme);
+  }
+
+  static ThemeData _buildThemeData(
+      {required Color primaryAccent, required bool isLightTheme}) {
     final Brightness accentBrightness =
         ThemeData.estimateBrightnessForColor(primaryAccent);
     final Color onPrimaryAccent =

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/widgets/valorant/valorant_button.dart';
 
@@ -35,7 +36,7 @@ class _SessionEditDialogState extends State<SessionEditDialog> {
       initialTime: TimeOfDay.fromDateTime(initial),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme:   ColorScheme.dark(primary: AppTheme.fhAccentTeal, onPrimary: Colors.black, surface: AppTheme.fhBgDeepDark, onSurface: Colors.white),
+          colorScheme: JweTheme.pickerScheme(accent: AppTheme.fhAccentTeal),
         ),
         child: child!,
       ),
@@ -111,7 +112,7 @@ class _SessionEditDialogState extends State<SessionEditDialog> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label, style:   TextStyle(color: AppTheme.fhTextSecondary, fontWeight: FontWeight.bold)),
-            Text(DateFormat('HH:mm').format(dt), style: const TextStyle(color: Colors.white, fontFamily: "RobotoMono", fontSize: 16)),
+            Text(DateFormat('HH:mm').format(dt), style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: "RobotoMono", fontSize: 16)),
           ],
         ),
       ),

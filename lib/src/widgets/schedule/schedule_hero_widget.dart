@@ -166,7 +166,10 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
       },
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-        child: HudPanel(
+        // The 1 Hz session ticker repaints this panel; the boundary keeps
+        // that from invalidating the rest of the schedule page layer.
+        child: RepaintBoundary(
+          child: HudPanel(
           clip: HudClip.both,
           accent: accent,
           allBrackets: true,
@@ -469,6 +472,7 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                 ]),
               ),
           ]),
+          ),
         ),
       ),
     ).animate().fadeIn(duration: 360.ms).slideY(begin: -0.04, end: 0);

@@ -88,22 +88,26 @@ class _ValorantTimerTextState extends State<ValorantTimerText> {
       seconds = widget.accumulatedTime + (elapsedToday < 0 ? 0 : elapsedToday);
     }
     
-    if (mounted) {
+    final formatted = helper.formatTime(seconds);
+    if (mounted && formatted != _displayTime) {
       setState(() {
-        _displayTime = helper.formatTime(seconds);
+        _displayTime = formatted;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      _displayTime,
-      style: widget.style ??   TextStyle(
-        fontFamily: "RobotoMono",
-        color: AppTheme.fhTextSecondary,
-        fontSize: 12,
-        fontWeight: FontWeight.bold
+    // RepaintBoundary keeps the 1 Hz tick from repainting the whole page layer.
+    return RepaintBoundary(
+      child: Text(
+        _displayTime,
+        style: widget.style ??   TextStyle(
+          fontFamily: "RobotoMono",
+          color: AppTheme.fhTextSecondary,
+          fontSize: 12,
+          fontWeight: FontWeight.bold
+        ),
       ),
     );
   }

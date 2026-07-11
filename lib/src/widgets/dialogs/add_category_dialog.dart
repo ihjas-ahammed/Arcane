@@ -91,7 +91,7 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
           children: [
             TextField(
               controller: _nameController,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: JweTheme.textWhite),
               decoration:   InputDecoration(
                 labelText: "CATEGORY NAME",
                 labelStyle: TextStyle(color: JweTheme.textMuted),

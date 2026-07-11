@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/theme/person_info_theme.dart';
 import 'package:missions/src/widgets/valorant/valorant_button.dart';
 import 'package:missions/src/screens/journaling/person_detail_screen.dart';
@@ -1146,12 +1147,9 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
                   initialDateRange: _customDateRange,
                   builder: (context, child) => Theme(
                     data: Theme.of(context).copyWith(
-                      colorScheme:   ColorScheme.dark(
-                        primary: PersonInfoTheme.spideyCyan,
-                        onPrimary: Colors.black,
-                        surface: PersonInfoTheme.bgPanel,
-                        onSurface: Colors.white,
-                      ),
+                      colorScheme: JweTheme.pickerScheme(
+                          accent: PersonInfoTheme.spideyCyan,
+                          surface: PersonInfoTheme.bgPanel),
                     ),
                     child: child!,
                   ),

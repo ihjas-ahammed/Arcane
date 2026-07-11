@@ -74,7 +74,7 @@ class _SnapshotDialogState extends State<SnapshotDialog> {
                 filled: true,
                 fillColor: AppTheme.fhBgDark.withOpacity(0.5),
                 hintText: "Optional milestone note...",
-                hintStyle: TextStyle(color: Colors.white24, fontStyle: FontStyle.italic),
+                hintStyle: TextStyle(color: AppTheme.fhTextSecondary.withValues(alpha: 0.5), fontStyle: FontStyle.italic),
                 border: const OutlineInputBorder(),
               ),
             ),

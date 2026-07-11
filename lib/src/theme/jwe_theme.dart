@@ -81,6 +81,32 @@ class JweTheme {
 
   static Color get lineSoft => isLight ? const Color(0x0C000000) : const Color(0x0FFFFFFF);
 
+  // ── Contrast helpers ────────────────────────────────────────
+  /// Foreground for text/icons sitting on an accent-colored fill.
+  /// Light-mode accents are calibrated dark (white reads best);
+  /// dark-mode accents are bright (black reads best).
+  static Color get onAccent => isLight ? Colors.white : Colors.black;
+
+  /// Brightness-aware ColorScheme for date/time pickers so they stay
+  /// readable in both modes (dark scheme on light surfaces renders
+  /// white-on-white otherwise).
+  static ColorScheme pickerScheme({Color? accent, Color? surface}) {
+    final Color a = accent ?? accentAmber;
+    return isLight
+        ? ColorScheme.light(
+            primary: a,
+            onPrimary: Colors.white,
+            surface: surface ?? panel,
+            onSurface: textWhite,
+          )
+        : ColorScheme.dark(
+            primary: a,
+            onPrimary: Colors.black,
+            surface: surface ?? bgBase,
+            onSurface: textWhite,
+          );
+  }
+
   // ── Fonts ───────────────────────────────────────────────────
   // Bundled families for static styling. HUD primitives use GoogleFonts
   // (saira / inter / jetBrainsMono) for the Operator HUD identity.

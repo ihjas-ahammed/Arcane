@@ -22,11 +22,11 @@ class ValorantAbilitySlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderColor = isActive
-        ? AppTheme.fhAccentTealFixed
+        ? AppTheme.fhAccentTeal
         : AppTheme.fhBorderColor.withValues(alpha: 0.5);
     final bgColor = isActive
-        ? AppTheme.fhAccentTealFixed.withValues(alpha: 0.1)
-        : Colors.black.withValues(alpha: 0.3);
+        ? AppTheme.fhAccentTeal.withValues(alpha: 0.1)
+        : AppTheme.fhTextPrimary.withValues(alpha: 0.08);
 
     return GestureDetector(
       onTap: onTap,
@@ -62,7 +62,7 @@ class ValorantAbilitySlot extends StatelessWidget {
                 Center(
                   child: Icon(
                     icon,
-                    color: isActive ? Colors.white : AppTheme.fhTextSecondary,
+                    color: isActive ? AppTheme.fhTextPrimary : AppTheme.fhTextSecondary,
                     size: 24,
                   ),
                 ),

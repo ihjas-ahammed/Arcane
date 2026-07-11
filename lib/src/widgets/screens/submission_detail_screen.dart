@@ -1302,7 +1302,7 @@ class _ManualProgressInputState extends State<_ManualProgressInput> {
             controller: _controller,
             keyboardType: const TextInputType.numberWithOptions(decimal: false),
             style: GoogleFonts.jetBrainsMono(
-              color: Colors.white,
+              color: JweTheme.textWhite,
               fontSize: 11,
               fontWeight: FontWeight.bold,
             ),

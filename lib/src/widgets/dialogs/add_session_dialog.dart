@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/valorant/valorant_button.dart';
 import 'package:intl/intl.dart';
 
@@ -105,12 +106,7 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
                 lastDate: DateTime.now(),
                 builder: (context, child) => Theme(
                   data: Theme.of(context).copyWith(
-                    colorScheme:   ColorScheme.dark(
-                      primary: AppTheme.fhAccentTeal,
-                      onPrimary: Colors.black,
-                      surface: AppTheme.fhBgDeepDark,
-                      onSurface: Colors.white,
-                    ),
+                    colorScheme: JweTheme.pickerScheme(accent: AppTheme.fhAccentTeal),
                   ),
                   child: child!,
                 ),
@@ -150,12 +146,7 @@ class _AddSessionDialogState extends State<AddSessionDialog> {
                 initialTime: time ?? TimeOfDay.now(),
                 builder: (context, child) => Theme(
                   data: Theme.of(context).copyWith(
-                    colorScheme:   ColorScheme.dark(
-                      primary: AppTheme.fhAccentTeal,
-                      onPrimary: Colors.black,
-                      surface: AppTheme.fhBgDeepDark,
-                      onSurface: Colors.white,
-                    ),
+                    colorScheme: JweTheme.pickerScheme(accent: AppTheme.fhAccentTeal),
                   ),
                   child: child!,
                 ),

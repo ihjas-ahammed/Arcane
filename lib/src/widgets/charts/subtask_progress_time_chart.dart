@@ -103,7 +103,7 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
               controller: ctrl,
               autofocus: true,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: Colors.white, fontSize: 24),
+              style: TextStyle(color: JweTheme.textWhite, fontSize: 24),
               decoration: InputDecoration(
                 suffixText: '%',
                 suffixStyle: TextStyle(color: widget.accentColor, fontSize: 20),

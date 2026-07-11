@@ -40,11 +40,7 @@ class FinanceCharts extends StatelessWidget {
                       lastDate: DateTime.now(),
                       builder: (context, child) => Theme(
                         data: Theme.of(context).copyWith(
-                          colorScheme:   ColorScheme.dark(
-                            primary: JweTheme.accentCyan,
-                            onPrimary: Colors.black,
-                            surface: JweTheme.bgBase,
-                          ),
+                          colorScheme: JweTheme.pickerScheme(accent: JweTheme.accentCyan),
                         ),
                         child: child!,
                       ),

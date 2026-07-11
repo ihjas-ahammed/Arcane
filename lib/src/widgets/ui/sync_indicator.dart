@@ -39,10 +39,10 @@ class SyncIndicator extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Text(
+              Text(
                 "SYNCING CLOUD...",
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.fhTextPrimary,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.5,

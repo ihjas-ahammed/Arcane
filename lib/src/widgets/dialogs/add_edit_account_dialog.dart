@@ -78,7 +78,7 @@ class _AddEditAccountDialogState extends State<AddEditAccountDialog> {
           children: [
             TextField(
               controller: _nameController,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: JweTheme.textWhite),
               autofocus: true,
               decoration:   InputDecoration(
                 labelText: 'ACCOUNT NAME',
@@ -89,7 +89,7 @@ class _AddEditAccountDialogState extends State<AddEditAccountDialog> {
             TextField(
               controller: _balanceController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: Colors.white, fontSize: 20),
+              style: TextStyle(color: JweTheme.textWhite, fontSize: 20),
               decoration:   InputDecoration(
                 prefixText: '₹ ',
                 labelText: 'BALANCE',
@@ -149,7 +149,7 @@ class _AddEditAccountDialogState extends State<AddEditAccountDialog> {
                     decoration: BoxDecoration(
                       color: color,
                       border: selected
-                          ? Border.all(color: Colors.white, width: 2)
+                          ? Border.all(color: JweTheme.textWhite, width: 2)
                           : null,
                     ),
                   ),

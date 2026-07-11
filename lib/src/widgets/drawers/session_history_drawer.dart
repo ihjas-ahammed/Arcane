@@ -70,7 +70,7 @@ class SessionHistoryDrawer extends StatelessWidget {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(dateStr.toUpperCase(), style:   TextStyle(color: AppTheme.fhAccentTeal, fontWeight: FontWeight.bold, fontSize: 10)),
-                                      Text(timeStr, style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: "RobotoMono")),
+                                      Text(timeStr, style: TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13, fontFamily: "RobotoMono")),
                                       Text("${duration.inMinutes} MIN", style:   TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11)),
                                     ],
                                   ),

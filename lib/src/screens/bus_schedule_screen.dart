@@ -236,12 +236,8 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       initialTime: initialTime,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: ColorScheme.dark(
-            primary: JweTheme.accentAmber,
-            onPrimary: Colors.black,
-            surface: JweTheme.panel,
-            onSurface: Colors.white,
-          ),
+          colorScheme: JweTheme.pickerScheme(
+              accent: JweTheme.accentAmber, surface: JweTheme.panel),
         ),
         child: child!,
       ),

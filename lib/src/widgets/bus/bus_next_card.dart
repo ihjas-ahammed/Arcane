@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 
 class BusNextCard extends StatelessWidget {
   final Map<String, dynamic>? nextBusData;
@@ -41,8 +42,8 @@ class BusNextCard extends StatelessWidget {
               textBaseline: TextBaseline.alphabetic,
               children: [
                 Text(
-                  nextBusData!['time'], 
-                  style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)
+                  nextBusData!['time'],
+                  style: TextStyle(color: JweTheme.textWhite, fontSize: 32, fontWeight: FontWeight.bold)
                 ),
                 if (nextBusData!['tomorrow'] == true)
                   Container(
@@ -68,29 +69,29 @@ class BusNextCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(MdiIcons.clockOutline, color: Colors.white, size: 20),
+                      Icon(MdiIcons.clockOutline, color: JweTheme.textWhite, size: 20),
                       const SizedBox(width: 4),
                       Text(
                         "${_formatTimeRemaining(nextBusData!['minutes'])} remaining",
-                        style: const TextStyle(color: Colors.white)
+                        style: TextStyle(color: JweTheme.textWhite)
                       )
                     ],
                   ),
                   Row(
                     children: [
-                      Icon(MdiIcons.sourceBranch, color: Colors.white, size: 20),
+                      Icon(MdiIcons.sourceBranch, color: JweTheme.textWhite, size: 20),
                       const SizedBox(width: 4),
-                      Text(routeInfo, style: const TextStyle(color: Colors.white))
+                      Text(routeInfo, style: TextStyle(color: JweTheme.textWhite))
                     ],
                   )
                 ],
               ),
             )
-          ] else 
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16.0),
+          ] else
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
               child: Center(
-                child: Text("No bus schedule available", style: TextStyle(color: Colors.white)),
+                child: Text("No bus schedule available", style: TextStyle(color: JweTheme.textWhite)),
               ),
             )
         ],

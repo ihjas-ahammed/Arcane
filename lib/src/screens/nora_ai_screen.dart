@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/dialogs/nora_control_panel.dart';
 import 'package:missions/src/widgets/ui/nora_message_bubble.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -199,7 +200,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               label: Text(
                 _suggestions[index],
-                style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: AppTheme.fontDisplay),
+                style: TextStyle(color: AppTheme.fhTextPrimary, fontSize: 12, fontFamily: AppTheme.fontDisplay),
               ),
               onPressed: () => _sendMessage(_suggestions[index]),
             ),
@@ -223,9 +224,9 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                const Color(0xFF0F0C1B),
+                JweTheme.isLight ? const Color(0xFFE9EDF5) : const Color(0xFF0F0C1B),
                 AppTheme.fhBgDeepDark,
-                const Color(0xFF0A0812),
+                JweTheme.isLight ? const Color(0xFFDDE3EE) : const Color(0xFF0A0812),
               ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -251,7 +252,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                        icon: Icon(Icons.close, color: AppTheme.fhTextPrimary, size: 28),
                         onPressed: () => setState(() => _isLiveVoiceOpen = false),
                       ),
                     ],
@@ -338,9 +339,9 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                                 color: _audioOutputEnabled ? AppTheme.fhAccentPurple : Colors.red,
                               ),
                               const SizedBox(width: 12),
-                              const Text(
+                              Text(
                                 "Audio Output Speaker",
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14),
                               ),
                             ],
                           ),
@@ -359,16 +360,16 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                       ),
                       if (!_audioOutputEnabled) ...[
                         const SizedBox(height: 8),
-                        const Divider(color: Colors.white24),
+                        Divider(color: AppTheme.fhBorderColor),
                         const SizedBox(height: 4),
                         Row(
-                          children: const [
-                            Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 16),
-                            SizedBox(width: 8),
+                          children: [
+                            Icon(Icons.warning_amber_rounded, color: JweTheme.accentWarn, size: 16),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 "Live voice only works with audio output enabled.",
-                                style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold),
+                                style: TextStyle(color: JweTheme.accentWarn, fontSize: 11, fontWeight: FontWeight.bold),
                               ),
                             ),
                           ],
@@ -405,8 +406,8 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                       // Mute Button
                       FloatingActionButton(
                         heroTag: "mute_voice",
-                        backgroundColor: _isMicMuted ? Colors.white24 : AppTheme.fhBgMedium,
-                        child: Icon(_isMicMuted ? MdiIcons.microphoneOff : MdiIcons.microphone, color: Colors.white),
+                        backgroundColor: _isMicMuted ? AppTheme.fhTextPrimary.withValues(alpha: 0.24) : AppTheme.fhBgMedium,
+                        child: Icon(_isMicMuted ? MdiIcons.microphoneOff : MdiIcons.microphone, color: AppTheme.fhTextPrimary),
                         onPressed: () {
                           setState(() {
                             _isMicMuted = !_isMicMuted;
@@ -471,7 +472,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                 children: [
                   Icon(MdiIcons.creation, color: AppTheme.fhAccentPurple, size: 32),
                   const SizedBox(height: 8),
-                  const Text("NORA LINKS", style: TextStyle(color: Colors.white, fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold)),
+                  Text("NORA LINKS", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay, fontSize: 24, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -571,7 +572,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                                   Text(
                                     "Hello, Operative. I'm NORA.",
                                     style: TextStyle(
-                                      color: Colors.white,
+                                      color: AppTheme.fhTextPrimary,
                                       fontSize: 20,
                                       fontFamily: AppTheme.fontDisplay,
                                       fontWeight: FontWeight.bold,
@@ -644,7 +645,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             ),
                             onSubmitted: (_) => _sendMessage(),
-                            style: const TextStyle(color: Colors.white, fontSize: 14),
+                            style: TextStyle(color: AppTheme.fhTextPrimary, fontSize: 14),
                           ),
                         ),
                         const SizedBox(width: 8),

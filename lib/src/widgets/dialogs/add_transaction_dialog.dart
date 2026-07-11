@@ -57,7 +57,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
             TextField(
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: Colors.white, fontFamily: 'RobotoMono', fontSize: 24),
+              style: TextStyle(color: JweTheme.textWhite, fontFamily: 'RobotoMono', fontSize: 24),
               decoration:   InputDecoration(
                 prefixText: "₹ ",
                 hintText: "0.00",
@@ -76,7 +76,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
               items: [
                 ...categories.map((c) => DropdownMenuItem(
                       value: c.id,
-                      child: Text(c.name, style: const TextStyle(color: Colors.white)),
+                      child: Text(c.name, style: TextStyle(color: JweTheme.textWhite)),
                     )),
                  DropdownMenuItem(
                   value: 'ADD_NEW',
@@ -106,7 +106,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
               items: [
                 ...accounts.map((a) => DropdownMenuItem(
                       value: a.id,
-                      child: Text(a.name, style: const TextStyle(color: Colors.white)),
+                      child: Text(a.name, style: TextStyle(color: JweTheme.textWhite)),
                     )),
                 DropdownMenuItem(
                   value: 'ADD_NEW_ACCOUNT',
@@ -128,7 +128,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
             const SizedBox(height: 16),
             TextField(
               controller: _noteController,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: JweTheme.textWhite),
               decoration:   InputDecoration(
                 labelText: "NOTE (Optional)",
                 labelStyle: TextStyle(color: JweTheme.textMuted),
@@ -144,11 +144,8 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
                   lastDate: DateTime.now().add(const Duration(days: 365)),
                   builder: (context, child) => Theme(
                     data: Theme.of(context).copyWith(
-                      colorScheme: ColorScheme.dark(
-                        primary: widget.isIncome ? JweTheme.accentCyan : JweTheme.accentRed,
-                        onPrimary: Colors.black,
-                        surface: JweTheme.bgBase,
-                      ),
+                      colorScheme: JweTheme.pickerScheme(
+                          accent: widget.isIncome ? JweTheme.accentCyan : JweTheme.accentRed),
                     ),
                     child: child!,
                   ),
@@ -172,7 +169,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
                       children: [
                         Text(
                           "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}",
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                          style: TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 13),
                         ),
                         const SizedBox(width: 8),
                         Icon(Icons.calendar_today, size: 14, color: widget.isIncome ? JweTheme.accentCyan : JweTheme.accentRed),
@@ -193,7 +190,7 @@ class _AddTransactionDialogState extends State<AddTransactionDialog> {
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: widget.isIncome ? JweTheme.accentCyan : JweTheme.accentRed,
-            foregroundColor: Colors.black,
+            foregroundColor: JweTheme.onAccent,
             shape: const BeveledRectangleBorder(),
           ),
           onPressed: () {

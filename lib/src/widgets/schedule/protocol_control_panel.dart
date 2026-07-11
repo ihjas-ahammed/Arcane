@@ -91,7 +91,7 @@ class ProtocolControlPanel extends StatelessWidget {
                           width: 16, height: 16,
                           decoration: BoxDecoration(
                             color: protocol.isActive ? protocol.taskColor : AppTheme.fhTextDisabled,
-                            border: Border.all(color: Colors.white30),
+                            border: Border.all(color: AppTheme.fhTextPrimary.withValues(alpha: 0.3)),
                           ),
                         ),
                         const SizedBox(width: 16),

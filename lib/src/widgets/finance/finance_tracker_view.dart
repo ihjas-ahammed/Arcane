@@ -69,7 +69,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
                 controller: ctrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 autofocus: true,
-                style: const TextStyle(color: Colors.white, fontSize: 22),
+                style: TextStyle(color: JweTheme.textWhite, fontSize: 22),
                 decoration:   InputDecoration(
                   prefixText: '₹ ',
                   hintText: '0.00',
@@ -86,7 +86,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: JweTheme.accentAmber,
-                foregroundColor: Colors.black,
+                foregroundColor: JweTheme.onAccent,
                 shape: const BeveledRectangleBorder(),
               ),
               onPressed: () {
@@ -819,7 +819,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
                 controller: ctrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 autofocus: true,
-                style: const TextStyle(color: Colors.white, fontSize: 22),
+                style: TextStyle(color: JweTheme.textWhite, fontSize: 22),
                 decoration:   InputDecoration(
                   prefixText: '₹ ',
                   hintText: '0.00',
@@ -836,7 +836,7 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: JweTheme.accentAmber,
-                foregroundColor: Colors.black,
+                foregroundColor: JweTheme.onAccent,
                 shape: const BeveledRectangleBorder(),
               ),
               onPressed: () {

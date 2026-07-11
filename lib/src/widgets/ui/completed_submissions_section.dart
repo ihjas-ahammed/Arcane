@@ -73,7 +73,7 @@ class _CompletedSubmissionsSectionState extends State<CompletedSubmissionsSectio
                     });
                   },
                   style: GoogleFonts.jetBrainsMono(
-                    color: Colors.white,
+                    color: AppTheme.fhTextPrimary,
                     fontSize: 12,
                   ),
                   decoration: InputDecoration(
@@ -90,7 +90,7 @@ class _CompletedSubmissionsSectionState extends State<CompletedSubmissionsSectio
                     ),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.close, size: 16, color: Colors.white70),
+                            icon: Icon(Icons.close, size: 16, color: AppTheme.fhTextSecondary),
                             onPressed: () {
                               _searchController.clear();
                               setState(() {

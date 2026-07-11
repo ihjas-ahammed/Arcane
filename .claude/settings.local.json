@@ -10,7 +10,14 @@
       "Bash(xargs grep -l \"progress.*time\\\\|time.*progress\" -i)",
       "Bash(powershell -NoProfile -Command \"\\(Get-Content 'c:\\\\Users\\\\ihjas\\\\Documents\\\\GitHub\\\\Arcane\\\\lib\\\\src\\\\widgets\\\\views\\\\schedule_view.dart' | Measure-Object -Line\\).Lines\")",
       "Bash(del \"c:\\\\Users\\\\ihjas\\\\Documents\\\\GitHub\\\\Arcane\\\\lib\\\\src\\\\screens\\\\schedule\\\\day_plan_screen.dart\")",
-      "Bash(del \"c:\\\\Users\\\\ihjas\\\\Documents\\\\GitHub\\\\Arcane\\\\lib\\\\src\\\\widgets\\\\schedule\\\\day_plan_dashboard_widget.dart\")"
+      "Bash(del \"c:\\\\Users\\\\ihjas\\\\Documents\\\\GitHub\\\\Arcane\\\\lib\\\\src\\\\widgets\\\\schedule\\\\day_plan_dashboard_widget.dart\")",
+      "Bash(flutter analyze *)",
+      "Bash(flutter --version)",
+      "Bash(sed -i \"s|import 'package:missions/src/theme/spidey_theme.dart';|import 'package:missions/src/theme/jwe_theme.dart';\\\\nimport 'package:missions/src/theme/spidey_theme.dart';|\" lib/src/widgets/health/add_sleep_dialog.dart)",
+      "Bash(sed -i \"s|import 'package:missions/src/theme/app_theme.dart';|import 'package:missions/src/theme/app_theme.dart';\\\\nimport 'package:missions/src/theme/jwe_theme.dart';|\" lib/src/screens/journaling/people_info_screen.dart)",
+      "Bash(flutter test *)",
+      "Bash(git stash *)",
+      "Bash(flutter build *)"
     ]
   }
 }

@@ -51,12 +51,8 @@ class _ScheduleViewState extends State<ScheduleView> {
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme:   ColorScheme.dark(
-            primary: AppTheme.fhAccentTeal,
-            onPrimary: Colors.black,
-            surface: AppTheme.fhBgDark,
-            onSurface: Colors.white,
-          ),
+          colorScheme: JweTheme.pickerScheme(
+              accent: AppTheme.fhAccentTeal, surface: AppTheme.fhBgDark),
           dialogTheme:   DialogThemeData(backgroundColor: AppTheme.fhBgDeepDark),
         ),
         child: child!,

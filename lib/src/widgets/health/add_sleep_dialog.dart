@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/theme/spidey_theme.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/health_models.dart';
@@ -78,7 +79,7 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
           child:  Text("CANCEL", style: TextStyle(color: SpideyTheme.textMuted)),
         ),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: SpideyTheme.spideyCyan, foregroundColor: Colors.black),
+          style: ElevatedButton.styleFrom(backgroundColor: SpideyTheme.spideyCyan, foregroundColor: JweTheme.onAccent),
           onPressed: (_startTime != null && _endTime != null)
               ? () {
                   final start = DateTime(_startDate.year, _startDate.month, _startDate.day, _startTime!.hour, _startTime!.minute);
@@ -124,12 +125,9 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
                 lastDate: DateTime.now().add(const Duration(days: 1)),
                 builder: (context, child) => Theme(
                   data: Theme.of(context).copyWith(
-                    colorScheme:   ColorScheme.dark(
-                      primary: SpideyTheme.spideyCyan,
-                      onPrimary: Colors.black,
-                      surface: SpideyTheme.bgPanel,
-                      onSurface: Colors.white,
-                    ),
+                    colorScheme: JweTheme.pickerScheme(
+                        accent: SpideyTheme.spideyCyan,
+                        surface: SpideyTheme.bgPanel),
                   ),
                   child: child!,
                 ),
@@ -169,12 +167,9 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
                 initialTime: time ?? TimeOfDay.now(),
                 builder: (context, child) => Theme(
                   data: Theme.of(context).copyWith(
-                    colorScheme:   ColorScheme.dark(
-                      primary: SpideyTheme.spideyCyan,
-                      onPrimary: Colors.black,
-                      surface: SpideyTheme.bgPanel,
-                      onSurface: Colors.white,
-                    ),
+                    colorScheme: JweTheme.pickerScheme(
+                        accent: SpideyTheme.spideyCyan,
+                        surface: SpideyTheme.bgPanel),
                   ),
                   child: child!,
                 ),

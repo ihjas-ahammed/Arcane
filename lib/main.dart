@@ -49,20 +49,23 @@ void main() async {
     debugPrint("Firebase init error (Native modules might be missing): $e");
   }
 
-  try {
-    await NotificationService.instance.init();
-  } catch (e) {
-    debugPrint("Notification init error: $e");
-  }
-
+  // Wire the widget-action channel synchronously so a cold-start widget click
+  // isn't dropped; the async service inits below run without blocking the
+  // first frame (pending actions are drained post-frame in MyApp).
   try {
     HomeWidgetService.instance.onAction =
         (action) => WidgetActionRouter.instance.handle(action);
     WidgetActionRouter.instance.attachPlatformChannel();
-    await HomeWidgetService.instance.init();
   } catch (e) {
-    debugPrint("HomeWidget init error: $e");
+    debugPrint("HomeWidget channel error: $e");
   }
+
+  NotificationService.instance.init().catchError((e) {
+    debugPrint("Notification init error: $e");
+  });
+  HomeWidgetService.instance.init().catchError((e) {
+    debugPrint("HomeWidget init error: $e");
+  });
 
   runApp(
     MultiProvider(

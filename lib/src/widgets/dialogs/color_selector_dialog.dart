@@ -53,7 +53,7 @@ class ColorSelectorDialog extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: color,
                   border: Border.all(
-                    color: isSelected ? Colors.white : Colors.transparent,
+                    color: isSelected ? AppTheme.fhTextPrimary : Colors.transparent,
                     width: 3,
                   ),
                   boxShadow: isSelected

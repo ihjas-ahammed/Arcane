@@ -69,7 +69,7 @@ class SessionLogDrawer extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppTheme.fhBgDark,
               border: Border(
-                  bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+                  bottom: BorderSide(color: AppTheme.fhBorderColor)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,7 +80,7 @@ class SessionLogDrawer extends StatelessWidget {
                     fontFamily: AppTheme.fontDisplay,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: AppTheme.fhTextPrimary,
                     letterSpacing: 1.0,
                   ),
                 ),
@@ -103,12 +103,12 @@ class SessionLogDrawer extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(MdiIcons.history, size: 48, color: Colors.white24),
+                        Icon(MdiIcons.history, size: 48, color: AppTheme.fhTextDisabled),
                         const SizedBox(height: 16),
                         Text(
                           "NO SESSIONS RECORDED",
                           style: TextStyle(
-                            color: Colors.white24,
+                            color: AppTheme.fhTextDisabled,
                             fontFamily: AppTheme.fontDisplay,
                             letterSpacing: 1.5,
                             fontSize: 12,
@@ -144,9 +144,9 @@ class SessionLogDrawer extends StatelessWidget {
                             builder: (BuildContext context) {
                               return AlertDialog(
                                 backgroundColor: AppTheme.fhBgDark,
-                                title: const Text(
+                                title: Text(
                                   "Confirm Delete",
-                                  style: TextStyle(color: Colors.white),
+                                  style: TextStyle(color: AppTheme.fhTextPrimary),
                                 ),
                                 content:   Text(
                                   "Are you sure you want to delete this session log?",
@@ -186,7 +186,7 @@ class SessionLogDrawer extends StatelessWidget {
                             decoration: BoxDecoration(
                               border: Border(
                                   bottom: BorderSide(
-                                      color: Colors.white.withOpacity(0.05))),
+                                      color: AppTheme.fhTextPrimary.withValues(alpha: 0.05))),
                             ),
                             child: Row(
                               children: [
@@ -207,8 +207,8 @@ class SessionLogDrawer extends StatelessWidget {
                                     children: [
                                       Text(
                                         dateStr,
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: AppTheme.fhTextPrimary,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14,
                                         ),
@@ -232,14 +232,14 @@ class SessionLogDrawer extends StatelessWidget {
                                           duration.inSeconds.toDouble()),
                                       style: TextStyle(
                                         fontFamily: "RobotoMono",
-                                        color: AppTheme.fhAccentTealFixed,
+                                        color: AppTheme.fhAccentTeal,
                                         fontWeight: FontWeight.bold,
                                         fontSize: 14,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Icon(MdiIcons.pencil,
-                                        size: 14, color: Colors.white24),
+                                        size: 14, color: AppTheme.fhTextDisabled),
                                   ],
                                 ),
                               ],

@@ -65,7 +65,7 @@ class _NoraControlPanelState extends State<NoraControlPanel> {
             TextField(
               controller: _promptController,
               maxLines: 4,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
               decoration:   InputDecoration(
                 filled: true,
                 fillColor: AppTheme.fhBgDark,
@@ -87,7 +87,7 @@ class _NoraControlPanelState extends State<NoraControlPanel> {
                       TextField(
                         controller: _limitController,
                         keyboardType: TextInputType.number,
-                        style: const TextStyle(color: Colors.white, fontFamily: 'RobotoMono'),
+                        style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: 'RobotoMono'),
                         decoration:   InputDecoration(filled: true, fillColor: AppTheme.fhBgDark, border: OutlineInputBorder(), hintText: "e.g. 3 (0 = Auto)"),
                       ),
                     ],
@@ -103,7 +103,7 @@ class _NoraControlPanelState extends State<NoraControlPanel> {
                       TextField(
                         controller: _daysController,
                         keyboardType: TextInputType.number,
-                        style: const TextStyle(color: Colors.white, fontFamily: 'RobotoMono'),
+                        style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: 'RobotoMono'),
                         decoration:   InputDecoration(filled: true, fillColor: AppTheme.fhBgDark, border: OutlineInputBorder(), hintText: "e.g. 7"),
                       ),
                     ],
@@ -122,7 +122,7 @@ class _NoraControlPanelState extends State<NoraControlPanel> {
               decoration:   InputDecoration(filled: true, fillColor: AppTheme.fhBgDark, border: OutlineInputBorder()),
               items: [
                   DropdownMenuItem(value: null, child: Text("System Default", style: TextStyle(color: AppTheme.fhTextSecondary))),
-                ...availableModels.map((m) => DropdownMenuItem(value: m, child: Text(m, style: const TextStyle(color: Colors.white)))),
+                ...availableModels.map((m) => DropdownMenuItem(value: m, child: Text(m, style: TextStyle(color: AppTheme.fhTextPrimary)))),
               ],
               onChanged: (val) => setState(() => _selectedModel = val),
             ),

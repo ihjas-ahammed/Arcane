@@ -34,6 +34,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 2; // Default tab is Schedule (index 2)
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final ValueNotifier<int> _scheduleOpenTick = ValueNotifier<int>(0);
+  ThemeData? _scaffoldThemeBase;
+  ThemeData? _scaffoldTheme;
+  // Tabs that have been shown at least once. Unvisited IndexedStack children
+  // stay as empty placeholders so startup only builds the initial view.
+  final Set<int> _visitedTabs = {};
 
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
@@ -215,8 +220,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final ThemeData dynamicTheme =
         AppTheme.getThemeData(primaryAccent: currentTaskColor, isLightTheme: isLightTheme);
+    // copyWith allocates a new ThemeData (invalidating all Theme.of dependents
+    // below), so only re-derive it when the base theme instance changes.
+    if (!identical(_scaffoldThemeBase, dynamicTheme)) {
+      _scaffoldThemeBase = dynamicTheme;
+      _scaffoldTheme = dynamicTheme.copyWith(scaffoldBackgroundColor: JweTheme.bgBase);
+    }
 
-    final List<Widget> widgetOptions = <Widget>[
+    _visitedTabs.add(_selectedIndex);
+    final List<Widget> allViews = <Widget>[
       Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -236,6 +248,10 @@ class _HomeScreenState extends State<HomeScreen> {
       const LogbookScreen(),
       const FinanceDashboardScreen(),
     ];
+    final List<Widget> widgetOptions = <Widget>[
+      for (int i = 0; i < allViews.length; i++)
+        _visitedTabs.contains(i) ? allViews[i] : const SizedBox.shrink(),
+    ];
 
     String headerLabel = _viewTitles[_selectedIndex];
     Widget? customLeading;
@@ -251,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Theme(
-      data: dynamicTheme.copyWith(scaffoldBackgroundColor: JweTheme.bgBase),
+      data: _scaffoldTheme!,
       child: Scaffold(
         key: _scaffoldKey,
         extendBody: true,
