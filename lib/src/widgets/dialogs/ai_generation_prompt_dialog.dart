@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/widgets/valorant/valorant_button.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class AiGenerationPromptDialog extends StatefulWidget {
   final String title;
@@ -42,7 +43,7 @@ class _AiGenerationPromptDialogState extends State<AiGenerationPromptDialog> {
                 hintText: widget.hintText,
                 hintStyle: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.5), fontSize: 13),
                 filled: true,
-                fillColor: Colors.black.withOpacity(0.3),
+                fillColor: ArcSurfaces.inputFill,
                 border: const OutlineInputBorder(borderRadius: BorderRadius.zero),
               ),
               maxLines: 3,

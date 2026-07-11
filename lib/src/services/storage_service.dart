@@ -44,6 +44,9 @@ abstract class StorageService {
   Future<bool> saveWeeklyReport(
       String userId, String date, Map<String, dynamic> data);
   Future<List<Map<String, dynamic>>> fetchWeeklyReports(String userId);
+  Future<bool> saveMonthlyReport(
+      String userId, String date, Map<String, dynamic> data);
+  Future<List<Map<String, dynamic>>> fetchMonthlyReports(String userId);
 }
 
 // Shared helper — collapses the RTDB chunk JSON back into one flat state map.
@@ -336,6 +339,50 @@ class _FlutterFireStorageService implements StorageService {
       return [];
     }
   }
+
+  @override
+  Future<bool> saveMonthlyReport(
+      String userId, String date, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('monthly')
+          .doc(date)
+          .set({
+        'report': data,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      return true;
+    } catch (e, stack) {
+      debugPrint('[StorageService.saveMonthlyReport] $e\n$stack');
+      return false;
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchMonthlyReports(String userId) async {
+    if (userId.isEmpty) return [];
+    try {
+      final snap = await _firestore
+          .collection(_userCollection)
+          .doc(userId)
+          .collection('monthly')
+          .orderBy('updatedAt', descending: true)
+          .get();
+
+      return snap.docs.map((doc) {
+        return {
+          'id': doc.id,
+          ...doc.data(),
+        };
+      }).toList();
+    } catch (e, stack) {
+      debugPrint('[StorageService.fetchMonthlyReports] $e\n$stack');
+      return [];
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -608,6 +655,59 @@ class _LinuxStorageService implements StorageService {
           .toList();
     } catch (e, stack) {
       debugPrint('[StorageService.fetchWeeklyReports/linux] $e\n$stack');
+      return [];
+    }
+  }
+
+  @override
+  Future<bool> saveMonthlyReport(
+      String userId, String date, Map<String, dynamic> data) async {
+    if (userId.isEmpty) return false;
+    try {
+      final docRef = _firestore
+          .collection('$_userCollection/$userId/monthly')
+          .document(date);
+
+      Map<String, dynamic> existing = {};
+      try {
+        final snap = await docRef.get();
+        existing = Map<String, dynamic>.from(snap.map);
+      } catch (_) {}
+
+      existing['report'] = data;
+      existing['updatedAt'] = DateTime.now().toUtc().toIso8601String();
+
+      await docRef.set(existing);
+      return true;
+    } catch (e, stack) {
+      debugPrint('[StorageService.saveMonthlyReport/linux] $e\n$stack');
+      return false;
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchMonthlyReports(String userId) async {
+    if (userId.isEmpty) return [];
+    try {
+      final docs = await _firestore
+          .collection('$_userCollection/$userId/monthly')
+          .get();
+
+      final entries = docs.toList()
+        ..sort((a, b) {
+          final aTs = (a.map['updatedAt'] ?? '').toString();
+          final bTs = (b.map['updatedAt'] ?? '').toString();
+          return bTs.compareTo(aTs);
+        });
+
+      return entries
+          .map((doc) => {
+                'id': doc.id,
+                ...Map<String, dynamic>.from(doc.map),
+              })
+          .toList();
+    } catch (e, stack) {
+      debugPrint('[StorageService.fetchMonthlyReports/linux] $e\n$stack');
       return [];
     }
   }

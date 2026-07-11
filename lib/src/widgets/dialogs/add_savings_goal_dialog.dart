@@ -44,7 +44,7 @@ class _AddSavingsGoalDialogState extends State<AddSavingsGoalDialog> {
                     data: Theme.of(context).copyWith(
                       colorScheme: ColorScheme.dark(
                         primary: JweTheme.accentAmber,
-                        onPrimary: Colors.black,
+                        onPrimary: JweTheme.onAccent,
                         surface: JweTheme.bgBase,
                       ),
                     ),
@@ -65,7 +65,7 @@ class _AddSavingsGoalDialogState extends State<AddSavingsGoalDialog> {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child:  Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: Colors.black, shape:  BeveledRectangleBorder()),
+          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: JweTheme.onAccent, shape:  BeveledRectangleBorder()),
           onPressed: () {
             final amt = double.tryParse(_amountController.text);
             if (amt != null && _nameController.text.isNotEmpty) {

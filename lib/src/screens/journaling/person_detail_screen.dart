@@ -10,6 +10,8 @@ import 'package:missions/src/widgets/journaling/person_info_header.dart';
 import 'package:missions/src/widgets/journaling/person_core_stats.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
+import 'package:missions/src/theme/spidey_theme.dart';
 
 class PersonDetailScreen extends StatefulWidget {
   final String personId;
@@ -275,10 +277,10 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: RadialGradient(
             center: Alignment.center,
-            colors: [Color(0xFF132030), Color(0xFF000000)],
+            colors: [SpideyTheme.bgElevated, SpideyTheme.bgDeep],
             radius: 1.0,
           ),
         ),
@@ -373,8 +375,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                     child: Container(
                       height: 42,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF07121d),
-                        border: Border.all(color: const Color(0xFF1f2f40)),
+                        color: ArcSurfaces.deepPanel,
+                        border: Border.all(color: ArcStrokes.steel),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Row(
@@ -385,7 +387,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                               child: Container(
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                  color: _activeTab == 0 ? const Color(0xFF0f2136) : Colors.transparent,
+                                  color: _activeTab == 0 ? ArcSurfaces.deepPanelRaised : Colors.transparent,
                                   border: _activeTab == 0
                                       ?  Border(bottom: BorderSide(color: PersonInfoTheme.spideyCyan, width: 2))
                                       : null,
@@ -408,7 +410,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                               child: Container(
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                  color: _activeTab == 1 ? const Color(0xFF0f2136) : Colors.transparent,
+                                  color: _activeTab == 1 ? ArcSurfaces.deepPanelRaised : Colors.transparent,
                                   border: _activeTab == 1
                                       ?  Border(bottom: BorderSide(color: PersonInfoTheme.spideyCyan, width: 2))
                                       : null,
@@ -431,7 +433,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                               child: Container(
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                  color: _activeTab == 2 ? const Color(0xFF0f2136) : Colors.transparent,
+                                  color: _activeTab == 2 ? ArcSurfaces.deepPanelRaised : Colors.transparent,
                                   border: _activeTab == 2
                                       ?  Border(bottom: BorderSide(color: PersonInfoTheme.spideyCyan, width: 2))
                                       : null,
@@ -459,10 +461,10 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                       decoration: BoxDecoration(
                         color: PersonInfoTheme.bgPanel,
-                        border: Border.all(color: const Color(0xFF1f2f40)),
-                        boxShadow: const [
+                        border: Border.all(color: ArcStrokes.steel),
+                        boxShadow: [
                           BoxShadow(
-                            color: Colors.black,
+                            color: ArcEffects.shadow(1.0),
                             blurRadius: 30,
                           )
                         ],
@@ -478,15 +480,15 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                       child: SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
-                          onPressed: provider.loadingTaskName != null ? null : () => _generateProfile(context, provider),
+                          onPressed: provider.journalingActions.isPersonUpdating(widget.personId) ? null : () => _generateProfile(context, provider),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: PersonInfoTheme.textGrey,
-                            side: const BorderSide(color: Color(0xFF1f2f40)),
+                            side: BorderSide(color: ArcStrokes.steel),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
                           ),
                           child: Text(
-                            provider.loadingTaskName == "Analyzing Profile..." ? "RECALCULATING..." : "REFRESH AI DOSSIER",
+                            provider.journalingActions.isPersonUpdating(widget.personId) ? "RECALCULATING..." : "REFRESH AI DOSSIER",
                             style: const TextStyle(fontFamily: AppTheme.fontDisplay, fontWeight: FontWeight.bold, letterSpacing: 1.0),
                           ),
                         ),
@@ -645,10 +647,10 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ValorantButton(
-                  label: provider.loadingTaskName == "Analyzing Profile..." ? "ANALYZING..." : "ANALYZE REFLECTIONS",
+                  label: provider.journalingActions.isPersonUpdating(widget.personId) ? "ANALYZING..." : "ANALYZE REFLECTIONS",
                   isPrimary: false,
                   color: PersonInfoTheme.spideyCyan,
-                  onPressed: provider.loadingTaskName != null ? null : () => _generateProfile(context, provider),
+                  onPressed: provider.journalingActions.isPersonUpdating(widget.personId) ? null : () => _generateProfile(context, provider),
                 ),
               ),
             ],
@@ -744,7 +746,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                   child: RichText(
                     text: TextSpan(
                       style: GoogleFonts.rajdhani(
-                        color: const Color(0xFFCCCCCC),
+                        color: ArcContent.dossierBody,
                         fontSize: 14,
                         height: 1.4,
                       ),
@@ -970,8 +972,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF06101a),
-        border: Border.all(color: const Color(0xFF1f2f40)),
+        color: ArcSurfaces.deepPanel,
+        border: Border.all(color: ArcStrokes.steel),
         borderRadius: BorderRadius.circular(4),
       ),
       child: TextField(
@@ -998,8 +1000,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF06101a),
-        border: Border.all(color: const Color(0xFF1f2f40)),
+        color: ArcSurfaces.deepPanel,
+        border: Border.all(color: ArcStrokes.steel),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -1051,7 +1053,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 );
               },
             ),
-          const Divider(color: Color(0xFF1f2f40), height: 20),
+          Divider(color: ArcStrokes.steel, height: 20),
           Row(
             children: [
               Expanded(

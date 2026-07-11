@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class ChartCarouselData {
   final String title;
@@ -113,7 +114,7 @@ class _ChartCarouselState extends State<ChartCarousel> {
             dotWidth: 6,
             expansionFactor: 4,
             activeDotColor: JweTheme.accentAmber,
-            dotColor: Color(0x3FA8B3C7),
+            dotColor: ArcStrokes.hairlineStrong,
             spacing: 6,
           ),
         ),

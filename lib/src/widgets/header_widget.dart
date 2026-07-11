@@ -206,12 +206,12 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
 
 class ArcaneAppIcon extends StatelessWidget {
   final double size;
-  final Color color;
+  final Color? color;
 
   const ArcaneAppIcon({
     super.key,
     this.size = 22,
-    this.color = Colors.white,
+    this.color,
   });
 
   @override
@@ -220,7 +220,7 @@ class ArcaneAppIcon extends StatelessWidget {
       width: size,
       height: size,
       child: CustomPaint(
-        painter: _ArcaneAppIconPainter(color: color),
+        painter: _ArcaneAppIconPainter(color: color ?? JweTheme.textWhite),
       ),
     );
   }

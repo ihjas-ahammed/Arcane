@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/person_info_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class PersonDossierSection extends StatelessWidget {
   final String profile;
@@ -128,7 +129,7 @@ class PersonDossierSection extends StatelessWidget {
                   child: RichText(
                     text: TextSpan(
                       style: GoogleFonts.rajdhani(
-                        color: const Color(0xFFCCCCCC),
+                        color: ArcContent.dossierBody,
                         fontSize: 15,
                         height: 1.4,
                       ),

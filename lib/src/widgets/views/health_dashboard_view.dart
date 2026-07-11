@@ -92,7 +92,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: JweTheme.accentCyan,
-              foregroundColor: Colors.black,
+              foregroundColor: JweTheme.onAccent,
               shape: const BeveledRectangleBorder(),
             ),
             onPressed: () {
@@ -177,7 +177,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: JweTheme.accentTeal,
-              foregroundColor: Colors.black,
+              foregroundColor: JweTheme.onAccent,
               shape: const BeveledRectangleBorder(),
             ),
             onPressed: () {
@@ -257,7 +257,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: JweTheme.accentAmber,
-                foregroundColor: Colors.black,
+                foregroundColor: JweTheme.onAccent,
                 shape: const BeveledRectangleBorder(),
               ),
               onPressed: () {
@@ -818,16 +818,16 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: JweTheme.accentAmber,
-                    foregroundColor: Colors.black,
+                    foregroundColor: JweTheme.onAccent,
                     shape: const BeveledRectangleBorder(),
                     minimumSize: const Size(double.infinity, 44),
                   ),
                   onPressed: _isAnalyzingFood ? null : () => _handleFoodAILog(provider, dateStr),
                   icon: _isAnalyzingFood
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: JweTheme.onAccent),
                         )
                       : Icon(MdiIcons.brain, size: 16),
                   label: Text(

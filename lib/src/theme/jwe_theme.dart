@@ -12,31 +12,39 @@ class JweTheme {
   static Color? _amberGlow;
   static Color? _lineAmber;
 
-  // Intercept and calibrate assigned colors to fit an elegant, low-saturation light mode palette
+  // Intercept and calibrate assigned colors to fit an elegant light mode
+  // palette. Keeps each hue's identity (no crush-to-black): saturation is
+  // tamed and lightness lands in a readable band, with yellows/limes pushed
+  // darker since they need it to pass contrast on paper surfaces.
   static Color calibrate(Color c) {
     if (!isLight) return c;
     final hsl = HSLColor.fromColor(c);
-    final double sat = hsl.saturation.clamp(0.0, 0.85);
-    final double light = hsl.lightness.clamp(0.12, 0.28); // even darker for extreme readability
+    final double sat = hsl.saturation.clamp(0.0, 0.80);
+    final bool yellowish = hsl.hue >= 40 && hsl.hue < 95;
+    final double light = yellowish
+        ? hsl.lightness.clamp(0.24, 0.34)
+        : hsl.lightness.clamp(0.28, 0.40);
     return hsl.withSaturation(sat).withLightness(light).toColor();
   }
 
   // ── Backgrounds ─────────────────────────────────────────────
-  static Color get bgDeep => isLight ? const Color(0xFFE2E8F0) : const Color(0xFF04060E); // slate-200
-  static Color get bgBase => isLight ? const Color(0xFFF1F5F9) : const Color(0xFF070B18); // slate-100
-  static Color get bgCanvas => isLight ? const Color(0xFFF1F5F9) : const Color(0xFF070B18); // slate-100
-  static Color get panel => isLight ? const Color(0xFFFFFFFF) : const Color(0xFF0D1426); // white
-  static Color get panel2 => isLight ? const Color(0xFFF8FAFC) : const Color(0xFF101A30); // slate-50
-  static Color get elev => isLight ? const Color(0xFFE2E8F0) : const Color(0xFF142039); // slate-200
+  // Light mode is warm paper (not cold slate / pure white): warm off-whites
+  // reduce eye strain over long sessions and avoid the "inverted" feel.
+  static Color get bgDeep => isLight ? const Color(0xFFECE8E1) : const Color(0xFF04060E); // warm stone
+  static Color get bgBase => isLight ? const Color(0xFFF5F2EC) : const Color(0xFF070B18); // warm paper
+  static Color get bgCanvas => isLight ? const Color(0xFFF5F2EC) : const Color(0xFF070B18); // warm paper
+  static Color get panel => isLight ? const Color(0xFFFCFBF8) : const Color(0xFF0D1426); // warm near-white
+  static Color get panel2 => isLight ? const Color(0xFFF7F4EE) : const Color(0xFF101A30); // warm panel alt
+  static Color get elev => isLight ? const Color(0xFFE9E4DB) : const Color(0xFF142039); // warm elevated
 
   // ── Accents ─────────────────────────────────────────────────
-  static Color get accentAmber => calibrate(_accentAmber ?? (isLight ? const Color(0xFF0284C7) : const Color(0xFF00AEFF)));
+  static Color get accentAmber => calibrate(_accentAmber ?? (isLight ? const Color(0xFF026AA2) : const Color(0xFF00AEFF)));
   static set accentAmber(Color val) => _accentAmber = val;
 
-  static Color get amberDim => calibrate(_amberDim ?? (isLight ? const Color(0xFF0369A1) : const Color(0xFF0082BF)));
+  static Color get amberDim => calibrate(_amberDim ?? (isLight ? const Color(0xFF075985) : const Color(0xFF0082BF)));
   static set amberDim(Color val) => _amberDim = val;
 
-  static Color get amberSoft => _amberSoft ?? (isLight ? const Color(0x190284C7) : const Color(0x2400AEFF));
+  static Color get amberSoft => _amberSoft ?? (isLight ? const Color(0x14026AA2) : const Color(0x2400AEFF));
   static set amberSoft(Color val) {
     if (isLight) {
       _amberSoft = calibrate(val).withValues(alpha: 0.10);
@@ -45,7 +53,7 @@ class JweTheme {
     }
   }
 
-  static Color get amberGlow => _amberGlow ?? (isLight ? const Color(0x3D0284C7) : const Color(0x8C00AEFF));
+  static Color get amberGlow => _amberGlow ?? (isLight ? const Color(0x33026AA2) : const Color(0x8C00AEFF));
   static set amberGlow(Color val) {
     if (isLight) {
       _amberGlow = calibrate(val).withValues(alpha: 0.25);
@@ -63,14 +71,15 @@ class JweTheme {
   static Color get accentWarn => isLight ? const Color(0xFFB45309) : const Color(0xFFFFB547); // rich bronze-amber
 
   // ── Text ────────────────────────────────────────────────────
-  static Color get textWhite => isLight ? const Color(0xFF000000) : const Color(0xFFEAECF3); // pure black
-  static Color get textMid => isLight ? const Color(0xFF111827) : const Color(0xFFA8B3C7); // dark gray-900
-  static Color get textMuted => isLight ? const Color(0xFF4B5563) : const Color(0xFF5E6C87); // slate-700/gray-600
+  // Warm off-black hierarchy (pure #000 on paper is harsh).
+  static Color get textWhite => isLight ? const Color(0xFF211D18) : const Color(0xFFEAECF3); // warm off-black
+  static Color get textMid => isLight ? const Color(0xFF4A443C) : const Color(0xFFA8B3C7); // warm gray-700
+  static Color get textMuted => isLight ? const Color(0xFF837B70) : const Color(0xFF5E6C87); // warm gray-500
 
   // ── Lines ───────────────────────────────────────────────────
-  static Color get border => isLight ? const Color(0xFFE2E8F0) : const Color(0xFF1B2A38); // slate-200
+  static Color get border => isLight ? const Color(0xFFDDD6CA) : const Color(0xFF1B2A38); // warm border
   static Color get line => isLight ? const Color(0x220F766E) : const Color(0x215FE1D8);
-  static Color get lineAmber => _lineAmber ?? (isLight ? const Color(0x2A0284C7) : const Color(0x4D00AEFF));
+  static Color get lineAmber => _lineAmber ?? (isLight ? const Color(0x2A026AA2) : const Color(0x4D00AEFF));
   static set lineAmber(Color val) {
     if (isLight) {
       _lineAmber = calibrate(val).withValues(alpha: 0.20);
@@ -79,7 +88,7 @@ class JweTheme {
     }
   }
 
-  static Color get lineSoft => isLight ? const Color(0x0C000000) : const Color(0x0FFFFFFF);
+  static Color get lineSoft => isLight ? const Color(0x0F000000) : const Color(0x0FFFFFFF);
 
   // ── Contrast helpers ────────────────────────────────────────
   /// Foreground for text/icons sitting on an accent-colored fill.

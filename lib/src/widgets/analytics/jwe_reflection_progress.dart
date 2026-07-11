@@ -9,6 +9,7 @@ import 'package:missions/src/widgets/dialogs/last_insight_dialog.dart';
 import 'package:missions/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:provider/provider.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 /// Operator HUD reflection-protocol completion strip.
 class JweReflectionProgress extends StatelessWidget {
@@ -172,7 +173,7 @@ class _Segment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = on ? JweTheme.accentAmber :  Color(0x1AA8B3C7);
+    final color = on ? JweTheme.accentAmber :  ArcStrokes.hairline;
     return Column(children: [
       Container(
         height: 4,

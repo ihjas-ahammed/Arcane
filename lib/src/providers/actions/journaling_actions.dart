@@ -128,14 +128,24 @@ class JournalingActions {
     }
   }
 
+  /// Person IDs whose profiles are currently being (re)generated.
+  /// Kept per-person (not a global loading task) so multiple profiles can
+  /// update in parallel without blocking each other or the rest of the UI.
+  final Set<String> updatingPersonIds = {};
+
+  bool isPersonUpdating(String personId) => updatingPersonIds.contains(personId);
+
   Future<void> generatePersonDetails(String personId) async {
     final personIndex = _provider.chatbotMemory.people.indexWhere((p) => p.id == personId);
     if (personIndex == -1) return;
+    if (updatingPersonIds.contains(personId)) return;
 
     final person = _provider.chatbotMemory.people[personIndex];
     final logsText = _getLogsText();
 
-    _provider.setLoadingTask("Analyzing Profile...");
+    updatingPersonIds.add(personId);
+    // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
+    _provider.notifyListeners();
 
     try {
       final result = await _provider.aiService.generatePersonDetails(
@@ -148,20 +158,35 @@ class JournalingActions {
         onLog: (msg) => debugPrint("[PersonDetails] $msg"),
       );
 
-      // Save the entire JSON structure as a string so UI can parse it
-      _provider.chatbotMemory.people[personIndex].details = jsonEncode(result);
-      _provider.chatbotMemory.people[personIndex].lastUpdated = DateTime.now();
-      _provider.markDirty('settings');
-      _provider.scheduleRealtimeSync();
-      // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
-      _provider.notifyListeners();
-      
+      // Re-resolve the index: the list may have changed while awaiting.
+      final idx = _provider.chatbotMemory.people.indexWhere((p) => p.id == personId);
+      if (idx != -1) {
+        // Save the entire JSON structure as a string so UI can parse it
+        _provider.chatbotMemory.people[idx].details = jsonEncode(result);
+        _provider.chatbotMemory.people[idx].lastUpdated = DateTime.now();
+        _provider.markDirty('settings');
+        _provider.scheduleRealtimeSync();
+      }
     } catch (e) {
       debugPrint("Error generating person details: $e");
       rethrow;
     } finally {
-      _provider.setLoadingTask(null);
+      updatingPersonIds.remove(personId);
+      // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
+      _provider.notifyListeners();
     }
+  }
+
+  /// Runs profile generation for several people concurrently. Individual
+  /// failures are logged and skipped so one bad profile doesn't sink the rest.
+  Future<void> generateAllPersonDetails(List<String> personIds) async {
+    final targets = personIds.where((id) => !updatingPersonIds.contains(id)).toList();
+    if (targets.isEmpty) return;
+    await Future.wait(targets.map(
+      (id) => generatePersonDetails(id).catchError((Object e) {
+        debugPrint("Parallel profile update failed for $id: $e");
+      }),
+    ));
   }
 
   Future<Map<String, dynamic>> runQuickTherapy(String reason, String feeling, String action, {bool requestComms = false}) async {

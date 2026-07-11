@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 String _fmtValue(double v, String unit) {
   if (unit != 'm') return '${v.round()}$unit';
@@ -238,7 +239,7 @@ class _HudBarsPainter extends CustomPainter {
       final dayColor = JweTheme.isLight ? calBarColor : baseColor;
 
       final color = v == 0
-          ? (JweTheme.isLight ? const Color(0x0F000000) : const Color(0x1AA8B3C7))
+          ? ArcStrokes.hairline
           : (isToday || isPeak
               ? (JweTheme.isLight ? dayColor.withValues(alpha: 0.35) : dayColor)
               : (JweTheme.isLight ? dayColor.withValues(alpha: 0.15) : dayColor.withValues(alpha: 0.40)));

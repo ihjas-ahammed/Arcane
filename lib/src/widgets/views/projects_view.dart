@@ -75,7 +75,7 @@ class _ProjectsViewState extends State<ProjectsView> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: JweTheme.accentAmber,
-              foregroundColor: Colors.black,
+              foregroundColor: JweTheme.onAccent,
               shape: const BeveledRectangleBorder(),
             ),
             onPressed: () {
@@ -216,7 +216,7 @@ class _ProjectsViewState extends State<ProjectsView> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: JweTheme.accentAmber,
-              foregroundColor: Colors.black,
+              foregroundColor: JweTheme.onAccent,
               shape: const BeveledRectangleBorder(),
             ),
             onPressed: () {

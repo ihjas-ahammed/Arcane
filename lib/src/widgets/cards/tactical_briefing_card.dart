@@ -32,6 +32,9 @@ class TacticalBriefingCard extends StatelessWidget {
     final gratefulToday = (briefingData['grateful_today'] as List<dynamic>?)
         ?? (briefingData['grateful_assets'] as List<dynamic>?)
         ?? [];
+    final savorMoment       = briefingData['savor_moment']       as String? ?? '';
+    final smallWin          = briefingData['small_win']          as String? ?? '';
+    final tomorrowIntention = briefingData['tomorrow_intention'] as String? ?? '';
 
     return HudPanel(
       clip: HudClip.both,
@@ -113,6 +116,63 @@ class TacticalBriefingCard extends StatelessWidget {
                   ),
                 ).animate().fadeIn(duration: 500.ms),
 
+                // Savor moment (savoring - relive the day's best moment)
+                if (savorMoment.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  HudSectionHead(
+                    label: 'SAVOR THIS',
+                    accent: HudTone.teal,
+                    padding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: JweTheme.accentTeal.withValues(alpha: 0.05),
+                      border: Border(
+                          left: BorderSide(color: JweTheme.accentTeal, width: 3)),
+                    ),
+                    child: Text(
+                      savorMoment,
+                      style: GoogleFonts.inter(
+                        color: JweTheme.textWhite,
+                        fontSize: 12.5,
+                        height: 1.5,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ).animate().fadeIn(duration: 400.ms),
+                ],
+
+                // Small win (progress principle)
+                if (smallWin.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  HudSectionHead(
+                    label: 'SMALL WIN LOGGED',
+                    accent: HudTone.amber,
+                    padding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(MdiIcons.trophyVariantOutline,
+                          size: 14, color: JweTheme.accentAmber),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          smallWin,
+                          style: GoogleFonts.saira(
+                            color: JweTheme.textWhite,
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ).animate().fadeIn(duration: 400.ms),
+                ],
+
                 // Ability improvements
                 if (improvements.isNotEmpty) ...[
                   const SizedBox(height: 20),
@@ -163,19 +223,74 @@ class TacticalBriefingCard extends StatelessWidget {
                 // Allies
                 if (gratefulPeople.isNotEmpty) ...[
                   const SizedBox(height: 20),
-                  HudSectionHead(
-                    label: 'ALLIES DETECTED',
-                    accent: HudTone.cyan,
-                    padding: EdgeInsets.zero,
-                  ),
+                  Builder(builder: (context) {
+                    final provider = Provider.of<AppProvider>(context);
+
+                    bool personNeedsUpdate(dynamic person) {
+                      final p = person as Map<String, dynamic>;
+                      final pName = p['name'] as String? ?? '';
+                      final existing = provider.chatbotMemory.people.firstWhereOrNull(
+                          (e) => e.name.toLowerCase().trim() == pName.toLowerCase().trim());
+                      return existing != null &&
+                          !provider.journalingActions.isPersonUpdating(existing.id) &&
+                          (existing.details == null ||
+                              existing.details!.isEmpty ||
+                              existing.lastUpdated == null ||
+                              (date != null && existing.lastUpdated!.isBefore(date!)));
+                    }
+
+                    final pendingIds = <String>[];
+                    for (final person in gratefulPeople) {
+                      if (personNeedsUpdate(person)) {
+                        final pName = (person as Map<String, dynamic>)['name'] as String? ?? '';
+                        final existing = provider.chatbotMemory.people.firstWhereOrNull(
+                            (e) => e.name.toLowerCase().trim() == pName.toLowerCase().trim());
+                        if (existing != null) pendingIds.add(existing.id);
+                      }
+                    }
+
+                    return Row(children: [
+                      const Expanded(
+                        child: HudSectionHead(
+                          label: 'ALLIES DETECTED',
+                          accent: HudTone.cyan,
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+                      if (pendingIds.length >= 2)
+                        InkWell(
+                          onTap: () {
+                            provider.journalingActions.generateAllPersonDetails(pendingIds);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: JweTheme.accentCyan.withValues(alpha: 0.1),
+                              border: Border.all(
+                                  color: JweTheme.accentCyan.withValues(alpha: 0.5)),
+                            ),
+                            child: Text(
+                              'UPDATE ALL (${pendingIds.length})',
+                              style: GoogleFonts.jetBrainsMono(
+                                  color: JweTheme.accentCyan,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                    ]);
+                  }),
                   const SizedBox(height: 10),
                   ...gratefulPeople.map((person) {
                     final p = person as Map<String, dynamic>;
                     final pName = p['name'] as String? ?? '';
+                    final express = p['express'] as String? ?? '';
                     final provider = Provider.of<AppProvider>(context);
                     final existingPerson = provider.chatbotMemory.people.firstWhereOrNull(
                         (e) => e.name.toLowerCase().trim() == pName.toLowerCase().trim());
-                    
+
+                    final isUpdating = existingPerson != null &&
+                        provider.journalingActions.isPersonUpdating(existingPerson.id);
                     final needsUpdate = existingPerson != null && (
                       existingPerson.details == null ||
                       existingPerson.details!.isEmpty ||
@@ -205,9 +320,9 @@ class TacticalBriefingCard extends StatelessWidget {
                                     color: JweTheme.accentCyan,
                                     fontSize: 12),
                               ),
-                              if (existingPerson != null && needsUpdate)
+                              if (existingPerson != null && (needsUpdate || isUpdating))
                                 InkWell(
-                                  onTap: provider.loadingTaskName != null
+                                  onTap: isUpdating
                                       ? null
                                       : () async {
                                           await provider.journalingActions.generatePersonDetails(existingPerson.id);
@@ -222,9 +337,7 @@ class TacticalBriefingCard extends StatelessWidget {
                                               .withValues(alpha: 0.5)),
                                     ),
                                     child: Text(
-                                      provider.loadingTaskName == "Analyzing Profile..."
-                                          ? "SCANNING..."
-                                          : "UPDATE PROFILE",
+                                      isUpdating ? "SCANNING..." : "UPDATE PROFILE",
                                       style: GoogleFonts.jetBrainsMono(
                                           color: JweTheme.accentCyan,
                                           fontSize: 8,
@@ -240,6 +353,27 @@ class TacticalBriefingCard extends StatelessWidget {
                                   color: JweTheme.textMid,
                                   fontSize: 12,
                                   height: 1.4)),
+                          if (express.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(MdiIcons.sendOutline,
+                                    size: 11, color: JweTheme.accentTeal),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'SAY IT: "$express"',
+                                    style: GoogleFonts.inter(
+                                        color: JweTheme.accentTeal,
+                                        fontSize: 11,
+                                        height: 1.4,
+                                        fontStyle: FontStyle.italic),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ).animate().slideX(begin: 0.08, end: 0).fadeIn();
@@ -272,6 +406,46 @@ class TacticalBriefingCard extends StatelessWidget {
                       ).animate(delay: (40 * i).ms).fadeIn(duration: 300.ms).slideX(begin: 0.05, end: 0),
                     );
                   }),
+                ],
+
+                // Tomorrow's implementation intention (bridge to next day)
+                if (tomorrowIntention.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  HudSectionHead(
+                    label: 'TOMORROW INTENTION',
+                    accent: HudTone.cyan,
+                    padding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: JweTheme.accentCyan.withValues(alpha: 0.06),
+                      border: Border.all(
+                          color: JweTheme.accentCyan.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('> ',
+                            style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.accentCyan,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12)),
+                        Expanded(
+                          child: Text(
+                            tomorrowIntention,
+                            style: GoogleFonts.saira(
+                              color: JweTheme.textWhite,
+                              fontSize: 12.5,
+                              height: 1.4,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ).animate().fadeIn(duration: 400.ms),
                 ],
               ],
             ),

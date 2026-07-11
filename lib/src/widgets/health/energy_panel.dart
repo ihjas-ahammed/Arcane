@@ -10,6 +10,7 @@ import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/health_models.dart';
 import 'package:missions/src/theme/spidey_theme.dart';
 import 'package:missions/src/widgets/health/spidey_panel.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 
 class EnergyPanel extends StatelessWidget {
   final String dateStr;
@@ -291,7 +292,7 @@ class _EnergyLogDialogState extends State<_EnergyLogDialog> {
         data: Theme.of(c).copyWith(
           colorScheme:   ColorScheme.dark(
             primary: SpideyTheme.spideyCyan,
-            onPrimary: Colors.black,
+            onPrimary: JweTheme.onAccent,
             surface: SpideyTheme.bgPanel,
             onSurface: SpideyTheme.textWhite,
           ),

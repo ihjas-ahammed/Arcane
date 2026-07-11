@@ -14,6 +14,7 @@ import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/widgets/screens/submission_detail_screen.dart';
 import 'package:missions/src/utils/task_calculations.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 int calculateProjectStreak(Project project, AppProvider provider) {
   final now = DateTime.now();
@@ -192,7 +193,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: JweTheme.accentAmber,
-                foregroundColor: Colors.black,
+                foregroundColor: JweTheme.onAccent,
                 shape: const BeveledRectangleBorder(),
               ),
               onPressed: () {
@@ -273,7 +274,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: JweTheme.accentAmber,
-              foregroundColor: Colors.black,
+              foregroundColor: JweTheme.onAccent,
               shape: const BeveledRectangleBorder(),
             ),
             onPressed: () {
@@ -352,7 +353,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: JweTheme.accentAmber,
-              foregroundColor: Colors.black,
+              foregroundColor: JweTheme.onAccent,
               shape: const BeveledRectangleBorder(),
             ),
             onPressed: () {
@@ -419,7 +420,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: JweTheme.accentAmber,
-              foregroundColor: Colors.black,
+              foregroundColor: JweTheme.onAccent,
               shape: const BeveledRectangleBorder(),
             ),
             onPressed: () {
@@ -1060,7 +1061,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.4),
+              color: ArcSurfaces.dim(0.4),
               border: Border.all(color: accentColor.withValues(alpha: 0.15)),
             ),
             child: Text(
@@ -1580,7 +1581,7 @@ class _WeeklyPainter extends CustomPainter {
       final isPeak = v > 0 && v == maxV;
 
       final color = v == 0
-          ? const Color(0x1AA8B3C7)
+          ? ArcStrokes.hairline
           : (isToday || isPeak ? accent : accent.withValues(alpha: 0.40));
 
       final rect = Rect.fromLTWH(left, size.height - h, barW, math.max(2.0, h));

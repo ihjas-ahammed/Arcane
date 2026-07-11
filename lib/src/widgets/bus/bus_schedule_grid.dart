@@ -66,7 +66,7 @@ class BusScheduleGrid extends StatelessWidget {
                     time,
                     style: TextStyle(
                       color: isNext
-                          ? Colors.black
+                          ? JweTheme.onAccent
                           : (isPassed
                               ? JweTheme.textMuted.withOpacity(0.5)
                               : JweTheme.textWhite),

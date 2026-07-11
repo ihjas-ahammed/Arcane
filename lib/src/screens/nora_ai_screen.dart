@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/widgets/valorant/valorant_button.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class NoraAiScreen extends StatefulWidget {
   const NoraAiScreen({super.key});
@@ -224,9 +225,9 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                JweTheme.isLight ? const Color(0xFFE9EDF5) : const Color(0xFF0F0C1B),
+                ArcSurfaces.noraDeep,
                 AppTheme.fhBgDeepDark,
-                JweTheme.isLight ? const Color(0xFFDDE3EE) : const Color(0xFF0A0812),
+                ArcSurfaces.noraDeeper,
               ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,

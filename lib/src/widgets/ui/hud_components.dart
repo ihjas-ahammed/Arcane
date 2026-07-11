@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 /// Operator HUD primitives — clip-corner panels, hairline brackets,
 /// segmented bars, rings, sparklines, telemetry chips.
@@ -232,9 +233,9 @@ Color _toneBg(HudTone t) {
   switch (t) {
     case HudTone.amber: return JweTheme.amberSoft;
     case HudTone.cyan: return JweTheme.cyanSoft;
-    case HudTone.teal: return const Color(0x1A4AF3C2);
-    case HudTone.red: return const Color(0x1AFF5470);
-    case HudTone.neutral: return const Color(0x1AA8B3C7);
+    case HudTone.teal: return ArcAccents.tealSoft;
+    case HudTone.red: return ArcAccents.redSoft;
+    case HudTone.neutral: return ArcStrokes.hairline;
   }
 }
 
@@ -349,7 +350,7 @@ class HudBar extends StatelessWidget {
     final pct = (value / max).clamp(0.0, 1.0);
     return Container(
       height: height,
-      color: const Color(0x1AA8B3C7),
+      color: ArcStrokes.hairline,
       child: Align(
         alignment: Alignment.centerLeft,
         child: FractionallySizedBox(
@@ -400,7 +401,7 @@ class HudProgressBar extends StatelessWidget {
                 child: Container(
                   margin: EdgeInsets.only(right: i == segments - 1 ? 0 : 2),
                   decoration: BoxDecoration(
-                    color: on ? c : const Color(0x1AA8B3C7),
+                    color: on ? c : ArcStrokes.hairline,
                     boxShadow: on ? [BoxShadow(color: c.withOpacity(0.4), blurRadius: 3)] : null,
                   ),
                 ),
@@ -492,7 +493,7 @@ class _RingPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final r = (size.width - stroke) / 2;
     final c = Offset(size.width / 2, size.height / 2);
-    final track = Paint()..color = const Color(0x1AA8B3C7)..style = PaintingStyle.stroke..strokeWidth = stroke;
+    final track = Paint()..color = ArcStrokes.hairline..style = PaintingStyle.stroke..strokeWidth = stroke;
     final fg = Paint()
       ..color = color
       ..style = PaintingStyle.stroke

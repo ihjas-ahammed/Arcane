@@ -3,6 +3,8 @@ import 'package:missions/src/theme/person_info_theme.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 
 class AddGratitudeDialog extends StatefulWidget {
   final GratitudeItem? initialItem;
@@ -144,7 +146,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: PersonInfoTheme.textGrey,
-                        side: const BorderSide(color: Color(0xFF1f2f40)),
+                        side: BorderSide(color: ArcStrokes.steel),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
                       ),
@@ -157,7 +159,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: PersonInfoTheme.spideyCyan,
-                        foregroundColor: Colors.black,
+                        foregroundColor: JweTheme.onAccent,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
                       ),

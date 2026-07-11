@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 
 class WellbeingTheme {
   static String? normalizeSkillName(String raw) {
@@ -20,31 +21,34 @@ class WellbeingTheme {
   }
 
   static Color getColor(String trait) {
+    final bool l = JweTheme.isLight;
+    // Light values keep each trait's hue but darkened for legibility on
+    // warm-paper surfaces (neons and ghost-white vanish on light panels).
     switch (trait.toLowerCase()) {
       case 'positivity':
-        return const Color(0xFFFFD700); // Yellow
+        return l ? const Color(0xFFA16207) : const Color(0xFFFFD700); // Yellow
       case 'resilience':
-        return const Color(0xFF1E90FF); // Dodger Blue
+        return l ? const Color(0xFF1D4ED8) : const Color(0xFF1E90FF); // Dodger Blue
       case 'satisfaction':
-        return const Color(0xFF00FFFF); // Cyan
+        return l ? const Color(0xFF0E7490) : const Color(0xFF00FFFF); // Cyan
       case 'vitality':
-        return const Color(0xFF32CD32); // Lime Green
+        return l ? const Color(0xFF15803D) : const Color(0xFF32CD32); // Lime Green
       case 'env. mastery':
-        return const Color(0xFFFFA500); // Orange
+        return l ? const Color(0xFFC2410C) : const Color(0xFFFFA500); // Orange
       case 'relationships':
-        return const Color(0xFFFF69B4); // Hot Pink
+        return l ? const Color(0xFFBE185D) : const Color(0xFFFF69B4); // Hot Pink
       case 'self-acceptance':
-        return const Color(0xFF9370DB); // Medium Purple
+        return l ? const Color(0xFF6D28D9) : const Color(0xFF9370DB); // Medium Purple
       case 'mastery':
-        return const Color(0xFFFF4500); // Orange Red
+        return l ? const Color(0xFFB91C1C) : const Color(0xFFFF4500); // Orange Red
       case 'autonomy':
-        return const Color(0xFF20B2AA); // Light Sea Green
+        return l ? const Color(0xFF0F766E) : const Color(0xFF20B2AA); // Light Sea Green
       case 'growth':
-        return const Color(0xFF7CFC00); // Lawn Green
+        return l ? const Color(0xFF4D7C0F) : const Color(0xFF7CFC00); // Lawn Green
       case 'engagement':
-        return const Color(0xFFF8F8FF); // Ghost White
+        return l ? const Color(0xFF57534E) : const Color(0xFFF8F8FF); // Ghost White
       case 'meaning':
-        return const Color(0xFFFFD700); // Amber/Gold
+        return l ? const Color(0xFF854D0E) : const Color(0xFFFFD700); // Amber/Gold
       default:
         return Colors.grey;
     }
@@ -105,15 +109,16 @@ class WellbeingTheme {
   }
 
   static Color getCategoryColor(String category) {
+    final bool l = JweTheme.isLight;
     switch (category) {
       case 'Emotional':
-        return const Color(0xFFFFD700); // Gold/Yellow
+        return l ? const Color(0xFFA16207) : const Color(0xFFFFD700); // Gold/Yellow
       case 'Psychological':
-        return const Color(0xFF00F59B); // Teal
+        return l ? const Color(0xFF047857) : const Color(0xFF00F59B); // Teal
       case 'Social & Purpose':
-        return const Color(0xFF8A2BE2); // Purple
+        return l ? const Color(0xFF6D28D9) : const Color(0xFF8A2BE2); // Purple
       case 'Vitality & Growth':
-        return const Color(0xFFFF4655); // Red
+        return l ? const Color(0xFFBE123C) : const Color(0xFFFF4655); // Red
       default:
         return Colors.grey;
     }

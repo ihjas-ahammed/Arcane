@@ -167,7 +167,7 @@ class _AddEditAccountDialogState extends State<AddEditAccountDialog> {
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: JweTheme.accentAmber,
-            foregroundColor: Colors.black,
+            foregroundColor: JweTheme.onAccent,
             shape: const BeveledRectangleBorder(),
           ),
           onPressed: () {

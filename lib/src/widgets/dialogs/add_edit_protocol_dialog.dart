@@ -7,6 +7,7 @@ import 'package:missions/src/widgets/dialogs/color_selector_dialog.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class AddEditProtocolDialog extends StatefulWidget {
   final MainTask? task;
@@ -29,12 +30,12 @@ class _AddEditProtocolDialogState extends State<AddEditProtocolDialog> {
     {'name': 'learning', 'icon': MdiIcons.schoolOutline, 'color': AppTheme.fhAccentOrange},
     {'name': 'discipline', 'icon': MdiIcons.karate, 'color': AppTheme.fhAccentRed},
     {'name': 'order', 'icon': MdiIcons.playlistCheck, 'color': AppTheme.fhAccentGreen},
-    {'name': 'health', 'icon': MdiIcons.heartPulse, 'color': const Color(0xFF58D68D)},
-    {'name': 'finance', 'icon': MdiIcons.cashMultiple, 'color': const Color(0xFFF1C40F)},
-    {'name': 'creative', 'icon': MdiIcons.paletteOutline, 'color': const Color(0xFFEC7063)},
-    {'name': 'exploration', 'icon': MdiIcons.mapSearchOutline, 'color': const Color(0xFF5DADE2)},
-    {'name': 'social', 'icon': MdiIcons.accountGroupOutline, 'color': const Color(0xFFE59866)},
-    {'name': 'nature', 'icon': MdiIcons.treeOutline, 'color': const Color(0xFF2ECC71)},
+    {'name': 'health', 'icon': MdiIcons.heartPulse, 'color': ArcPalette.themeHealth},
+    {'name': 'finance', 'icon': MdiIcons.cashMultiple, 'color': ArcPalette.sunflower},
+    {'name': 'creative', 'icon': MdiIcons.paletteOutline, 'color': ArcPalette.softRed},
+    {'name': 'exploration', 'icon': MdiIcons.mapSearchOutline, 'color': ArcPalette.sky},
+    {'name': 'social', 'icon': MdiIcons.accountGroupOutline, 'color': ArcPalette.themeSocial},
+    {'name': 'nature', 'icon': MdiIcons.treeOutline, 'color': ArcPalette.themeNature},
     {'name': 'general', 'icon': MdiIcons.targetAccount, 'color': AppTheme.fhTextSecondary},
   ];
 
@@ -130,7 +131,7 @@ class _AddEditProtocolDialogState extends State<AddEditProtocolDialog> {
                   color: currentColor,
                   border: Border.all(color: JweTheme.border),
                 ),
-                child: const Center(child: Text("TAP TO CHANGE", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10))),
+                child: Center(child: Text("TAP TO CHANGE", style: TextStyle(color: ArcContent.onSwatch(currentColor), fontWeight: FontWeight.bold, fontSize: 10))),
               ),
             )
           ],
@@ -139,7 +140,7 @@ class _AddEditProtocolDialogState extends State<AddEditProtocolDialog> {
       actions: [
         TextButton(child:  Text('ABORT', style: TextStyle(color: JweTheme.textMuted)), onPressed: () => Navigator.pop(context)),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: Colors.black, shape:  BeveledRectangleBorder()),
+          style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: JweTheme.onAccent, shape:  BeveledRectangleBorder()),
           onPressed: () {
             if (_nameController.text.isNotEmpty) {
               final provider = Provider.of<AppProvider>(context, listen: false);

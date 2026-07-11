@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui; // Needed for gradient shaders
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class CircularTimeProgress extends StatelessWidget {
   final double progress; // 0.0 to 1.0
@@ -25,7 +26,7 @@ class CircularTimeProgress extends StatelessWidget {
       child: CustomPaint(
         painter: _DendroElementPainter(
           progress: isCompleted ? 1.0 : progress,
-          baseColor: isCompleted ? const Color(0xFF3bfeb9) : color,
+          baseColor: isCompleted ? ArcAccents.ringGreen : color,
           isCompleted: isCompleted,
         ),
       ),
@@ -53,13 +54,13 @@ class _DendroElementPainter extends CustomPainter {
     canvas.scale(scale); // Scale to match SVG coordinates
 
     // --- COLORS FROM HTML ---
-    const Color cSpikes = Color(0xFF445561);
-    const Color cRingInactive = Color(0xFF5d727d);
+    final Color cSpikes = ArcAccents.ringSpikes;
+    final Color cRingInactive = ArcAccents.ringInactive;
     // Gradient definition for Active Ring
-    const List<Color> dendroGradientColors = [
-      Color(0xFF3bfeb9),
-      Color(0xFF7affbd),
-      Color(0xFF3bfeb9)
+    final List<Color> dendroGradientColors = [
+      ArcAccents.ringGreen,
+      ArcAccents.ringGreenSoft,
+      ArcAccents.ringGreen
     ];
     const List<double> dendroGradientStops = [0.0, 0.5, 1.0];
 
@@ -197,14 +198,14 @@ class _DendroElementPainter extends CustomPainter {
     canvas.scale(0.9);
 
     final iconStrokePaint = Paint()
-      ..color = const Color(0xFF4fffa8)
+      ..color = ArcAccents.ringGreenBright
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;
     
     // Add Glow to Icon
     final iconGlowPaint = Paint()
-      ..color = const Color(0xFF4fffa8).withOpacity(0.6)
+      ..color = ArcAccents.ringGreenBright.withOpacity(0.6)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
@@ -230,7 +231,7 @@ class _DendroElementPainter extends CustomPainter {
       ..close();
     
     final Paint fillPaint = Paint()
-      ..color = const Color(0xFF4fffa8)
+      ..color = ArcAccents.ringGreenBright
       ..style = PaintingStyle.fill;
 
     // 3c. U Shape / Leaves

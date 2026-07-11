@@ -293,7 +293,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child:  Text("CANCEL", style: TextStyle(color: JweTheme.textMuted))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: Colors.black, shape:  BeveledRectangleBorder()),
+            style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: JweTheme.onAccent, shape:  BeveledRectangleBorder()),
             onPressed: () => Navigator.pop(ctx, newLoc), 
             child: const Text("ADD", style: TextStyle(fontWeight: FontWeight.bold))
           )

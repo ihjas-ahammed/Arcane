@@ -6,6 +6,7 @@ import 'package:missions/src/widgets/ui/jwe_panel.dart';
 import 'package:missions/src/widgets/dialogs/add_habit_rule_dialog.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class HabitControlScreen extends StatelessWidget {
   const HabitControlScreen({super.key});
@@ -90,7 +91,7 @@ class HabitControlScreen extends StatelessWidget {
                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                    decoration:   BoxDecoration(
                                      border: Border(bottom: BorderSide(color: JweTheme.border)),
-                                     color: Color(0x0DFFFFFF),
+                                     color: ArcStrokes.hairlineFaint,
                                    ),
                                    child: Row(
                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,

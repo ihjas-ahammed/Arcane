@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class BusNextCard extends StatelessWidget {
   final Map<String, dynamic>? nextBusData;
@@ -27,7 +28,7 @@ class BusNextCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF3F51B5).withValues(alpha: 0.3),
+        color: ArcAccents.indigo.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12)
       ),
       child: Column(
@@ -61,7 +62,7 @@ class BusNextCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.2),
+                color: ArcSurfaces.dim(0.2),
                 borderRadius: BorderRadius.circular(8)
               ),
               child: Row(

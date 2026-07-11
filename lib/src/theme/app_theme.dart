@@ -4,41 +4,42 @@ import 'package:missions/src/theme/jwe_theme.dart';
 class AppTheme {
   static bool get isLightTheme => JweTheme.isLight;
 
-  // Operator HUD palette — amber-on-midnight tactical
-  static Color get fhBgDeepDark => isLightTheme ? const Color(0xFFF1F5F9) : const Color(0xFF04060E); // Deep background (Canvas)
-  static Color get fhBgDark => isLightTheme ? const Color(0xFFFFFFFF) : const Color(0xFF0D1426); // Panel background
-  static Color get fhBgMedium => isLightTheme ? const Color(0xFFF8FAFC) : const Color(0xFF101A30); // Elevated
-  static Color get fhBorderColor => isLightTheme ? const Color(0xFFE2E8F0) : const Color(0xFF1B2A38);
+  // Operator HUD palette — amber-on-midnight tactical.
+  // Light mode delegates to the JweTheme warm-paper system.
+  static Color get fhBgDeepDark => isLightTheme ? JweTheme.bgBase : const Color(0xFF04060E); // Deep background (Canvas)
+  static Color get fhBgDark => isLightTheme ? JweTheme.panel : const Color(0xFF0D1426); // Panel background
+  static Color get fhBgMedium => isLightTheme ? JweTheme.panel2 : const Color(0xFF101A30); // Elevated
+  static Color get fhBorderColor => isLightTheme ? JweTheme.border : const Color(0xFF1B2A38);
 
-  static Color get fhTextPrimary => isLightTheme ? const Color(0xFF000000) : const Color(0xFFEAECF3);
-  static Color get fhTextSecondary => isLightTheme ? const Color(0xFF111827) : const Color(0xFFA8B3C7);
-  static Color get fhTextDisabled => isLightTheme ? const Color(0xFF4B5563) : const Color(0xFF5E6C87);
+  static Color get fhTextPrimary => isLightTheme ? JweTheme.textWhite : const Color(0xFFEAECF3);
+  static Color get fhTextSecondary => isLightTheme ? JweTheme.textMid : const Color(0xFFA8B3C7);
+  static Color get fhTextDisabled => isLightTheme ? JweTheme.textMuted : const Color(0xFF5E6C87);
 
   // Accents
   static Color get fhAccentRed => isLightTheme ? const Color(0xFFBE123C) : const Color(0xFFFF5470); // Alert
   static Color get fhAccentTeal => isLightTheme ? const Color(0xFF0F766E) : const Color(0xFF5FE1D8); // Cyan secondary
   static Color get fhAccentTealFixed => const Color(0xFF5FE1D8);
-  
+
   static Color _fhAccentGold = const Color(0xFF00AEFF); // Sky blue primary
   static Color get fhAccentGold => JweTheme.isLight ? JweTheme.accentAmber : _fhAccentGold;
   static set fhAccentGold(Color val) => _fhAccentGold = val;
 
-  static Color get fhAccentPurple => isLightTheme ? const Color(0xFF6366F1) : const Color(0xFF8A6FE2);
+  static Color get fhAccentPurple => isLightTheme ? const Color(0xFF6D28D9) : const Color(0xFF8A6FE2);
   static Color get fhAccentGreen => isLightTheme ? const Color(0xFF047857) : const Color(0xFF4AF3C2);
 
   static Color _fhAccentOrange = const Color(0xFF00AEFF);
   static Color get fhAccentOrange => JweTheme.isLight ? JweTheme.accentAmber : _fhAccentOrange;
   static set fhAccentOrange(Color val) => _fhAccentOrange = val;
 
-  // Light Theme Colors (Operator HUD Tactical Light)
-  static const Color fhLightBgDeepDark = Color(0xFFF1F5F9);
-  static const Color fhLightBgDark = Color(0xFFFFFFFF);
-  static const Color fhLightBgMedium = Color(0xFFF8FAFC);
-  static const Color fhLightBorderColor = Color(0xFFE2E8F0);
+  // Light Theme Colors (Operator HUD Tactical Light — warm paper system)
+  static const Color fhLightBgDeepDark = Color(0xFFF5F2EC);
+  static const Color fhLightBgDark = Color(0xFFFCFBF8);
+  static const Color fhLightBgMedium = Color(0xFFF7F4EE);
+  static const Color fhLightBorderColor = Color(0xFFDDD6CA);
 
-  static const Color fhLightTextPrimary = Color(0xFF000000);
-  static const Color fhLightTextSecondary = Color(0xFF111827);
-  static const Color fhLightTextDisabled = Color(0xFF4B5563);
+  static const Color fhLightTextPrimary = Color(0xFF211D18);
+  static const Color fhLightTextSecondary = Color(0xFF4A443C);
+  static const Color fhLightTextDisabled = Color(0xFF837B70);
 
   static const String fontDisplay = 'RobotoCondensed';
   static const String fontBody = 'OpenSans';

@@ -121,7 +121,7 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: widget.accentColor,
-              foregroundColor: Colors.black,
+              foregroundColor: JweTheme.onAccent,
               shape: const BeveledRectangleBorder(),
             ),
             onPressed: () {

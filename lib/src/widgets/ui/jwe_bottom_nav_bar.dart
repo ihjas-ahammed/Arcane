@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 /// Operator HUD bottom nav — icon + label, top amber hairline,
 /// glassy backdrop filter, Nora circle in the center.
@@ -153,7 +154,7 @@ class JweBottomNavBar extends StatelessWidget {
                 filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: JweTheme.isLight ?  Color(0x80FFFFFF) :  Color(0x8008101C), // Glassy 50% opacity
+                    color: ArcSurfaces.glass, // Glassy 50% opacity
                     border:  Border(top: BorderSide(color: JweTheme.lineSoft, width: 1)),
                   ),
                 ),

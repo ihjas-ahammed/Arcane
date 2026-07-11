@@ -4,6 +4,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/helpers.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class TaskProgressSnapshotView extends StatelessWidget {
   final Map<String, dynamic> taskSnapshot;
@@ -320,7 +321,7 @@ class TaskDeltaProgressBar extends StatelessWidget {
                     isFilled = true;
                     isIncrease = true;
                   } else {
-                    segmentColor = const Color(0x12FFFFFF);
+                    segmentColor = ArcSurfaces.ink(0.07);
                   }
                 } else if (delta < 0) {
                   if (i < filledLive) {
@@ -330,14 +331,14 @@ class TaskDeltaProgressBar extends StatelessWidget {
                     segmentColor = JweTheme.accentRed;
                     isDecrease = true;
                   } else {
-                    segmentColor = const Color(0x12FFFFFF);
+                    segmentColor = ArcSurfaces.ink(0.07);
                   }
                 } else {
                   if (i < filledLive) {
                     segmentColor = defaultColor;
                     isFilled = true;
                   } else {
-                    segmentColor = const Color(0x12FFFFFF);
+                    segmentColor = ArcSurfaces.ink(0.07);
                   }
                 }
 
@@ -367,10 +368,10 @@ class TaskDeltaProgressBar extends StatelessWidget {
                 } else {
                   // Standard unfilled segment
                   decoration = BoxDecoration(
-                    color: const Color(0x0EFFFFFF),
+                    color: ArcSurfaces.ink(0.055),
                     borderRadius: BorderRadius.circular(1.0),
                     border: Border.all(
-                      color: const Color(0x15FFFFFF),
+                      color: ArcSurfaces.ink(0.082),
                       width: 0.6,
                     ),
                   );

@@ -5,6 +5,7 @@ import 'package:missions/src/providers/app_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class TherapyReportScreen extends StatelessWidget {
   final Map<String, dynamic> reportData;
@@ -138,7 +139,7 @@ class TherapyReportScreen extends StatelessWidget {
                           icon: Icon(MdiIcons.brain, size: 18),
                           label: Text("NORA LINK", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF8A2BE2), // Purple
+                            backgroundColor: ArcAccents.violet, // Purple
                             foregroundColor: Colors.white,
                             shape: const BeveledRectangleBorder(),
                             padding: const EdgeInsets.symmetric(vertical: 16)

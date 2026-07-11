@@ -14,6 +14,7 @@ import 'package:missions/src/utils/helpers.dart' as helper;
 import 'package:missions/src/utils/day_budget_helper.dart';
 import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/utils/global_toast.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 /// One slot in the day plan. The same compound id may appear more than once
 /// (planning several sessions of the same work), so each slot carries its own
@@ -465,7 +466,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
             child: Material(
               color: Colors.transparent,
               elevation: 6 * t,
-              shadowColor: Colors.black.withValues(alpha: 0.5),
+              shadowColor: ArcEffects.shadow(0.5),
               child: child,
             ),
           );

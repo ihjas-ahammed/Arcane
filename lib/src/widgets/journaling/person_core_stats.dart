@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/person_info_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class PersonCoreStats extends StatelessWidget {
   final String relation;
@@ -67,9 +68,9 @@ class PersonCoreStats extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.only(bottom: 4.0),
       margin: const EdgeInsets.only(bottom: 8.0),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Color(0x0DFFFFFF)), // rgba(255,255,255,0.05)
+          bottom: BorderSide(color: ArcStrokes.hairlineFaint), // rgba(255,255,255,0.05)
         ),
       ),
       child: Row(

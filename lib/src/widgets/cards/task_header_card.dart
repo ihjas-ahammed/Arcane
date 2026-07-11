@@ -12,6 +12,7 @@ import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/widgets/atoms/valorant_timer_text.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:provider/provider.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class AnimatedHudBar extends StatefulWidget {
   final double progress; // 0.0 to 1.0
@@ -52,7 +53,7 @@ class _AnimatedHudBarState extends State<AnimatedHudBar> with SingleTickerProvid
         return Container(
           height: 6,
           decoration: BoxDecoration(
-            color: const Color(0x1AA8B3C7),
+            color: ArcStrokes.hairline,
             borderRadius: BorderRadius.circular(2),
           ),
           child: Stack(
@@ -91,9 +92,9 @@ class _AnimatedHudBarState extends State<AnimatedHudBar> with SingleTickerProvid
                                   end: Alignment(0.0 + _controller.value * 4.0, 0.0),
                                   colors: [
                                     Colors.transparent,
-                                    Colors.white.withValues(alpha: 0.05),
-                                    Colors.white.withValues(alpha: 0.35),
-                                    Colors.white.withValues(alpha: 0.05),
+                                    ArcEffects.sheen(0.05),
+                                    ArcEffects.sheen(0.35),
+                                    ArcEffects.sheen(0.05),
                                     Colors.transparent,
                                   ],
                                   stops: const [0.0, 0.35, 0.5, 0.65, 1.0],

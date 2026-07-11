@@ -73,7 +73,9 @@ class _MyAppState extends State<MyApp> {
             );
           },
           theme: AppTheme.getThemeData(
-              primaryAccent: AppTheme.fhAccentTealFixed,
+              primaryAccent: isLightTheme
+                  ? JweTheme.calibrate(AppTheme.fhAccentTealFixed)
+                  : AppTheme.fhAccentTealFixed,
               isLightTheme: isLightTheme),
           debugShowCheckedModeBanner: false,
           home: appProvider.authLoading

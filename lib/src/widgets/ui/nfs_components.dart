@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class NfsHazardBar extends StatelessWidget {
   final String text;
-  final Color neonColor;
+  final Color? neonColor;
 
-  const NfsHazardBar({super.key, required this.text, this.neonColor = const Color(0xFF00F0FF)});
+  const NfsHazardBar({super.key, required this.text, this.neonColor});
 
   @override
   Widget build(BuildContext context) {
+    final Color neon = neonColor ?? ArcAccents.neonCyan;
+    // "Chrome" of the hazard bar: primary content color as the solid chip,
+    // with the mode-correct contrast color for the label on it.
+    final Color chrome = ArcContent.primary;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -17,10 +22,10 @@ class NfsHazardBar extends StatelessWidget {
           height: 12,
           width: double.infinity,
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.white),
+            border: Border.all(color: chrome),
           ),
           child: CustomPaint(
-            painter: _HazardStripePainter(neonColor),
+            painter: _HazardStripePainter(neon),
           ),
         ),
         Positioned(
@@ -29,11 +34,11 @@ class NfsHazardBar extends StatelessWidget {
           child: Transform(
             transform: Matrix4.skewX(-0.1745), // -10 degrees
             child: Container(
-              color: Colors.white,
+              color: chrome,
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               child: Text(
                 text,
-                style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
+                style: TextStyle(color: ArcContent.onSwatch(chrome), fontSize: 10, fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -130,7 +135,7 @@ class NfsPlayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = isRunning ? const Color(0xFFFF0055) : const Color(0xFF444444);
+    final bgColor = isRunning ? ArcAccents.neonPink : ArcSurfaces.disabledFill;
 
     return GestureDetector(
       onTap: onTap,
@@ -143,7 +148,7 @@ class NfsPlayButton extends StatelessWidget {
           alignment: Alignment.center,
           child: Icon(
             isRunning ? Icons.pause : Icons.play_arrow,
-            color: Colors.white,
+            color: ArcContent.onSwatch(bgColor),
             size: 28,
           ),
         ),
@@ -180,7 +185,8 @@ class _PlayBtnClipper extends CustomClipper<Path> {
 // Background painter for the dotted grid
 class NfsGridPainter extends CustomPainter {
   final Color gridColor;
-  NfsGridPainter({this.gridColor = const Color(0x1AFFFFFF)}); // 0.1 opacity white
+  NfsGridPainter({Color? gridColor})
+      : gridColor = gridColor ?? ArcSurfaces.ink(0.1); // structure dots
 
   @override
   void paint(Canvas canvas, Size size) {

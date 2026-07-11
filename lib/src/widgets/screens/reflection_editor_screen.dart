@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/models/app_state_models.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 
 class ReflectionEditorScreen extends StatefulWidget {
   final ReflectionLog? initialLog;
@@ -118,7 +119,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         data: Theme.of(context).copyWith(
           colorScheme:   ColorScheme.dark(
             primary: SpideyTheme.spideyCyan,
-            onPrimary: Colors.black,
+            onPrimary: JweTheme.onAccent,
             surface: SpideyTheme.bgPanel,
             onSurface: SpideyTheme.textWhite,
           ),
@@ -137,7 +138,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         data: Theme.of(context).copyWith(
           colorScheme:   ColorScheme.dark(
             primary: SpideyTheme.spideyCyan,
-            onPrimary: Colors.black,
+            onPrimary: JweTheme.onAccent,
             surface: SpideyTheme.bgPanel,
             onSurface: SpideyTheme.textWhite,
           ),

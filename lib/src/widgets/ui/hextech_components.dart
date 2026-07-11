@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class HexCardClipper extends CustomClipper<Path> {
   @override
@@ -64,7 +65,7 @@ class HexProgressRingPainter extends CustomPainter {
 
     // Background Ring
     final bgPaint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
+      ..color = ArcSurfaces.ink(0.1)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
     

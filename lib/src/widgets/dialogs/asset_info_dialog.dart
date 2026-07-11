@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/theme/person_info_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class AssetInfoDialog extends StatelessWidget {
   final GratitudeItem item;
@@ -53,7 +54,7 @@ class AssetInfoDialog extends StatelessWidget {
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: PersonInfoTheme.textGrey,
-                  side: const BorderSide(color: Color(0xFF1f2f40)),
+                  side: BorderSide(color: ArcStrokes.steel),
                   shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
                 ),
                 onPressed: () => Navigator.pop(context),

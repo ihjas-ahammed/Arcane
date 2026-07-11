@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:collection/collection.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class SavingsDetailScreen extends StatelessWidget {
   final String goalId;
@@ -100,7 +101,7 @@ class SavingsDetailScreen extends StatelessWidget {
                 children: [
                   FractionallySizedBox(
                     widthFactor: expectedProgress,
-                    child: Container(decoration: BoxDecoration(color: Colors.white.withOpacity(0.2))),
+                    child: Container(decoration: BoxDecoration(color: ArcSurfaces.ink(0.2))),
                   ),
                   FractionallySizedBox(
                     widthFactor: actualProgress,
@@ -126,7 +127,7 @@ class SavingsDetailScreen extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48), 
                 backgroundColor: JweTheme.accentAmber, 
-                foregroundColor: Colors.black,
+                foregroundColor: JweTheme.onAccent,
                 shape: const BeveledRectangleBorder()
               ),
               onPressed: () => _showAddLogDialog(context, provider, goal.id),

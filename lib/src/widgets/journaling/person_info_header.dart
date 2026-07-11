@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/person_info_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class PersonInfoHeader extends StatelessWidget {
   final int level;
@@ -26,9 +27,9 @@ class PersonInfoHeader extends StatelessWidget {
         // --- Header Section ---
         Container(
           height: 70,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             border: Border(
-              bottom: BorderSide(color: Color(0xFF1f2f40)),
+              bottom: BorderSide(color: ArcStrokes.steel),
             ),
           ),
           child: Row(
@@ -73,8 +74,8 @@ class PersonInfoHeader extends StatelessWidget {
                               fontWeight: FontWeight.bold,
                               height: 1.0,
                               shadows: [
-                                const Shadow(
-                                  color: Color(0x6600f0ff),
+                                Shadow(
+                                  color: ArcEffects.cyanGlow(0.4),
                                   blurRadius: 5.0,
                                 ),
                               ],
@@ -92,7 +93,7 @@ class PersonInfoHeader extends StatelessWidget {
                             Container(
                               height: 6,
                               width: double.infinity,
-                              color: const Color(0xFF1f2f40),
+                              color: ArcStrokes.steel,
                               margin: const EdgeInsets.only(bottom: 5),
                               alignment: Alignment.centerLeft,
                               child: FractionallySizedBox(
@@ -102,7 +103,7 @@ class PersonInfoHeader extends StatelessWidget {
                                     color: PersonInfoTheme.spideyCyan,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Color(0x6600f0ff),
+                                        color: ArcEffects.cyanGlow(0.4),
                                         blurRadius: 5,
                                       ),
                                     ],
@@ -135,7 +136,7 @@ class PersonInfoHeader extends StatelessWidget {
           margin: const EdgeInsets.only(top: 20, bottom: 10),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration:   BoxDecoration(
-            color: Color(0x0D00f0ff), // rgba(0, 240, 255, 0.05)
+            color: ArcEffects.cyanGlow(0.05), // rgba(0, 240, 255, 0.05)
             border: Border(
               top: BorderSide(color: PersonInfoTheme.spideyCyanDim),
               bottom: BorderSide(color: PersonInfoTheme.spideyCyanDim),
@@ -150,8 +151,8 @@ class PersonInfoHeader extends StatelessWidget {
               fontWeight: FontWeight.bold,
               letterSpacing: 2.0,
               shadows: [
-                const Shadow(
-                  color: Color(0x6600f0ff),
+                Shadow(
+                  color: ArcEffects.cyanGlow(0.4),
                   blurRadius: 10.0,
                 ),
               ],

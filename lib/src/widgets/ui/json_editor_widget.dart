@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class JsonEditorWidget extends StatelessWidget {
   final dynamic data;
@@ -103,9 +104,9 @@ class JsonEditorWidget extends StatelessWidget {
         content: TextField(
           controller: controller,
           style:   TextStyle(color: AppTheme.fhTextPrimary, fontFamily: 'RobotoMono'),
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.black,
+            fillColor: ArcSurfaces.codeField,
             border: OutlineInputBorder(),
           ),
           maxLines: null,

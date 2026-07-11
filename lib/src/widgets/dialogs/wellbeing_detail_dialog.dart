@@ -6,6 +6,7 @@ import 'package:missions/src/widgets/ui/spidey_progress_bar.dart';
 import 'package:missions/src/widgets/charts/wellbeing_trend_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/widgets/valorant/valorant_button.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class WellbeingDetailDialog extends StatelessWidget {
   final Skill skill;
@@ -100,7 +101,7 @@ class WellbeingDetailDialog extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: PersonInfoTheme.bgDark,
-                border: Border.all(color: const Color(0xFF1f2f40)),
+                border: Border.all(color: ArcStrokes.steel),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,

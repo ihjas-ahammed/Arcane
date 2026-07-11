@@ -212,7 +212,7 @@ class JweTaskOptionsDialog extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: JweTheme.accentCyan,
-              foregroundColor: Colors.black,
+              foregroundColor: JweTheme.onAccent,
               shape: const BeveledRectangleBorder(),
             ),
             onPressed: () {

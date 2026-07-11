@@ -11,6 +11,7 @@ import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/utils/chart_data_helper.dart'; 
 import 'package:missions/src/widgets/cards/tactical_briefing_card.dart';
 import 'package:missions/src/screens/journaling/weekly_review_screen.dart';
+import 'package:missions/src/screens/journaling/monthly_review_screen.dart';
 import 'package:missions/src/screens/reflections_archive_screen.dart';
 import 'package:missions/src/screens/journaling/advanced_tools_screen.dart';
 import 'package:missions/src/screens/journaling/archived_reports_screen.dart';
@@ -38,6 +39,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   String? _selectedVirtueFilter;
   bool _isGeneratingSummary = false;
   bool _isGeneratingWeeklyReport = false;
+  bool _isGeneratingMonthlyReport = false;
   bool _isGeneratingStartDay = false;
   
   Map<String, dynamic>? _tempGeneratedBriefing;
@@ -99,7 +101,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           data: Theme.of(context).copyWith(
             colorScheme:   ColorScheme.dark(
               primary: JweTheme.accentCyan,
-              onPrimary: Colors.black,
+              onPrimary: JweTheme.onAccent,
               surface: JweTheme.panel,
               onSurface: JweTheme.textWhite,
             ),
@@ -320,6 +322,38 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     }
   }
 
+  Future<void> _generateMonthlyReport(AppProvider provider) async {
+    setState(() => _isGeneratingMonthlyReport = true);
+    try {
+      final result = await provider.reportActions.generateMonthlyReport();
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (ctx) => MonthlyReviewScreen(
+              reportData: result,
+              provider: provider,
+              onArchive: () async {
+                final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                await provider.saveMonthlyReport(dateStr, result);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Monthly Briefing Saved to Archive!")));
+                }
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Monthly briefing failed: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isGeneratingMonthlyReport = false);
+    }
+  }
+
   Future<void> _generateStartDayReport(AppProvider provider) async {
     setState(() => _isGeneratingStartDay = true);
     try {
@@ -405,6 +439,14 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                     tooltip: 'WEEKLY REPORT',
                     loading: _isGeneratingWeeklyReport,
                     onTap: _isGeneratingWeeklyReport ? null : () => _generateWeeklyReport(appProvider),
+                  ),
+                  const SizedBox(width: 6),
+                  _IconBtn(
+                    icon: _isGeneratingMonthlyReport ? null : MdiIcons.calendarMonthOutline,
+                    accent: JweTheme.accentTeal,
+                    tooltip: 'MONTHLY BRIEFING',
+                    loading: _isGeneratingMonthlyReport,
+                    onTap: _isGeneratingMonthlyReport ? null : () => _generateMonthlyReport(appProvider),
                   ),
                 ]),
               ),

@@ -3,6 +3,7 @@ import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class ReflectionLogCard extends StatelessWidget {
   final ReflectionLog log;
@@ -94,7 +95,7 @@ class ReflectionLogCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.3),
+                      color: ArcEffects.shadow(0.3),
                       border:  Border(left: BorderSide(color: JweTheme.accentCyan, width: 2))
                     ),
                     child: Text(

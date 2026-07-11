@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
 import 'package:missions/src/widgets/dialogs/pin_dialog.dart';
 import 'package:missions/src/screens/nora_ai_screen.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -136,7 +137,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       width: 72,
       decoration:   BoxDecoration(
-        color: Color(0xFF08101C),
+        color: ArcSurfaces.deepPanel,
         border: Border(right: BorderSide(color: JweTheme.lineSoft, width: 1)),
       ),
       child: Column(
@@ -305,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     accent: currentTaskColor,
                     brackets: true,
                     allBrackets: true,
-                    background: isLightTheme ? Colors.black.withValues(alpha: 0.07) : Colors.white.withOpacity(0.07),
+                    background: ArcSurfaces.ink(0.07),
                     padding: EdgeInsets.zero,
                     onTap: () => _checkPinAndNavigate(context, const NoraAiScreen()),
                     child: Center(

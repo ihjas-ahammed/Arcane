@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class ColorSelectorDialog extends StatelessWidget {
   final Color selectedColor;
@@ -18,12 +19,12 @@ class ColorSelectorDialog extends StatelessWidget {
     AppTheme.fhAccentOrange,
     AppTheme.fhAccentGold,
     AppTheme.fhAccentGreen,
-    Color(0xFF5DADE2), // Blue
-    Color(0xFFF1C40F), // Sun Flower
-    Color(0xFFEC7063), // Soft Red
-    Color(0xFFA569BD), // Soft Purple
-    Color(0xFF48C9B0), // Soft Teal
-    Color(0xFFEB984E), // Soft Orange
+    ArcPalette.sky, // Blue
+    ArcPalette.sunflower, // Sun Flower
+    ArcPalette.softRed, // Soft Red
+    ArcPalette.softPurple, // Soft Purple
+    ArcPalette.softTeal, // Soft Teal
+    ArcPalette.softOrange, // Soft Orange
   ];
 
   @override

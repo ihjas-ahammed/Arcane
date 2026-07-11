@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class SyncIndicator extends StatelessWidget {
   final bool isVisible;
@@ -21,7 +22,7 @@ class SyncIndicator extends StatelessWidget {
             border: Border.all(color: AppTheme.fhAccentTeal.withOpacity(0.5)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: ArcEffects.shadow(0.3),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               )

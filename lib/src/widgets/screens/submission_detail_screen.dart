@@ -209,7 +209,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                       label: const Text("ADD REMINDER"),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: JweTheme.accentCyan,
-                        foregroundColor: Colors.black,
+                        foregroundColor: JweTheme.onAccent,
                         shape: const BeveledRectangleBorder(),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
@@ -933,7 +933,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: JweTheme.accentCyan,
-              foregroundColor: Colors.black,
+              foregroundColor: JweTheme.onAccent,
               shape: const BeveledRectangleBorder(),
             ),
             onPressed: () {

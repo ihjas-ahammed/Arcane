@@ -190,7 +190,7 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: accentColor,
-            foregroundColor: Colors.black,
+            foregroundColor: JweTheme.onAccent,
             shape: const BeveledRectangleBorder(),
           ),
           onPressed: () {

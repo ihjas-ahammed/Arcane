@@ -4,6 +4,7 @@ import 'package:missions/src/providers/app_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 
 class SelectResourceDialog extends StatefulWidget {
   final List<String> selectedIds;
@@ -173,7 +174,7 @@ class _SelectResourceDialogState extends State<SelectResourceDialog> {
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: widget.accentColor,
-                      foregroundColor: Colors.black,
+                      foregroundColor: JweTheme.onAccent,
                       shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
                     ),
                     onPressed: () => Navigator.pop(context, _currentSelection.toList()),

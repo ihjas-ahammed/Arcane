@@ -12,6 +12,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 // Helper function to categorize relationships based on priority
 String getRelationCategory(String relation) {
@@ -199,7 +200,7 @@ class _PeopleInfoScreenState extends State<PeopleInfoScreen> {
                   fontSize: 16,
                   letterSpacing: 1.0,
                   shadows: [
-                    const Shadow(color: Color(0x6600f0ff), blurRadius: 8),
+                    Shadow(color: ArcEffects.cyanGlow(0.4), blurRadius: 8),
                   ],
                 ),
               )
@@ -251,7 +252,7 @@ class _PeopleInfoScreenState extends State<PeopleInfoScreen> {
                     height: 40,
                     decoration: BoxDecoration(
                       color: AppTheme.fhBgDark,
-                      border: Border.all(color: const Color(0xFF1f2f40)),
+                      border: Border.all(color: ArcStrokes.steel),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: TextField(
@@ -277,7 +278,7 @@ class _PeopleInfoScreenState extends State<PeopleInfoScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
                     color: AppTheme.fhBgDark,
-                    border: Border.all(color: const Color(0xFF1f2f40)),
+                    border: Border.all(color: ArcStrokes.steel),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: DropdownButtonHideUnderline(
@@ -476,10 +477,10 @@ class TacticalPersonCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFF0e2133) : AppTheme.fhBgDark,
+        color: isSelected ? ArcSurfaces.deepPanelRaised : AppTheme.fhBgDark,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: isSelected ? PersonInfoTheme.spideyCyan :  Color(0xFF1f2f40), 
+          color: isSelected ? PersonInfoTheme.spideyCyan :  ArcStrokes.steel, 
           width: 1,
         ),
       ),
@@ -498,8 +499,8 @@ class TacticalPersonCard extends StatelessWidget {
                   Checkbox(
                     value: isSelected,
                     activeColor: PersonInfoTheme.spideyCyan,
-                    checkColor: Colors.black,
-                    side: const BorderSide(color: Color(0xFF1f2f40)),
+                    checkColor: JweTheme.onAccent,
+                    side: BorderSide(color: ArcStrokes.steel),
                     onChanged: onSelectedChanged,
                   ),
                   const SizedBox(width: 4),
@@ -615,9 +616,9 @@ class TacticalPersonCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFF1f2f40)),
+                        border: Border.all(color: ArcStrokes.steel),
                         borderRadius: BorderRadius.circular(4),
-                        color: const Color(0xFF061019),
+                        color: ArcSurfaces.deepPanel,
                       ),
                       child: Text(
                         "LVL $level",
@@ -1053,8 +1054,8 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
       decoration: BoxDecoration(
         color: PersonInfoTheme.bgPanel,
         border: Border.all(color: PersonInfoTheme.spideyCyan, width: 1.5),
-        boxShadow: const [
-          BoxShadow(color: Color(0x3300f0ff), blurRadius: 20, spreadRadius: 1)
+        boxShadow: [
+          BoxShadow(color: ArcEffects.cyanGlow(0.2), blurRadius: 20, spreadRadius: 1)
         ],
       ),
       child: Column(
@@ -1064,9 +1065,9 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration:   BoxDecoration(
               gradient: LinearGradient(
-                colors: [PersonInfoTheme.headerGradientStart, Color(0xFF0b1623)],
+                colors: [PersonInfoTheme.headerGradientStart, PersonInfoTheme.bgPanel],
               ),
-              border: Border(bottom: BorderSide(color: Color(0xFF1f2f40))),
+              border: Border(bottom: BorderSide(color: ArcStrokes.steel)),
             ),
             child: Row(
               children: [
@@ -1164,7 +1165,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   border: Border.all(color: PersonInfoTheme.spideyCyan.withValues(alpha: 0.5)),
-                  color: const Color(0xFF07121c),
+                  color: ArcSurfaces.deepPanel,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(
@@ -1281,8 +1282,8 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isCurrent ? const Color(0xFF0d1e2f) : const Color(0xFF07121c),
-                  border: Border.all(color: isCurrent ? PersonInfoTheme.spideyCyan :  Color(0xFF1f2f40)),
+                  color: isCurrent ? ArcSurfaces.deepPanelRaised : ArcSurfaces.deepPanel,
+                  border: Border.all(color: isCurrent ? PersonInfoTheme.spideyCyan :  ArcStrokes.steel),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(
@@ -1343,16 +1344,16 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF07121c),
-                  border: Border.all(color: const Color(0xFF1f2f40)),
+                  color: ArcSurfaces.deepPanel,
+                  border: Border.all(color: ArcStrokes.steel),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Column(
                   children: [
                     _buildSummaryRow("ENTITIES SCANNED", "${_extractedPeople.length}"),
-                    const Divider(color: Color(0xFF1f2f40), height: 16),
+                    Divider(color: ArcStrokes.steel, height: 16),
                     _buildSummaryRow("NEW CONTACT NODES", "$newCount"),
-                    const Divider(color: Color(0xFF1f2f40), height: 16),
+                    Divider(color: ArcStrokes.steel, height: 16),
                     _buildSummaryRow("OPTIMIZED SYSTEM DOSSIERS", "$mergeCount"),
                   ],
                 ),
@@ -1379,8 +1380,8 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFF0d1e2f) : const Color(0xFF07121c),
-        border: Border.all(color: isSelected ? PersonInfoTheme.spideyCyan :  Color(0xFF1f2f40)),
+        color: isSelected ? ArcSurfaces.deepPanelRaised : ArcSurfaces.deepPanel,
+        border: Border.all(color: isSelected ? PersonInfoTheme.spideyCyan :  ArcStrokes.steel),
         borderRadius: BorderRadius.circular(4),
       ),
       child: RadioListTile<int>(
@@ -1441,7 +1442,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF261811), // custom glowing orange container
+        color: ArcSurfaces.emberPanel, // custom glowing orange container
         border: Border.all(color: Colors.orangeAccent),
         borderRadius: BorderRadius.circular(4),
       ),
@@ -1479,7 +1480,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF140c08),
+                        color: ArcSurfaces.emberPanelDeep,
                         border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.15)),
                         borderRadius: BorderRadius.circular(2),
                       ),
@@ -1506,7 +1507,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF140c08),
+                        color: ArcSurfaces.emberPanelDeep,
                         border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.15)),
                         borderRadius: BorderRadius.circular(2),
                       ),
@@ -1547,7 +1548,7 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orangeAccent,
-                    foregroundColor: Colors.black,
+                    foregroundColor: JweTheme.onAccent,
                     shape: const BeveledRectangleBorder(),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                   ),

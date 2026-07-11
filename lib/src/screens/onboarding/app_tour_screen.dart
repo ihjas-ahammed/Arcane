@@ -12,6 +12,7 @@ import 'package:missions/src/widgets/ui/nora_message_bubble.dart';
 import 'package:provider/provider.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class AppTourScreen extends StatefulWidget {
   const AppTourScreen({super.key});
@@ -98,7 +99,7 @@ class _AppTourScreenState extends State<AppTourScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             IgnorePointer(
-              child: NoraMessageBubble(message: dummyMessage, accentColor: const Color(0xFF8A2BE2), isTyping: false),
+              child: NoraMessageBubble(message: dummyMessage, accentColor: ArcAccents.violet, isTyping: false),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -110,12 +111,12 @@ class _AppTourScreenState extends State<AppTourScreen> {
                 hintText: "Paste Gemini API Key here (Optional)",
                 hintStyle: TextStyle(color: JweTheme.textMuted.withOpacity(0.5)),
                 border:  OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
-                focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF8A2BE2))),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: ArcAccents.violet)),
               ),
             )
           ],
         ),
-        accentColor: const Color(0xFF8A2BE2),
+        accentColor: ArcAccents.violet,
       ),
     ];
 
@@ -153,7 +154,7 @@ class _AppTourScreenState extends State<AppTourScreen> {
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _currentPage == slides.length - 1 ? JweTheme.accentCyan : JweTheme.panel,
-                          foregroundColor: _currentPage == slides.length - 1 ? Colors.black : JweTheme.textWhite,
+                          foregroundColor: _currentPage == slides.length - 1 ? JweTheme.onAccent : JweTheme.textWhite,
                           shape:   BeveledRectangleBorder(
                             side: BorderSide(color: JweTheme.accentCyan)
                           ),

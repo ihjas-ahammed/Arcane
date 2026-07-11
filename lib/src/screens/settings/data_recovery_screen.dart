@@ -226,10 +226,10 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                         ElevatedButton.icon(
                           onPressed: _createLocalBackup,
                           icon: Icon(MdiIcons.harddiskPlus, size: 18),
-                          label: Text("CREATE LOCAL BACKUP", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, color: Colors.black)),
+                          label: Text("CREATE LOCAL BACKUP", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, color: JweTheme.onAccent)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: JweTheme.textWhite,
-                            foregroundColor: Colors.black,
+                            foregroundColor: JweTheme.onAccent,
                             shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
                           ),
                         ),

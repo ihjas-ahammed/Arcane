@@ -944,6 +944,17 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     }
   }
 
+  Future<List<Map<String, dynamic>>> getArchivedMonthlyReports() async {
+    if (currentUser == null) return[];
+    return await _cloudStorage.fetchMonthlyReports(currentUser!.uid);
+  }
+
+  Future<void> saveMonthlyReport(String date, Map<String, dynamic> data) async {
+    if (currentUser != null) {
+      await _cloudStorage.saveMonthlyReport(currentUser!.uid, date, data);
+    }
+  }
+
   void saveTacticalBriefing(String date, Map<String, dynamic> data) { 
     final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
     final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});

@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 
 class CheckpointDetailScreen extends StatefulWidget {
   final String mainTaskId;
@@ -166,7 +167,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                       label: const Text("ADD REMINDER"),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.fhAccentTeal,
-                        foregroundColor: Colors.black,
+                        foregroundColor: JweTheme.onAccent,
                         shape: const BeveledRectangleBorder(),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
@@ -622,7 +623,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.fhAccentTeal,
-              foregroundColor: Colors.black,
+              foregroundColor: JweTheme.onAccent,
               shape: const BeveledRectangleBorder(),
             ),
             onPressed: () {

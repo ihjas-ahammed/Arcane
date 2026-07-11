@@ -7,6 +7,8 @@ import 'package:missions/src/widgets/dialogs/wellbeing_detail_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 
 class WellbeingDrawer extends StatelessWidget {
   const WellbeingDrawer({super.key});
@@ -25,7 +27,7 @@ class WellbeingDrawer extends StatelessWidget {
           Container(
             padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
             decoration:   BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xFF1f2f40), width: 2)),
+              border: Border(bottom: BorderSide(color: ArcStrokes.steel, width: 2)),
               color: PersonInfoTheme.bgPanel,
             ),
             child: Column(
@@ -103,8 +105,8 @@ class WellbeingDrawer extends StatelessWidget {
             padding: const EdgeInsets.all(16.0),
             child: ElevatedButton.icon(
               icon: appProvider.loadingTaskName == "Analyzing Weekly Wellbeing..."
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                : Icon(MdiIcons.sync, size: 18, color: Colors.black),
+                ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: JweTheme.onAccent))
+                : Icon(MdiIcons.sync, size: 18, color: JweTheme.onAccent),
               label: Text(
                 appProvider.loadingTaskName == "Analyzing Weekly Wellbeing..." ? "PROCESSING..." : "SYNC 7-DAY PROGRESS",
                 style: GoogleFonts.rajdhani(
@@ -115,7 +117,7 @@ class WellbeingDrawer extends StatelessWidget {
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: PersonInfoTheme.spideyCyan,
-                foregroundColor: Colors.black,
+                foregroundColor: JweTheme.onAccent,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
               ),

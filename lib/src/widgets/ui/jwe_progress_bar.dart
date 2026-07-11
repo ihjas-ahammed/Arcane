@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 /// Operator HUD progress bar — segmented HUD-style with caption.
 class JweProgressBar extends StatelessWidget {
@@ -46,7 +47,7 @@ class JweProgressBar extends StatelessWidget {
                 child: Container(
                   margin: EdgeInsets.only(right: i == segments - 1 ? 0 : 2),
                   decoration: BoxDecoration(
-                    color: on ? color : const Color(0x1AA8B3C7),
+                    color: on ? color : ArcStrokes.hairline,
                     boxShadow: on ? [BoxShadow(color: color.withOpacity(0.4), blurRadius: 3)] : null,
                   ),
                 ),

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 String _fmtMins(double v) {
   final m = v.round();
@@ -218,7 +219,7 @@ class _BarsPainter extends CustomPainter {
       final isPeak = v > 0 && v == maxV;
 
       final color = v == 0
-          ? const Color(0x1AA8B3C7)
+          ? ArcStrokes.hairline
           : (isToday || isPeak ? accent : accent.withValues(alpha: 0.40));
 
       // Bar with optional glow

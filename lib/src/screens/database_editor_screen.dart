@@ -5,6 +5,7 @@ import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/widgets/ui/json_editor_widget.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/services/data_export_service.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class DatabaseEditorScreen extends StatefulWidget {
   const DatabaseEditorScreen({super.key});
@@ -137,7 +138,7 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
               child: Container(
                 margin: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.black,
+                  color: ArcSurfaces.codeField,
                   border: Border.all(color: AppTheme.fhBorderColor),
                 ),
                 child: _localData.isEmpty

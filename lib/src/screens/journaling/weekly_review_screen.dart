@@ -9,6 +9,7 @@ import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/task_models.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class WeeklyReviewScreen extends StatelessWidget {
   final Map<String, dynamic> reportData;
@@ -38,6 +39,13 @@ class WeeklyReviewScreen extends StatelessWidget {
     final abilities = reportData['improved_abilities'] as List<dynamic>? ?? [];
     final gratefulPeople = reportData['grateful_people'] as List<dynamic>? ?? [];
     final gratitudeHighlights = reportData['gratitude_highlights'] as List<dynamic>? ?? [];
+
+    // After-action review, energy map, capitalization (share a win)
+    final afterAction = reportData['after_action'] as Map<String, dynamic>?;
+    final energyMap = reportData['energy_map'] as Map<String, dynamic>?;
+    final energizers = (energyMap?['energizers'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+    final drainers = (energyMap?['drainers'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+    final shareWin = reportData['share_win'] as Map<String, dynamic>?;
 
     return Scaffold(
       backgroundColor: JweTheme.bgDeep,
@@ -137,7 +145,7 @@ class WeeklyReviewScreen extends StatelessWidget {
                       const SizedBox(height: 16),
                       _TextBlock(
                         text: wellbeingAnalysis,
-                        accent: const Color(0xFFB07BFF), // Purple
+                        accent: ArcAccents.violetBright, // Purple
                         icon: MdiIcons.heartPulse,
                         label: 'WELL-BEING TRAJECTORY',
                       ),
@@ -244,6 +252,101 @@ class WeeklyReviewScreen extends StatelessWidget {
                     ],
                   ),
                 ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.05, end: 0),
+              ),
+            ],
+
+            // ── After-Action Review & Energy ──────────────
+            if (afterAction != null || energizers.isNotEmpty || drainers.isNotEmpty || shareWin != null) ...[
+              const HudSectionHead(label: 'DEBRIEF & ENERGY', code: 'AAR', accent: HudTone.cyan),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: HudPanel(
+                  background: JweTheme.bgBase.withOpacity(0.5),
+                  allBrackets: false,
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (afterAction != null) ...[
+                        _SectionLabel(title: 'AFTER-ACTION REVIEW', icon: MdiIcons.rotateLeft, color: JweTheme.accentCyan),
+                        const SizedBox(height: 12),
+                        _AARRow(label: 'INTENDED', text: afterAction['intended']?.toString() ?? '', color: JweTheme.accentCyan),
+                        _AARRow(label: 'ACTUAL', text: afterAction['actual']?.toString() ?? '', color: JweTheme.accentAmber),
+                        _AARRow(label: 'LESSON', text: afterAction['lesson']?.toString() ?? '', color: JweTheme.accentTeal),
+                      ],
+                      if ((energizers.isNotEmpty || drainers.isNotEmpty)) ...[
+                        if (afterAction != null) const SizedBox(height: 20),
+                        _SectionLabel(title: 'ENERGY MAP', icon: MdiIcons.lightningBoltOutline, color: JweTheme.accentAmber),
+                        const SizedBox(height: 12),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: _EnergyColumn(
+                                title: 'CHARGED BY',
+                                items: energizers,
+                                color: JweTheme.accentTeal,
+                                icon: MdiIcons.batteryPlusOutline,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _EnergyColumn(
+                                title: 'DRAINED BY',
+                                items: drainers,
+                                color: JweTheme.accentRed,
+                                icon: MdiIcons.batteryMinusOutline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (shareWin != null && (shareWin['win']?.toString().isNotEmpty ?? false)) ...[
+                        const SizedBox(height: 20),
+                        _SectionLabel(title: 'SHARE THE WIN', icon: MdiIcons.sendOutline, color: JweTheme.accentCyan),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: JweTheme.accentCyan.withOpacity(0.06),
+                            border: Border(left: BorderSide(color: JweTheme.accentCyan, width: 3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                shareWin['win']?.toString() ?? '',
+                                style: TextStyle(color: JweTheme.textWhite, fontSize: 13, height: 1.4),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'TELL: ${(shareWin['person']?.toString() ?? '').toUpperCase()}',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: JweTheme.accentCyan,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              if ((shareWin['how']?.toString() ?? '').isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  '"${shareWin['how']}"',
+                                  style: TextStyle(
+                                    color: JweTheme.textMid,
+                                    fontSize: 12,
+                                    fontStyle: FontStyle.italic,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ).animate().fadeIn(delay: 550.ms).slideY(begin: 0.05, end: 0),
               ),
             ],
 
@@ -562,6 +665,99 @@ class _IdentityCard extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AARRow extends StatelessWidget {
+  final String label;
+  final String text;
+  final Color color;
+
+  const _AARRow({required this.label, required this.text, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    if (text.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 74,
+            child: Text(
+              label,
+              style: GoogleFonts.jetBrainsMono(
+                color: color,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.0,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(color: JweTheme.textWhite, fontSize: 12.5, height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EnergyColumn extends StatelessWidget {
+  final String title;
+  final List<String> items;
+  final Color color;
+  final IconData icon;
+
+  const _EnergyColumn({
+    required this.title,
+    required this.items,
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.06),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(icon, size: 12, color: color),
+            const SizedBox(width: 6),
+            Text(
+              title,
+              style: GoogleFonts.jetBrainsMono(
+                color: color,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.0,
+              ),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          if (items.isEmpty)
+            Text('—', style: TextStyle(color: JweTheme.textMuted, fontSize: 11))
+          else
+            ...items.map((e) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '• $e',
+                    style: TextStyle(color: JweTheme.textMid, fontSize: 11.5, height: 1.35),
+                  ),
+                )),
         ],
       ),
     );

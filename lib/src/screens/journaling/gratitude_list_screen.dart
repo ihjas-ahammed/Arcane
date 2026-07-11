@@ -9,6 +9,7 @@ import 'package:collection/collection.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class GratitudeListScreen extends StatefulWidget {
   const GratitudeListScreen({super.key});
@@ -204,7 +205,7 @@ class _GratitudeListScreenState extends State<GratitudeListScreen> {
                                   label: const Text("EDIT DATA"),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: PersonInfoTheme.textGrey,
-                                    side: const BorderSide(color: Color(0xFF1f2f40)),
+                                    side: BorderSide(color: ArcStrokes.steel),
                                   ),
                                 ),
                               )

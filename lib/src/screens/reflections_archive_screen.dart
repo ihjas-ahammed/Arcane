@@ -32,7 +32,7 @@ class _ReflectionsArchiveScreenState extends State<ReflectionsArchiveScreen> {
         data: Theme.of(context).copyWith(
           colorScheme:   ColorScheme.dark(
             primary: JweTheme.accentCyan,
-            onPrimary: Colors.black,
+            onPrimary: JweTheme.onAccent,
             surface: JweTheme.panel,
           ),
         ),
@@ -101,7 +101,7 @@ class _ReflectionsArchiveScreenState extends State<ReflectionsArchiveScreen> {
     Clipboard.setData(ClipboardData(text: buffer.toString()));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("${selectedLogs.length} logs copied to clipboard.", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        content: Text("${selectedLogs.length} logs copied to clipboard.", style: TextStyle(color: JweTheme.onAccent, fontWeight: FontWeight.bold)),
         backgroundColor: JweTheme.accentCyan,
       ),
     );
@@ -172,7 +172,7 @@ class _ReflectionsArchiveScreenState extends State<ReflectionsArchiveScreen> {
                 onPressed: () async {
                   try {
                     await provider.importReflections();
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text("Import successful.", style: TextStyle(color: Colors.black)), backgroundColor: JweTheme.accentCyan));
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text("Import successful.", style: TextStyle(color: JweTheme.onAccent)), backgroundColor: JweTheme.accentCyan));
                   } catch(e) {
                     if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Import failed: $e", style:  TextStyle(color: Colors.white)), backgroundColor: JweTheme.accentRed));
                   }
