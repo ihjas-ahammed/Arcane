@@ -166,12 +166,16 @@ class TaskActions {
     }
   }
 
+  /// Consumes one planned occurrence of [compoundId] (e.g. after a work
+  /// session ends). Duplicates are deliberate — each entry is one planned
+  /// session — so only the first exact match is removed, and checkpoint
+  /// entries belonging to the same subtask are left untouched.
   void removeFromDayPlan(String compoundId, [String? dateStr]) {
     final targetDate = dateStr ?? getTodayDateString();
     final currentPlan = getDayPlan(targetDate);
-    final newPlan = currentPlan.where((item) {
-      return item != compoundId && !item.startsWith('$compoundId|');
-    }).toList();
+    final idx = currentPlan.indexOf(compoundId);
+    if (idx == -1) return;
+    final newPlan = List<String>.from(currentPlan)..removeAt(idx);
     updateDayPlan(targetDate, newPlan);
   }
 

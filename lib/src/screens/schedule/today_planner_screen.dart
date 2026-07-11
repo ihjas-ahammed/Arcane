@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +15,19 @@ import 'package:missions/src/utils/day_budget_helper.dart';
 import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/utils/global_toast.dart';
 
+/// One slot in the day plan. The same compound id may appear more than once
+/// (planning several sessions of the same work), so each slot carries its own
+/// stable [key] for list identity and animations.
+class _PlanEntry {
+  static int _seq = 0;
+  final String key;
+  final String id;
+  final bool addedAtRuntime;
+  _PlanEntry(this.id, {this.addedAtRuntime = false}) : key = 'plan-entry-${_seq++}';
+}
+
+enum _LeaveKind { removed, completed }
+
 class TodayPlannerScreen extends StatefulWidget {
   final String? date;
   const TodayPlannerScreen({super.key, this.date});
@@ -24,8 +38,9 @@ class TodayPlannerScreen extends StatefulWidget {
 
 class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   late String _date;
-  List<String> _plan = [];
+  List<_PlanEntry> _entries = [];
   Map<String, int> _estimates = {};
+  final Map<String, _LeaveKind> _leaving = {};
   bool _addExpanded = false;
   String _searchQuery = '';
   final TextEditingController _searchCtrl = TextEditingController();
@@ -37,7 +52,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     if (_isInit) {
       _date = widget.date ?? helper.getTodayDateString();
       final provider = Provider.of<AppProvider>(context, listen: false);
-      _plan = provider.taskActions.getDayPlan(_date);
+      _entries = provider.taskActions.getDayPlan(_date).map(_PlanEntry.new).toList();
       _estimates = provider.taskActions.getDayPlanEstimates(_date);
       _isInit = false;
     }
@@ -50,7 +65,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   }
 
   void _persistPlan(AppProvider provider) {
-    provider.taskActions.updateDayPlan(_date, _plan);
+    provider.taskActions.updateDayPlan(_date, _entries.map((e) => e.id).toList());
   }
 
   void _setEstimate(AppProvider provider, String compoundId, int minutes) {
@@ -78,51 +93,77 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
         : TaskCalculations.defaultSubtaskMinutes;
   }
 
+  /// True when the entry's target is already completed (kept in the plan as a
+  /// dimmed "done" row until the user removes it — never auto-removed).
+  bool _isEntryDone(AppProvider provider, String compoundId) {
+    final parts = compoundId.split('|');
+    if (parts.length < 2) return false;
+    final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+    if (task == null || sub == null) return false;
+    if (parts.length == 3) {
+      return sub.findCheckpoint(parts[2])?.completed ?? false;
+    }
+    return sub.completed;
+  }
+
   void _addToPlan(AppProvider provider, String compoundId) {
     setState(() {
-      _plan.add(compoundId);
+      _entries.add(_PlanEntry(compoundId, addedAtRuntime: true));
     });
     _persistPlan(provider);
   }
 
-  void _removeFromPlan(AppProvider provider, String compoundId) {
+  void _startLeave(_PlanEntry entry, _LeaveKind kind) {
+    if (_leaving.containsKey(entry.key)) return;
+    setState(() => _leaving[entry.key] = kind);
+  }
+
+  /// Called once the leave animation finished: actually drop the entry.
+  void _finishLeave(AppProvider provider, _PlanEntry entry) {
+    if (!mounted) return;
     setState(() {
-      _plan.remove(compoundId);
+      _entries.removeWhere((e) => e.key == entry.key);
+      _leaving.remove(entry.key);
     });
     _persistPlan(provider); // updateDayPlan auto-clears a Phoenix that left the plan
   }
 
-  void _completePlanItem(AppProvider provider, String compoundId) {
-    final parts = compoundId.split('|');
+  void _removeFromPlan(AppProvider provider, _PlanEntry entry) {
+    _startLeave(entry, _LeaveKind.removed);
+  }
+
+  void _completePlanItem(AppProvider provider, _PlanEntry entry) {
+    final parts = entry.id.split('|');
     if (parts.length < 2) return;
     final mainTaskId = parts[0];
     final subTaskId = parts[1];
     if (parts.length == 3) {
-      final checkpointId = parts[2];
-      provider.taskActions.completeSubSubtask(mainTaskId, subTaskId, checkpointId);
+      provider.taskActions.completeSubSubtask(mainTaskId, subTaskId, parts[2]);
       showGlobalToast('✓ Checked: checkpoint completed');
     } else {
-      provider.taskActions.completeSubtask(mainTaskId, subTaskId);
+      final ok = provider.taskActions.completeSubtask(mainTaskId, subTaskId);
+      if (!ok) {
+        showGlobalToast('Can\'t complete yet — checkpoints, count or time still pending');
+        return;
+      }
       showGlobalToast('✓ Completed: subtask completed');
     }
-    setState(() {
-      _plan.remove(compoundId);
-    });
-    _persistPlan(provider);
+    _startLeave(entry, _LeaveKind.completed);
   }
 
-  void _togglePhoenix(AppProvider provider, String compoundId) {
+  void _togglePhoenix(AppProvider provider, _PlanEntry entry) {
     final current = provider.taskActions.getPhoenixId(_date);
-    if (current == compoundId) {
+    if (current == entry.id) {
       provider.taskActions.setPhoenix(_date, null);
     } else {
       // Pin to the front so the Phoenix reads as the first thing of the day.
       setState(() {
-        _plan.remove(compoundId);
-        _plan.insert(0, compoundId);
+        _entries.removeWhere((e) => e.key == entry.key);
+        _entries.insert(0, entry);
       });
       _persistPlan(provider);
-      provider.taskActions.setPhoenix(_date, compoundId);
+      provider.taskActions.setPhoenix(_date, entry.id);
     }
   }
 
@@ -231,7 +272,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     }
 
     if (!mounted) return;
-    
+
     final parts = compoundId.split('|');
     SubTask? sub;
     if (parts.length >= 2) {
@@ -274,8 +315,8 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   }
 
   ({String? title, Color? color, bool isRunning}) _resolveActive(AppProvider provider) {
-    for (final id in _plan) {
-      final parts = id.split('|');
+    for (final entry in _entries) {
+      final parts = entry.id.split('|');
       if (parts.length < 2) continue;
       final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
       final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
@@ -301,8 +342,19 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     final window = resolveDayWindow(provider, now);
     final minutesLeft = window.minutesRemaining(now);
     final realisticMinutes = window.realisticMinutes(now);
-    final plannedMinutes =
-        _plan.fold<int>(0, (sum, id) => sum + _estimateFor(id, provider));
+
+    int plannedMinutes = 0;
+    int doneMinutes = 0;
+    int doneCount = 0;
+    for (final entry in _entries) {
+      final est = _estimateFor(entry.id, provider);
+      if (_isEntryDone(provider, entry.id)) {
+        doneMinutes += est;
+        doneCount++;
+      } else {
+        plannedMinutes += est;
+      }
+    }
     final active = _resolveActive(provider);
 
     return Scaffold(
@@ -325,6 +377,8 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
           children: [
             _BudgetBar(
               plannedMinutes: plannedMinutes,
+              doneMinutes: doneMinutes,
+              doneCount: doneCount,
               minutesLeft: minutesLeft,
               realisticMinutes: realisticMinutes,
               fromHistory: window.fromHistory,
@@ -350,7 +404,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   }
 
   Widget _buildPlanList(AppProvider provider) {
-    if (_plan.isEmpty) {
+    if (_entries.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -365,44 +419,90 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                     letterSpacing: 2,
                     fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-              Text('Open ADD below to queue work.',
+            Text('Queue the work that matters today.',
                 style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => setState(() => _addExpanded = true),
+              icon: Icon(MdiIcons.plusBoxOutline, size: 16, color: AppTheme.fhAccentTeal),
+              label: Text('ADD MISSIONS',
+                  style: TextStyle(
+                      color: AppTheme.fhAccentTeal,
+                      fontSize: 12,
+                      letterSpacing: 1.5,
+                      fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+            ),
           ],
-        ),
+        ).animate().fadeIn(duration: 300.ms),
       );
     }
 
     final phoenixId = provider.taskActions.getPhoenixId(_date);
-    final hasPhoenix = phoenixId != null && _plan.contains(phoenixId);
-    final queue = _plan.where((id) => id != phoenixId).toList();
+    // Only the first occurrence is the Phoenix; duplicates stay in the queue.
+    final phoenixIndex =
+        phoenixId == null ? -1 : _entries.indexWhere((e) => e.id == phoenixId);
+    final phoenixEntry = phoenixIndex == -1 ? null : _entries[phoenixIndex];
+    final queue = [
+      for (var i = 0; i < _entries.length; i++)
+        if (i != phoenixIndex) _entries[i],
+    ];
 
     final list = ReorderableListView.builder(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       itemCount: queue.length,
-      proxyDecorator: (child, _, __) =>
-          Material(color: Colors.transparent, child: child),
+      buildDefaultDragHandles: false,
+      proxyDecorator: (child, _, animation) => AnimatedBuilder(
+        animation: animation,
+        builder: (context, _) {
+          final t = Curves.easeOut.transform(animation.value);
+          return Transform.scale(
+            scale: 1 + 0.02 * t,
+            child: Material(
+              color: Colors.transparent,
+              elevation: 6 * t,
+              shadowColor: Colors.black.withValues(alpha: 0.5),
+              child: child,
+            ),
+          );
+        },
+      ),
       onReorderItem: (oldIndex, newIndex) {
         setState(() {
           final item = queue.removeAt(oldIndex);
           queue.insert(newIndex, item);
-          _plan = [if (hasPhoenix) phoenixId, ...queue];
+          _entries = [if (phoenixEntry != null) phoenixEntry, ...queue];
         });
         _persistPlan(provider);
       },
       itemBuilder: (context, index) {
-        final id = queue[index];
-        return _PlanRow(
-          key: ValueKey('$id-$index'),
-          compoundId: id,
-          provider: provider,
-          minutes: _estimateFor(id, provider),
-          isCustomEstimate: _estimates.containsKey(id),
-          hasReminder: provider.plannerReminderTime(id) != null,
-          onEditEstimate: () => _editEstimate(provider, id),
-          onEditReminder: () => _editReminder(provider, id),
-          onRemove: () => _removeFromPlan(provider, id),
-          onAnoint: () => _togglePhoenix(provider, id),
-          onCheck: () => _completePlanItem(provider, id),
+        final entry = queue[index];
+        return _AnimatedEntry(
+          key: ValueKey(entry.key),
+          animateIn: entry.addedAtRuntime,
+          leaving: _leaving[entry.key],
+          onLeft: () => _finishLeave(provider, entry),
+          child: ReorderableDelayedDragStartListener(
+            index: index,
+            child: _PlanRow(
+              compoundId: entry.id,
+              provider: provider,
+              dragIndex: index,
+              minutes: _estimateFor(entry.id, provider),
+              isCustomEstimate: _estimates.containsKey(entry.id),
+              isDone: _isEntryDone(provider, entry.id),
+              hasReminder: provider.plannerReminderTime(entry.id) != null,
+              onEditEstimate: () => _editEstimate(provider, entry.id),
+              onEditReminder: () => _editReminder(provider, entry.id),
+              onRemove: () => _removeFromPlan(provider, entry),
+              onAnoint: () => _togglePhoenix(provider, entry),
+              onCheck: () => _completePlanItem(provider, entry),
+            ),
+          ),
         );
       },
     );
@@ -410,28 +510,48 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (hasPhoenix)
-          _PhoenixCard(
-            compoundId: phoenixId,
-            provider: provider,
-            minutes: _estimateFor(phoenixId, provider),
-            isCustomEstimate: _estimates.containsKey(phoenixId),
-            hasReminder: provider.plannerReminderTime(phoenixId) != null,
-            onEditEstimate: () => _editEstimate(provider, phoenixId),
-            onEditReminder: () => _editReminder(provider, phoenixId),
-            onRemove: () => _removeFromPlan(provider, phoenixId),
-            onDemote: () => _togglePhoenix(provider, phoenixId),
-            onCheck: () => _completePlanItem(provider, phoenixId),
-          )
-        else
-          const _AnointHint(),
+        AnimatedSwitcher(
+          duration: 280.ms,
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: SizeTransition(
+                sizeFactor: animation, alignment: const Alignment(-1.0, -1.0), child: child),
+          ),
+          child: phoenixEntry != null
+              ? _AnimatedEntry(
+                  key: ValueKey('phoenix-${phoenixEntry.key}'),
+                  animateIn: false,
+                  leaving: _leaving[phoenixEntry.key],
+                  onLeft: () => _finishLeave(provider, phoenixEntry),
+                  child: _PhoenixCard(
+                    compoundId: phoenixEntry.id,
+                    provider: provider,
+                    minutes: _estimateFor(phoenixEntry.id, provider),
+                    isCustomEstimate: _estimates.containsKey(phoenixEntry.id),
+                    isDone: _isEntryDone(provider, phoenixEntry.id),
+                    hasReminder:
+                        provider.plannerReminderTime(phoenixEntry.id) != null,
+                    onEditEstimate: () => _editEstimate(provider, phoenixEntry.id),
+                    onEditReminder: () => _editReminder(provider, phoenixEntry.id),
+                    onRemove: () => _removeFromPlan(provider, phoenixEntry),
+                    onDemote: () => _togglePhoenix(provider, phoenixEntry),
+                    onCheck: () => _completePlanItem(provider, phoenixEntry),
+                  ),
+                )
+              : const _AnointHint(key: ValueKey('anoint-hint')),
+        ),
         Expanded(child: list),
       ],
     );
   }
 
   Widget _buildAvailableList(AppProvider provider) {
-    final planSet = _plan.toSet();
+    final plannedCounts = <String, int>{};
+    for (final entry in _entries) {
+      plannedCounts[entry.id] = (plannedCounts[entry.id] ?? 0) + 1;
+    }
     final activeTasks =
         provider.mainTasks.where((t) => t.isActive && !t.isDeleted).toList();
     final q = _searchQuery;
@@ -456,6 +576,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
             title: sub.name,
             color: task.taskColor,
             isCheckpoint: false,
+            plannedCount: plannedCounts[subId] ?? 0,
             onAdd: () => _addToPlan(provider, subId),
           ));
         }
@@ -468,6 +589,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
             parent: _findParentPath(sub, cp),
             color: task.taskColor,
             isCheckpoint: true,
+            plannedCount: plannedCounts[cpId] ?? 0,
             onAdd: () => _addToPlan(provider, cpId),
           ));
         }
@@ -512,14 +634,105 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   }
 }
 
+/// Animates a plan entry in (grow + fade) when queued and out (collapse +
+/// fade, tinted by the action) before it is actually removed from the list.
+class _AnimatedEntry extends StatefulWidget {
+  final Widget child;
+  final bool animateIn;
+  final _LeaveKind? leaving;
+  final VoidCallback onLeft;
+
+  const _AnimatedEntry({
+    super.key,
+    required this.child,
+    required this.animateIn,
+    required this.leaving,
+    required this.onLeft,
+  });
+
+  @override
+  State<_AnimatedEntry> createState() => _AnimatedEntryState();
+}
+
+class _AnimatedEntryState extends State<_AnimatedEntry>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  bool _leaveStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+      reverseDuration: const Duration(milliseconds: 220),
+      value: widget.animateIn ? 0.0 : 1.0,
+    );
+    if (widget.animateIn) _controller.forward();
+    _maybeStartLeave();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedEntry oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _maybeStartLeave();
+  }
+
+  void _maybeStartLeave() {
+    if (widget.leaving == null || _leaveStarted) return;
+    _leaveStarted = true;
+    _controller.reverse().whenComplete(widget.onLeft);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final curved = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    final veil = switch (widget.leaving) {
+      _LeaveKind.completed => AppTheme.fhAccentGreen.withValues(alpha: 0.12),
+      _LeaveKind.removed => AppTheme.fhAccentRed.withValues(alpha: 0.10),
+      null => null,
+    };
+    Widget body = widget.child;
+    if (veil != null) {
+      body = Stack(children: [
+        body,
+        Positioned.fill(child: IgnorePointer(child: Container(color: veil))),
+      ]);
+    }
+    Widget result = SizeTransition(
+      sizeFactor: curved,
+      alignment: const Alignment(-1.0, -1.0),
+      child: FadeTransition(opacity: curved, child: body),
+    );
+    if (widget.leaving != null) {
+      result = IgnorePointer(child: result);
+    }
+    return result;
+  }
+}
+
 class _BudgetBar extends StatelessWidget {
   final int plannedMinutes;
+  final int doneMinutes;
+  final int doneCount;
   final int minutesLeft;
   final int realisticMinutes;
   final bool fromHistory;
 
   const _BudgetBar({
     required this.plannedMinutes,
+    required this.doneMinutes,
+    required this.doneCount,
     required this.minutesLeft,
     required this.realisticMinutes,
     required this.fromHistory,
@@ -547,12 +760,17 @@ class _BudgetBar extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(formatMinutes(plannedMinutes),
-                  style: GoogleFonts.rajdhani(
-                      color: AppTheme.fhTextPrimary,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      height: 1)),
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: plannedMinutes.toDouble()),
+                duration: const Duration(milliseconds: 450),
+                curve: Curves.easeOutCubic,
+                builder: (_, v, __) => Text(formatMinutes(v.round()),
+                    style: GoogleFonts.rajdhani(
+                        color: AppTheme.fhTextPrimary,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        height: 1)),
+              ),
               const SizedBox(width: 6),
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -592,14 +810,55 @@ class _BudgetBar extends StatelessWidget {
           ClipRect(
             child: SizedBox(
               height: 4,
-              child: Stack(children: [
-                Container(color: AppTheme.fhBgDeepDark),
-                FractionallySizedBox(
-                  widthFactor: ratio,
-                  child: Container(color: color),
-                ),
-              ]),
+              child: LayoutBuilder(
+                builder: (context, constraints) => Stack(children: [
+                  Container(color: AppTheme.fhBgDeepDark),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeOutCubic,
+                    width: constraints.maxWidth * ratio,
+                    color: color,
+                  ),
+                ]),
+              ),
             ),
+          ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SizeTransition(
+                  sizeFactor: animation, alignment: const Alignment(-1.0, -1.0), child: child),
+            ),
+            child: (over || doneCount > 0)
+                ? Padding(
+                    key: ValueKey('bar-meta-$over-$doneCount-$doneMinutes'),
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(
+                      children: [
+                        if (doneCount > 0)
+                          Text(
+                            '✓ $doneCount DONE · ${formatMinutes(doneMinutes)}',
+                            style: TextStyle(
+                                color: AppTheme.fhAccentGreen,
+                                fontSize: 10,
+                                letterSpacing: 1.2,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        const Spacer(),
+                        if (over)
+                          Text(
+                            'OVER BY ${formatMinutes(plannedMinutes - realisticMinutes)} — TRIM OR RESCHEDULE',
+                            style: TextStyle(
+                                color: AppTheme.fhAccentRed,
+                                fontSize: 10,
+                                letterSpacing: 1.2,
+                                fontWeight: FontWeight.bold),
+                          ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(key: ValueKey('bar-meta-none')),
           ),
         ],
       ),
@@ -620,6 +879,12 @@ class _ActivePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Widget dot = Container(width: 6, height: 6, color: color);
+    if (isRunning) {
+      dot = dot
+          .animate(onPlay: (c) => c.repeat(reverse: true))
+          .fade(begin: 1.0, end: 0.35, duration: 800.ms, curve: Curves.easeInOut);
+    }
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -629,7 +894,7 @@ class _ActivePill extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(width: 6, height: 6, color: color),
+          dot,
           const SizedBox(width: 8),
           Text(
             isRunning ? 'DOING' : 'UP NEXT',
@@ -641,14 +906,18 @@ class _ActivePill extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              title,
-              style:   TextStyle(
-                  color: AppTheme.fhTextPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: Text(
+                title,
+                key: ValueKey(title),
+                style:   TextStyle(
+                    color: AppTheme.fhTextPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
         ],
@@ -657,11 +926,57 @@ class _ActivePill extends StatelessWidget {
   }
 }
 
+/// Estimate chip that pulses whenever its value changes.
+class _EstimateChip extends StatelessWidget {
+  final int minutes;
+  final bool isCustom;
+  final Color accent;
+  final VoidCallback onTap;
+
+  const _EstimateChip({
+    required this.minutes,
+    required this.isCustom,
+    required this.accent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppTheme.fhBgDeepDark,
+          border: Border.all(
+              color: isCustom
+                  ? accent.withValues(alpha: 0.6)
+                  : AppTheme.fhBorderColor),
+        ),
+        child: Text(formatMinutes(minutes),
+                style: TextStyle(
+                    color: isCustom ? accent : AppTheme.fhTextSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold))
+            .animate(key: ValueKey(minutes))
+            .scaleXY(
+                begin: 0.7,
+                end: 1.0,
+                duration: 250.ms,
+                curve: Curves.easeOutBack),
+      ),
+    );
+  }
+}
+
 class _PlanRow extends StatelessWidget {
   final String compoundId;
   final AppProvider provider;
+  final int dragIndex;
   final int minutes;
   final bool isCustomEstimate;
+  final bool isDone;
   final bool hasReminder;
   final VoidCallback onEditEstimate;
   final VoidCallback onEditReminder;
@@ -670,11 +985,12 @@ class _PlanRow extends StatelessWidget {
   final VoidCallback onCheck;
 
   const _PlanRow({
-    super.key,
     required this.compoundId,
     required this.provider,
+    required this.dragIndex,
     required this.minutes,
     required this.isCustomEstimate,
+    required this.isDone,
     required this.hasReminder,
     required this.onEditEstimate,
     required this.onEditReminder,
@@ -704,99 +1020,111 @@ class _PlanRow extends StatelessWidget {
     final title = isCheckpoint ? cp!.name : sub.name;
     final parent = isCheckpoint ? '${task.name} > ${_findParentPath(sub, cp!)}' : task.name;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark,
-        border: Border(left: BorderSide(color: task.taskColor, width: 3)),
-      ),
-      child: Row(
-        children: [
-            Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Icon(Icons.drag_indicator,
-                color: AppTheme.fhTextDisabled, size: 18),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(title,
-                      style:   TextStyle(
-                          color: AppTheme.fhTextPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  Text(parent,
-                      style:   TextStyle(
-                          color: AppTheme.fhTextSecondary, fontSize: 10),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                ],
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 250),
+      opacity: isDone ? 0.55 : 1.0,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        decoration: BoxDecoration(
+          color: AppTheme.fhBgDark,
+          border: Border(left: BorderSide(color: task.taskColor, width: 3)),
+        ),
+        child: Row(
+          children: [
+            ReorderableDragStartListener(
+              index: dragIndex,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Icon(Icons.drag_indicator,
+                    color: AppTheme.fhTextDisabled, size: 18),
               ),
             ),
-          ),
-          InkWell(
-            onTap: onEditEstimate,
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.fhBgDeepDark,
-                border: Border.all(
-                    color: isCustomEstimate
-                        ? AppTheme.fhAccentTeal.withValues(alpha: 0.6)
-                        : AppTheme.fhBorderColor),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(title,
+                        style: TextStyle(
+                            color: AppTheme.fhTextPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            decoration: isDone
+                                ? TextDecoration.lineThrough
+                                : TextDecoration.none,
+                            decorationColor: AppTheme.fhTextSecondary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    Text(parent,
+                        style:   TextStyle(
+                            color: AppTheme.fhTextSecondary, fontSize: 10),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                  ],
+                ),
               ),
-              child: Text(formatMinutes(minutes),
-                  style: TextStyle(
-                      color: isCustomEstimate
-                          ? AppTheme.fhAccentTeal
-                          : AppTheme.fhTextSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold)),
             ),
-          ),
-          IconButton(
-            icon: Icon(MdiIcons.fireCircle,
-                size: 18, color: AppTheme.fhTextSecondary),
-            onPressed: onAnoint,
-            splashRadius: 18,
-            tooltip: 'Anoint as Phoenix',
-          ),
-          IconButton(
-            icon: Icon(
-              hasReminder ? MdiIcons.bellRing : MdiIcons.bellOutline,
-              size: 18,
-              color: hasReminder ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
+            if (isDone) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text('DONE',
+                        style: TextStyle(
+                            color: AppTheme.fhAccentGreen,
+                            fontSize: 9,
+                            letterSpacing: 1.5,
+                            fontWeight: FontWeight.bold))
+                    .animate()
+                    .fadeIn(duration: 250.ms)
+                    .scaleXY(begin: 0.7, curve: Curves.easeOutBack),
+              ),
+            ] else ...[
+              _EstimateChip(
+                minutes: minutes,
+                isCustom: isCustomEstimate,
+                accent: AppTheme.fhAccentTeal,
+                onTap: onEditEstimate,
+              ),
+              IconButton(
+                icon: Icon(MdiIcons.fireCircle,
+                    size: 18, color: AppTheme.fhTextSecondary),
+                onPressed: onAnoint,
+                splashRadius: 18,
+                tooltip: 'Anoint as Phoenix',
+              ),
+              IconButton(
+                icon: Icon(
+                  hasReminder ? MdiIcons.bellRing : MdiIcons.bellOutline,
+                  size: 18,
+                  color: hasReminder ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
+                ),
+                onPressed: onEditReminder,
+                splashRadius: 18,
+                tooltip: 'Reminder',
+              ),
+              IconButton(
+                icon:   Icon(Icons.check, size: 18, color: AppTheme.fhAccentTeal),
+                onPressed: onCheck,
+                splashRadius: 18,
+                tooltip: 'Complete Task',
+              ),
+            ],
+            IconButton(
+              icon:   Icon(Icons.close, size: 18, color: AppTheme.fhAccentRed),
+              onPressed: onRemove,
+              splashRadius: 18,
+              tooltip: 'Remove from plan',
             ),
-            onPressed: onEditReminder,
-            splashRadius: 18,
-            tooltip: 'Reminder',
-          ),
-          IconButton(
-            icon:   Icon(Icons.check, size: 18, color: AppTheme.fhAccentTeal),
-            onPressed: onCheck,
-            splashRadius: 18,
-            tooltip: 'Complete Task',
-          ),
-          IconButton(
-            icon:   Icon(Icons.close, size: 18, color: AppTheme.fhAccentRed),
-            onPressed: onRemove,
-            splashRadius: 18,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
 class _AnointHint extends StatelessWidget {
-  const _AnointHint();
+  const _AnointHint({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -819,7 +1147,7 @@ class _AnointHint extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ).animate().fadeIn(duration: 300.ms);
   }
 }
 
@@ -828,6 +1156,7 @@ class _PhoenixCard extends StatelessWidget {
   final AppProvider provider;
   final int minutes;
   final bool isCustomEstimate;
+  final bool isDone;
   final bool hasReminder;
   final VoidCallback onEditEstimate;
   final VoidCallback onEditReminder;
@@ -840,6 +1169,7 @@ class _PhoenixCard extends StatelessWidget {
     required this.provider,
     required this.minutes,
     required this.isCustomEstimate,
+    required this.isDone,
     required this.hasReminder,
     required this.onEditEstimate,
     required this.onEditReminder,
@@ -867,112 +1197,126 @@ class _PhoenixCard extends StatelessWidget {
 
     final amber = AppTheme.fhAccentOrange;
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-      decoration: BoxDecoration(
-        color: amber.withValues(alpha: 0.07),
-        border: Border(left: BorderSide(color: amber, width: 3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Phoenix banner
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 6, 2),
-            child: Row(
-              children: [
-                Icon(MdiIcons.fire, size: 13, color: amber),
-                const SizedBox(width: 6),
-                Text('PHOENIX',
-                    style: GoogleFonts.rajdhani(
-                        color: amber,
-                        fontSize: 10,
-                        letterSpacing: 2,
-                        fontWeight: FontWeight.bold)),
-                const Spacer(),
-                InkWell(
-                  onTap: onDemote,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Text('DEMOTE',
-                        style: TextStyle(
-                            color: AppTheme.fhTextSecondary,
-                            fontSize: 9,
-                            letterSpacing: 1.2,
-                            fontWeight: FontWeight.bold)),
+    final fireIcon = Icon(MdiIcons.fire, size: 13, color: amber)
+        .animate(onPlay: (c) => c.repeat(reverse: true))
+        .scaleXY(
+            begin: 1.0, end: 1.25, duration: 900.ms, curve: Curves.easeInOut);
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 250),
+      opacity: isDone ? 0.55 : 1.0,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+        decoration: BoxDecoration(
+          color: amber.withValues(alpha: 0.07),
+          border: Border(left: BorderSide(color: amber, width: 3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Phoenix banner
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 6, 2),
+              child: Row(
+                children: [
+                  fireIcon,
+                  const SizedBox(width: 6),
+                  Text('PHOENIX',
+                      style: GoogleFonts.rajdhani(
+                          color: amber,
+                          fontSize: 10,
+                          letterSpacing: 2,
+                          fontWeight: FontWeight.bold)),
+                  if (isDone) ...[
+                    const SizedBox(width: 8),
+                    Text('· RISEN',
+                            style: TextStyle(
+                                color: AppTheme.fhAccentGreen,
+                                fontSize: 9,
+                                letterSpacing: 1.5,
+                                fontWeight: FontWeight.bold))
+                        .animate()
+                        .fadeIn(duration: 250.ms),
+                  ],
+                  const Spacer(),
+                  InkWell(
+                    onTap: onDemote,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Text('DEMOTE',
+                          style: TextStyle(
+                              color: AppTheme.fhTextSecondary,
+                              fontSize: 9,
+                              letterSpacing: 1.2,
+                              fontWeight: FontWeight.bold)),
+                    ),
                   ),
+                ],
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 0, 8, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(title,
+                            style: TextStyle(
+                                color: AppTheme.fhTextPrimary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                decoration: isDone
+                                    ? TextDecoration.lineThrough
+                                    : TextDecoration.none,
+                                decorationColor: AppTheme.fhTextSecondary),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis),
+                        Text(parent,
+                            style:   TextStyle(
+                                color: AppTheme.fhTextSecondary, fontSize: 10),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                ),
+                if (!isDone) ...[
+                  _EstimateChip(
+                    minutes: minutes,
+                    isCustom: isCustomEstimate,
+                    accent: amber,
+                    onTap: onEditEstimate,
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      hasReminder ? MdiIcons.bellRing : MdiIcons.bellOutline,
+                      size: 18,
+                      color: hasReminder ? amber : AppTheme.fhTextSecondary,
+                    ),
+                    onPressed: onEditReminder,
+                    splashRadius: 18,
+                    tooltip: 'Reminder',
+                  ),
+                  IconButton(
+                    icon:   Icon(Icons.check, size: 18, color: AppTheme.fhAccentTeal),
+                    onPressed: onCheck,
+                    splashRadius: 18,
+                    tooltip: 'Complete Task',
+                  ),
+                ],
+                IconButton(
+                  icon:   Icon(Icons.close, size: 18, color: AppTheme.fhAccentRed),
+                  onPressed: onRemove,
+                  splashRadius: 18,
+                  tooltip: 'Remove from plan',
                 ),
               ],
             ),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 0, 8, 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(title,
-                          style:   TextStyle(
-                              color: AppTheme.fhTextPrimary,
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis),
-                      Text(parent,
-                          style:   TextStyle(
-                              color: AppTheme.fhTextSecondary, fontSize: 10),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                    ],
-                  ),
-                ),
-              ),
-              InkWell(
-                onTap: onEditEstimate,
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.fhBgDeepDark,
-                    border: Border.all(
-                        color: isCustomEstimate
-                            ? amber.withValues(alpha: 0.6)
-                            : AppTheme.fhBorderColor),
-                  ),
-                  child: Text(formatMinutes(minutes),
-                      style: TextStyle(
-                          color: isCustomEstimate ? amber : AppTheme.fhTextSecondary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold)),
-                ),
-              ),
-              IconButton(
-                icon: Icon(
-                  hasReminder ? MdiIcons.bellRing : MdiIcons.bellOutline,
-                  size: 18,
-                  color: hasReminder ? amber : AppTheme.fhTextSecondary,
-                ),
-                onPressed: onEditReminder,
-                splashRadius: 18,
-                tooltip: 'Reminder',
-              ),
-              IconButton(
-                icon:   Icon(Icons.check, size: 18, color: AppTheme.fhAccentTeal),
-                onPressed: onCheck,
-                splashRadius: 18,
-                tooltip: 'Complete Task',
-              ),
-              IconButton(
-                icon:   Icon(Icons.close, size: 18, color: AppTheme.fhAccentRed),
-                onPressed: onRemove,
-                splashRadius: 18,
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -983,6 +1327,7 @@ class _AvailableRow extends StatelessWidget {
   final String? parent;
   final Color color;
   final bool isCheckpoint;
+  final int plannedCount;
   final VoidCallback onAdd;
 
   const _AvailableRow({
@@ -990,6 +1335,7 @@ class _AvailableRow extends StatelessWidget {
     this.parent,
     required this.color,
     required this.isCheckpoint,
+    required this.plannedCount,
     required this.onAdd,
   });
 
@@ -1033,7 +1379,32 @@ class _AvailableRow extends StatelessWidget {
                 ],
               ),
             ),
-              Icon(Icons.add, color: AppTheme.fhAccentTeal, size: 18),
+            if (plannedCount > 0)
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.fhAccentTeal.withValues(alpha: 0.12),
+                  border: Border.all(
+                      color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
+                ),
+                child: Text(
+                  plannedCount == 1 ? 'QUEUED' : 'QUEUED ×$plannedCount',
+                  style: TextStyle(
+                      color: AppTheme.fhAccentTeal,
+                      fontSize: 9,
+                      letterSpacing: 1,
+                      fontWeight: FontWeight.bold),
+                ),
+              )
+                  .animate(key: ValueKey(plannedCount))
+                  .scaleXY(
+                      begin: 0.6,
+                      end: 1.0,
+                      duration: 280.ms,
+                      curve: Curves.easeOutBack)
+                  .fadeIn(duration: 120.ms),
+            Icon(Icons.add, color: AppTheme.fhAccentTeal, size: 18),
           ],
         ),
       ),
@@ -1056,12 +1427,15 @@ class _AddSection extends StatelessWidget {
     required this.child,
   });
 
+  static const double _headerHeight = 53;
+  static const double _expandedHeight = 340;
+
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
-      height: expanded ? 340 : 53,
+      height: expanded ? _expandedHeight : _headerHeight,
       decoration:   BoxDecoration(
         color: AppTheme.fhBgDark,
         border: Border(top: BorderSide(color: AppTheme.fhBorderColor)),
@@ -1086,40 +1460,59 @@ class _AddSection extends StatelessWidget {
                             letterSpacing: 2,
                             fontSize: 14)),
                     const Spacer(),
-                    Icon(
-                      expanded ? Icons.expand_more : Icons.expand_less,
-                      color: AppTheme.fhTextSecondary,
+                    AnimatedRotation(
+                      turns: expanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOut,
+                      child: Icon(
+                        Icons.expand_less,
+                        color: AppTheme.fhTextSecondary,
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
           ),
-          if (expanded) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: TextField(
-                controller: searchController,
-                onChanged: onSearchChanged,
-                style:   TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: 'Search…',
-                  hintStyle:   TextStyle(color: AppTheme.fhTextDisabled, fontSize: 13),
-                  prefixIcon:   Icon(Icons.search,
-                      size: 16, color: AppTheme.fhTextSecondary),
-                  prefixIconConstraints:
-                      const BoxConstraints(minWidth: 32, minHeight: 32),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                  enabledBorder:   UnderlineInputBorder(
-                      borderSide: BorderSide(color: AppTheme.fhBorderColor)),
-                  focusedBorder:   UnderlineInputBorder(
-                      borderSide: BorderSide(color: AppTheme.fhAccentTeal)),
+          if (expanded)
+            // Fixed-height content clipped while the container grows, so the
+            // expand animation never triggers a transient RenderFlex overflow.
+            Expanded(
+              child: ClipRect(
+                child: OverflowBox(
+                  alignment: Alignment.topCenter,
+                  minHeight: _expandedHeight - _headerHeight,
+                  maxHeight: _expandedHeight - _headerHeight,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                        child: TextField(
+                          controller: searchController,
+                          onChanged: onSearchChanged,
+                          style:   TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: 'Search…',
+                            hintStyle:   TextStyle(color: AppTheme.fhTextDisabled, fontSize: 13),
+                            prefixIcon:   Icon(Icons.search,
+                                size: 16, color: AppTheme.fhTextSecondary),
+                            prefixIconConstraints:
+                                const BoxConstraints(minWidth: 32, minHeight: 32),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                            enabledBorder:   UnderlineInputBorder(
+                                borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+                            focusedBorder:   UnderlineInputBorder(
+                                borderSide: BorderSide(color: AppTheme.fhAccentTeal)),
+                          ),
+                        ),
+                      ),
+                      Expanded(child: child),
+                    ],
+                  ).animate().fadeIn(duration: 200.ms, delay: 60.ms),
                 ),
               ),
             ),
-            Expanded(child: child),
-          ],
         ],
       ),
     );
