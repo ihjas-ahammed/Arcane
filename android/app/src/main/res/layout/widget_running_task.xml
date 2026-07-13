@@ -1,33 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Fully native (RemoteViews) running-task widget. No rendered bitmap, so text
+     stays crisp and the layout reflows when the widget is resized. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg_amber">
 
-    <!-- Background image rendered from Flutter -->
-    <ImageView
-        android:id="@+id/widget_image"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scaleType="fitXY" />
-
-    <!-- Overlay layout for ticking timer and transparent buttons -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
         android:paddingTop="10dp"
         android:paddingBottom="10dp">
 
-        <!-- Running Task Layout -->
+        <!-- ===== Running / standby layout ===== -->
         <LinearLayout
             android:id="@+id/widget_running_layout"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical">
 
+            <!-- Status row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -35,21 +30,16 @@
                 android:gravity="center_vertical">
 
                 <TextView
-                    android:layout_width="6dp"
-                    android:layout_height="6dp"
-                    android:background="@android:color/transparent"
-                    android:text="" />
-
-                <TextView
                     android:id="@+id/widget_status_label"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:layout_marginStart="6dp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.12"
-                    android:text=""
-                    android:textColor="@android:color/transparent"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:text="ACTIVE · STANDBY"
+                    android:textColor="@color/widget_accent_amber"
                     android:textSize="9sp" />
 
                 <TextView
@@ -58,60 +48,67 @@
                     android:layout_height="wrap_content"
                     android:fontFamily="monospace"
                     android:text=""
-                    android:textColor="@android:color/transparent"
+                    android:textColor="@color/widget_text_muted"
                     android:textSize="9sp" />
             </LinearLayout>
 
-            <!-- Clickable Area for Title -->
+            <!-- Title -->
             <TextView
                 android:id="@+id/widget_task_title"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
+                android:layout_marginTop="8dp"
                 android:ellipsize="end"
                 android:maxLines="2"
-                android:text=""
-                android:textColor="@android:color/transparent"
-                android:textSize="22sp"
-                android:textStyle="bold" />
+                android:text="NO PLAN SET"
+                android:textColor="@color/widget_text_white"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="12sp"
+                android:autoSizeMaxTextSize="22sp"
+                android:autoSizeStepGranularity="1sp" />
 
             <TextView
                 android:id="@+id/widget_task_subtitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="2dp"
                 android:ellipsize="end"
                 android:fontFamily="monospace"
-                android:letterSpacing="0.1"
+                android:letterSpacing="0.08"
                 android:maxLines="1"
-                android:text=""
-                android:textColor="@android:color/transparent"
-                android:textSize="11sp" />
+                android:text="QUEUE STANDBY"
+                android:textColor="@color/widget_text_mid"
+                android:textSize="10sp" />
 
+            <!-- Time row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="8dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <!-- Placeholder to offset the timer correctly over the background -->
                 <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="monospace"
-                    android:letterSpacing="0.12"
-                    android:text="TODAY"
-                    android:textColor="@android:color/transparent"
-                    android:textSize="11sp" />
-
-                <!-- Native ticking Chronometer -->
-                <Chronometer
-                    android:id="@+id/widget_task_chronometer"
+                    android:id="@+id/widget_capacity"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:layout_marginStart="6dp"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.08"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:text=""
+                    android:textColor="@color/widget_text_muted"
+                    android:textSize="9sp" />
+
+                <Chronometer
+                    android:id="@+id/widget_task_chronometer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     android:fontFamily="monospace"
                     android:text=""
                     android:textColor="@color/widget_accent_amber"
@@ -119,13 +116,10 @@
                     android:textStyle="bold"
                     android:visibility="gone" />
 
-                <!-- Static accumulated seconds display when not running -->
                 <TextView
                     android:id="@+id/widget_task_today"
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="6dp"
                     android:fontFamily="monospace"
                     android:text="00:00"
                     android:textColor="@color/widget_accent_amber"
@@ -133,159 +127,111 @@
                     android:textStyle="bold" />
             </LinearLayout>
 
-            <!-- Spacer to push buttons to the bottom, matching Flutter's Spacer() -->
-            <TextView
+            <!-- Progress bar -->
+            <ProgressBar
+                android:id="@+id/widget_task_progress"
+                style="?android:attr/progressBarStyleHorizontal"
                 android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:text="" />
+                android:layout_height="5dp"
+                android:layout_marginTop="8dp"
+                android:max="100"
+                android:progress="0"
+                android:progressDrawable="@drawable/widget_progress_amber" />
 
-            <!-- Reserves the height of the rendered progress bar (5dp) + gap (10dp)
-                 so the transparent button overlays line up with the image. Toggled
-                 with hasTask in RunningTaskWidget.kt. -->
-            <TextView
-                android:id="@+id/widget_progress_spacer"
-                android:layout_width="match_parent"
-                android:layout_height="15dp"
-                android:text="" />
-
+            <!-- Buttons -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
                 android:orientation="horizontal">
 
-                <!-- Transparent Click Overlay Button 1 (ENGAGE / HALT / OPEN PLAN) -->
                 <TextView
                     android:id="@+id/widget_btn_engage"
                     android:layout_width="0dp"
-                    android:layout_height="40dp"
+                    android:layout_height="38dp"
                     android:layout_weight="1"
-                    android:background="@android:color/transparent"
+                    android:background="@drawable/widget_btn_primary_amber"
+                    android:fontFamily="monospace"
                     android:gravity="center"
-                    android:text=""
-                    android:textSize="11sp" />
+                    android:letterSpacing="0.1"
+                    android:maxLines="1"
+                    android:text="ENGAGE"
+                    android:textColor="@color/widget_bg_deep"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
 
-                <!-- Transparent Click Overlay Button: CHECK (lowest checkpoint) -->
                 <TextView
                     android:id="@+id/widget_btn_check"
-                    android:layout_width="88dp"
-                    android:layout_height="40dp"
-                    android:layout_marginStart="10dp"
-                    android:background="@android:color/transparent"
+                    android:layout_width="0dp"
+                    android:layout_weight="0.9"
+                    android:layout_height="38dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/widget_btn_outline_cyan"
+                    android:fontFamily="monospace"
                     android:gravity="center"
-                    android:text=""
-                    android:textSize="11sp" />
+                    android:letterSpacing="0.1"
+                    android:maxLines="1"
+                    android:text="CHECK"
+                    android:textColor="@color/widget_accent_cyan"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
 
-                <!-- Transparent Click Overlay Button: FINISH / REFRESH -->
                 <TextView
                     android:id="@+id/widget_btn_finish"
-                    android:layout_width="88dp"
-                    android:layout_height="40dp"
-                    android:layout_marginStart="10dp"
-                    android:background="@android:color/transparent"
+                    android:layout_width="0dp"
+                    android:layout_weight="0.9"
+                    android:layout_height="38dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/widget_btn_outline_amber"
+                    android:fontFamily="monospace"
                     android:gravity="center"
-                    android:text=""
-                    android:textSize="11sp" />
+                    android:letterSpacing="0.1"
+                    android:maxLines="1"
+                    android:text="FINISH"
+                    android:textColor="@color/widget_accent_amber"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Day Planner Checklist Layout -->
+        <!-- ===== Day-planner checklist layout ===== -->
         <LinearLayout
             android:id="@+id/widget_dayplan_layout"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
-            android:visibility="gone"
-            android:paddingTop="25dp">
+            android:visibility="gone">
 
-            <!-- Row 0 -->
-            <LinearLayout
+            <TextView
                 android:layout_width="match_parent"
-                android:layout_height="32dp"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/widget_dayplan_row_title_0"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:background="@android:color/transparent" />
-                <TextView
-                    android:id="@+id/widget_dayplan_btn_check_0"
-                    android:layout_width="50dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/transparent" />
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.12"
+                android:text="TODAY'S PLAN"
+                android:textColor="@color/widget_accent_amber"
+                android:textSize="9sp"
+                android:layout_marginBottom="6dp" />
+
+            <!-- Rows 0..4 -->
+            <LinearLayout android:id="@+id/widget_dayplan_row_0" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical">
+                <TextView android:id="@+id/widget_dayplan_row_title_0" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="12sp" />
+                <TextView android:id="@+id/widget_dayplan_btn_check_0" android:layout_width="42dp" android:layout_height="28dp" android:background="@drawable/widget_btn_outline_cyan" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="13sp" />
             </LinearLayout>
-
-            <!-- Row 1 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="32dp"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/widget_dayplan_row_title_1"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:background="@android:color/transparent" />
-                <TextView
-                    android:id="@+id/widget_dayplan_btn_check_1"
-                    android:layout_width="50dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/transparent" />
+            <LinearLayout android:id="@+id/widget_dayplan_row_1" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
+                <TextView android:id="@+id/widget_dayplan_row_title_1" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="12sp" />
+                <TextView android:id="@+id/widget_dayplan_btn_check_1" android:layout_width="42dp" android:layout_height="28dp" android:background="@drawable/widget_btn_outline_cyan" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="13sp" />
             </LinearLayout>
-
-            <!-- Row 2 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="32dp"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/widget_dayplan_row_title_2"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:background="@android:color/transparent" />
-                <TextView
-                    android:id="@+id/widget_dayplan_btn_check_2"
-                    android:layout_width="50dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/transparent" />
+            <LinearLayout android:id="@+id/widget_dayplan_row_2" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
+                <TextView android:id="@+id/widget_dayplan_row_title_2" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="12sp" />
+                <TextView android:id="@+id/widget_dayplan_btn_check_2" android:layout_width="42dp" android:layout_height="28dp" android:background="@drawable/widget_btn_outline_cyan" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="13sp" />
             </LinearLayout>
-
-            <!-- Row 3 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="32dp"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/widget_dayplan_row_title_3"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:background="@android:color/transparent" />
-                <TextView
-                    android:id="@+id/widget_dayplan_btn_check_3"
-                    android:layout_width="50dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/transparent" />
+            <LinearLayout android:id="@+id/widget_dayplan_row_3" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
+                <TextView android:id="@+id/widget_dayplan_row_title_3" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="12sp" />
+                <TextView android:id="@+id/widget_dayplan_btn_check_3" android:layout_width="42dp" android:layout_height="28dp" android:background="@drawable/widget_btn_outline_cyan" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="13sp" />
             </LinearLayout>
-
-            <!-- Row 4 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="32dp"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/widget_dayplan_row_title_4"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:background="@android:color/transparent" />
-                <TextView
-                    android:id="@+id/widget_dayplan_btn_check_4"
-                    android:layout_width="50dp"
-                    android:layout_height="match_parent"
-                    android:background="@android:color/transparent" />
+            <LinearLayout android:id="@+id/widget_dayplan_row_4" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
+                <TextView android:id="@+id/widget_dayplan_row_title_4" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="12sp" />
+                <TextView android:id="@+id/widget_dayplan_btn_check_4" android:layout_width="42dp" android:layout_height="28dp" android:background="@drawable/widget_btn_outline_cyan" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="13sp" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:missions/src/config/api_keys.dart';
+import 'package:missions/src/services/secrets_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:missions/src/utils/json_utils.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:mime/mime.dart';
 
 class AIService {
 
@@ -108,6 +108,247 @@ class AIService {
     return result;
   }
 
+  // ---------------------------------------------------------------------------
+  // Additional OpenAI-compatible providers (Groq, Cerebras, OpenRouter).
+  //
+  // These act as fallbacks after Gemini fails. Their shared keys come from the
+  // Firestore secrets document via [SecretsService]; model lists come from
+  // SharedPreferences (managed in Settings) with sensible defaults. See
+  // [_generateWithProviderFallback] for the fallback ladder.
+  // ---------------------------------------------------------------------------
+
+  /// Flattens Gemini [genai.Part]s into a plain prompt string plus a list of
+  /// image bytes, so the same request can be replayed against the
+  /// OpenAI-compatible fallback providers.
+  (String, List<Uint8List>?) _extractPromptAndImages(List<genai.Part> parts) {
+    final buffer = StringBuffer();
+    final List<Uint8List> images = [];
+    for (final p in parts) {
+      if (p is genai.TextPart) {
+        buffer.writeln(p.text);
+      } else if (p is genai.DataPart) {
+        images.add(p.bytes);
+      }
+    }
+    return (buffer.toString(), images.isNotEmpty ? images : null);
+  }
+
+  /// Parses a NORA agent response into the `{messages, actions}` map, tolerating
+  /// stray markdown code fences. Falls back to wrapping the raw text as a single
+  /// message. Shared by the Gemini path and the provider fallback.
+  Map<String, dynamic> _parseNoraResponse(String raw) {
+    String cleaned = raw.trim();
+    if (cleaned.startsWith("```")) {
+      final lines = cleaned.split("\n");
+      if (lines.first.startsWith("```")) lines.removeAt(0);
+      if (lines.isNotEmpty && lines.last.startsWith("```")) lines.removeLast();
+      cleaned = lines.join("\n").trim();
+    }
+    final decoded = JsonUtils.tryDecode(cleaned);
+    if (decoded is Map<String, dynamic>) return decoded;
+    return {
+      "messages": [cleaned],
+      "actions": []
+    };
+  }
+
+  /// Parses a JSON array of chat messages into a `List<String>`. Shared by the
+  /// Gemini path and the provider fallback.
+  List<String> _parseMessageSequence(String raw) {
+    final decoded = JsonUtils.tryDecode(raw);
+    if (decoded is List) {
+      return decoded.map((e) => e.toString()).toList();
+    }
+    return ["system error: could not parse response sequence."];
+  }
+
+  Future<List<String>> _providerModels(String prefsKey, List<String> fallback) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(prefsKey) ?? [];
+    return list.isNotEmpty ? list : fallback;
+  }
+
+  /// Single OpenAI-compatible chat-completions caller. Iterates [models] x
+  /// [apiKeys] and returns the first non-empty completion. Throws when all
+  /// combinations fail.
+  Future<String> _callOpenAICompatible({
+    required String providerLabel,
+    required Uri url,
+    required List<String> apiKeys,
+    required List<String> models,
+    required String prompt,
+    Map<String, String> extraHeaders = const {},
+    bool responseJson = false,
+    List<Uint8List>? attachedImages,
+    String? systemPrompt,
+    Function(String)? onLog,
+  }) async {
+    if (apiKeys.isEmpty) {
+      throw Exception('No $providerLabel API keys available.');
+    }
+    if (models.isEmpty) {
+      throw Exception('No $providerLabel models configured.');
+    }
+
+    final List<Map<String, dynamic>> messages = [];
+    if (systemPrompt != null && systemPrompt.trim().isNotEmpty) {
+      messages.add({'role': 'system', 'content': systemPrompt.trim()});
+    }
+    final List<Map<String, dynamic>> contentParts = [
+      {'type': 'text', 'text': prompt}
+    ];
+    if (attachedImages != null) {
+      for (final img in attachedImages) {
+        contentParts.add({
+          'type': 'image_url',
+          'image_url': {'url': 'data:image/jpeg;base64,${base64Encode(img)}'}
+        });
+      }
+    }
+    messages.add({
+      'role': 'user',
+      'content': contentParts.length == 1 ? prompt : contentParts,
+    });
+
+    Object? lastErr;
+    for (final modelName in models) {
+      for (final apiKey in apiKeys) {
+        try {
+          final Map<String, dynamic> body = {
+            'model': modelName,
+            'messages': messages,
+          };
+          if (responseJson) {
+            body['response_format'] = {'type': 'json_object'};
+          }
+          final response = await http
+              .post(
+                url,
+                headers: {
+                  'Authorization': 'Bearer $apiKey',
+                  'Content-Type': 'application/json',
+                  ...extraHeaders,
+                },
+                body: jsonEncode(body),
+              )
+              .timeout(const Duration(minutes: 2));
+
+          if (response.statusCode != 200) {
+            throw Exception(
+                '$providerLabel API error (${response.statusCode}): ${response.body}');
+          }
+          final jsonMap = jsonDecode(response.body);
+          final String? text =
+              jsonMap['choices']?[0]?['message']?['content'] as String?;
+          if (text == null || text.trim().isEmpty) {
+            throw Exception('Empty response from $providerLabel model $modelName');
+          }
+          return text;
+        } catch (e) {
+          lastErr = e;
+          onLog?.call(
+              "<span style=\"color:var(--fh-accent-orange);\">$providerLabel $modelName failed: ${e.toString()}</span>");
+        }
+      }
+    }
+    throw lastErr ?? Exception('$providerLabel: all models/keys failed.');
+  }
+
+  Future<String> _callGroq(String prompt,
+          {bool responseJson = false,
+          List<Uint8List>? attachedImages,
+          String? systemPrompt,
+          Function(String)? onLog}) async =>
+      _callOpenAICompatible(
+        providerLabel: 'Groq',
+        url: Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
+        apiKeys: await SecretsService.instance.groqKeys(),
+        models: await _providerModels('groq_model_primary_text_list',
+            const ['llama-3.3-70b-versatile', 'groq/compound']),
+        prompt: prompt,
+        responseJson: responseJson,
+        attachedImages: attachedImages,
+        systemPrompt: systemPrompt,
+        onLog: onLog,
+      );
+
+  Future<String> _callCerebras(String prompt,
+          {bool responseJson = false,
+          List<Uint8List>? attachedImages,
+          String? systemPrompt,
+          Function(String)? onLog}) async =>
+      _callOpenAICompatible(
+        providerLabel: 'Cerebras',
+        url: Uri.parse('https://api.cerebras.ai/v1/chat/completions'),
+        apiKeys: await SecretsService.instance.cerebrasKeys(),
+        models: await _providerModels('cerebras_model_primary_text_list',
+            const ['llama-3.3-70b', 'llama-3.1-70b']),
+        prompt: prompt,
+        responseJson: responseJson,
+        attachedImages: attachedImages,
+        systemPrompt: systemPrompt,
+        onLog: onLog,
+      );
+
+  Future<String> _callOpenRouter(String prompt,
+          {bool responseJson = false,
+          List<Uint8List>? attachedImages,
+          String? systemPrompt,
+          Function(String)? onLog}) async =>
+      _callOpenAICompatible(
+        providerLabel: 'OpenRouter',
+        url: Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
+        apiKeys: await SecretsService.instance.openrouterKeys(),
+        models: await _providerModels('openrouter_model_primary_text_list',
+            const ['meta-llama/llama-3.3-70b-instruct', 'google/gemini-2.5-pro']),
+        prompt: prompt,
+        responseJson: responseJson,
+        attachedImages: attachedImages,
+        systemPrompt: systemPrompt,
+        extraHeaders: const {
+          'HTTP-Referer': 'https://arcane.app',
+          'X-Title': 'Arcane',
+        },
+        onLog: onLog,
+      );
+
+  /// Fallback ladder used when every Gemini model+key combination fails.
+  /// Tries Groq -> Cerebras -> OpenRouter in order and returns the first raw
+  /// text response. Throws when all providers fail.
+  Future<String> _generateWithProviderFallback({
+    required String prompt,
+    bool responseJson = false,
+    List<Uint8List>? attachedImages,
+    String? systemPrompt,
+    Function(String)? onLog,
+  }) async {
+    Object? lastErr;
+    for (final call in <Future<String> Function()>[
+      () => _callGroq(prompt,
+          responseJson: responseJson,
+          attachedImages: attachedImages,
+          systemPrompt: systemPrompt,
+          onLog: onLog),
+      () => _callCerebras(prompt,
+          responseJson: responseJson,
+          attachedImages: attachedImages,
+          systemPrompt: systemPrompt,
+          onLog: onLog),
+      () => _callOpenRouter(prompt,
+          responseJson: responseJson,
+          attachedImages: attachedImages,
+          systemPrompt: systemPrompt,
+          onLog: onLog),
+    ]) {
+      try {
+        return await call();
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw lastErr ?? Exception('All fallback providers failed.');
+  }
+
   Future<T> _executeWithModelAndKeyRotation<T>({
     required List<String> modelCandidates,
     required Future<T> Function(String apiKey, String modelName) requestFn,
@@ -115,6 +356,11 @@ class AIService {
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
+    String? fallbackPrompt,
+    List<Uint8List>? fallbackImages,
+    String? fallbackSystemPrompt,
+    bool fallbackJson = false,
+    T Function(String raw)? fallbackParse,
   }) async {
     final List<String> apiKeysToTry = <String>{
       ...geminiApiKeys,
@@ -148,6 +394,23 @@ class AIService {
         }
       }
     }
+
+    // Gemini exhausted. Fall back to the OpenAI-compatible provider ladder
+    // (Groq -> Cerebras -> OpenRouter) when the caller supplied a raw prompt
+    // and a parser to convert the string response into T.
+    if (fallbackPrompt != null && fallbackParse != null) {
+      onLog(
+          "<span style=\"color:var(--fh-accent-orange);\">Gemini exhausted. Falling back to Groq/Cerebras/OpenRouter...</span>");
+      final raw = await _generateWithProviderFallback(
+        prompt: fallbackPrompt,
+        responseJson: fallbackJson,
+        attachedImages: fallbackImages,
+        systemPrompt: fallbackSystemPrompt,
+        onLog: onLog,
+      );
+      return fallbackParse(raw);
+    }
+
     throw Exception("All models and API keys failed. Please check your connection or settings.");
   }
 
@@ -160,6 +423,8 @@ class AIService {
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
+    final contentParts = parts ?? [genai.TextPart(prompt!)];
+    final (fbPrompt, fbImages) = _extractPromptAndImages(contentParts);
     try {
       return await _executeWithModelAndKeyRotation(
         currentApiKeyIndex: currentApiKeyIndex,
@@ -167,17 +432,20 @@ class AIService {
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog,
         modelCandidates: modelCandidates,
+        fallbackPrompt: fbPrompt,
+        fallbackImages: fbImages,
+        fallbackJson: true,
+        fallbackParse: (raw) => JsonUtils.tryDecode(raw),
         requestFn: (apiKey, modelName) async {
           final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
-          
-          final contentParts = parts ?? [genai.TextPart(prompt!)];
+
           final response = await model.generateContent([genai.Content.multi(contentParts)]);
 
           String? rawResponseText = response.text;
           if (rawResponseText == null || rawResponseText.trim().isEmpty) {
             throw Exception("AI response was empty.");
           }
-          
+
           return JsonUtils.tryDecode(rawResponseText);
         },
       );
@@ -229,6 +497,9 @@ class AIService {
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog,
         modelCandidates: modelCandidates,
+        fallbackPrompt: prompt,
+        fallbackJson: true,
+        fallbackParse: _parseMessageSequence,
         requestFn: (apiKey, modelName) async {
           final String? raw;
           if (isLiveModel(modelName)) {
@@ -240,11 +511,7 @@ class AIService {
           }
           if (raw == null) throw Exception("Empty AI response");
 
-          final decoded = JsonUtils.tryDecode(raw);
-          if (decoded is List) {
-            return decoded.map((e) => e.toString()).toList();
-          }
-          return ["system error: could not parse response sequence."];
+          return _parseMessageSequence(raw);
         },
       );
     } catch(e) {
@@ -318,6 +585,9 @@ Output ONLY the JSON object. Do not include markdown code block syntax (like ```
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog,
         modelCandidates: modelCandidates,
+        fallbackPrompt: prompt,
+        fallbackJson: true,
+        fallbackParse: _parseNoraResponse,
         requestFn: (apiKey, modelName) async {
           final String? raw;
           if (isLiveModel(modelName)) {
@@ -329,24 +599,7 @@ Output ONLY the JSON object. Do not include markdown code block syntax (like ```
           }
           if (raw == null) throw Exception("Empty AI response");
 
-          // Strip markdown block markers if generated by mistake
-          String cleaned = raw.trim();
-          if (cleaned.startsWith("```")) {
-            final lines = cleaned.split("\n");
-            if (lines.first.startsWith("```")) lines.removeAt(0);
-            if (lines.isNotEmpty && lines.last.startsWith("```")) lines.removeLast();
-            cleaned = lines.join("\n").trim();
-          }
-
-          final decoded = JsonUtils.tryDecode(cleaned);
-          if (decoded is Map<String, dynamic>) {
-            return decoded;
-          }
-          // Fallback if not a map
-          return {
-            "messages": [cleaned],
-            "actions": []
-          };
+          return _parseNoraResponse(raw);
         },
       );
     } catch(e) {
@@ -1336,6 +1589,8 @@ Output ONLY the JSON object. Do not include markdown code block syntax (like ```
       onNewApiKeyIndex: onNewApiKeyIndex,
       onLog: onLog,
       modelCandidates: modelCandidates,
+      fallbackPrompt: prompt,
+      fallbackParse: (raw) => raw.trim(),
       requestFn: (apiKey, modelName) async {
         final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
         final response = await model.generateContent([genai.Content.text(prompt)]);

@@ -3,7 +3,6 @@ package me.ihjas.missions.widgets
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.SharedPreferences
-import android.graphics.BitmapFactory
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetProvider
 import me.ihjas.missions.R
@@ -24,19 +23,15 @@ class FinanceWidget : HomeWidgetProvider() {
     private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int, prefs: SharedPreferences) {
         val views = RemoteViews(context.packageName, R.layout.widget_finance)
 
-        // Load background image
-        val imagePath = prefs.getString("arcane.fin.image", null)
-        if (imagePath != null) {
-            val bitmap = BitmapFactory.decodeFile(imagePath)
-            if (bitmap != null) {
-                views.setImageViewBitmap(R.id.widget_image, bitmap)
-                views.setViewVisibility(R.id.widget_image, android.view.View.VISIBLE)
-            } else {
-                views.setViewVisibility(R.id.widget_image, android.view.View.GONE)
-            }
-        } else {
-            views.setViewVisibility(R.id.widget_image, android.view.View.GONE)
-        }
+        val balance = (prefs.getString("arcane.fin.balance", "0") ?: "0").toDoubleOrNull() ?: 0.0
+        val today = (prefs.getString("arcane.fin.today", "0") ?: "0").toDoubleOrNull() ?: 0.0
+        val mtd = (prefs.getString("arcane.fin.mtd", "0") ?: "0").toDoubleOrNull() ?: 0.0
+        val budgetPct = WidgetCommon.getSafeInt(prefs, "arcane.fin.budgetPct", 0)
+
+        views.setTextViewText(R.id.widget_fin_balance, WidgetCommon.fmtMoney(balance))
+        views.setTextViewText(R.id.widget_fin_today, "TODAY ${WidgetCommon.fmtMoney(today)}")
+        views.setTextViewText(R.id.widget_fin_mtd, "MTD ${WidgetCommon.fmtMoney(mtd)}")
+        views.setProgressBar(R.id.widget_fin_budget, 100, budgetPct.coerceIn(0, 100), false)
 
         views.setOnClickPendingIntent(
             R.id.widget_finance_root,

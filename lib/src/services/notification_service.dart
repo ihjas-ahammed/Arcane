@@ -287,6 +287,7 @@ class NotificationService {
     required DateTime startTime,
     required String subtaskId,
     String mainTaskId = '',
+    String? mainTaskName,
     double progress = 0.0,
     String? nextCheckpointName,
     bool showUndo = false,
@@ -309,6 +310,7 @@ class NotificationService {
         nextCheckpointName,
         showUndo,
         statusBody,
+        mainTaskName,
       );
     } else if (_isLinux) {
       await _showLinuxTimerNotification(taskName, startTime);
@@ -337,21 +339,25 @@ class NotificationService {
     String? nextCheckpointName,
     bool showUndo,
     String? statusBody,
+    String? mainTaskName,
   ) async {
     final pct = (progress.clamp(0.0, 1.0) * 100).round();
+    // Actions apply in-place without opening the app (showsUserInterface:false)
+    // when the process is alive — the response is routed to setOnTap and the
+    // provider mutates state directly.
     final actions = <AndroidNotificationAction>[];
     if (showUndo) {
       actions.add(const AndroidNotificationAction(
         'undo_check',
         'UNDO CHECK',
-        showsUserInterface: true,
+        showsUserInterface: false,
         cancelNotification: false,
       ));
     } else if (nextCheckpointName != null) {
       actions.add(const AndroidNotificationAction(
         'check_next',
-        'CHECK NEXT',
-        showsUserInterface: true,
+        'CHECK',
+        showsUserInterface: false,
         cancelNotification: false,
       ));
     }
@@ -359,13 +365,16 @@ class NotificationService {
       'stop_timer',
       'STOP',
       cancelNotification: true,
-      showsUserInterface: true,
+      showsUserInterface: false,
     ));
 
+    // Header = main task; secondary line = the current subtask / checkpoint.
+    // Falls back to the subtask name when no main-task name was supplied.
+    final title = (mainTaskName != null && mainTaskName.trim().isNotEmpty)
+        ? mainTaskName
+        : taskName;
     final body = statusBody ??
-        (nextCheckpointName != null
-            ? 'Next: $nextCheckpointName'
-            : 'Tap STOP to end session');
+        (taskName.trim().isNotEmpty ? taskName : 'Session in progress');
 
     final details = AndroidNotificationDetails(
       _timerChannelId,
@@ -391,7 +400,7 @@ class NotificationService {
     );
     await _plugin.show(
       _timerNotifId,
-      '▶  $taskName',
+      '▶  $title',
       body,
       NotificationDetails(android: details),
       payload: '$subtaskId|$mainTaskId',

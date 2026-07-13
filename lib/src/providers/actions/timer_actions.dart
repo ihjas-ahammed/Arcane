@@ -69,6 +69,7 @@ class TimerActions {
       startTime: updatedActiveTimers[id]!.startTime,
       subtaskId: id,
       mainTaskId: mainTaskId,
+      mainTaskName: mainTask.name,
       progress: subTask?.calculateProgress() ?? 0.0,
       nextCheckpointName: nextCp?.name,
     );

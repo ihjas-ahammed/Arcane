@@ -1,59 +1,126 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Fully native finance widget — crisp text, reflows on resize. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_finance_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg_amber">
 
-    <!-- Background image rendered from Flutter -->
-    <ImageView
-        android:id="@+id/widget_image"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scaleType="fitXY" />
-
-    <!-- Overlay layout for transparent buttons -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
         android:paddingTop="10dp"
         android:paddingBottom="10dp">
 
-        <!-- Spacers to push buttons to the bottom -->
         <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.12"
+            android:maxLines="1"
+            android:text="LEDGER · BALANCE"
+            android:textColor="@color/widget_accent_amber"
+            android:textSize="9sp" />
+
+        <TextView
+            android:id="@+id/widget_fin_balance"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:text="" />
+            android:gravity="center_vertical"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="₹0"
+            android:textColor="@color/widget_text_white"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="14sp"
+            android:autoSizeMaxTextSize="28sp"
+            android:autoSizeStepGranularity="1sp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp">
+
+            <TextView
+                android:id="@+id/widget_fin_today"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="monospace"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="TODAY ₹0"
+                android:textColor="@color/widget_text_mid"
+                android:textSize="10sp" />
+
+            <TextView
+                android:id="@+id/widget_fin_mtd"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="monospace"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:gravity="end"
+                android:text="MTD ₹0"
+                android:textColor="@color/widget_text_mid"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/widget_fin_budget"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="5dp"
+            android:layout_marginTop="6dp"
+            android:max="100"
+            android:progress="0"
+            android:progressDrawable="@drawable/widget_progress_amber" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
             android:orientation="horizontal">
 
-            <!-- Transparent Click Overlay Button 1 -->
             <TextView
                 android:id="@+id/widget_finance_btn_income"
                 android:layout_width="0dp"
-                android:layout_height="34dp"
+                android:layout_height="36dp"
                 android:layout_weight="1"
-                android:background="@android:color/transparent"
+                android:background="@drawable/widget_btn_outline_cyan"
+                android:fontFamily="monospace"
                 android:gravity="center"
-                android:text="" />
+                android:letterSpacing="0.08"
+                android:maxLines="1"
+                android:text="+ INCOME"
+                android:textColor="@color/widget_accent_cyan"
+                android:textSize="11sp"
+                android:textStyle="bold" />
 
-            <!-- Transparent Click Overlay Button 2 -->
             <TextView
                 android:id="@+id/widget_finance_btn_expense"
                 android:layout_width="0dp"
-                android:layout_height="34dp"
-                android:layout_marginStart="10dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="8dp"
                 android:layout_weight="1"
-                android:background="@android:color/transparent"
+                android:background="@drawable/widget_btn_outline_amber"
+                android:fontFamily="monospace"
                 android:gravity="center"
-                android:text="" />
+                android:letterSpacing="0.08"
+                android:maxLines="1"
+                android:text="+ EXPENSE"
+                android:textColor="@color/widget_accent_amber"
+                android:textSize="11sp"
+                android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
 </FrameLayout>

@@ -566,47 +566,75 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       }).toList();
       if (activeSubs.isEmpty) continue;
 
-      final taskRows = <Widget>[];
+      // Children of the main-task dropdown: each active subtask, either as a
+      // direct add-row (no checkpoints) or as its own sub-dropdown (with
+      // checkpoints nested beneath).
+      final subGroups = <Widget>[];
+      int taskQueued = 0;
 
       for (final sub in activeSubs) {
         final subId = '${task.id}|${sub.id}';
         final activeCps = _getAllCheckpointsForPlanning(sub);
+        final subMatches = _matchesQuery(sub.name, q);
 
-        if (_matchesQuery(sub.name, q)) {
-          taskRows.add(_AvailableRow(
-            title: sub.name,
-            color: task.taskColor,
-            isCheckpoint: false,
-            plannedCount: plannedCounts[subId] ?? 0,
-            onAdd: () => _addToPlan(provider, subId),
-          ));
-        }
-
+        // Checkpoint add-rows for this subtask that match the current query.
+        final cpRows = <Widget>[];
         for (final cp in activeCps) {
           final cpId = '$subId|${cp.id}';
-          if (!_matchesQuery(cp.name, q) && !_matchesQuery(sub.name, q)) continue;
-          taskRows.add(_AvailableRow(
+          if (!_matchesQuery(cp.name, q) && !subMatches) continue;
+          final cpCount = plannedCounts[cpId] ?? 0;
+          taskQueued += cpCount;
+          cpRows.add(_AvailableRow(
             title: cp.name,
             parent: _findParentPath(sub, cp),
             color: task.taskColor,
             isCheckpoint: true,
-            plannedCount: plannedCounts[cpId] ?? 0,
+            plannedCount: cpCount,
             onAdd: () => _addToPlan(provider, cpId),
+          ));
+        }
+
+        final subCount = plannedCounts[subId] ?? 0;
+        // Skip subtasks that neither match nor contain matching checkpoints.
+        if (!subMatches && cpRows.isEmpty) continue;
+        taskQueued += subCount;
+
+        final subAddRow = _AvailableRow(
+          title: sub.name,
+          color: task.taskColor,
+          isCheckpoint: false,
+          plannedCount: subCount,
+          onAdd: () => _addToPlan(provider, subId),
+        );
+
+        if (cpRows.isEmpty) {
+          // Leaf subtask — no nested dropdown needed.
+          subGroups.add(subAddRow);
+        } else {
+          // Subtask with checkpoints — a collapsible sub-dropdown holding the
+          // subtask's own add-row plus its checkpoint rows.
+          subGroups.add(_CollapsibleGroup(
+            key: ValueKey('sub_${sub.id}_${q.isEmpty ? 0 : 1}'),
+            title: sub.name,
+            color: task.taskColor,
+            level: 1,
+            queuedCount: subCount + cpRows.length,
+            initiallyExpanded: q.isNotEmpty,
+            children: [subAddRow, ...cpRows],
           ));
         }
       }
 
-      if (taskRows.isNotEmpty) {
-        widgets.add(Padding(
-          padding: const EdgeInsets.fromLTRB(4, 10, 4, 4),
-          child: Text(task.name.toUpperCase(),
-              style: TextStyle(
-                  color: task.taskColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
-                  letterSpacing: 1.5)),
+      if (subGroups.isNotEmpty) {
+        widgets.add(_CollapsibleGroup(
+          key: ValueKey('task_${task.id}_${q.isEmpty ? 0 : 1}'),
+          title: task.name,
+          color: task.taskColor,
+          level: 0,
+          queuedCount: taskQueued,
+          initiallyExpanded: q.isNotEmpty,
+          children: subGroups,
         ));
-        widgets.addAll(taskRows);
       }
     }
 
@@ -1318,6 +1346,126 @@ class _PhoenixCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Collapsible dropdown group used in the "add to plan" list. Level 0 renders
+/// a main-task header (uppercase, colored, letter-spaced); level 1 renders a
+/// nested subtask header (indented). Tapping the header toggles its children so
+/// the task → subtask → checkpoint hierarchy is visually obvious.
+class _CollapsibleGroup extends StatefulWidget {
+  final String title;
+  final Color color;
+  final int level;
+  final int queuedCount;
+  final bool initiallyExpanded;
+  final List<Widget> children;
+
+  const _CollapsibleGroup({
+    super.key,
+    required this.title,
+    required this.color,
+    required this.level,
+    required this.queuedCount,
+    required this.initiallyExpanded,
+    required this.children,
+  });
+
+  @override
+  State<_CollapsibleGroup> createState() => _CollapsibleGroupState();
+}
+
+class _CollapsibleGroupState extends State<_CollapsibleGroup> {
+  late bool _expanded = widget.initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isMain = widget.level == 0;
+    return Container(
+      margin: EdgeInsets.only(
+          top: isMain ? 8 : 4, left: isMain ? 0 : 12, bottom: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                  horizontal: 8, vertical: isMain ? 6 : 5),
+              decoration: BoxDecoration(
+                color: AppTheme.fhBgDark
+                    .withValues(alpha: isMain ? 0.85 : 0.5),
+                border: Border(
+                    left: BorderSide(
+                        color: widget.color
+                            .withValues(alpha: isMain ? 1.0 : 0.6),
+                        width: isMain ? 3 : 2)),
+              ),
+              child: Row(
+                children: [
+                  AnimatedRotation(
+                    turns: _expanded ? 0.25 : 0.0,
+                    duration: const Duration(milliseconds: 180),
+                    child: Icon(MdiIcons.chevronRight,
+                        size: isMain ? 18 : 15,
+                        color: isMain
+                            ? widget.color
+                            : AppTheme.fhTextSecondary),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      isMain ? widget.title.toUpperCase() : widget.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: isMain
+                            ? widget.color
+                            : AppTheme.fhTextPrimary,
+                        fontWeight:
+                            isMain ? FontWeight.bold : FontWeight.w600,
+                        fontSize: isMain ? 11 : 12.5,
+                        letterSpacing: isMain ? 1.5 : 0,
+                      ),
+                    ),
+                  ),
+                  if (widget.queuedCount > 0)
+                    Container(
+                      margin: const EdgeInsets.only(right: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: AppTheme.fhAccentTeal.withValues(alpha: 0.12),
+                        border: Border.all(
+                            color: AppTheme.fhAccentTeal
+                                .withValues(alpha: 0.4)),
+                      ),
+                      child: Text('${widget.queuedCount}',
+                          style: TextStyle(
+                              color: AppTheme.fhAccentTeal,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            alignment: Alignment.topCenter,
+            child: _expanded
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: widget.children),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ],
       ),
     );
   }

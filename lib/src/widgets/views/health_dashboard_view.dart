@@ -124,78 +124,166 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
     );
   }
 
+  /// Sums the tracked session time (for [dateStr]) across every subtask of
+  /// [taskId], in whole minutes. Used to copy a workout task's logged time
+  /// straight into the activity log.
+  int _taskWorkoutMinutesForDay(AppProvider provider, String taskId, String dateStr) {
+    final task = provider.mainTasks.firstWhereOrNull((t) => t.id == taskId);
+    if (task == null) return 0;
+    final target = DateTime.tryParse(dateStr);
+    if (target == null) return 0;
+    int seconds = 0;
+    for (final sub in task.subTasks) {
+      for (final s in sub.sessions) {
+        if (s.startTime.year == target.year &&
+            s.startTime.month == target.month &&
+            s.startTime.day == target.day) {
+          seconds += s.durationSeconds;
+        }
+      }
+    }
+    return (seconds / 60).round();
+  }
+
   // --- Activity Logging Dialog ---
   void _showActivityDialog(BuildContext context, AppProvider provider, String dateStr) {
     final distanceController = TextEditingController(text: "0.0");
     final workoutController = TextEditingController(text: "0");
+    String? linkedTaskName;
+
+    // Tasks that have any tracked time on this day — offered as workout sources.
+    final linkableTasks = provider.mainTasks
+        .where((t) => !t.isDeleted)
+        .map((t) => (t.id, t.name, _taskWorkoutMinutesForDay(provider, t.id, dateStr)))
+        .where((r) => r.$3 > 0)
+        .toList();
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: JweTheme.panel,
-        scrollable: true,
-        shape: RoundedRectangleBorder(
-          side: BorderSide(color: JweTheme.accentTeal, width: 2),
-          borderRadius: BorderRadius.zero,
-        ),
-        title: Text(
-          'LOG PHYSICAL ACTIVITY',
-          style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: distanceController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style:  TextStyle(color: JweTheme.textWhite),
-              decoration: InputDecoration(
-                labelText: 'WALK DISTANCE (KM)',
-                labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
-                enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentTeal)),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: JweTheme.panel,
+          scrollable: true,
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: JweTheme.accentTeal, width: 2),
+            borderRadius: BorderRadius.zero,
+          ),
+          title: Text(
+            'LOG PHYSICAL ACTIVITY',
+            style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: distanceController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style:  TextStyle(color: JweTheme.textWhite),
+                decoration: InputDecoration(
+                  labelText: 'WALK DISTANCE (KM)',
+                  labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
+                  enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentTeal)),
+                ),
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: workoutController,
+                keyboardType: TextInputType.number,
+                style:  TextStyle(color: JweTheme.textWhite),
+                decoration: InputDecoration(
+                  labelText: 'WORKOUT DURATION (MINUTES)',
+                  labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
+                  enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentTeal)),
+                ),
+              ),
+              const SizedBox(height: 14),
+              // Link-to-task: copy a workout task's tracked time for this day.
+              if (linkableTasks.isEmpty)
+                Text(
+                  'No task time tracked today to copy from.',
+                  style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.5, fontStyle: FontStyle.italic),
+                )
+              else ...[
+                Row(
+                  children: [
+                    Icon(MdiIcons.linkVariant, color: JweTheme.accentCyan, size: 13),
+                    const SizedBox(width: 6),
+                    Text('COPY TIME FROM WORKOUT TASK',
+                        style: GoogleFonts.jetBrainsMono(color: JweTheme.accentCyan, fontSize: 9.5, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: JweTheme.border),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: linkedTaskName,
+                      dropdownColor: JweTheme.panel,
+                      hint: Text('Select a task…',
+                          style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 12)),
+                      icon: Icon(MdiIcons.chevronDown, color: JweTheme.textMuted),
+                      items: [
+                        for (final r in linkableTasks)
+                          DropdownMenuItem(
+                            value: r.$1,
+                            child: Text(
+                              '${r.$2}  ·  ${r.$3}m',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 12),
+                            ),
+                          ),
+                      ],
+                      onChanged: (id) {
+                        if (id == null) return;
+                        final match = linkableTasks.firstWhereOrNull((r) => r.$1 == id);
+                        if (match == null) return;
+                        setDialogState(() {
+                          linkedTaskName = id;
+                          workoutController.text = match.$3.toString();
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('ABORT', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted)),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: workoutController,
-              keyboardType: TextInputType.number,
-              style:  TextStyle(color: JweTheme.textWhite),
-              decoration: InputDecoration(
-                labelText: 'WORKOUT DURATION (MINUTES)',
-                labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
-                enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentTeal)),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: JweTheme.accentTeal,
+                foregroundColor: JweTheme.onAccent,
+                shape: const BeveledRectangleBorder(),
               ),
+              onPressed: () {
+                final dist = double.tryParse(distanceController.text) ?? 0.0;
+                final mins = int.tryParse(workoutController.text) ?? 0;
+                if (dist > 0 || mins > 0) {
+                  provider.addActivityLog(dateStr, ActivityLog(
+                    id: const Uuid().v4(),
+                    walkDistanceKm: dist,
+                    workoutMinutes: mins,
+                    timestamp: DateTime.now(),
+                  ));
+                  Navigator.pop(ctx);
+                }
+              },
+              child: Text('LOG', style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('ABORT', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: JweTheme.accentTeal,
-              foregroundColor: JweTheme.onAccent,
-              shape: const BeveledRectangleBorder(),
-            ),
-            onPressed: () {
-              final dist = double.tryParse(distanceController.text) ?? 0.0;
-              final mins = int.tryParse(workoutController.text) ?? 0;
-              if (dist > 0 || mins > 0) {
-                provider.addActivityLog(dateStr, ActivityLog(
-                  id: const Uuid().v4(),
-                  walkDistanceKm: dist,
-                  workoutMinutes: mins,
-                  timestamp: DateTime.now(),
-                ));
-                Navigator.pop(ctx);
-              }
-            },
-            child: Text('LOG', style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.bold)),
-          ),
-        ],
       ),
     );
   }
@@ -849,10 +937,10 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildMacrosColumn("CALORIES", "$totalCalories kcal", JweTheme.textWhite),
-                _buildMacrosColumn("PROTEIN", "${totalProtein.toStringAsFixed(1)}g", JweTheme.accentTeal),
-                _buildMacrosColumn("CARBS", "${totalCarbs.toStringAsFixed(1)}g", JweTheme.accentCyan),
-                _buildMacrosColumn("FAT", "${totalFat.toStringAsFixed(1)}g", JweTheme.accentAmber),
+                Expanded(child: _buildMacrosColumn("CALORIES", "$totalCalories kcal", JweTheme.textWhite)),
+                Expanded(child: _buildMacrosColumn("PROTEIN", "${totalProtein.toStringAsFixed(1)}g", JweTheme.accentTeal)),
+                Expanded(child: _buildMacrosColumn("CARBS", "${totalCarbs.toStringAsFixed(1)}g", JweTheme.accentCyan)),
+                Expanded(child: _buildMacrosColumn("FAT", "${totalFat.toStringAsFixed(1)}g", JweTheme.accentAmber)),
               ],
             ),
           ),
@@ -947,11 +1035,16 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            // Wrap (not a fixed Row) so the macro breakdown
+                            // drops to a second line on narrow phones instead
+                            // of overflowing.
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 Text('ENERGY: ${food.calories} kcal', style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 11, fontWeight: FontWeight.bold)),
-                                Text('P: ${food.protein}g  |  C: ${food.carbs}g  |  F: ${food.fat}g', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMid, fontSize: 10.5)),
+                                Text('P: ${food.protein.toStringAsFixed(1)}g  |  C: ${food.carbs.toStringAsFixed(1)}g  |  F: ${food.fat.toStringAsFixed(1)}g', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMid, fontSize: 10.5)),
                               ],
                             ),
                             if (food.description != null && food.description!.isNotEmpty) ...[
@@ -1012,12 +1105,18 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
       children: [
         Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8.5, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
-        Text(
-          value,
-          style: GoogleFonts.chakraPetch(color: color, fontSize: 14, fontWeight: FontWeight.bold),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            maxLines: 1,
+            style: GoogleFonts.chakraPetch(color: color, fontSize: 14, fontWeight: FontWeight.bold),
+          ),
         ),
       ],
     );
@@ -1027,9 +1126,10 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
   // TAB 3: STATS & SCIENCE RECOMMENDATIONS
   // ==========================================
   Widget _buildStatsTab(BuildContext context, AppProvider provider, DailyHealthLog currentLog, Color accent, double bottomPadding) {
-    // Generate averages over last 30 days
+    // Generate averages over last 30 days. Each metric is averaged over only
+    // the days it was actually logged — otherwise unlogged days count as 0 and
+    // silently drag every average down into a meaningless number.
     final now = DateTime.now();
-    int activeDaysCount = 0;
     double totalWater = 0;
     double totalSleepHours = 0;
     double totalCalories = 0;
@@ -1039,38 +1139,67 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
     double totalWalkKm = 0;
     int totalWorkoutMins = 0;
 
+    int waterDays = 0;
+    int sleepDays = 0;
+    int foodDays = 0;
+    int walkDays = 0;
+    int workoutDays = 0;
+
     for (int i = 0; i < 30; i++) {
       final date = now.subtract(Duration(days: i));
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
       final log = provider.healthLogs[dateStr];
-      if (log != null) {
-        activeDaysCount++;
+      if (log == null) continue;
+
+      if (log.waterGlasses > 0) {
         totalWater += log.waterGlasses;
-        totalSleepHours += log.sleepLogs.fold(0, (sum, item) => sum + item.durationMinutes) / 60.0;
-        totalWalkKm += log.activityLogs.fold(0.0, (sum, item) => sum + item.walkDistanceKm);
-        totalWorkoutMins += log.activityLogs.fold(0, (sum, item) => sum + item.workoutMinutes);
+        waterDays++;
+      }
 
-        // Averages of food
-        final mealsWithFood = log.meals.map((meal) {
-          return provider.foodItems.firstWhereOrNull((f) => f.id == meal.foodItemId);
-        }).whereType<FoodItem>().toList();
+      final sleepHours =
+          log.sleepLogs.fold(0, (sum, item) => sum + item.durationMinutes) / 60.0;
+      if (sleepHours > 0) {
+        totalSleepHours += sleepHours;
+        sleepDays++;
+      }
 
+      final walkKm =
+          log.activityLogs.fold(0.0, (sum, item) => sum + item.walkDistanceKm);
+      if (walkKm > 0) {
+        totalWalkKm += walkKm;
+        walkDays++;
+      }
+
+      final workoutMins =
+          log.activityLogs.fold(0, (sum, item) => sum + item.workoutMinutes);
+      if (workoutMins > 0) {
+        totalWorkoutMins += workoutMins;
+        workoutDays++;
+      }
+
+      // Food is only averaged over days where something was actually eaten.
+      final mealsWithFood = log.meals.map((meal) {
+        return provider.foodItems.firstWhereOrNull((f) => f.id == meal.foodItemId);
+      }).whereType<FoodItem>().toList();
+
+      if (mealsWithFood.isNotEmpty) {
         totalCalories += mealsWithFood.fold(0, (sum, item) => sum + item.calories);
         totalProtein += mealsWithFood.fold(0.0, (sum, item) => sum + item.protein);
         totalCarbs += mealsWithFood.fold(0.0, (sum, item) => sum + item.carbs);
         totalFat += mealsWithFood.fold(0.0, (sum, item) => sum + item.fat);
+        foodDays++;
       }
     }
 
-    final days = activeDaysCount == 0 ? 1 : activeDaysCount;
-    final avgWater = totalWater / days;
-    final avgSleep = totalSleepHours / days;
-    final avgCalories = totalCalories / days;
-    final avgProtein = totalProtein / days;
-    final avgCarbs = totalCarbs / days;
-    final avgFat = totalFat / days;
-    final avgWalkKm = totalWalkKm / days;
-    final avgWorkoutMins = totalWorkoutMins / days;
+    double avgOver(num total, int count) => count == 0 ? 0 : total / count;
+    final avgWater = avgOver(totalWater, waterDays);
+    final avgSleep = avgOver(totalSleepHours, sleepDays);
+    final avgCalories = avgOver(totalCalories, foodDays);
+    final avgProtein = avgOver(totalProtein, foodDays);
+    final avgCarbs = avgOver(totalCarbs, foodDays);
+    final avgFat = avgOver(totalFat, foodDays);
+    final avgWalkKm = avgOver(totalWalkKm, walkDays);
+    final avgWorkoutMins = avgOver(totalWorkoutMins, workoutDays);
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPadding + 60),

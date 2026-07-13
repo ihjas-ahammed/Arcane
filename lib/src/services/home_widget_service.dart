@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:io' show Platform;
-import 'dart:ui' show Size;
 
 import 'package:flutter/foundation.dart';
 import 'package:home_widget/home_widget.dart';
-import 'package:missions/src/widgets/homescreen_widgets.dart';
 import 'package:missions/src/utils/task_calculations.dart';
 
 /// Bridge between the Flutter app and the Android home-screen widgets.
@@ -86,29 +84,11 @@ class HomeWidgetService {
     List<ResolvedDayPlanItem> topFiveTasks = const [],
   }) async {
     if (!_supported) return;
-    try {
-      await HomeWidget.renderFlutterWidget(
-        RunningTaskHomeWidget(
-          hasTask: hasTask,
-          title: title,
-          subtitle: subtitle,
-          isRunning: isRunning,
-          isCheckpoint: isCheckpoint,
-          accumulatedSeconds: accumulatedSeconds,
-          progress: progress,
-          isPhoenix: isPhoenix,
-          capacity: capacity,
-          dayPlannerWidgetCheckable: dayPlannerWidgetCheckable,
-          topFiveTasks: topFiveTasks,
-        ),
-        key: 'arcane.task.image',
-        logicalSize: const Size(400, 200),
-      );
-    } catch (e) {
-      debugPrint('[HomeWidget] renderTask error: $e');
-    }
 
-    await _setAll({
+    // The widget renders natively (crisp RemoteViews), so we only push data —
+    // no Flutter-to-bitmap rasterization (that was the blurry, non-scaling
+    // background). The day-plan checklist reads dp0..dp4 titles.
+    final Map<String, Object> data = {
       'arcane.task.hasTask': hasTask,
       'arcane.task.title': title,
       'arcane.task.subtitle': subtitle,
@@ -121,7 +101,12 @@ class HomeWidgetService {
       'arcane.task.sessionStartMs': sessionStart?.millisecondsSinceEpoch ?? 0,
       'arcane.task.updatedAtMs': DateTime.now().millisecondsSinceEpoch,
       'arcane.task.dayPlannerWidgetCheckable': dayPlannerWidgetCheckable,
-    });
+    };
+    for (var i = 0; i < 5; i++) {
+      data['arcane.task.dp$i.title'] =
+          i < topFiveTasks.length ? topFiveTasks[i].name : '';
+    }
+    await _setAll(data);
     await _refresh(_providerRunning);
   }
 
@@ -132,20 +117,6 @@ class HomeWidgetService {
     required int budgetPct,
   }) async {
     if (!_supported) return;
-    try {
-      await HomeWidget.renderFlutterWidget(
-        FinanceHomeWidget(
-          balance: balance,
-          todaySpend: todaySpend,
-          monthSpend: monthSpend,
-          budgetPct: budgetPct,
-        ),
-        key: 'arcane.fin.image',
-        logicalSize: const Size(400, 200),
-      );
-    } catch (e) {
-      debugPrint('[HomeWidget] renderFinance error: $e');
-    }
 
     await _setAll({
       // SharedPreferences on Android can't store doubles via the plugin's
@@ -168,22 +139,6 @@ class HomeWidgetService {
     required bool night,
   }) async {
     if (!_supported) return;
-    try {
-      await HomeWidget.renderFlutterWidget(
-        JournalHomeWidget(
-          count: count,
-          wake: wake,
-          morn: morn,
-          aft: aft,
-          eve: eve,
-          night: night,
-        ),
-        key: 'arcane.journal.image',
-        logicalSize: const Size(400, 200),
-      );
-    } catch (e) {
-      debugPrint('[HomeWidget] renderJournal error: $e');
-    }
 
     await _setAll({
       'arcane.journal.count': count,

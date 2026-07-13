@@ -9,7 +9,7 @@ import 'package:missions/src/services/app_user.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/screens/settings/data_recovery_screen.dart';
 import 'package:missions/src/screens/schedule/scheduled_reminders_screen.dart';
-import 'package:missions/src/widgets/settings/api_key_manager.dart';
+import 'package:missions/src/widgets/settings/ai_providers_manager.dart';
 import 'package:missions/src/widgets/settings/model_configuration_widget.dart';
 import 'package:missions/src/widgets/dialogs/pin_dialog.dart';
 import 'package:missions/src/screens/onboarding/app_tour_screen.dart';
@@ -418,9 +418,9 @@ class _SettingsViewState extends State<SettingsView> {
               icon: MdiIcons.keyVariant,
               title: 'Advanced AI Settings',
               children: [
-                  Text("Custom Gemini API Keys", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
+                  Text("AI Providers & API Keys", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary)),
                 const SizedBox(height: 8),
-                const ApiKeyManager(),
+                const AiProvidersManager(),
 
                 const SizedBox(height: 16),
                 SwitchListTile.adaptive(

@@ -469,6 +469,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       startTime: timer.startTime,
       subtaskId: subtaskId,
       mainTaskId: mainTaskId,
+      mainTaskName: task.name,
       progress: sub.calculateProgress(),
       nextCheckpointName: next?.name,
       showUndo: showUndo,
