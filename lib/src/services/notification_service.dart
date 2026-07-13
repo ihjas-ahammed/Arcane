@@ -373,8 +373,13 @@ class NotificationService {
     final title = (mainTaskName != null && mainTaskName.trim().isNotEmpty)
         ? mainTaskName
         : taskName;
-    final body = statusBody ??
-        (taskName.trim().isNotEmpty ? taskName : 'Session in progress');
+    var body = taskName.trim().isNotEmpty ? taskName : 'Session in progress';
+    if (nextCheckpointName != null && nextCheckpointName.trim().isNotEmpty) {
+      body = "$taskName · $nextCheckpointName";
+    }
+    if (statusBody != null) {
+      body = statusBody;
+    }
 
     final details = AndroidNotificationDetails(
       _timerChannelId,

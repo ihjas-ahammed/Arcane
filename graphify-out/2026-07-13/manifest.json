@@ -55,13 +55,13 @@
     "semantic_hash": ""
   },
   "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt": {
-    "mtime": 1783908993.4848492,
-    "ast_hash": "fcc017eacd6a5656d73aacbc7bb295b9",
+    "mtime": 1780405453.8706818,
+    "ast_hash": "1f3f2031194cdba0c05857a078db1c81",
     "semantic_hash": ""
   },
   "android/app/src/main/kotlin/me/ihjas/missions/widgets/RunningTaskWidget.kt": {
-    "mtime": 1783923533.5504918,
-    "ast_hash": "78141f089c422f22aa40a762eca9e080",
+    "mtime": 1782818657.315788,
+    "ast_hash": "9264fba88223a3fe99e8593c192bc593",
     "semantic_hash": ""
   },
   "android/app/src/main/kotlin/me/ihjas/missions/widgets/WidgetActionReceiver.kt": {
@@ -75,8 +75,8 @@
     "semantic_hash": ""
   },
   "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt": {
-    "mtime": 1783908979.2114944,
-    "ast_hash": "5197875c828799aeaab0e729a5d84687",
+    "mtime": 1780405453.8706818,
+    "ast_hash": "60db0f6a1704adf2f1ac9a7e3cf0f254",
     "semantic_hash": ""
   },
   "android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java": {
@@ -585,13 +585,13 @@
     "semantic_hash": ""
   },
   "lib/src/providers/app_provider.dart": {
-    "mtime": 1783923477.7629156,
-    "ast_hash": "fbcacee3917f425b3022792cf1c220a3",
+    "mtime": 1783866705.000691,
+    "ast_hash": "71c867e0383c0ffd4b8048343c79a6b3",
     "semantic_hash": ""
   },
   "lib/src/providers/actions/timer_actions.dart": {
-    "mtime": 1783923482.7452443,
-    "ast_hash": "623d00d051e980cf95afe1f8964a78e2",
+    "mtime": 1783178080.16087,
+    "ast_hash": "42c36c320c4ea151f990ad0a2a6f8bf3",
     "semantic_hash": ""
   },
   "lib/src/providers/actions/schedule_actions.dart": {
@@ -725,8 +725,8 @@
     "semantic_hash": ""
   },
   "lib/src/screens/schedule/today_planner_screen.dart": {
-    "mtime": 1783923173.9034748,
-    "ast_hash": "51828579b79d144f85cf9dab1a70a6b4",
+    "mtime": 1783795007.19039,
+    "ast_hash": "ae0f365ef0078c8d9468d51a85dae772",
     "semantic_hash": ""
   },
   "lib/src/screens/schedule/scheduled_reminders_screen.dart": {
@@ -1370,8 +1370,8 @@
     "semantic_hash": ""
   },
   "lib/src/widgets/views/health_dashboard_view.dart": {
-    "mtime": 1783923321.4305375,
-    "ast_hash": "3de43950df8ea2adb58f72e6c9206a73",
+    "mtime": 1783795562.1584358,
+    "ast_hash": "dffa77cc3061c3145760b08cf985e3e4",
     "semantic_hash": ""
   },
   "lib/src/widgets/views/task_details_view.dart": {
@@ -1400,8 +1400,8 @@
     "semantic_hash": ""
   },
   "lib/src/widgets/views/settings_view.dart": {
-    "mtime": 1783908152.4319837,
-    "ast_hash": "4fdd866e9be5f74b145080c416362766",
+    "mtime": 1783522258.974094,
+    "ast_hash": "ffee3e102bb0e435bf9f2329360efe50",
     "semantic_hash": ""
   },
   "lib/src/widgets/action_plan/action_plan_outcome_card.dart": {
@@ -1480,8 +1480,8 @@
     "semantic_hash": ""
   },
   "lib/src/services/ai_service.dart": {
-    "mtime": 1783908059.877521,
-    "ast_hash": "9c5fdfd8996bf2c28e44f269d288f3d9",
+    "mtime": 1783794201.6893256,
+    "ast_hash": "8e8703d21653e40da7d58ab744132db8",
     "semantic_hash": ""
   },
   "lib/src/services/storage_service.dart": {
@@ -1505,8 +1505,8 @@
     "semantic_hash": ""
   },
   "lib/src/services/notification_service.dart": {
-    "mtime": 1783923473.773651,
-    "ast_hash": "03f66173a6c16285971c4f9068492749",
+    "mtime": 1782819788.100526,
+    "ast_hash": "c9c5b0b3d6a305c66d2df1ece1ac329a",
     "semantic_hash": ""
   },
   "lib/src/services/data_export_service.dart": {
@@ -1525,8 +1525,8 @@
     "semantic_hash": ""
   },
   "lib/src/services/home_widget_service.dart": {
-    "mtime": 1783909044.739358,
-    "ast_hash": "fc6186b2d124ba18af25132e03b0ea2c",
+    "mtime": 1782819052.0724835,
+    "ast_hash": "b3c530c8bf2ec56e3a68faa33e9e1b20",
     "semantic_hash": ""
   },
   "lib/src/theme/app_theme.dart": {
@@ -1725,8 +1725,8 @@
     "semantic_hash": ""
   },
   "pubspec.yaml": {
-    "mtime": 1783907421.456857,
-    "ast_hash": "3ae79e89e388b1e7e24b3d1850620b82",
+    "mtime": 1783518282.6165278,
+    "ast_hash": "b661266df8755b156519b8f1a09e0d22",
     "semantic_hash": ""
   },
   "targets.md": {
@@ -2267,11 +2267,6 @@
   "docs/light_theme_design.md": {
     "mtime": 1783795656.014051,
     "ast_hash": "1e0b95fa6404a1fd3cd00947f36e690a",
-    "semantic_hash": ""
-  },
-  "lib/src/widgets/settings/ai_providers_manager.dart": {
-    "mtime": 1783908135.2326114,
-    "ast_hash": "f37c5c458b96e3ea62f0692287a6c8ba",
     "semantic_hash": ""
   }
 }

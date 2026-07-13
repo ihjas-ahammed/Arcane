@@ -102,6 +102,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
     final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
     if (task == null || sub == null) return false;
+    if (_date != helper.getTodayDateString() && sub.isRecurring) {
+      return false;
+    }
     if (parts.length == 3) {
       return sub.findCheckpoint(parts[2])?.completed ?? false;
     }
@@ -566,9 +569,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       }).toList();
       if (activeSubs.isEmpty) continue;
 
-      // Children of the main-task dropdown: each active subtask, either as a
-      // direct add-row (no checkpoints) or as its own sub-dropdown (with
-      // checkpoints nested beneath).
+      // Children of the main-task dropdown: each active subtask wrapped in its own sub-dropdown.
       final subGroups = <Widget>[];
       int taskQueued = 0;
 
@@ -579,10 +580,12 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
 
         // Checkpoint add-rows for this subtask that match the current query.
         final cpRows = <Widget>[];
+        int cpPlannedSum = 0;
         for (final cp in activeCps) {
           final cpId = '$subId|${cp.id}';
           if (!_matchesQuery(cp.name, q) && !subMatches) continue;
           final cpCount = plannedCounts[cpId] ?? 0;
+          cpPlannedSum += cpCount;
           taskQueued += cpCount;
           cpRows.add(_AvailableRow(
             title: cp.name,
@@ -599,30 +602,25 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
         if (!subMatches && cpRows.isEmpty) continue;
         taskQueued += subCount;
 
-        final subAddRow = _AvailableRow(
+        // Every subtask gets its own collapsible group (subdropdown) for clean organization
+        subGroups.add(_CollapsibleGroup(
+          key: ValueKey('sub_${sub.id}_${q.isEmpty ? 0 : 1}'),
           title: sub.name,
           color: task.taskColor,
-          isCheckpoint: false,
-          plannedCount: subCount,
-          onAdd: () => _addToPlan(provider, subId),
-        );
-
-        if (cpRows.isEmpty) {
-          // Leaf subtask — no nested dropdown needed.
-          subGroups.add(subAddRow);
-        } else {
-          // Subtask with checkpoints — a collapsible sub-dropdown holding the
-          // subtask's own add-row plus its checkpoint rows.
-          subGroups.add(_CollapsibleGroup(
-            key: ValueKey('sub_${sub.id}_${q.isEmpty ? 0 : 1}'),
-            title: sub.name,
-            color: task.taskColor,
-            level: 1,
-            queuedCount: subCount + cpRows.length,
-            initiallyExpanded: q.isNotEmpty,
-            children: [subAddRow, ...cpRows],
-          ));
-        }
+          level: 1,
+          queuedCount: subCount + cpPlannedSum,
+          initiallyExpanded: q.isNotEmpty,
+          children: [
+            _AvailableRow(
+              title: 'Add whole subtask',
+              color: task.taskColor,
+              isCheckpoint: false,
+              plannedCount: subCount,
+              onAdd: () => _addToPlan(provider, subId),
+            ),
+            ...cpRows,
+          ],
+        ));
       }
 
       if (subGroups.isNotEmpty) {

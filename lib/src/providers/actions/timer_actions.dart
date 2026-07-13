@@ -63,9 +63,8 @@ class TimerActions {
         ? mainTask.subTasks.firstWhereOrNull((s) => s.id == id)
         : null;
     final nextCp = subTask != null ? TaskCalculations.nextCheckpoint(subTask) : null;
-    final subTaskName = nextCp?.name ?? subTask?.name ?? id;
     NotificationService.instance.showTimerNotification(
-      taskName: subTaskName,
+      taskName: subTask?.name ?? id,
       startTime: updatedActiveTimers[id]!.startTime,
       subtaskId: id,
       mainTaskId: mainTaskId,

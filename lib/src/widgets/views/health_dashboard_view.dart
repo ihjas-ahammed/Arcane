@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:collection/collection.dart';
+import 'package:missions/src/services/widget_action_router.dart';
 
 class HealthDashboardView extends StatefulWidget {
   const HealthDashboardView({super.key});
@@ -201,12 +202,25 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
               ),
               const SizedBox(height: 14),
               // Link-to-task: copy a workout task's tracked time for this day.
-              if (linkableTasks.isEmpty)
+              if (linkableTasks.isEmpty) ...[
                 Text(
                   'No task time tracked today to copy from.',
                   style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.5, fontStyle: FontStyle.italic),
-                )
-              else ...[
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    WidgetActionRouter.instance.tabRequest.value = 0; // missions tab is index 0
+                  },
+                  icon: Icon(MdiIcons.targetAccount, size: 14, color: JweTheme.accentCyan),
+                  label: Text('GO TO TASKS TO TRACK TIME', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentCyan, fontSize: 10, fontWeight: FontWeight.bold)),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    alignment: Alignment.centerLeft,
+                  ),
+                ),
+              ] else ...[
                 Row(
                   children: [
                     Icon(MdiIcons.linkVariant, color: JweTheme.accentCyan, size: 13),
@@ -251,6 +265,19 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                         });
                       },
                     ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    WidgetActionRouter.instance.tabRequest.value = 0; // missions tab is index 0
+                  },
+                  icon: Icon(MdiIcons.targetAccount, size: 14, color: JweTheme.accentCyan),
+                  label: Text('GO TO TASKS TO TRACK TIME', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentCyan, fontSize: 10, fontWeight: FontWeight.bold)),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    alignment: Alignment.centerLeft,
                   ),
                 ),
               ],
@@ -1044,7 +1071,9 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                               crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 Text('ENERGY: ${food.calories} kcal', style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 11, fontWeight: FontWeight.bold)),
-                                Text('P: ${food.protein.toStringAsFixed(1)}g  |  C: ${food.carbs.toStringAsFixed(1)}g  |  F: ${food.fat.toStringAsFixed(1)}g', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMid, fontSize: 10.5)),
+                                Text('P: ${food.protein.toStringAsFixed(1)}g', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentTeal, fontSize: 10.5, fontWeight: FontWeight.bold)),
+                                Text('C: ${food.carbs.toStringAsFixed(1)}g', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentCyan, fontSize: 10.5, fontWeight: FontWeight.bold)),
+                                Text('F: ${food.fat.toStringAsFixed(1)}g', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentAmber, fontSize: 10.5, fontWeight: FontWeight.bold)),
                               ],
                             ),
                             if (food.description != null && food.description!.isNotEmpty) ...[
@@ -1139,11 +1168,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
     double totalWalkKm = 0;
     int totalWorkoutMins = 0;
 
-    int waterDays = 0;
-    int sleepDays = 0;
-    int foodDays = 0;
-    int walkDays = 0;
-    int workoutDays = 0;
+    int loggedDays = 0;
 
     for (int i = 0; i < 30; i++) {
       final date = now.subtract(Duration(days: i));
@@ -1151,55 +1176,48 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
       final log = provider.healthLogs[dateStr];
       if (log == null) continue;
 
-      if (log.waterGlasses > 0) {
-        totalWater += log.waterGlasses;
-        waterDays++;
-      }
-
-      final sleepHours =
-          log.sleepLogs.fold(0, (sum, item) => sum + item.durationMinutes) / 60.0;
-      if (sleepHours > 0) {
-        totalSleepHours += sleepHours;
-        sleepDays++;
-      }
-
-      final walkKm =
-          log.activityLogs.fold(0.0, (sum, item) => sum + item.walkDistanceKm);
-      if (walkKm > 0) {
-        totalWalkKm += walkKm;
-        walkDays++;
-      }
-
-      final workoutMins =
-          log.activityLogs.fold(0, (sum, item) => sum + item.workoutMinutes);
-      if (workoutMins > 0) {
-        totalWorkoutMins += workoutMins;
-        workoutDays++;
-      }
-
-      // Food is only averaged over days where something was actually eaten.
       final mealsWithFood = log.meals.map((meal) {
         return provider.foodItems.firstWhereOrNull((f) => f.id == meal.foodItemId);
       }).whereType<FoodItem>().toList();
 
-      if (mealsWithFood.isNotEmpty) {
+      final hasData = log.waterGlasses > 0 ||
+          log.sleepLogs.isNotEmpty ||
+          log.activityLogs.isNotEmpty ||
+          mealsWithFood.isNotEmpty ||
+          log.energyLogs.isNotEmpty;
+
+      if (hasData) {
+        loggedDays++;
+        totalWater += log.waterGlasses;
+
+        final sleepHours =
+            log.sleepLogs.fold(0, (sum, item) => sum + item.durationMinutes) / 60.0;
+        totalSleepHours += sleepHours;
+
+        final walkKm =
+            log.activityLogs.fold(0.0, (sum, item) => sum + item.walkDistanceKm);
+        totalWalkKm += walkKm;
+
+        final workoutMins =
+            log.activityLogs.fold(0, (sum, item) => sum + item.workoutMinutes);
+        totalWorkoutMins += workoutMins;
+
         totalCalories += mealsWithFood.fold(0, (sum, item) => sum + item.calories);
         totalProtein += mealsWithFood.fold(0.0, (sum, item) => sum + item.protein);
         totalCarbs += mealsWithFood.fold(0.0, (sum, item) => sum + item.carbs);
         totalFat += mealsWithFood.fold(0.0, (sum, item) => sum + item.fat);
-        foodDays++;
       }
     }
 
     double avgOver(num total, int count) => count == 0 ? 0 : total / count;
-    final avgWater = avgOver(totalWater, waterDays);
-    final avgSleep = avgOver(totalSleepHours, sleepDays);
-    final avgCalories = avgOver(totalCalories, foodDays);
-    final avgProtein = avgOver(totalProtein, foodDays);
-    final avgCarbs = avgOver(totalCarbs, foodDays);
-    final avgFat = avgOver(totalFat, foodDays);
-    final avgWalkKm = avgOver(totalWalkKm, walkDays);
-    final avgWorkoutMins = avgOver(totalWorkoutMins, workoutDays);
+    final avgWater = avgOver(totalWater, loggedDays);
+    final avgSleep = avgOver(totalSleepHours, loggedDays);
+    final avgCalories = avgOver(totalCalories, loggedDays);
+    final avgProtein = avgOver(totalProtein, loggedDays);
+    final avgCarbs = avgOver(totalCarbs, loggedDays);
+    final avgFat = avgOver(totalFat, loggedDays);
+    final avgWalkKm = avgOver(totalWalkKm, loggedDays);
+    final avgWorkoutMins = avgOver(totalWorkoutMins, loggedDays);
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPadding + 60),

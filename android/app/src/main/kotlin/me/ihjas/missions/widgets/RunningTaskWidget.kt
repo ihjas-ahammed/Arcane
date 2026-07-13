@@ -54,11 +54,11 @@ class RunningTaskWidget : HomeWidgetProvider() {
         val isCheckpoint = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isCheckpoint", false)
 
         val statusLabel = when {
-            !hasTask -> "QUEUE EMPTY"
-            isCheckpoint && isRunning -> "CHECKPOINT · ENGAGED"
-            isCheckpoint -> "CHECKPOINT · STANDBY"
-            isRunning -> "ACTIVE · ENGAGED"
-            else -> "ACTIVE · STANDBY"
+            !hasTask -> "[ STANDBY ]"
+            isCheckpoint && isRunning -> "[ CHECKPOINT // ENGAGED ]"
+            isCheckpoint -> "[ CHECKPOINT // STANDBY ]"
+            isRunning -> "[ MISSION // ENGAGED ]"
+            else -> "[ MISSION // STANDBY ]"
         }
         views.setTextViewText(R.id.widget_status_label, statusLabel)
         views.setTextViewText(R.id.widget_capacity, capacity)

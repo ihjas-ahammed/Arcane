@@ -465,7 +465,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
     final next = TaskCalculations.nextCheckpoint(sub);
     NotificationService.instance.showTimerNotification(
-      taskName: next?.name ?? sub.name,
+      taskName: sub.name,
       startTime: timer.startTime,
       subtaskId: subtaskId,
       mainTaskId: mainTaskId,

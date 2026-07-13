@@ -1,16 +1,16 @@
-# Graph Report - Arcane  (2026-07-13)
+# Graph Report - Arcane  (2026-07-12)
 
 ## Corpus Check
-- 293 files · ~260,451 words
+- 292 files · ~257,675 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 5063 nodes · 6499 edges · 1107 communities (250 shown, 857 thin omitted)
+- 5014 nodes · 6423 edges · 1102 communities (248 shown, 854 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 14 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `9adb94aa`
+- Built from commit: `0594835c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -1076,11 +1076,6 @@
 - [[_COMMUNITY_Reusable Deep-Research Prompts|Reusable Deep-Research Prompts]]
 - [[_COMMUNITY_logbook_screen.dart|logbook_screen.dart]]
 - [[_COMMUNITY_install.sh|install.sh]]
-- [[_COMMUNITY_SubSubTask|SubSubTask]]
-- [[_COMMUNITY_SubTask|SubTask]]
-- [[_COMMUNITY__PeopleExtractionWizardState|_PeopleExtractionWizardState]]
-- [[_COMMUNITY__PeopleInfoScreenState|_PeopleInfoScreenState]]
-- [[_COMMUNITY__CollapsibleGroup|_CollapsibleGroup]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `AppProvider` - 254 edges
@@ -1109,23 +1104,23 @@
 ## Import Cycles
 - None detected.
 
-## Communities (1107 total, 857 thin omitted)
+## Communities (1102 total, 854 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.03
 Nodes (71): accumulatedDisplayTime, action, ActiveTimerInfo, adaptWritingStyle, autoSaveEnabled, body, compoundId, copyWith (+63 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.17
-Nodes (11): AnimationController, build, color, _controller, createState, dispose, initState, progress (+3 more)
+Cohesion: 0.14
+Nodes (13): AnimationController, MainTask, TaskCopyExtension, build, color, _controller, createState, dispose (+5 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.03
-Nodes (66): bool top, bottom, left,, CustomPainter, _TacticalGridPainter, _WeeklyPainter, _ProgressLinePainter, _BarsPainter, _HudBarsPainter, _ArcaneAppIconPainter (+58 more)
+Cohesion: 0.04
+Nodes (51): bool top, bottom, left,, accent, all, allBrackets, background, body, brackets, build (+43 more)
 
 ### Community 3 - "Community 3"
 Cohesion: 0.02
-Nodes (96): accent, _ActivePill, addedAtRuntime, _addExpanded, _AddSection, _addToPlan, animateIn, _AnointHint (+88 more)
+Nodes (92): accent, _ActivePill, addedAtRuntime, _addExpanded, _AddSection, _addToPlan, animateIn, _AnointHint (+84 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.03
@@ -1144,8 +1139,8 @@ Cohesion: 0.04
 Nodes (53): activeNoraSessionId, contextDays, conversationHistory, createdAt, customContext, dailyCompletedGoals, data, description (+45 more)
 
 ### Community 8 - "Community 8"
-Cohesion: 0.08
-Nodes (23): AIGenerationActions, _aiService, autoAssignAssets, generateActionPlanSteps, generateCheckpointsForSubtask, generateStepsFromDescription, _logToApp, _provider (+15 more)
+Cohesion: 0.17
+Nodes (11): AIGenerationActions, _aiService, autoAssignAssets, generateActionPlanSteps, generateCheckpointsForSubtask, generateStepsFromDescription, _logToApp, _provider (+3 more)
 
 ### Community 9 - "Community 9"
 Cohesion: 0.05
@@ -1156,12 +1151,12 @@ Cohesion: 0.20
 Nodes (9): accentColor, build, child, _cut, getClip, shouldReclip, SpideyPanel, title (+1 more)
 
 ### Community 11 - "Community 11"
-Cohesion: 0.04
-Nodes (45): accent, accentColor, activeDates, avg, build, _buildAnalyticsTab, _buildLogsTab, _buildPlanBriefingHero (+37 more)
+Cohesion: 0.05
+Nodes (43): accent, accentColor, activeDates, avg, build, _buildAnalyticsTab, _buildLogsTab, _buildPlanBriefingHero (+35 more)
 
 ### Community 12 - "Community 12"
-Cohesion: 0.15
-Nodes (21): _LinkTaskDialog, _LinkTaskDialogState, ProjectDetailView, _ProjectDetailViewState, _AnimatedEntry, _AnimatedEntryState, CheckpointDropdownRow, _CheckpointDropdownRowState (+13 more)
+Cohesion: 0.17
+Nodes (19): _LinkTaskDialog, _LinkTaskDialogState, ProjectDetailView, _ProjectDetailViewState, _ProjectNoteCard, _ProjectNoteCardState, _AnimatedEntry, _AnimatedEntryState (+11 more)
 
 ### Community 13 - "Community 13"
 Cohesion: 0.08
@@ -1184,8 +1179,8 @@ Cohesion: 0.05
 Nodes (41): accent, accentColor, build, _buildPoints, chartMaxX, color, _computeForecast, createState (+33 more)
 
 ### Community 18 - "Community 18"
-Cohesion: 0.18
-Nodes (9): AbilityImprovementCard, build, name, reason, score, build, directives, TacticalDirectivesList (+1 more)
+Cohesion: 0.33
+Nodes (5): AbilityImprovementCard, build, name, reason, score
 
 ### Community 19 - "Community 19"
 Cohesion: 0.09
@@ -1200,8 +1195,8 @@ Cohesion: 0.05
 Nodes (39): FirebaseDatabase, FirebaseDatabase get, FirebaseFirestore, Firestore get, deleteUserData, _docFinance, _docHealth, _docSettings (+31 more)
 
 ### Community 22 - "Community 22"
-Cohesion: 0.10
-Nodes (19): build, color, _KVRow, label, MonthlyReviewScreen, onArchive, provider, reportData (+11 more)
+Cohesion: 0.07
+Nodes (26): build, color, _KVRow, label, MonthlyReviewScreen, onArchive, provider, reportData (+18 more)
 
 ### Community 23 - "Community 23"
 Cohesion: 0.07
@@ -1216,8 +1211,8 @@ Cohesion: 0.06
 Nodes (31): ActivityLog, activityLogs, benefits, calories, carbs, DailyHealthLog, dateStr, description (+23 more)
 
 ### Community 26 - "Community 26"
-Cohesion: 0.22
-Nodes (9): build, _buildLabel, _contentController, createState, ReflectionEditor, _ReflectionEditorState, _titleController, package:missions/widgets/valorant_button.dart (+1 more)
+Cohesion: 0.12
+Nodes (17): build, _buildLineChartSection, _buildPieChartSection, _buildRecentLogs, _buildStatCard, LogbookScreen, build, _buildLabel (+9 more)
 
 ### Community 27 - "Community 27"
 Cohesion: 0.06
@@ -1236,8 +1231,8 @@ Cohesion: 0.20
 Nodes (9): FirebaseAppPlatform, FirebasePlatform, package:firebase_core_platform_interface/firebase_core_platform_interface.dart, _app, apps, FakeFirebaseAppPlatform, FakeFirebasePlatform, initializeApp (+1 more)
 
 ### Community 31 - "Community 31"
-Cohesion: 0.25
-Nodes (7): IconData?, build, icon, isFullWidth, label, onTap, QuickActionCard
+Cohesion: 0.08
+Nodes (21): IconData?, build, color, HeroStatItem, icon, label, subValue, value (+13 more)
 
 ### Community 32 - "Community 32"
 Cohesion: 0.07
@@ -1260,12 +1255,12 @@ Cohesion: 0.07
 Nodes (28): _actionController, build, _buildEnergySlider, _buildSectionHeader, createState, dateStr, _deleteLog, dispose (+20 more)
 
 ### Community 37 - "Community 37"
-Cohesion: 0.11
-Nodes (17): accent, build, createState, _expanded, nextCp, onCheckNext, _openDetailScreen, parentTask (+9 more)
+Cohesion: 0.09
+Nodes (23): SubSubTask, SubSubTaskCopyExtension, SubTask, SubTaskCopyExtension, accent, build, CheckpointDropdownRow, _CheckpointDropdownRowState (+15 more)
 
 ### Community 38 - "Community 38"
 Cohesion: 0.06
-Nodes (34): _accentAmber, accentCyan, accentRed, accentTeal, accentWarn, _amberDim, _amberGlow, _amberSoft (+26 more)
+Nodes (33): _accentAmber, accentCyan, accentRed, accentTeal, accentWarn, _amberDim, _amberGlow, _amberSoft (+25 more)
 
 ### Community 39 - "Community 39"
 Cohesion: 0.08
@@ -1292,8 +1287,8 @@ Cohesion: 0.09
 Nodes (22): checkpointId, color, compoundId, defaultCheckpointMinutes, defaultSubtaskMinutes, _findLowestIncompleteSubSubTask, _firstIncompleteLeaf, getHistoricalTodaySeconds (+14 more)
 
 ### Community 45 - "Community 45"
-Cohesion: 0.07
-Nodes (28): _add, AiProvidersManager, _AiProvidersManagerState, _AiProviderSpec, build, createState, defaultModels, _display (+20 more)
+Cohesion: 0.17
+Nodes (11): dart:ui, baseColor, build, CircularTimeProgress, color, _DendroElementPainter, _drawCap, isCompleted (+3 more)
 
 ### Community 46 - "Community 46"
 Cohesion: 0.09
@@ -1301,7 +1296,7 @@ Nodes (22): _basePixelsPerHour, build, _buildCurrentTimeIndicator, _calculateLay
 
 ### Community 47 - "Community 47"
 Cohesion: 0.05
-Nodes (43): accent, _buildAgentProgressContext, _buildFinanceWeekContext, _buildWeeklyBriefingContext, color, createState, DailySummaryView, _DailySummaryViewState (+35 more)
+Nodes (41): accent, _buildAgentProgressContext, _buildFinanceWeekContext, _buildWeeklyBriefingContext, color, createState, didChangeDependencies, _generateMonthlyReport (+33 more)
 
 ### Community 48 - "Community 48"
 Cohesion: 0.10
@@ -1309,7 +1304,7 @@ Nodes (21): FormState, build, _buildHeader, createState, dispose, _email, _email
 
 ### Community 49 - "Community 49"
 Cohesion: 0.09
-Nodes (22): FoodItem, build, _buildDirectiveItem, _buildLogsTab, _buildMacrosColumn, _buildNutritionTab, _buildStatsTab, createState (+14 more)
+Nodes (21): FoodItem, build, _buildDirectiveItem, _buildLogsTab, _buildMacrosColumn, _buildNutritionTab, _buildStatsTab, createState (+13 more)
 
 ### Community 50 - "Community 50"
 Cohesion: 0.12
@@ -1361,11 +1356,11 @@ Nodes (19): addAccount, addCategory, addSavingsGoal, addSavingsLog, addTransacti
 
 ### Community 62 - "Community 62"
 Cohesion: 0.10
-Nodes (19): _clickSub, _dispatch, dispose, HomeWidgetService, init, instance, _providerFinance, _providerJournal (+11 more)
+Nodes (20): _clickSub, _dispatch, dispose, HomeWidgetService, init, instance, _providerFinance, _providerJournal (+12 more)
 
 ### Community 63 - "Community 63"
-Cohesion: 0.06
-Nodes (30): build, _copySelectedLogs, createState, _filterDate, _handleLongPress, _handleTap, _isSelectionMode, _openEditor (+22 more)
+Cohesion: 0.12
+Nodes (14): build, dateStr, JweReflectionProgress, label, logs, on, _Segment, build (+6 more)
 
 ### Community 64 - "Community 64"
 Cohesion: 0.12
@@ -1373,7 +1368,7 @@ Nodes (16): _availableThemes, build, _buildProtocolSelector, createState, _getTh
 
 ### Community 65 - "Community 65"
 Cohesion: 0.06
-Nodes (34): _appProvider, build, _buildDesktopNavRail, createState, _DesktopNavItem, _desktopNavItems, dispose, HomeScreen (+26 more)
+Nodes (32): _appProvider, build, _buildDesktopNavRail, createState, _DesktopNavItem, _desktopNavItems, dispose, icon (+24 more)
 
 ### Community 67 - "Community 67"
 Cohesion: 0.06
@@ -1404,16 +1399,16 @@ Cohesion: 0.11
 Nodes (17): ArcaneAppIcon, build, color, currentViewLabel, customAction, _dateLabel, _editCallsign, HeaderWidget (+9 more)
 
 ### Community 74 - "Community 74"
-Cohesion: 0.09
-Nodes (20): predictSchedule, _provider, ScheduleActions, build, FinanceDashboardScreen, build, goalId, SavingsDetailScreen (+12 more)
+Cohesion: 0.15
+Nodes (13): build, _copySelectedLogs, createState, _filterDate, _handleLongPress, _handleTap, _isSelectionMode, _openEditor (+5 more)
 
 ### Community 75 - "Community 75"
-Cohesion: 0.09
-Nodes (21): dart:math, linearRegression, MathUtils, predictX, build, color, getClip, gridColor (+13 more)
+Cohesion: 0.11
+Nodes (17): build, color, getClip, gridColor, icon, isRunning, label, neonColor (+9 more)
 
 ### Community 76 - "Community 76"
-Cohesion: 0.12
-Nodes (16): action, addXp, aiFeedback, currentXp, description, emotion, fromJson, id (+8 more)
+Cohesion: 0.08
+Nodes (22): action, addXp, aiFeedback, currentXp, description, emotion, fromJson, id (+14 more)
 
 ### Community 77 - "Community 77"
 Cohesion: 0.12
@@ -1445,27 +1440,27 @@ Nodes (13): extractAndSaveAssets, extractAndSavePeople, generateAllPersonDetails
 
 ### Community 85 - "Community 85"
 Cohesion: 0.04
-Nodes (44): DateTimeRange?, PersonInfo, _buildCategoryHeader, _buildConfusionUI, _buildRangeRadioOption, _buildSummaryRow, _buildWizardStep, _commitChanges (+36 more)
+Nodes (48): DateTimeRange?, PersonInfo, _buildCategoryHeader, _buildConfusionUI, _buildRangeRadioOption, _buildSummaryRow, _buildWizardStep, _commitChanges (+40 more)
 
 ### Community 86 - "Community 86"
 Cohesion: 0.13
 Nodes (14): _accounts, _categories, getFinanceStateMap, initializeDefaultFinanceCategories, loadFinanceState, _savingsGoals, setAccounts, setCategories (+6 more)
 
 ### Community 87 - "Community 87"
-Cohesion: 0.06
-Nodes (32): build, HealthDashboardScreen, ActivityPanel, build, dateStr, _showAddDialog, build, createState (+24 more)
+Cohesion: 0.05
+Nodes (42): build, HealthDashboardScreen, getSessionHistoryString, HistoryHelper, ActivityPanel, build, dateStr, _showAddDialog (+34 more)
 
 ### Community 88 - "Community 88"
 Cohesion: 0.15
 Nodes (13): accentColor, build, createState, _currentSelection, dispose, _getIconForType, initState, _searchController (+5 more)
 
 ### Community 90 - "Community 90"
-Cohesion: 0.14
-Nodes (14): build, chart, ChartCarousel, ChartCarouselData, _ChartCarouselState, _controller, createState, dispose (+6 more)
+Cohesion: 0.12
+Nodes (16): build, chart, ChartCarousel, ChartCarouselData, _ChartCarouselState, _controller, createState, dispose (+8 more)
 
 ### Community 91 - "Community 91"
 Cohesion: 0.15
-Nodes (13): dart:async, accentColor, ActionPlanOutcomeCard, _ActionPlanOutcomeCardState, build, _controller, createState, _debounce (+5 more)
+Nodes (13): accentColor, ActionPlanOutcomeCard, _ActionPlanOutcomeCardState, build, _controller, createState, _debounce, dispose (+5 more)
 
 ### Community 92 - "Community 92"
 Cohesion: 0.04
@@ -1485,7 +1480,7 @@ Nodes (22): build, child, createState, didUpdateWidget, dispose, HomeWidgetHost,
 
 ### Community 96 - "Community 96"
 Cohesion: 0.15
-Nodes (13): accentColor, ActionPlanWhyCard, _ActionPlanWhyCardState, build, _controller, createState, _debounce, dispose (+5 more)
+Nodes (13): dart:async, accentColor, ActionPlanWhyCard, _ActionPlanWhyCardState, build, _controller, createState, _debounce (+5 more)
 
 ### Community 97 - "Community 97"
 Cohesion: 0.14
@@ -1500,16 +1495,16 @@ Cohesion: 0.15
 Nodes (13): build, _buildPhoenixProjectsHero, _calculateProgress, _createNewProjectDialog, createState, _editProjectDialog, _getNextRelease, ProjectsView (+5 more)
 
 ### Community 100 - "Community 100"
-Cohesion: 0.05
-Nodes (43): autoAssignAssetsToTask, _callCerebras, _callGroq, _callOpenAICompatible, _callOpenRouter, evaluateBatchReflections, evaluateReflection, extractAssetsFromReflections (+35 more)
+Cohesion: 0.06
+Nodes (35): autoAssignAssetsToTask, evaluateBatchReflections, evaluateReflection, extractAssetsFromReflections, extractFoodInfo, extractPeopleFromReflections, extractPeopleFromReflectionsWithLabels, fetchAvailableModels (+27 more)
 
 ### Community 101 - "Community 101"
-Cohesion: 0.08
-Nodes (24): FinanceHelpers, getIconData, build, mainTaskId, SessionHistoryDrawer, subTask, build, _handleSessionEdit (+16 more)
+Cohesion: 0.06
+Nodes (35): AdvancedToolsScreen, build, _buildToolCard, FinanceHelpers, getIconData, build, mainTaskId, SessionHistoryDrawer (+27 more)
 
 ### Community 102 - "Community 102"
-Cohesion: 0.17
-Nodes (11): ReflectionLog, build, LastInsightDialog, log, build, _buildRow, isSelected, log (+3 more)
+Cohesion: 0.13
+Nodes (15): CustomPainter, _TacticalGridPainter, _WeeklyPainter, _ProgressLinePainter, _BarsPainter, _HudBarsPainter, _ArcaneAppIconPainter, _BracketPainter (+7 more)
 
 ### Community 103 - "Community 103"
 Cohesion: 0.14
@@ -1520,8 +1515,8 @@ Cohesion: 0.15
 Nodes (12): AppUser? get, authStateChanges, changePassword, currentUser, reload, signInWithEmail, signOut, signUpWithEmail (+4 more)
 
 ### Community 105 - "Community 105"
-Cohesion: 0.20
-Nodes (10): build, createState, initState, MyApp, _MyAppState, package:missions/src/screens/home_screen.dart, package:missions/src/screens/login_screen.dart, package:missions/src/screens/onboarding/app_tour_screen.dart (+2 more)
+Cohesion: 0.07
+Nodes (28): android, DefaultFirebaseOptions, ios, macos, web, windows, _initFirebase, main (+20 more)
 
 ### Community 106 - "Community 106"
 Cohesion: 0.17
@@ -1548,8 +1543,8 @@ Cohesion: 0.17
 Nodes (12): build, _buildStat, createState, dispose, initialNote, initState, isEditing, _noteController (+4 more)
 
 ### Community 112 - "Community 112"
-Cohesion: 0.11
-Nodes (16): build, _handlePaste, JweTaskOptionsDialog, _showPasteAlertDialog, task, build, onAdd, ProtocolControlPanel (+8 more)
+Cohesion: 0.25
+Nodes (7): build, _handlePaste, JweTaskOptionsDialog, _showPasteAlertDialog, task, package:flutter/services.dart, package:missions/src/utils/global_toast.dart
 
 ### Community 113 - "Community 113"
 Cohesion: 0.18
@@ -1564,16 +1559,16 @@ Cohesion: 0.10
 Nodes (20): ArcAccents, danger, indigo, _l, neonCyan, neonPink, neutralSoft, primary (+12 more)
 
 ### Community 116 - "Community 116"
-Cohesion: 0.25
-Nodes (7): build, data, _editValue, JsonEditorWidget, label, onChanged, ValueChanged
+Cohesion: 0.12
+Nodes (14): build, data, _editValue, JsonEditorWidget, label, onChanged, build, items (+6 more)
 
 ### Community 117 - "Community 117"
 Cohesion: 0.10
 Nodes (19): ArcSurfaces, canvas, canvasDeep, codeField, deepPanel, deepPanelRaised, dim, disabledFill (+11 more)
 
 ### Community 118 - "Community 118"
-Cohesion: 0.14
-Nodes (13): build, _chatHistoryController, createState, _selectedPersonId, SimulateTalkScreen, _SimulateTalkScreenState, _submit, build (+5 more)
+Cohesion: 0.12
+Nodes (16): build, _chatHistoryController, createState, _selectedPersonId, SimulateTalkScreen, _SimulateTalkScreenState, _submit, build (+8 more)
 
 ### Community 119 - "Community 119"
 Cohesion: 0.18
@@ -1608,24 +1603,24 @@ Cohesion: 0.25
 Nodes (8): AiPromptsView, _AiPromptsViewState, build, createState, _promptController, _saveCurrentPrompt, _templates, package:missions/src/widgets/ui/saved_prompts_list.dart
 
 ### Community 127 - "Community 127"
-Cohesion: 0.09
-Nodes (19): build, ColorSelectorDialog, palette, selectedColor, build, color, getClip, HexProgressRing (+11 more)
+Cohesion: 0.12
+Nodes (14): dart:math, linearRegression, MathUtils, predictX, build, color, getClip, HexProgressRing (+6 more)
 
 ### Community 128 - "Community 128"
-Cohesion: 0.33
-Nodes (5): build, BusScheduleGrid, isEditMode, nextBusTime, scheduleList
+Cohesion: 0.12
+Nodes (13): calculateDailyTimeFromSessions, ChartDataHelper, prepareWeeklyData, build, BusScheduleGrid, isEditMode, nextBusTime, scheduleList (+5 more)
 
 ### Community 129 - "Community 129"
-Cohesion: 0.22
-Nodes (9): actionLabel, AiGenerationPromptDialog, _AiGenerationPromptDialogState, build, _controller, createState, dispose, hintText (+1 more)
+Cohesion: 0.20
+Nodes (10): actionLabel, AiGenerationPromptDialog, _AiGenerationPromptDialogState, build, _controller, createState, dispose, hintText (+2 more)
 
 ### Community 130 - "Community 130"
 Cohesion: 0.22
 Nodes (9): build, _controller, createState, dispose, EditSubtaskDialog, _EditSubtaskDialogState, initialName, initState (+1 more)
 
 ### Community 131 - "Community 131"
-Cohesion: 0.20
-Nodes (9): build, _buildLineChart, _buildPieChart, categories, FinanceCharts, onDateChanged, selectedDate, transactions (+1 more)
+Cohesion: 0.11
+Nodes (17): build, _buildLineChart, _buildPieChart, categories, FinanceCharts, onDateChanged, selectedDate, transactions (+9 more)
 
 ### Community 132 - "Community 132"
 Cohesion: 0.07
@@ -1640,12 +1635,12 @@ Cohesion: 0.22
 Nodes (9): appProvider, availableModels, build, _buildModelPriorityList, createState, isFetching, ModelConfigurationWidget, _ModelConfigurationWidgetState (+1 more)
 
 ### Community 135 - "Community 135"
-Cohesion: 0.08
-Nodes (34): AppProvider, build, ChatbotScreen, _checkPinAndNavigate, ArchivedReportsScreen, build, _fetchAllReports, build (+26 more)
+Cohesion: 0.09
+Nodes (30): AppProvider, build, ChatbotScreen, _checkPinAndNavigate, ArchivedReportsScreen, build, _fetchAllReports, build (+22 more)
 
 ### Community 136 - "Community 136"
-Cohesion: 0.25
-Nodes (7): build, completedSubtasks, createState, dispose, parentTask, _searchController, _searchQuery
+Cohesion: 0.22
+Nodes (9): build, CompletedSubmissionsSection, _CompletedSubmissionsSectionState, completedSubtasks, createState, dispose, parentTask, _searchController (+1 more)
 
 ### Community 137 - "Community 137"
 Cohesion: 0.20
@@ -1656,24 +1651,24 @@ Cohesion: 0.12
 Nodes (15): accentColor, ActionPlanResourcesCard, build, _getIconForType, _getSelectedIds, id, initialResources, mainTaskId (+7 more)
 
 ### Community 139 - "Community 139"
-Cohesion: 0.18
-Nodes (11): _availableThemes, build, createState, _getThemeIcon, isEmbedded, _showAddTaskDialog, TaskNavigationDrawer, _TaskNavigationDrawerState (+3 more)
+Cohesion: 0.11
+Nodes (17): build, onAdd, ProtocolControlPanel, protocols, selectedProtocolId, _availableThemes, build, createState (+9 more)
 
 ### Community 140 - "Community 140"
-Cohesion: 0.18
-Nodes (11): AddSleepDialog, _AddSleepDialogState, build, _buildDatePickerRow, _buildTimePickerRow, createState, dateStr, _endTime (+3 more)
+Cohesion: 0.13
+Nodes (12): accentColor, build, child, JwePanel, _matchTone, title, build, JweSyncOverlay (+4 more)
 
 ### Community 141 - "Community 141"
 Cohesion: 0.22
 Nodes (8): generateCheckpointId, generateMainTaskId, generateSessionId, generateSubTaskId, IdGenerator, _uuid, package:uuid/uuid.dart, static const Uuid
 
 ### Community 142 - "Community 142"
-Cohesion: 0.11
-Nodes (18): _actionController, build, createState, _feelingController, QuickTherapyScreen, _QuickTherapyScreenState, _reasonController, _requestComms (+10 more)
+Cohesion: 0.20
+Nodes (10): _actionController, build, createState, _feelingController, QuickTherapyScreen, _QuickTherapyScreenState, _reasonController, _requestComms (+2 more)
 
 ### Community 143 - "Community 143"
-Cohesion: 0.22
-Nodes (9): build, child, createState, didUpdateWidget, DraggableStepWrapper, _DraggableStepWrapperState, _hoverPosition, stepId (+1 more)
+Cohesion: 0.25
+Nodes (8): build, child, createState, didUpdateWidget, DraggableStepWrapper, _DraggableStepWrapperState, _hoverPosition, stepId
 
 ### Community 144 - "Community 144"
 Cohesion: 0.22
@@ -1708,20 +1703,20 @@ Cohesion: 0.15
 Nodes (12): EdgeInsetsGeometry, backgroundColor, borderColor, build, child, cornerCut, isSelected, margin (+4 more)
 
 ### Community 152 - "Community 152"
-Cohesion: 0.13
-Nodes (13): Skill, build, skill, weeklyXp, WellbeingDetailDialog, xpGainedToday, build, onTap (+5 more)
+Cohesion: 0.08
+Nodes (23): Skill, build, logs, selectedVirtue, WellbeingPieChart, build, LastInsightDialog, log (+15 more)
 
 ### Community 153 - "Community 153"
 Cohesion: 0.25
 Nodes (7): build, level, PersonInfoHeader, role, titleName, xp, package:missions/src/theme/person_info_theme.dart
 
 ### Community 154 - "Community 154"
-Cohesion: 0.14
-Nodes (12): ChatbotMessage, GratitudeItem, AssetInfoDialog, build, _buildSection, item, accentColor, build (+4 more)
+Cohesion: 0.29
+Nodes (6): ChatbotMessage, accentColor, build, isTyping, message, NoraMessageBubble
 
 ### Community 155 - "jwe_bottom_nav_bar.dart"
-Cohesion: 0.08
-Nodes (23): dart:ui, baseColor, build, CircularTimeProgress, color, _DendroElementPainter, _drawCap, isCompleted (+15 more)
+Cohesion: 0.15
+Nodes (12): activeColor, build, _buildNoraCircle, _buildTab, icon, JweBottomNavBar, label, onNoraTapped (+4 more)
 
 ### Community 156 - "Community 156"
 Cohesion: 0.25
@@ -1732,8 +1727,8 @@ Cohesion: 0.38
 Nodes (6): is_ignored(), Reads the .gitignore file and returns a list of patterns.     Handles comments a, Creates a zip archive of a Flutter project, excluding files and directories, Checks if a file or directory should be ignored based on .gitignore patterns., read_gitignore(), zip_flutter_project()
 
 ### Community 158 - "Community 158"
-Cohesion: 0.15
-Nodes (13): _apiController, AppTourScreen, _AppTourScreenState, build, createState, _currentPage, dispose, _finishTour (+5 more)
+Cohesion: 0.12
+Nodes (15): _apiController, AppTourScreen, _AppTourScreenState, build, createState, _currentPage, dispose, _finishTour (+7 more)
 
 ### Community 159 - "Community 159"
 Cohesion: 0.13
@@ -1744,28 +1739,28 @@ Cohesion: 0.10
 Nodes (36): _Point, LPARAM, LRESULT, RECT, Size, UINT, wchar_t, HWND (+28 more)
 
 ### Community 161 - "Community 161"
-Cohesion: 0.13
-Nodes (14): geminiApiKeys, geminiModelName, MainTask, TaskCopyExtension, build, InactiveSubmissionsSection, inactiveSubtasks, parentTask (+6 more)
+Cohesion: 0.12
+Nodes (15): geminiApiKeys, geminiModelName, dailyTaskGoalMinutes, initialMainTaskTemplates, build, InactiveSubmissionsSection, inactiveSubtasks, parentTask (+7 more)
 
 ### Community 162 - "Community 162"
 Cohesion: 0.29
 Nodes (6): getCategory, getCategoryColor, getColor, getIcon, normalizeSkillName, WellbeingTheme
 
 ### Community 163 - "Community 163"
-Cohesion: 0.25
-Nodes (7): _commitSessionAndPause, logTimerAndReset, pauseTimer, _provider, startTimer, TimerActions, package:missions/src/utils/task_calculations.dart
+Cohesion: 0.15
+Nodes (11): predictSchedule, _provider, ScheduleActions, _commitSessionAndPause, logTimerAndReset, pauseTimer, _provider, startTimer (+3 more)
 
 ### Community 164 - "Community 164"
-Cohesion: 0.08
-Nodes (23): build, BusNextCard, _formatTimeRemaining, nextBusData, routeInfo, build, selectedTask, taskColors (+15 more)
+Cohesion: 0.11
+Nodes (16): build, BusNextCard, _formatTimeRemaining, nextBusData, routeInfo, build, selectedTask, taskColors (+8 more)
 
 ### Community 165 - "Community 165"
-Cohesion: 0.25
-Nodes (6): dailyTaskGoalMinutes, initialMainTaskTemplates, getCreationTimestamp, hasOverlap, TimeValidationHelper, package:missions/src/models/task_models.dart
+Cohesion: 0.50
+Nodes (3): getCreationTimestamp, hasOverlap, TimeValidationHelper
 
 ### Community 166 - "Community 166"
-Cohesion: 0.17
-Nodes (12): AddSavingsLogDialog, _AddSavingsLogDialogState, _amountController, build, createState, goalId, ./mock.dart, package:firebase_core/firebase_core.dart (+4 more)
+Cohesion: 0.18
+Nodes (11): build, goalId, SavingsDetailScreen, _showAddLogDialog, ./mock.dart, package:firebase_core/firebase_core.dart, package:flutter_test/flutter_test.dart, package:missions/src/providers/app_provider.dart (+3 more)
 
 ### Community 167 - "Community 167"
 Cohesion: 0.29
@@ -1788,8 +1783,8 @@ Cohesion: 0.29
 Nodes (7): AddSavingsGoalDialog, _AddSavingsGoalDialogState, _amountController, build, createState, _nameController, _targetDate
 
 ### Community 172 - "Community 172"
-Cohesion: 0.12
-Nodes (13): build, GratitudeIntelCard, _iconFor, iconType, index, text, build, isRunning (+5 more)
+Cohesion: 0.29
+Nodes (6): build, GratitudeIntelCard, _iconFor, iconType, index, text
 
 ### Community 173 - "Community 173"
 Cohesion: 0.14
@@ -1808,28 +1803,28 @@ Cohesion: 0.29
 Nodes (7): _addKey, ApiKeyManager, _ApiKeyManagerState, build, createState, dispose, _keyController
 
 ### Community 177 - "ScheduleHeroWidget"
-Cohesion: 0.20
-Nodes (9): _initFirebase, main, package:firebase_dart/firebase_dart.dart, package:firedart/firedart.dart, package:missions/firebase_options.dart, package:missions/src/app.dart, package:missions/src/services/home_widget_service.dart, package:missions/src/services/notification_service.dart (+1 more)
+Cohesion: 0.33
+Nodes (6): AddSavingsLogDialog, _AddSavingsLogDialogState, _amountController, build, createState, goalId
 
 ### Community 178 - "Community 178"
 Cohesion: 0.50
 Nodes (3): library, package:flutter_material_design_icons/flutter_material_design_icons.dart, material_design_icons_flutter
 
 ### Community 183 - "Community 183"
-Cohesion: 0.20
-Nodes (8): calculateDailyTimeFromSessions, ChartDataHelper, prepareWeeklyData, build, logs, selectedVirtue, WellbeingPieChart, package:missions/src/theme/wellbeing_theme.dart
+Cohesion: 0.18
+Nodes (9): build, ColorSelectorDialog, palette, selectedColor, build, isVisible, SyncIndicator, package:missions/src/theme/arc/arc_theme.dart (+1 more)
 
 ### Community 184 - "StorageService"
-Cohesion: 0.10
-Nodes (19): Color, JweDynamicColor, accentColor, build, child, JwePanel, _matchTone, title (+11 more)
+Cohesion: 0.20
+Nodes (10): Color, JweDynamicColor, static bool, darkColor, DynamicThemeState, isDark, lightColor, main (+2 more)
 
 ### Community 185 - "Community 185"
-Cohesion: 0.22
-Nodes (8): android, DefaultFirebaseOptions, ios, macos, web, windows, package:flutter/foundation.dart, static const FirebaseOptions
+Cohesion: 0.17
+Nodes (11): _aiService, _buildMonthlyFinanceContext, _buildMonthlyHealthContext, _buildMonthlyWellbeingComparison, _buildPreviousMonthlyContext, _buildWeeklyReportsContext, generateMonthlyReport, generateStartDayReport (+3 more)
 
 ### Community 186 - "package:missions/src/models/chatbot_models.dart"
-Cohesion: 0.22
-Nodes (8): build, _buildLineChartSection, _buildPieChartSection, _buildRecentLogs, _buildStatCard, LogbookScreen, package:flutter_animate/flutter_animate.dart, package:gap/gap.dart
+Cohesion: 0.29
+Nodes (6): GratitudeItem, AssetInfoDialog, build, _buildSection, item, package:missions/src/models/chatbot_models.dart
 
 ### Community 222 - "Community 222"
 Cohesion: 0.11
@@ -1851,10 +1846,6 @@ Nodes (10): 1. Data & logic, 2. Today Planner screen — `today_planner_screen.d
 Cohesion: 0.14
 Nodes (13): Context, WidgetActionReceiver, Boolean, Context, Double, Int, SharedPreferences, String (+5 more)
 
-### Community 309 - "Community 309"
-Cohesion: 0.22
-Nodes (8): accentColor, build, content, subtitle, title, TourSlide, visual, package:missions/src/widgets/ui/jwe_panel.dart
-
 ### Community 349 - "jwe_compact_task_card.dart"
 Cohesion: 0.29
 Nodes (6): build, isSelected, JweCompactTaskCard, onLongPress, onTap, task
@@ -1869,27 +1860,23 @@ Nodes (6): dispatchWidgetAction(), Boolean, FlutterEngine, String, MainActivity,
 
 ### Community 392 - "Community 392"
 Cohesion: 0.10
-Nodes (22): FinanceWidget, AppWidgetManager, Context, Int, IntArray, SharedPreferences, JournalWidget, AppWidgetManager (+14 more)
+Nodes (19): FinanceWidget, AppWidgetManager, Context, Int, IntArray, SharedPreferences, JournalWidget, AppWidgetManager (+11 more)
 
 ### Community 1081 - "tour_slide.dart"
-Cohesion: 0.25
-Nodes (8): build, checkpointId, child, createState, didUpdateWidget, DraggableCheckpointWrapper, _DraggableCheckpointWrapperState, _hoverPosition
+Cohesion: 0.22
+Nodes (9): build, checkpointId, child, createState, didUpdateWidget, DraggableCheckpointWrapper, _DraggableCheckpointWrapperState, _hoverPosition (+1 more)
 
 ### Community 1082 - "schedule_actions.dart"
-Cohesion: 0.25
-Nodes (7): AdvancedToolsScreen, build, _buildToolCard, package:missions/src/screens/journaling/people_info_screen.dart, package:missions/src/screens/journaling/simulate_event_screen.dart, package:missions/src/screens/journaling/simulate_talk_screen.dart, package:missions/src/widgets/valorant/valorant_card.dart
-
-### Community 1083 - "package:collection/collection.dart"
-Cohesion: 0.25
-Nodes (7): build, color, HeroStatItem, icon, label, subValue, value
+Cohesion: 0.40
+Nodes (4): build, color, progress, SpideyProgressBar
 
 ### Community 1084 - "insight_watcher.dart"
 Cohesion: 0.18
 Nodes (11): build, child, createState, didChangeDependencies, dispose, InsightWatcher, _InsightWatcherState, _listenable (+3 more)
 
 ### Community 1085 - "logbook_screen.dart"
-Cohesion: 0.13
-Nodes (13): build, _buildMenuTile, isEmbed, MoreScreen, build, SettingsScreen, package:missions/src/screens/bus_schedule_screen.dart, package:missions/src/screens/database_editor_screen.dart (+5 more)
+Cohesion: 0.11
+Nodes (17): build, FinanceDashboardScreen, build, _buildMenuTile, isEmbed, MoreScreen, build, SettingsScreen (+9 more)
 
 ### Community 1086 - "arc_effects.dart"
 Cohesion: 0.18
@@ -1909,15 +1896,15 @@ Nodes (8): ArcContent, dossierBody, muted, onAccent, onSwatch, primary, secondar
 
 ### Community 1091 - "initialize_action_plan_dialog.dart"
 Cohesion: 0.25
-Nodes (8): build, createState, dispose, InitializeActionPlanDialog, _InitializeActionPlanDialogState, _nameController, _whyController, package:missions/src/widgets/valorant/valorant_button.dart
+Nodes (8): build, createState, dispose, InitializeActionPlanDialog, _InitializeActionPlanDialogState, _nameController, _whyController, package:missions/src/widgets/common/growing_text_field.dart
 
 ### Community 1092 - "simulate_event_screen.dart"
-Cohesion: 0.25
-Nodes (7): build, color, icon, isPrimary, label, onPressed, ValorantButton
+Cohesion: 0.29
+Nodes (7): build, createState, _inputController, _result, SimulateEventScreen, _SimulateEventScreenState, _submit
 
 ### Community 1093 - "health_combined_chart.dart"
 Cohesion: 0.25
-Nodes (7): build, items, label, onChanged, ValorantDropdown, value, T?
+Nodes (7): build, color, HealthCombinedChart, label, _LegendItem, provider, LineTooltipItem
 
 ### Community 1094 - "arc_theme.dart"
 Cohesion: 0.29
@@ -1948,24 +1935,24 @@ Cohesion: 0.50
 Nodes (3): build, LogbookScreen, package:missions/src/widgets/views/daily_summary_view.dart
 
 ## Knowledge Gaps
-- **3683 isolated node(s):** `install.sh script`, `+registerWithRegistry`, `DefaultFirebaseOptions`, `web`, `android` (+3678 more)
+- **3646 isolated node(s):** `install.sh script`, `+registerWithRegistry`, `DefaultFirebaseOptions`, `web`, `android` (+3641 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **857 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **854 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `AppProvider` connect `Community 135` to `Community 1`, `Community 3`, `Community 6`, `Community 134`, `Community 8`, `Community 138`, `Community 11`, `Community 12`, `Community 140`, `Community 142`, `Community 15`, `Community 16`, `Community 14`, `Community 139`, `Community 147`, `Community 20`, `Community 22`, `Community 23`, `Community 27`, `Community 28`, `Community 158`, `Community 34`, `Community 163`, `Community 164`, `Community 37`, `Community 166`, `Community 36`, `Community 168`, `Community 41`, `Community 170`, `Community 171`, `Community 173`, `jwe_compact_task_card.dart`, `Community 48`, `Community 176`, `Community 47`, `Community 51`, `Community 49`, `Community 53`, `Community 181`, `_TodayPlannerScreenState`, `insight_watcher.dart`, `Community 61`, `Community 63`, `Community 64`, `Community 65`, `Community 67`, `Community 69`, `ChangeNotifier`, `Community 73`, `Community 74`, `Community 77`, `_PeopleExtractionWizardState`, `_PeopleInfoScreenState`, `Community 83`, `Community 84`, `Community 85`, `Community 87`, `Community 88`, `Community 92`, `Community 94`, `Community 95`, `Community 98`, `Community 99`, `Community 101`, `Community 105`, `Community 106`, `Community 107`, `Community 108`, `Community 112`, `Community 114`, `Community 118`, `Community 123`, `Community 126`?**
-  _High betweenness centrality (0.077) - this node is a cross-community bridge._
+- **Why does `AppProvider` connect `Community 135` to `Community 1`, `Community 3`, `Community 6`, `Community 134`, `Community 8`, `Community 138`, `Community 11`, `Community 12`, `Community 139`, `Community 142`, `Community 15`, `Community 16`, `Community 14`, `Community 147`, `Community 20`, `Community 22`, `Community 23`, `Community 27`, `Community 28`, `Community 158`, `Community 34`, `Community 163`, `Community 36`, `Community 37`, `Community 166`, `Community 168`, `Community 41`, `Community 170`, `Community 171`, `Community 173`, `jwe_compact_task_card.dart`, `Community 48`, `ScheduleHeroWidget`, `Community 176`, `Community 51`, `Community 47`, `Community 53`, `Community 181`, `Community 309`, `Community 49`, `Community 185`, `package:collection/collection.dart`, `_TodayPlannerScreenState`, `Community 61`, `insight_watcher.dart`, `Community 63`, `Community 64`, `Community 65`, `Community 67`, `simulate_event_screen.dart`, `Community 69`, `health_combined_chart.dart`, `ChangeNotifier`, `Community 73`, `Community 74`, `Community 77`, `Community 83`, `Community 84`, `Community 85`, `Community 87`, `Community 88`, `Community 92`, `Community 94`, `Community 95`, `Community 98`, `Community 99`, `Community 101`, `Community 105`, `Community 106`, `Community 107`, `Community 108`, `Community 112`, `Community 114`, `Community 118`, `Community 123`, `Community 126`?**
+  _High betweenness centrality (0.082) - this node is a cross-community bridge._
 - **Why does `_Point` connect `Community 160` to `Community 17`?**
-  _High betweenness centrality (0.014) - this node is a cross-community bridge._
+  _High betweenness centrality (0.006) - this node is a cross-community bridge._
 - **What connects `Checks if a file or directory should be ignored based on .gitignore patterns.`, `Reads the .gitignore file and returns a list of patterns.     Handles comments a`, `Creates a zip archive of a Flutter project, excluding files and directories` to the rest of the system?**
-  _3695 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _3658 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.027777777777777776 - nodes in this community are weakly interconnected._
+- **Should `Community 1` be split into smaller, more focused modules?**
+  _Cohesion score 0.14285714285714285 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
-  _Cohesion score 0.03211216644052465 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.038461538461538464 - nodes in this community are weakly interconnected._
 - **Should `Community 3` be split into smaller, more focused modules?**
-  _Cohesion score 0.020618556701030927 - nodes in this community are weakly interconnected._
-- **Should `Community 4` be split into smaller, more focused modules?**
-  _Cohesion score 0.03389830508474576 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.021505376344086023 - nodes in this community are weakly interconnected._
