@@ -507,6 +507,16 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     initializeDefaultFinanceCategories();
 
     fb_service.authStateChanges.listen(_onAuthStateChanged);
+
+    // Seed initial auth state to avoid infinite loading if the auth stream does not emit on startup (common on Linux)
+    try {
+      final initialUser = fb_service.currentUser;
+      _onAuthStateChanged(initialUser);
+    } catch (e) {
+      debugPrint("Error getting initial auth state: $e");
+      // Fallback: transition out of loading screen anyway
+      setAuthLoading(false);
+    }
   }
 
   Future<void> _onAuthStateChanged(AppUser? user) async {
@@ -521,7 +531,11 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         } else {
           // FIX: Auto load from cloud if local state is missing (Fixes web resets)
           await _resetToInitialState();
-          await manuallyLoadFromCloud();
+          try {
+            await manuallyLoadFromCloud();
+          } catch (e) {
+            debugPrint("Failed to load initial state from cloud: $e");
+          }
         }
         setAuthLoading(false); 
       }
@@ -539,6 +553,10 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       rescheduleReminders();
 
     } else {
+      if (currentUser == null && !authLoading) {
+        // Already logged out and loading screen is gone. Nothing to do.
+        return;
+      }
       setCurrentUser(null);
       await _resetToInitialState();
       setAuthLoading(false);

@@ -1083,22 +1083,8 @@
   "1081": "tour_slide.dart",
   "1082": "schedule_actions.dart",
   "1083": "package:collection/collection.dart",
-  "1084": "insight_watcher.dart",
   "1085": "logbook_screen.dart",
-  "1086": "arc_effects.dart",
   "1087": "_backgroundResponseHandler",
   "1088": "_PeopleExtractionWizardState",
-  "1089": "_PeopleInfoScreenState",
-  "1090": "arc_content.dart",
-  "1091": "initialize_action_plan_dialog.dart",
-  "1092": "simulate_event_screen.dart",
-  "1093": "health_combined_chart.dart",
-  "1094": "arc_theme.dart",
-  "1095": "TextEditingController",
-  "1096": "ChangeNotifier",
-  "1097": "Light Theme — Design & Color Psychology Notes",
-  "1098": "tokenize_colors.py",
-  "1099": "Reusable Deep-Research Prompts",
-  "1100": "logbook_screen.dart",
-  "1101": "install.sh"
+  "1089": "_PeopleInfoScreenState"
 }

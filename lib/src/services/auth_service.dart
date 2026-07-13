@@ -120,8 +120,10 @@ class _LinuxAuthService implements AuthService {
   AppUser? get currentUser => _fdToAppUser(_auth.currentUser);
 
   @override
-  Stream<AppUser?> get authStateChanges =>
-      _auth.authStateChanges().map(_fdToAppUser);
+  Stream<AppUser?> get authStateChanges async* {
+    yield currentUser;
+    yield* _auth.authStateChanges().map(_fdToAppUser);
+  }
 
   @override
   Future<AppUser?> signInWithEmail(String email, String password) async {
