@@ -54,7 +54,7 @@ void showUndoSnackBar({
         ),
         backgroundColor: AppTheme.fhBgDark,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 5),
+        duration: const Duration(seconds: 3),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(6),
           side:   BorderSide(color: AppTheme.fhBorderColor),
