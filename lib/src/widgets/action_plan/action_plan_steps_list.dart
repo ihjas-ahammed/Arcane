@@ -3,6 +3,10 @@ import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/utils/step_expansion.dart';
+import 'package:missions/src/utils/global_toast.dart';
+import 'package:flutter/services.dart';
+import 'package:collection/collection.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/items/checkpoint_item.dart';
 import 'package:missions/src/widgets/items/draggable_checkpoint_wrapper.dart';
 import 'package:missions/src/widgets/screens/checkpoint_detail_screen.dart';
@@ -35,6 +39,8 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
   final TextEditingController _stepController = TextEditingController();
   bool _aiMode = false;
   bool _aiLoading = false;
+  bool _isSelectionMode = false;
+  Set<String> _selectedKeys = {};
 
   Future<void> _handleAdd(AppProvider provider) async {
     final raw = _stepController.text.trim();
@@ -99,6 +105,71 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
     )));
   }
 
+  void _copySelected() {
+    final buffer = StringBuffer();
+    for (final step in widget.steps) {
+      if (_selectedKeys.contains(step.id)) {
+        buffer.writeln(step.toCopyStructure());
+        buffer.writeln();
+      }
+    }
+    if (buffer.isNotEmpty) {
+      Clipboard.setData(ClipboardData(text: buffer.toString().trimRight()));
+      showGlobalToast("Copied selected checkpoints to clipboard");
+    }
+    setState(() {
+      _selectedKeys.clear();
+      _isSelectionMode = false;
+    });
+  }
+
+  void _completeSelected(AppProvider provider) {
+    int completedCount = 0;
+    for (final stepId in _selectedKeys) {
+      final step = widget.steps.firstWhereOrNull((s) => s.id == stepId);
+      if (step != null && !step.completed) {
+        provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.subTaskId, stepId);
+        completedCount++;
+      }
+    }
+    setState(() {
+      _selectedKeys.clear();
+      _isSelectionMode = false;
+    });
+    if (completedCount > 0) {
+      showGlobalToast("✓ Completed $completedCount checkpoints");
+    }
+  }
+
+  void _deleteSelected(AppProvider provider) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgDark,
+        title: Text("DELETE SELECTED OBJECTIVES?", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
+        content: Text("This action cannot be undone.", style: TextStyle(color: AppTheme.fhTextSecondary)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Delete")
+          ),
+        ],
+      )
+    );
+    if (confirm != true) return;
+
+    for (final stepId in _selectedKeys) {
+      provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.subTaskId, stepId);
+    }
+    setState(() {
+      _selectedKeys.clear();
+      _isSelectionMode = false;
+    });
+    showGlobalToast("Selected checkpoints deleted");
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
@@ -116,32 +187,122 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children:[
-                Text("TACTICAL EXECUTION (HOW)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
-              if (widget.steps.isEmpty)
-                TextButton.icon(
-                  onPressed: isLoading ? null : () async {
-                    final prompt = await showDialog<String>(
-                      context: context,
-                      builder: (_) => const AiGenerationPromptDialog(
-                        title: "GENERATE STRATEGY",
-                        hintText: "Add specific instructions, e.g. Focus on low budget...",
-                        actionLabel: "GENERATE",
-                      ),
-                    );
-                    if (prompt != null && prompt.isNotEmpty) {
-                      widget.onGenerate(prompt);
-                    }
-                  },
-                  icon: isLoading 
-                    ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: widget.accentColor)) 
-                    : Icon(MdiIcons.robotExcitedOutline, size: 14, color: widget.accentColor),
-                  label: Text(isLoading ? "THINKING..." : "GENERATE STEPS", style: TextStyle(fontSize: 10, color: widget.accentColor)),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(0, 30),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap
+              if (_isSelectionMode) ...[
+                Text(
+                  "${_selectedKeys.length} SELECTED",
+                  style: GoogleFonts.jetBrainsMono(
+                    color: widget.accentColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
                   ),
                 ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.select_all, size: 18),
+                      color: JweTheme.textWhite,
+                      onPressed: () {
+                        setState(() {
+                          if (_selectedKeys.length == widget.steps.length) {
+                            _selectedKeys.clear();
+                          } else {
+                            _selectedKeys = widget.steps.map((e) => e.id).toSet();
+                          }
+                        });
+                      },
+                      tooltip: _selectedKeys.length == widget.steps.length ? "Deselect All" : "Select All",
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      constraints: const BoxConstraints(),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 18),
+                      color: widget.accentColor,
+                      onPressed: _selectedKeys.isEmpty ? null : _copySelected,
+                      tooltip: "Copy Selected",
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      constraints: const BoxConstraints(),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.check_circle_outline, size: 18),
+                      color: widget.accentColor,
+                      onPressed: _selectedKeys.isEmpty ? null : () => _completeSelected(provider),
+                      tooltip: "Complete Selected",
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      constraints: const BoxConstraints(),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      color: AppTheme.fhAccentRed,
+                      onPressed: _selectedKeys.isEmpty ? null : () => _deleteSelected(provider),
+                      tooltip: "Delete Selected",
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      constraints: const BoxConstraints(),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      color: JweTheme.textMuted,
+                      onPressed: () {
+                        setState(() {
+                          _isSelectionMode = false;
+                          _selectedKeys.clear();
+                        });
+                      },
+                      tooltip: "Cancel",
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Text("TACTICAL EXECUTION (HOW)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (widget.steps.isEmpty)
+                      TextButton.icon(
+                        onPressed: isLoading ? null : () async {
+                          final prompt = await showDialog<String>(
+                            context: context,
+                            builder: (_) => const AiGenerationPromptDialog(
+                              title: "GENERATE STRATEGY",
+                              hintText: "Add specific instructions, e.g. Focus on low budget...",
+                              actionLabel: "GENERATE",
+                            ),
+                          );
+                          if (prompt != null && prompt.isNotEmpty) {
+                            widget.onGenerate(prompt);
+                          }
+                        },
+                        icon: isLoading 
+                          ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: widget.accentColor)) 
+                          : Icon(MdiIcons.robotExcitedOutline, size: 14, color: widget.accentColor),
+                        label: Text(isLoading ? "THINKING..." : "GENERATE STEPS", style: TextStyle(fontSize: 10, color: widget.accentColor)),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(0, 30),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap
+                        ),
+                      ),
+                    if (widget.steps.isNotEmpty) ...[
+                      const SizedBox(width: 10),
+                      IconButton(
+                        icon: Icon(Icons.playlist_add_check, color: widget.accentColor, size: 18),
+                        onPressed: () {
+                          setState(() {
+                            _isSelectionMode = true;
+                            _selectedKeys.clear();
+                          });
+                        },
+                        tooltip: "Select Multiple",
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -164,44 +325,60 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
             itemCount: widget.steps.length,
             itemBuilder: (ctx, index) {
               final step = widget.steps[index];
+              final item = CheckpointItem(
+                key: ValueKey(step.id),
+                title: step.name,
+                isCompleted: step.completed,
+                type: step.type,
+                hasCheckableSubsteps: step.hasCheckableSubsteps,
+                progress: step.calculateProgress(),
+                accentColor: widget.accentColor,
+                substeps: step.substeps,
+                onToggleSubstep: (sub) {
+                  if (sub.completed) {
+                    provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, sub.id);
+                  } else {
+                    provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.subTaskId, sub.id);
+                  }
+                },
+                onTap: () => _navigateToStepDetail(context, step),
+                onPlay: null,
+                isRunning: false,
+                onToggle: () {
+                  if (step.completed) {
+                    provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
+                  } else {
+                    provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
+                  }
+                },
+                onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
+                onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
+                onToggleType: () {
+                  final newType = step.type == 'check' ? 'info' : 'check';
+                  provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id, {'type': newType});
+                },
+                isSelectionMode: _isSelectionMode,
+                isSelected: _selectedKeys.contains(step.id),
+                onSelectedChanged: (val) {
+                  setState(() {
+                    if (val == true) {
+                      _selectedKeys.add(step.id);
+                    } else {
+                      _selectedKeys.remove(step.id);
+                    }
+                  });
+                },
+              );
+
+              if (_isSelectionMode) {
+                return item;
+              }
               return DraggableCheckpointWrapper(
                 checkpointId: step.id,
                 onMove: (draggedId, targetId, pos) {
                   provider.taskActions.moveCheckpointRelative(widget.mainTaskId, widget.subTaskId, draggedId, targetId, pos);
                 },
-                child: CheckpointItem(
-                  key: ValueKey(step.id),
-                  title: step.name,
-                  isCompleted: step.completed,
-                  type: step.type,
-                  hasCheckableSubsteps: step.hasCheckableSubsteps,
-                  progress: step.calculateProgress(),
-                  accentColor: widget.accentColor,
-                  substeps: step.substeps,
-                  onToggleSubstep: (sub) {
-                    if (sub.completed) {
-                      provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, sub.id);
-                    } else {
-                      provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.subTaskId, sub.id);
-                    }
-                  },
-                  onTap: () => _navigateToStepDetail(context, step),
-                  onPlay: null,
-                  isRunning: false,
-                  onToggle: () {
-                    if (step.completed) {
-                      provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
-                    } else {
-                      provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.subTaskId, step.id);
-                    }
-                  },
-                  onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
-                  onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id),
-                  onToggleType: () {
-                    final newType = step.type == 'check' ? 'info' : 'check';
-                    provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id, {'type': newType});
-                  },
-                ),
+                child: item,
               );
             },
           ),

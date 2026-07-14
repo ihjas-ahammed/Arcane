@@ -27,6 +27,9 @@ class CheckpointItem extends StatefulWidget {
   final double progress;
   final List<SubSubTask>? substeps;
   final void Function(SubSubTask step)? onToggleSubstep;
+  final bool isSelectionMode;
+  final bool isSelected;
+  final ValueChanged<bool?>? onSelectedChanged;
 
   const CheckpointItem({
     super.key,
@@ -47,6 +50,9 @@ class CheckpointItem extends StatefulWidget {
     this.progress = 0.0,
     this.substeps,
     this.onToggleSubstep,
+    this.isSelectionMode = false,
+    this.isSelected = false,
+    this.onSelectedChanged,
   });
 
   @override
@@ -97,7 +103,7 @@ class _CheckpointItemState extends State<CheckpointItem> {
 
     return Dismissible(
       key: widget.key ?? ValueKey("cp_${widget.title}_${widget.hashCode}"),
-      direction: DismissDirection.horizontal,
+      direction: widget.isSelectionMode ? DismissDirection.none : DismissDirection.horizontal,
       background: Container(
         color: AppTheme.fhAccentRed,
         alignment: Alignment.centerLeft,
@@ -142,7 +148,7 @@ class _CheckpointItemState extends State<CheckpointItem> {
         return false;
       },
       child: GestureDetector(
-        onTap: widget.onTap, 
+        onTap: widget.isSelectionMode ? () => widget.onSelectedChanged?.call(!widget.isSelected) : widget.onTap, 
         child: Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(12),
@@ -154,7 +160,17 @@ class _CheckpointItemState extends State<CheckpointItem> {
             children: [
               Row(
                 children:[
-                  if (!isInfo)
+                  if (widget.isSelectionMode)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Checkbox(
+                        value: widget.isSelected,
+                        onChanged: widget.onSelectedChanged,
+                        activeColor: color,
+                        checkColor: AppTheme.fhBgDark,
+                      ),
+                    )
+                  else if (!isInfo)
                     Padding(
                       padding: const EdgeInsets.only(right: 12),
                       child: RhombusCheckbox(
@@ -201,8 +217,9 @@ class _CheckpointItemState extends State<CheckpointItem> {
                       child: Icon(MdiIcons.fileTree, size: 14, color: color),
                     ),
       
-                  PopupMenuButton<String>(
-                    icon: Icon(Icons.more_vert, size: 18, color: AppTheme.fhTextSecondary),
+                  if (!widget.isSelectionMode)
+                    PopupMenuButton<String>(
+                      icon: Icon(Icons.more_vert, size: 18, color: AppTheme.fhTextSecondary),
                     color: AppTheme.fhBgDark,
                     onSelected: (value) {
                       if (value == 'delete') widget.onDelete();
