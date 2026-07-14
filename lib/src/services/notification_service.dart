@@ -158,24 +158,11 @@ class NotificationService {
     _initialized = true;
   }
 
-  String? _pendingActionId;
-  String? _pendingPayload;
-
   void setOnTap(void Function(String? payload)? handler) {
     _onTap = handler;
-    if (_onTap != null && (_pendingActionId != null || _pendingPayload != null)) {
-      _handleResponse(_pendingActionId, _pendingPayload);
-      _pendingActionId = null;
-      _pendingPayload = null;
-    }
   }
 
   void _handleResponse(String? actionId, String? payload) {
-    if (_onTap == null) {
-      _pendingActionId = actionId;
-      _pendingPayload = payload;
-      return;
-    }
     if (payload == null) {
       _onTap?.call(null);
       return;
@@ -381,11 +368,15 @@ class NotificationService {
       showsUserInterface: false,
     ));
 
-    // Header = subtask name; secondary line = the latest checkpoint.
-    final title = taskName.trim().isNotEmpty ? taskName : 'Session in progress';
-    var body = (nextCheckpointName != null && nextCheckpointName.trim().isNotEmpty)
-        ? nextCheckpointName
-        : 'Session in progress';
+    // Header = main task; secondary line = the current subtask / checkpoint.
+    // Falls back to the subtask name when no main-task name was supplied.
+    final title = (mainTaskName != null && mainTaskName.trim().isNotEmpty)
+        ? mainTaskName
+        : taskName;
+    var body = taskName.trim().isNotEmpty ? taskName : 'Session in progress';
+    if (nextCheckpointName != null && nextCheckpointName.trim().isNotEmpty) {
+      body = "$taskName · $nextCheckpointName";
+    }
     if (statusBody != null) {
       body = statusBody;
     }
