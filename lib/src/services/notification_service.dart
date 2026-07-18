@@ -47,6 +47,7 @@ class NotificationService {
   String? _activeTimerSubtaskId;
   DateTime? _activeTimerStartTime;
   String? _activeTimerTaskName;
+  String? _activeTimerNextCheckpoint;
 
   // In-app daily reminder timers (for Linux/macOS where zonedSchedule is unavailable)
   final Map<int, Timer> _inAppReminderTimers = {};
@@ -318,6 +319,7 @@ class NotificationService {
     _activeTimerSubtaskId = subtaskId;
     _activeTimerStartTime = startTime;
     _activeTimerTaskName = taskName;
+    _activeTimerNextCheckpoint = nextCheckpointName;
 
     if (kIsWeb) return; // No persistent notifications on web
 
@@ -334,14 +336,14 @@ class NotificationService {
         mainTaskName,
       );
     } else if (_isLinux) {
-      await _showLinuxTimerNotification(taskName, startTime);
+      await _showLinuxTimerNotification(taskName, startTime, nextCheckpointName);
       _startLinuxTimerUpdater();
     } else {
       // iOS / macOS: basic non-persistent notification
       await _plugin.show(
         _timerNotifId,
         '▶ $taskName',
-        statusBody ?? 'Timer is running',
+        statusBody ?? nextCheckpointName ?? 'Timer is running',
         const NotificationDetails(
           iOS: DarwinNotificationDetails(presentAlert: false, presentSound: false, presentBadge: false),
           macOS: DarwinNotificationDetails(presentAlert: false),
@@ -430,7 +432,7 @@ class NotificationService {
   }
 
   Future<void> _showLinuxTimerNotification(
-      String taskName, DateTime startTime) async {
+      String taskName, DateTime startTime, String? nextCheckpointName) async {
     final elapsed = DateTime.now().difference(startTime);
     final h = elapsed.inHours;
     final m = elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -440,7 +442,7 @@ class NotificationService {
     await _plugin.show(
       _timerNotifId,
       '▶  $taskName — $timeStr',
-      'Timer running • updates every 5 min',
+      nextCheckpointName ?? 'Timer running • updates every 5 min',
       const NotificationDetails(
         linux: LinuxNotificationDetails(
           urgency: LinuxNotificationUrgency.low,
@@ -455,7 +457,11 @@ class NotificationService {
     _linuxTimerUpdater?.cancel();
     _linuxTimerUpdater = Timer.periodic(const Duration(minutes: 5), (_) {
       if (_activeTimerStartTime != null && _activeTimerTaskName != null) {
-        _showLinuxTimerNotification(_activeTimerTaskName!, _activeTimerStartTime!);
+        _showLinuxTimerNotification(
+          _activeTimerTaskName!,
+          _activeTimerStartTime!,
+          _activeTimerNextCheckpoint,
+        );
       }
     });
   }
@@ -464,6 +470,7 @@ class NotificationService {
     _activeTimerSubtaskId = null;
     _activeTimerStartTime = null;
     _activeTimerTaskName = null;
+    _activeTimerNextCheckpoint = null;
     _linuxTimerUpdater?.cancel();
     _linuxTimerUpdater = null;
     if (!kIsWeb) await _plugin.cancel(_timerNotifId);

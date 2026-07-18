@@ -4,6 +4,7 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:clipToOutline="true"
     android:padding="8dp">
 
     <LinearLayout
@@ -20,7 +21,7 @@
         <LinearLayout
             android:id="@+id/widget_running_layout"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:orientation="vertical">
 
             <!-- Status row -->
@@ -199,7 +200,7 @@
         <LinearLayout
             android:id="@+id/widget_dayplan_layout"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:orientation="vertical"
             android:visibility="gone">
 
@@ -214,23 +215,23 @@
                 android:layout_marginBottom="6dp" />
 
             <!-- Rows 0..4 -->
-            <LinearLayout android:id="@+id/widget_dayplan_row_0" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical">
+            <LinearLayout android:id="@+id/widget_dayplan_row_0" android:layout_width="match_parent" android:layout_height="32dp" android:orientation="horizontal" android:gravity="center_vertical">
                 <TextView android:id="@+id/widget_dayplan_row_title_0" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="12sp" />
                 <TextView android:id="@+id/widget_dayplan_btn_check_0" android:layout_width="42dp" android:layout_height="28dp" android:background="@drawable/widget_btn_outline_cyan" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="13sp" />
             </LinearLayout>
-            <LinearLayout android:id="@+id/widget_dayplan_row_1" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
+            <LinearLayout android:id="@+id/widget_dayplan_row_1" android:layout_width="match_parent" android:layout_height="32dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
                 <TextView android:id="@+id/widget_dayplan_row_title_1" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="12sp" />
                 <TextView android:id="@+id/widget_dayplan_btn_check_1" android:layout_width="42dp" android:layout_height="28dp" android:background="@drawable/widget_btn_outline_cyan" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="13sp" />
             </LinearLayout>
-            <LinearLayout android:id="@+id/widget_dayplan_row_2" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
+            <LinearLayout android:id="@+id/widget_dayplan_row_2" android:layout_width="match_parent" android:layout_height="32dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
                 <TextView android:id="@+id/widget_dayplan_row_title_2" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="12sp" />
                 <TextView android:id="@+id/widget_dayplan_btn_check_2" android:layout_width="42dp" android:layout_height="28dp" android:background="@drawable/widget_btn_outline_cyan" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="13sp" />
             </LinearLayout>
-            <LinearLayout android:id="@+id/widget_dayplan_row_3" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
+            <LinearLayout android:id="@+id/widget_dayplan_row_3" android:layout_width="match_parent" android:layout_height="32dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
                 <TextView android:id="@+id/widget_dayplan_row_title_3" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="12sp" />
                 <TextView android:id="@+id/widget_dayplan_btn_check_3" android:layout_width="42dp" android:layout_height="28dp" android:background="@drawable/widget_btn_outline_cyan" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="13sp" />
             </LinearLayout>
-            <LinearLayout android:id="@+id/widget_dayplan_row_4" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
+            <LinearLayout android:id="@+id/widget_dayplan_row_4" android:layout_width="match_parent" android:layout_height="32dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
                 <TextView android:id="@+id/widget_dayplan_row_title_4" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="12sp" />
                 <TextView android:id="@+id/widget_dayplan_btn_check_4" android:layout_width="42dp" android:layout_height="28dp" android:background="@drawable/widget_btn_outline_cyan" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="13sp" />
             </LinearLayout>

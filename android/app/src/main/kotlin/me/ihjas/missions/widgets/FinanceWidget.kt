@@ -3,6 +3,7 @@ package me.ihjas.missions.widgets
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.SharedPreferences
+import android.view.View
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetProvider
 import me.ihjas.missions.R
@@ -23,6 +24,9 @@ class FinanceWidget : HomeWidgetProvider() {
     private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int, prefs: SharedPreferences) {
         val views = RemoteViews(context.packageName, R.layout.widget_finance)
 
+        val options = mgr.getAppWidgetOptions(widgetId)
+        val minHeight = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT) ?: 0
+
         val balance = (prefs.getString("arcane.fin.balance", "0") ?: "0").toDoubleOrNull() ?: 0.0
         val today = (prefs.getString("arcane.fin.today", "0") ?: "0").toDoubleOrNull() ?: 0.0
         val mtd = (prefs.getString("arcane.fin.mtd", "0") ?: "0").toDoubleOrNull() ?: 0.0
@@ -32,6 +36,14 @@ class FinanceWidget : HomeWidgetProvider() {
         views.setTextViewText(R.id.widget_fin_today, "TODAY ${WidgetCommon.fmtMoney(today)}")
         views.setTextViewText(R.id.widget_fin_mtd, "MTD ${WidgetCommon.fmtMoney(mtd)}")
         views.setProgressBar(R.id.widget_fin_budget, 100, budgetPct.coerceIn(0, 100), false)
+
+        if (minHeight > 0 && minHeight < 100) {
+            views.setViewVisibility(R.id.widget_fin_budget, View.GONE)
+            views.setViewVisibility(R.id.widget_fin_buttons_layout, View.GONE)
+        } else {
+            views.setViewVisibility(R.id.widget_fin_budget, View.VISIBLE)
+            views.setViewVisibility(R.id.widget_fin_buttons_layout, View.VISIBLE)
+        }
 
         views.setOnClickPendingIntent(
             R.id.widget_finance_root,

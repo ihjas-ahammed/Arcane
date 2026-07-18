@@ -89,11 +89,19 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
     final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
     if (sub == null) return TaskCalculations.defaultSubtaskMinutes;
+
     final median = TaskCalculations.medianSessionMinutes(sub);
-    if (median != null) return median;
-    return parts.length == 3
-        ? TaskCalculations.defaultCheckpointMinutes
-        : TaskCalculations.defaultSubtaskMinutes;
+    final subtaskEstimate = median ?? TaskCalculations.defaultSubtaskMinutes;
+
+    if (parts.length == 3) {
+      final activeCps = _getAllCheckpointsForPlanning(sub);
+      if (activeCps.isNotEmpty) {
+        return (subtaskEstimate / activeCps.length).round().clamp(1, 600);
+      }
+      return TaskCalculations.defaultCheckpointMinutes;
+    }
+
+    return subtaskEstimate;
   }
 
   /// True when the entry's target is already completed (kept in the plan as a
@@ -559,93 +567,23 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     for (final entry in _entries) {
       plannedCounts[entry.id] = (plannedCounts[entry.id] ?? 0) + 1;
     }
-    final activeTasks =
-        provider.mainTasks.where((t) => t.isActive && !t.isDeleted).toList();
-    final q = _searchQuery;
-    final widgets = <Widget>[];
-
-    for (final task in activeTasks) {
-      final activeSubs = task.subTasks.where((s) {
-        if (s.isDeleted) return false;
-        if (s.completed) return s.isRecurring;
-        return true;
-      }).toList();
-      if (activeSubs.isEmpty) continue;
-
-      // Children of the main-task dropdown: each active subtask wrapped in its own sub-dropdown.
-      final subGroups = <Widget>[];
-      int taskQueued = 0;
-
-      for (final sub in activeSubs) {
-        final subId = '${task.id}|${sub.id}';
-        final activeCps = _getAllCheckpointsForPlanning(sub);
-        final subMatches = _matchesQuery(sub.name, q);
-
-        // Checkpoint add-rows for this subtask that match the current query.
-        final cpRows = <Widget>[];
-        int cpPlannedSum = 0;
-        for (final cp in activeCps) {
-          final cpId = '$subId|${cp.id}';
-          if (!_matchesQuery(cp.name, q) && !subMatches) continue;
-          final cpCount = plannedCounts[cpId] ?? 0;
-          cpPlannedSum += cpCount;
-          taskQueued += cpCount;
-          cpRows.add(_AvailableRow(
-            title: cp.name,
-            parent: _findParentPath(sub, cp),
-            color: task.taskColor,
-            isCheckpoint: true,
-            plannedCount: cpCount,
-            onAdd: () => _addToPlan(provider, cpId),
-          ));
-        }
-
-        final subCount = plannedCounts[subId] ?? 0;
-        // Skip subtasks that neither match nor contain matching checkpoints.
-        if (!subMatches && cpRows.isEmpty) continue;
-        taskQueued += subCount;
-
-        // Every subtask gets its own collapsible group (subdropdown) for clean organization
-        subGroups.add(_CollapsibleGroup(
-          key: ValueKey('sub_${sub.id}_${q.isEmpty ? 0 : 1}'),
-          title: sub.name,
-          color: task.taskColor,
-          level: 1,
-          queuedCount: subCount + cpPlannedSum,
-          initiallyExpanded: q.isNotEmpty,
-          children: [
-            _AvailableRow(
-              title: 'Add whole subtask',
-              color: task.taskColor,
-              isCheckpoint: false,
-              plannedCount: subCount,
-              onAdd: () => _addToPlan(provider, subId),
-            ),
-            ...cpRows,
-          ],
-        ));
-      }
-
-      if (subGroups.isNotEmpty) {
-        widgets.add(_CollapsibleGroup(
-          key: ValueKey('task_${task.id}_${q.isEmpty ? 0 : 1}'),
-          title: task.name,
-          color: task.taskColor,
-          level: 0,
-          queuedCount: taskQueued,
-          initiallyExpanded: q.isNotEmpty,
-          children: subGroups,
-        ));
-      }
-    }
+    final widgets = _buildSelectableTree(
+      provider: provider,
+      query: _searchQuery,
+      isSelectionMode: false,
+      selectedIds: const {},
+      onToggleSelection: (_, __) {},
+      plannedCounts: plannedCounts,
+      onAdd: (id) => _addToPlan(provider, id),
+    );
 
     if (widgets.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            q.isEmpty ? 'No available items.' : 'No matches for "$_searchQuery".',
-            style:   TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12),
+            _searchQuery.isEmpty ? 'No available items.' : 'No matches for "$_searchQuery".',
+            style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12),
             textAlign: TextAlign.center,
           ),
         ),
@@ -834,8 +772,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
 
   void _showCreateRoutineDialog(AppProvider provider, [RoutineList? existing]) {
     final nameController = TextEditingController(text: existing?.name ?? '');
-    final allItems = _getAvailableRoutineItems(provider);
-    final selectedIds = (existing?.taskIds ?? <String>[]).toSet();
+    final selectedIdsList = List<String>.from(existing?.taskIds ?? <String>[]);
+    final selectedIdsSet = selectedIdsList.toSet();
+    String dialogSearchQuery = '';
 
     showDialog(
       context: context,
@@ -850,7 +789,8 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                       color: AppTheme.fhAccentTeal,
                       letterSpacing: 1.5,
                       fontWeight: FontWeight.bold)),
-              content: SingleChildScrollView(
+              content: SizedBox(
+                width: 400,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -869,7 +809,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'SELECT TASKS / CHECKPOINTS:',
+                      'ROUTINE ORDER (DRAG TO REARRANGE):',
                       style: GoogleFonts.rajdhani(
                         color: AppTheme.fhTextSecondary,
                         fontWeight: FontWeight.bold,
@@ -877,62 +817,150 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                         letterSpacing: 1,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    if (allItems.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 24),
-                        child: Center(
-                          child: Text(
-                            'No tasks or checkpoints available.',
-                            style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12),
-                          ),
+                    const SizedBox(height: 6),
+                    if (selectedIdsList.isEmpty)
+                      Container(
+                        height: 100,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppTheme.fhBorderColor),
+                          color: AppTheme.fhBgDeepDark,
+                        ),
+                        child: Text(
+                          'No items selected yet. Use the selector below.',
+                          style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 11),
                         ),
                       )
                     else
                       Container(
-                        height: 250,
-                        width: 320,
+                        height: 180,
                         decoration: BoxDecoration(
                           border: Border.all(color: AppTheme.fhBorderColor),
+                          color: AppTheme.fhBgDeepDark,
                         ),
-                        child: ListView.builder(
-                          itemCount: allItems.length,
+                        child: ReorderableListView.builder(
+                          shrinkWrap: true,
+                          itemCount: selectedIdsList.length,
+                          onReorder: (oldIndex, newIndex) {
+                            dialogState(() {
+                              if (newIndex > oldIndex) newIndex -= 1;
+                              final item = selectedIdsList.removeAt(oldIndex);
+                              selectedIdsList.insert(newIndex, item);
+                            });
+                          },
                           itemBuilder: (context, idx) {
-                            final item = allItems[idx];
-                            final isSelected = selectedIds.contains(item.compoundId);
-                            return Theme(
-                              data: Theme.of(context).copyWith(
-                                unselectedWidgetColor: AppTheme.fhTextDisabled,
-                              ),
-                              child: CheckboxListTile(
-                                title: Text(item.title,
-                                    style: TextStyle(
-                                        color: AppTheme.fhTextPrimary,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold)),
-                                subtitle: Text(item.parentPath,
-                                    style: TextStyle(
-                                        color: AppTheme.fhTextDisabled,
-                                        fontSize: 10)),
-                                value: isSelected,
-                                activeColor: AppTheme.fhAccentTeal,
-                                checkColor: AppTheme.fhBgDark,
-                                controlAffinity: ListTileControlAffinity.leading,
-                                contentPadding: EdgeInsets.zero,
-                                onChanged: (val) {
-                                  dialogState(() {
-                                    if (val == true) {
-                                      selectedIds.add(item.compoundId);
-                                    } else {
-                                      selectedIds.remove(item.compoundId);
-                                    }
-                                  });
-                                },
+                            final compoundId = selectedIdsList[idx];
+                            final itemDetails = _resolveRoutineItemDetails(provider, compoundId);
+                            return Container(
+                              key: ValueKey('selected_$compoundId'),
+                              margin: const EdgeInsets.only(bottom: 2),
+                              color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+                              child: ListTile(
+                                dense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                                title: Text(
+                                  itemDetails.title,
+                                  style: TextStyle(
+                                      color: AppTheme.fhTextPrimary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                subtitle: Text(
+                                  itemDetails.parentPath,
+                                  style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 10),
+                                ),
+                                leading: Icon(
+                                  Icons.drag_handle,
+                                  size: 16,
+                                  color: AppTheme.fhTextSecondary,
+                                ),
+                                trailing: IconButton(
+                                  icon: Icon(Icons.close, size: 14, color: AppTheme.fhAccentRed),
+                                  onPressed: () {
+                                    dialogState(() {
+                                      selectedIdsList.removeAt(idx);
+                                      selectedIdsSet.remove(compoundId);
+                                    });
+                                  },
+                                ),
                               ),
                             );
                           },
                         ),
                       ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'ADD / REMOVE ITEMS:',
+                      style: GoogleFonts.rajdhani(
+                        color: AppTheme.fhTextSecondary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      height: 250,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppTheme.fhBorderColor),
+                        color: AppTheme.fhBgDark,
+                      ),
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(6.0),
+                            child: TextField(
+                              onChanged: (v) {
+                                dialogState(() {
+                                  dialogSearchQuery = v;
+                                });
+                              },
+                              style: TextStyle(color: AppTheme.fhTextPrimary, fontSize: 12),
+                              decoration: InputDecoration(
+                                hintText: 'Search tasks...',
+                                hintStyle: TextStyle(color: AppTheme.fhTextDisabled),
+                                prefixIcon: Icon(Icons.search, size: 16, color: AppTheme.fhTextSecondary),
+                                isDense: true,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.zero,
+                                  borderSide: BorderSide(color: AppTheme.fhBorderColor),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.zero,
+                                  borderSide: BorderSide(color: AppTheme.fhAccentTeal),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: ListView(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              children: _buildSelectableTree(
+                                provider: provider,
+                                query: dialogSearchQuery,
+                                isSelectionMode: true,
+                                selectedIds: selectedIdsSet,
+                                onToggleSelection: (id, isSelected) {
+                                  dialogState(() {
+                                    if (isSelected) {
+                                      selectedIdsSet.add(id);
+                                      if (!selectedIdsList.contains(id)) {
+                                        selectedIdsList.add(id);
+                                      }
+                                    } else {
+                                      selectedIdsSet.remove(id);
+                                      selectedIdsList.remove(id);
+                                    }
+                                  });
+                                },
+                                plannedCounts: const {},
+                                onAdd: (_) {},
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -948,7 +976,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                       showGlobalToast('Please enter a routine name');
                       return;
                     }
-                    if (selectedIds.isEmpty) {
+                    if (selectedIdsList.isEmpty) {
                       showGlobalToast('Please select at least one task');
                       return;
                     }
@@ -956,7 +984,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                     final routine = RoutineList(
                       id: existing?.id ?? const Uuid().v4(),
                       name: name,
-                      taskIds: selectedIds.toList(),
+                      taskIds: selectedIdsList,
                     );
                     provider.taskActions.addOrUpdateRoutineList(routine);
                     Navigator.pop(ctx);
@@ -972,37 +1000,272 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     );
   }
 
-  List<RoutineItemSelectable> _getAvailableRoutineItems(AppProvider provider) {
-    final List<RoutineItemSelectable> items = [];
+  List<Widget> _buildSelectableTree({
+    required AppProvider provider,
+    required String query,
+    required bool isSelectionMode,
+    required Set<String> selectedIds,
+    required void Function(String compoundId, bool selected) onToggleSelection,
+    required Map<String, int> plannedCounts,
+    required void Function(String compoundId) onAdd,
+  }) {
+    final List<Widget> widgets = [];
     final activeTasks = provider.mainTasks.where((t) => t.isActive && !t.isDeleted).toList();
+    final q = query.trim().toLowerCase();
 
     for (final task in activeTasks) {
-      final activeSubs = task.subTasks.where((s) => !s.isDeleted).toList();
+      final bool taskMatches = q.isEmpty || task.name.toLowerCase().contains(q);
+
+      final activeSubs = task.subTasks.where((s) {
+        if (s.isDeleted) return false;
+        if (!isSelectionMode && s.completed && !s.isRecurring) return false;
+        return true;
+      }).toList();
+
+      if (activeSubs.isEmpty) continue;
+
+      final List<Widget> subGroups = [];
+      int taskCount = 0;
+
       for (final sub in activeSubs) {
         final subId = '${task.id}|${sub.id}';
-        
-        // Add the subtask itself
-        items.add(RoutineItemSelectable(
-          compoundId: subId,
-          title: sub.name,
-          parentPath: task.name,
-          color: task.taskColor,
-        ));
+        final bool subMatches = taskMatches || q.isEmpty || sub.name.toLowerCase().contains(q);
+        final bool subOrCpMatch = subMatches || _subTaskHasMatchingCheckpoints(sub, q);
+        if (!subOrCpMatch) continue;
 
-        // Add its checkpoints
-        final activeCps = _getAllCheckpointsForPlanning(sub);
-        for (final cp in activeCps) {
-          final cpId = '$subId|${cp.id}';
-          items.add(RoutineItemSelectable(
-            compoundId: cpId,
-            title: cp.name,
-            parentPath: '${task.name} > ${_findParentPath(sub, cp)}',
-            color: task.taskColor,
-          ));
+        final List<Widget> cpWidgets = _buildCheckpointTreeWidgets(
+          provider: provider,
+          subId: subId,
+          taskColor: task.taskColor,
+          substeps: sub.subSubTasks,
+          query: q,
+          parentMatched: subMatches,
+          isSelectionMode: isSelectionMode,
+          selectedIds: selectedIds,
+          onToggleSelection: onToggleSelection,
+          plannedCounts: plannedCounts,
+          onAdd: onAdd,
+          level: 2,
+        );
+
+        int subCount = 0;
+        if (isSelectionMode) {
+          if (selectedIds.contains(subId)) {
+            subCount += 1;
+          }
+          subCount += _countSelectedCheckpoints(sub.subSubTasks, subId, selectedIds);
+        } else {
+          subCount += plannedCounts[subId] ?? 0;
+          subCount += _sumPlannedCheckpoints(sub.subSubTasks, subId, plannedCounts);
         }
+
+        taskCount += subCount;
+
+        subGroups.add(_CollapsibleGroup(
+          key: ValueKey('sub_${sub.id}_${q.isEmpty ? 0 : 1}'),
+          title: sub.name,
+          color: task.taskColor,
+          level: 1,
+          queuedCount: subCount,
+          initiallyExpanded: q.isNotEmpty,
+          children: [
+            _AvailableRow(
+              title: isSelectionMode ? 'Select whole subtask' : 'Add whole subtask',
+              color: task.taskColor,
+              isCheckpoint: false,
+              plannedCount: isSelectionMode ? 0 : (plannedCounts[subId] ?? 0),
+              isSelectionMode: isSelectionMode,
+              isSelected: isSelectionMode ? selectedIds.contains(subId) : false,
+              onSelectedChanged: isSelectionMode
+                  ? (val) => onToggleSelection(subId, val == true)
+                  : null,
+              onAdd: isSelectionMode ? () {} : () => onAdd(subId),
+            ),
+            ...cpWidgets,
+          ],
+        ));
+      }
+
+      if (subGroups.isNotEmpty) {
+        widgets.add(_CollapsibleGroup(
+          key: ValueKey('task_${task.id}_${q.isEmpty ? 0 : 1}'),
+          title: task.name,
+          color: task.taskColor,
+          level: 0,
+          queuedCount: taskCount,
+          initiallyExpanded: q.isNotEmpty,
+          children: subGroups,
+        ));
       }
     }
-    return items;
+
+    return widgets;
+  }
+
+  bool _subTaskHasMatchingCheckpoints(SubTask sub, String q) {
+    if (q.isEmpty) return true;
+    for (final cp in sub.subSubTasks) {
+      if (_checkpointOrDescendantsMatch(cp, q)) return true;
+    }
+    return false;
+  }
+
+  bool _checkpointOrDescendantsMatch(SubSubTask cp, String q) {
+    if (q.isEmpty) return true;
+    if (cp.name.toLowerCase().contains(q)) return true;
+    for (final sub in cp.substeps) {
+      if (_checkpointOrDescendantsMatch(sub, q)) return true;
+    }
+    return false;
+  }
+
+  int _countSelectedCheckpoints(List<SubSubTask> list, String subId, Set<String> selectedIds) {
+    int count = 0;
+    for (final cp in list) {
+      final cpId = '$subId|${cp.id}';
+      if (selectedIds.contains(cpId)) {
+        count += 1;
+      }
+      count += _countSelectedCheckpoints(cp.substeps, subId, selectedIds);
+    }
+    return count;
+  }
+
+  int _sumPlannedCheckpoints(List<SubSubTask> list, String subId, Map<String, int> plannedCounts) {
+    int sum = 0;
+    for (final cp in list) {
+      final cpId = '$subId|${cp.id}';
+      sum += plannedCounts[cpId] ?? 0;
+      sum += _sumPlannedCheckpoints(cp.substeps, subId, plannedCounts);
+    }
+    return sum;
+  }
+
+  List<Widget> _buildCheckpointTreeWidgets({
+    required AppProvider provider,
+    required String subId,
+    required Color taskColor,
+    required List<SubSubTask> substeps,
+    required String query,
+    required bool parentMatched,
+    required bool isSelectionMode,
+    required Set<String> selectedIds,
+    required void Function(String compoundId, bool selected) onToggleSelection,
+    required Map<String, int> plannedCounts,
+    required void Function(String compoundId) onAdd,
+    required int level,
+  }) {
+    final List<Widget> widgets = [];
+    final q = query.trim().toLowerCase();
+
+    for (final cp in substeps) {
+      final parts = subId.split('|');
+      final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+      final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+      final isRecurring = sub?.isRecurring ?? false;
+
+      if (!isSelectionMode && cp.completed && !isRecurring) continue;
+
+      final bool cpMatched = parentMatched || q.isEmpty || cp.name.toLowerCase().contains(q);
+      final bool cpOrDescendantMatch = cpMatched || _checkpointOrDescendantsMatch(cp, q);
+      if (!cpOrDescendantMatch) continue;
+
+      final cpId = '$subId|${cp.id}';
+
+      if (cp.substeps.isEmpty) {
+        widgets.add(_AvailableRow(
+          title: cp.name,
+          color: taskColor,
+          isCheckpoint: true,
+          plannedCount: isSelectionMode ? 0 : (plannedCounts[cpId] ?? 0),
+          isSelectionMode: isSelectionMode,
+          isSelected: isSelectionMode ? selectedIds.contains(cpId) : false,
+          onSelectedChanged: isSelectionMode
+              ? (val) => onToggleSelection(cpId, val == true)
+              : null,
+          onAdd: isSelectionMode ? () {} : () => onAdd(cpId),
+        ));
+      } else {
+        final List<Widget> children = _buildCheckpointTreeWidgets(
+          provider: provider,
+          subId: subId,
+          taskColor: taskColor,
+          substeps: cp.substeps,
+          query: query,
+          parentMatched: cpMatched,
+          isSelectionMode: isSelectionMode,
+          selectedIds: selectedIds,
+          onToggleSelection: onToggleSelection,
+          plannedCounts: plannedCounts,
+          onAdd: onAdd,
+          level: level + 1,
+        );
+
+        int count = 0;
+        if (isSelectionMode) {
+          if (selectedIds.contains(cpId)) {
+            count += 1;
+          }
+          count += _countSelectedCheckpoints(cp.substeps, subId, selectedIds);
+        } else {
+          count += plannedCounts[cpId] ?? 0;
+          count += _sumPlannedCheckpoints(cp.substeps, subId, plannedCounts);
+        }
+
+        widgets.add(_CollapsibleGroup(
+          key: ValueKey('cp_${cp.id}_${q.isEmpty ? 0 : 1}'),
+          title: cp.name,
+          color: taskColor,
+          level: level,
+          queuedCount: count,
+          initiallyExpanded: q.isNotEmpty,
+          children: [
+            _AvailableRow(
+              title: isSelectionMode ? 'Select "${cp.name}" itself' : 'Add "${cp.name}" itself',
+              color: taskColor,
+              isCheckpoint: true,
+              plannedCount: isSelectionMode ? 0 : (plannedCounts[cpId] ?? 0),
+              isSelectionMode: isSelectionMode,
+              isSelected: isSelectionMode ? selectedIds.contains(cpId) : false,
+              onSelectedChanged: isSelectionMode
+                  ? (val) => onToggleSelection(cpId, val == true)
+                  : null,
+              onAdd: isSelectionMode ? () {} : () => onAdd(cpId),
+            ),
+            ...children,
+          ],
+        ));
+      }
+    }
+    return widgets;
+  }
+
+  ResolvedRoutineItem _resolveRoutineItemDetails(AppProvider provider, String compoundId) {
+    final parts = compoundId.split('|');
+    if (parts.length < 2) {
+      return ResolvedRoutineItem(title: 'Unknown Item', parentPath: '');
+    }
+    final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+    if (task == null || sub == null) {
+      return ResolvedRoutineItem(title: 'Deleted Item', parentPath: '');
+    }
+
+    if (parts.length == 3) {
+      final cp = sub.findCheckpoint(parts[2]);
+      if (cp == null) {
+        return ResolvedRoutineItem(title: 'Deleted Checkpoint', parentPath: '${task.name} > ${sub.name}');
+      }
+      return ResolvedRoutineItem(
+        title: cp.name,
+        parentPath: '${task.name} > ${_findParentPath(sub, cp)}',
+      );
+    }
+
+    return ResolvedRoutineItem(
+      title: sub.name,
+      parentPath: task.name,
+    );
   }
 }
 
@@ -1821,6 +2084,9 @@ class _AvailableRow extends StatelessWidget {
   final bool isCheckpoint;
   final int plannedCount;
   final VoidCallback onAdd;
+  final bool isSelectionMode;
+  final bool isSelected;
+  final ValueChanged<bool?>? onSelectedChanged;
 
   const _AvailableRow({
     required this.title,
@@ -1829,12 +2095,17 @@ class _AvailableRow extends StatelessWidget {
     required this.isCheckpoint,
     required this.plannedCount,
     required this.onAdd,
+    this.isSelectionMode = false,
+    this.isSelected = false,
+    this.onSelectedChanged,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onAdd,
+      onTap: isSelectionMode
+          ? () => onSelectedChanged?.call(!isSelected)
+          : onAdd,
       child: Container(
         margin: EdgeInsets.only(bottom: 4, left: isCheckpoint ? 16 : 0),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1845,6 +2116,24 @@ class _AvailableRow extends StatelessWidget {
         ),
         child: Row(
           children: [
+            if (isSelectionMode) ...[
+              Theme(
+                data: Theme.of(context).copyWith(
+                  unselectedWidgetColor: AppTheme.fhTextDisabled,
+                ),
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Checkbox(
+                    value: isSelected,
+                    activeColor: AppTheme.fhAccentTeal,
+                    checkColor: AppTheme.fhBgDark,
+                    onChanged: onSelectedChanged,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
             Icon(
               isCheckpoint ? MdiIcons.rhombusOutline : MdiIcons.targetAccount,
               size: isCheckpoint ? 14 : 16,
@@ -1864,14 +2153,14 @@ class _AvailableRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis),
                   if (parent != null)
                     Text(parent!,
-                        style:   TextStyle(
+                        style: TextStyle(
                             color: AppTheme.fhTextDisabled, fontSize: 10),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
-            if (plannedCount > 0)
+            if (!isSelectionMode && plannedCount > 0) ...[
               Container(
                 margin: const EdgeInsets.only(right: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1896,7 +2185,9 @@ class _AvailableRow extends StatelessWidget {
                       duration: 280.ms,
                       curve: Curves.easeOutBack)
                   .fadeIn(duration: 120.ms),
-            Icon(Icons.add, color: AppTheme.fhAccentTeal, size: 18),
+            ],
+            if (!isSelectionMode)
+              Icon(Icons.add, color: AppTheme.fhAccentTeal, size: 18),
           ],
         ),
       ),
@@ -2086,6 +2377,12 @@ class RoutineItemSelectable {
     required this.parentPath,
     required this.color,
   });
+}
+
+class ResolvedRoutineItem {
+  final String title;
+  final String parentPath;
+  ResolvedRoutineItem({required this.title, required this.parentPath});
 }
 
 List<SubSubTask> _getAllCheckpointsForPlanning(SubTask sub) {

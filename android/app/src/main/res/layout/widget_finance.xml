@@ -4,6 +4,7 @@
     android:id="@+id/widget_finance_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:clipToOutline="true"
     android:padding="8dp">
 
     <LinearLayout
@@ -87,6 +88,7 @@
             android:progressDrawable="@drawable/widget_progress_amber" />
 
         <LinearLayout
+            android:id="@+id/widget_fin_buttons_layout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"

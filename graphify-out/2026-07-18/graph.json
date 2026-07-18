@@ -177,7 +177,7 @@
       "label": "FinanceWidget",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt",
-      "source_location": "L11",
+      "source_location": "L10",
       "_origin": "ast",
       "id": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget",
       "community": 392,
@@ -197,7 +197,7 @@
       "label": ".onUpdate()",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt",
-      "source_location": "L13",
+      "source_location": "L12",
       "_origin": "ast",
       "id": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget_onupdate",
       "community": 392,
@@ -247,7 +247,7 @@
       "label": ".render()",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt",
-      "source_location": "L24",
+      "source_location": "L23",
       "_origin": "ast",
       "id": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget_render",
       "community": 392,
@@ -277,7 +277,7 @@
       "label": "JournalWidget",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L12",
+      "source_location": "L11",
       "_origin": "ast",
       "id": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget",
       "community": 392,
@@ -287,7 +287,7 @@
       "label": ".onUpdate()",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L14",
+      "source_location": "L13",
       "_origin": "ast",
       "id": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_onupdate",
       "community": 392,
@@ -337,7 +337,7 @@
       "label": ".render()",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L25",
+      "source_location": "L24",
       "_origin": "ast",
       "id": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_render",
       "community": 392,
@@ -357,7 +357,7 @@
       "label": ".setPip()",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L67",
+      "source_location": "L55",
       "_origin": "ast",
       "id": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_setpip",
       "community": 392,
@@ -477,7 +477,7 @@
       "label": ".renderRunning()",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/RunningTaskWidget.kt",
-      "source_location": "L55",
+      "source_location": "L44",
       "_origin": "ast",
       "id": "android_app_src_main_kotlin_me_ihjas_missions_widgets_runningtaskwidget_runningtaskwidget_renderrunning",
       "community": 392,
@@ -497,7 +497,7 @@
       "label": ".renderDayPlan()",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/RunningTaskWidget.kt",
-      "source_location": "L138",
+      "source_location": "L127",
       "_origin": "ast",
       "id": "android_app_src_main_kotlin_me_ihjas_missions_widgets_runningtaskwidget_runningtaskwidget_renderdayplan",
       "community": 392,
@@ -517,7 +517,7 @@
       "label": "WidgetActionReceiver",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/WidgetActionReceiver.kt",
-      "source_location": "L23",
+      "source_location": "L19",
       "_origin": "ast",
       "id": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_widgetactionreceiver",
       "community": 303,
@@ -537,7 +537,7 @@
       "label": ".onReceive()",
       "file_type": "code",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/WidgetActionReceiver.kt",
-      "source_location": "L24",
+      "source_location": "L20",
       "_origin": "ast",
       "id": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_widgetactionreceiver_onreceive",
       "community": 303,
@@ -562,26 +562,6 @@
       "id": "intent",
       "community": 303,
       "norm_label": "intent"
-    },
-    {
-      "label": ".applyInstantFeedback()",
-      "file_type": "code",
-      "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/WidgetActionReceiver.kt",
-      "source_location": "L42",
-      "_origin": "ast",
-      "id": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_widgetactionreceiver_applyinstantfeedback",
-      "community": 303,
-      "norm_label": ".applyinstantfeedback()"
-    },
-    {
-      "label": "String",
-      "file_type": "code",
-      "source_file": "",
-      "source_location": "",
-      "_origin": "ast",
-      "id": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_kt_string",
-      "community": 303,
-      "norm_label": "string"
     },
     {
       "label": "WidgetCommon.kt",
@@ -1401,7 +1381,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_services_ai_service_dart",
-      "community": 177,
+      "community": 8,
       "norm_label": "package:missions/src/services/ai_service.dart"
     },
     {
@@ -1421,7 +1401,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_services_notification_service_dart",
-      "community": 127,
+      "community": 177,
       "norm_label": "package:missions/src/services/notification_service.dart"
     },
     {
@@ -1441,7 +1421,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_provider_provider_dart",
-      "community": 63,
+      "community": 118,
       "norm_label": "package:provider/provider.dart"
     },
     {
@@ -1541,7 +1521,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_gap_gap_dart",
-      "community": 173,
+      "community": 26,
       "norm_label": "package:gap/gap.dart"
     },
     {
@@ -1571,7 +1551,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_widgets_valorant_container_dart",
-      "community": 173,
+      "community": 26,
       "norm_label": "package:missions/widgets/valorant_container.dart"
     },
     {
@@ -1581,7 +1561,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_screens_reflection_editor",
-      "community": 173,
+      "community": 26,
       "norm_label": "reflection_editor.dart"
     },
     {
@@ -1591,7 +1571,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_screens_reflection_editor_reflectioneditor",
-      "community": 173,
+      "community": 26,
       "norm_label": "reflectioneditor"
     },
     {
@@ -1611,7 +1591,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_screens_reflection_editor_reflectioneditorstate",
-      "community": 173,
+      "community": 26,
       "norm_label": "_reflectioneditorstate"
     },
     {
@@ -1631,7 +1611,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_screens_reflection_editor_titlecontroller",
-      "community": 173,
+      "community": 26,
       "norm_label": "_titlecontroller"
     },
     {
@@ -1641,7 +1621,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "texteditingcontroller",
-      "community": 156,
+      "community": 154,
       "norm_label": "texteditingcontroller"
     },
     {
@@ -1651,7 +1631,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_screens_reflection_editor_contentcontroller",
-      "community": 173,
+      "community": 26,
       "norm_label": "_contentcontroller"
     },
     {
@@ -1661,7 +1641,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_screens_reflection_editor_createstate",
-      "community": 173,
+      "community": 26,
       "norm_label": "createstate"
     },
     {
@@ -1671,7 +1651,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_screens_reflection_editor_build",
-      "community": 173,
+      "community": 26,
       "norm_label": "build"
     },
     {
@@ -1681,7 +1661,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_screens_reflection_editor_buildlabel",
-      "community": 173,
+      "community": 26,
       "norm_label": "_buildlabel"
     },
     {
@@ -1691,7 +1671,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_widgets_valorant_button_dart",
-      "community": 173,
+      "community": 26,
       "norm_label": "package:missions/widgets/valorant_button.dart"
     },
     {
@@ -1801,7 +1781,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_theme_app_theme_dart",
-      "community": 101,
+      "community": 18,
       "norm_label": "package:missions/src/theme/app_theme.dart"
     },
     {
@@ -1811,7 +1791,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_theme_jwe_theme_dart",
-      "community": 102,
+      "community": 74,
       "norm_label": "package:missions/src/theme/jwe_theme.dart"
     },
     {
@@ -1821,7 +1801,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_utils_global_toast_dart",
-      "community": 1087,
+      "community": 165,
       "norm_label": "package:missions/src/utils/global_toast.dart"
     },
     {
@@ -1841,7 +1821,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_config_api_keys_structure",
-      "community": 30,
+      "community": 149,
       "norm_label": "api_keys_structure.dart"
     },
     {
@@ -1851,7 +1831,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_config_api_keys_structure_geminiapikeys",
-      "community": 30,
+      "community": 149,
       "norm_label": "geminiapikeys"
     },
     {
@@ -1861,7 +1841,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "list",
-      "community": 30,
+      "community": 149,
       "norm_label": "list"
     },
     {
@@ -1871,7 +1851,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_config_api_keys_structure_geminimodelname",
-      "community": 30,
+      "community": 149,
       "norm_label": "geminimodelname"
     },
     {
@@ -4241,7 +4221,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_models_skill_models_reflectionlog",
-      "community": 10,
+      "community": 102,
       "norm_label": "reflectionlog"
     },
     {
@@ -4481,7 +4461,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_models_task_models_subsubtask",
-      "community": 37,
+      "community": 54,
       "norm_label": "subsubtask"
     },
     {
@@ -4531,7 +4511,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_models_task_models_subsubtaskcopyextension",
-      "community": 37,
+      "community": 54,
       "norm_label": "subsubtaskcopyextension"
     },
     {
@@ -5721,7 +5701,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions",
-      "community": 172,
+      "community": 8,
       "norm_label": "report_actions.dart"
     },
     {
@@ -5731,7 +5711,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_reportactions",
-      "community": 172,
+      "community": 8,
       "norm_label": "reportactions"
     },
     {
@@ -5741,7 +5721,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_provider",
-      "community": 172,
+      "community": 8,
       "norm_label": "_provider"
     },
     {
@@ -5751,7 +5731,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_aiservice",
-      "community": 172,
+      "community": 8,
       "norm_label": "_aiservice"
     },
     {
@@ -5761,7 +5741,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_generatestartdayreport",
-      "community": 172,
+      "community": 8,
       "norm_label": "generatestartdayreport"
     },
     {
@@ -5771,7 +5751,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_buildmonthlywellbeingcomparison",
-      "community": 172,
+      "community": 8,
       "norm_label": "_buildmonthlywellbeingcomparison"
     },
     {
@@ -5781,7 +5761,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_buildmonthlyfinancecontext",
-      "community": 172,
+      "community": 8,
       "norm_label": "_buildmonthlyfinancecontext"
     },
     {
@@ -5791,7 +5771,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_buildmonthlyhealthcontext",
-      "community": 172,
+      "community": 8,
       "norm_label": "_buildmonthlyhealthcontext"
     },
     {
@@ -5801,7 +5781,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_buildweeklyreportscontext",
-      "community": 172,
+      "community": 8,
       "norm_label": "_buildweeklyreportscontext"
     },
     {
@@ -5811,7 +5791,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_buildpreviousmonthlycontext",
-      "community": 172,
+      "community": 8,
       "norm_label": "_buildpreviousmonthlycontext"
     },
     {
@@ -5821,7 +5801,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_generatemonthlyreport",
-      "community": 172,
+      "community": 8,
       "norm_label": "generatemonthlyreport"
     },
     {
@@ -5841,7 +5821,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_utils_history_helper_dart",
-      "community": 172,
+      "community": 8,
       "norm_label": "package:missions/src/utils/history_helper.dart"
     },
     {
@@ -5851,7 +5831,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_intl_intl_dart",
-      "community": 122,
+      "community": 101,
       "norm_label": "package:intl/intl.dart"
     },
     {
@@ -6581,7 +6561,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_models_app_state_models_dart",
-      "community": 139,
+      "community": 168,
       "norm_label": "package:missions/src/models/app_state_models.dart"
     },
     {
@@ -6931,7 +6911,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "timer",
-      "community": 91,
+      "community": 96,
       "norm_label": "timer?"
     },
     {
@@ -8251,7 +8231,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_models_skill_models_dart",
-      "community": 10,
+      "community": 102,
       "norm_label": "package:missions/src/models/skill_models.dart"
     },
     {
@@ -8281,7 +8261,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "dart_async",
-      "community": 96,
+      "community": 91,
       "norm_label": "dart:async"
     },
     {
@@ -8291,7 +8271,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_services_app_user_dart",
-      "community": 169,
+      "community": 60,
       "norm_label": "package:missions/src/services/app_user.dart"
     },
     {
@@ -8891,7 +8871,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "appuser_get",
-      "community": 169,
+      "community": 60,
       "norm_label": "appuser? get"
     },
     {
@@ -8911,7 +8891,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "appsettings_get",
-      "community": 32,
+      "community": 29,
       "norm_label": "appsettings get"
     },
     {
@@ -9851,7 +9831,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_material_design_icons_flutter_material_design_icons_flutter_dart",
-      "community": 101,
+      "community": 18,
       "norm_label": "package:material_design_icons_flutter/material_design_icons_flutter.dart"
     },
     {
@@ -9861,7 +9841,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_google_fonts_google_fonts_dart",
-      "community": 102,
+      "community": 87,
       "norm_label": "package:google_fonts/google_fonts.dart"
     },
     {
@@ -10671,7 +10651,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_advanced_tools_screen",
-      "community": 101,
+      "community": 18,
       "norm_label": "advanced_tools_screen.dart"
     },
     {
@@ -10681,7 +10661,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_advanced_tools_screen_advancedtoolsscreen",
-      "community": 101,
+      "community": 18,
       "norm_label": "advancedtoolsscreen"
     },
     {
@@ -10691,7 +10671,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_advanced_tools_screen_build",
-      "community": 101,
+      "community": 18,
       "norm_label": "build"
     },
     {
@@ -10701,7 +10681,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_advanced_tools_screen_buildtoolcard",
-      "community": 101,
+      "community": 18,
       "norm_label": "_buildtoolcard"
     },
     {
@@ -10711,7 +10691,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_valorant_valorant_card_dart",
-      "community": 101,
+      "community": 18,
       "norm_label": "package:missions/src/widgets/valorant/valorant_card.dart"
     },
     {
@@ -10721,7 +10701,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_screens_journaling_people_info_screen_dart",
-      "community": 101,
+      "community": 18,
       "norm_label": "package:missions/src/screens/journaling/people_info_screen.dart"
     },
     {
@@ -10731,7 +10711,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_screens_journaling_simulate_event_screen_dart",
-      "community": 101,
+      "community": 18,
       "norm_label": "package:missions/src/screens/journaling/simulate_event_screen.dart"
     },
     {
@@ -10741,7 +10721,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_screens_journaling_simulate_talk_screen_dart",
-      "community": 101,
+      "community": 18,
       "norm_label": "package:missions/src/screens/journaling/simulate_talk_screen.dart"
     },
     {
@@ -10751,7 +10731,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_archived_reports_screen",
-      "community": 135,
+      "community": 18,
       "norm_label": "archived_reports_screen.dart"
     },
     {
@@ -10761,7 +10741,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_archived_reports_screen_archivedreportsscreen",
-      "community": 135,
+      "community": 18,
       "norm_label": "archivedreportsscreen"
     },
     {
@@ -10771,7 +10751,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_archived_reports_screen_fetchallreports",
-      "community": 135,
+      "community": 18,
       "norm_label": "_fetchallreports"
     },
     {
@@ -10791,7 +10771,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_screens_journaling_weekly_review_screen_dart",
-      "community": 135,
+      "community": 18,
       "norm_label": "package:missions/src/screens/journaling/weekly_review_screen.dart"
     },
     {
@@ -10801,7 +10781,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_screens_journaling_monthly_review_screen_dart",
-      "community": 135,
+      "community": 18,
       "norm_label": "package:missions/src/screens/journaling/monthly_review_screen.dart"
     },
     {
@@ -11571,7 +11551,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_valorant_valorant_button_dart",
-      "community": 129,
+      "community": 1091,
       "norm_label": "package:missions/src/widgets/valorant/valorant_button.dart"
     },
     {
@@ -12121,7 +12101,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_common_growing_text_field_dart",
-      "community": 1091,
+      "community": 142,
       "norm_label": "package:missions/src/widgets/common/growing_text_field.dart"
     },
     {
@@ -12141,7 +12121,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_simulate_event_screen",
-      "community": 1082,
+      "community": 142,
       "norm_label": "simulate_event_screen.dart"
     },
     {
@@ -12151,7 +12131,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_simulate_event_screen_simulateeventscreen",
-      "community": 1082,
+      "community": 142,
       "norm_label": "simulateeventscreen"
     },
     {
@@ -12161,7 +12141,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_simulate_event_screen_simulateeventscreenstate",
-      "community": 1082,
+      "community": 142,
       "norm_label": "_simulateeventscreenstate"
     },
     {
@@ -12171,7 +12151,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_simulate_event_screen_inputcontroller",
-      "community": 1082,
+      "community": 142,
       "norm_label": "_inputcontroller"
     },
     {
@@ -12181,7 +12161,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_simulate_event_screen_result",
-      "community": 1082,
+      "community": 142,
       "norm_label": "_result"
     },
     {
@@ -12191,7 +12171,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_simulate_event_screen_createstate",
-      "community": 1082,
+      "community": 142,
       "norm_label": "createstate"
     },
     {
@@ -12201,7 +12181,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_simulate_event_screen_submit",
-      "community": 1082,
+      "community": 142,
       "norm_label": "_submit"
     },
     {
@@ -12211,7 +12191,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_simulate_event_screen_build",
-      "community": 1082,
+      "community": 142,
       "norm_label": "build"
     },
     {
@@ -12311,7 +12291,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_someday_list_screen",
-      "community": 139,
+      "community": 168,
       "norm_label": "someday_list_screen.dart"
     },
     {
@@ -12321,7 +12301,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_someday_list_screen_somedaylistscreen",
-      "community": 12,
+      "community": 168,
       "norm_label": "somedaylistscreen"
     },
     {
@@ -12331,7 +12311,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_someday_list_screen_somedaylistscreenstate",
-      "community": 12,
+      "community": 168,
       "norm_label": "_somedaylistscreenstate"
     },
     {
@@ -12341,7 +12321,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_someday_list_screen_inputcontroller",
-      "community": 139,
+      "community": 168,
       "norm_label": "_inputcontroller"
     },
     {
@@ -12351,7 +12331,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_someday_list_screen_createstate",
-      "community": 139,
+      "community": 168,
       "norm_label": "createstate"
     },
     {
@@ -12361,7 +12341,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_someday_list_screen_submit",
-      "community": 139,
+      "community": 168,
       "norm_label": "_submit"
     },
     {
@@ -12371,7 +12351,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_someday_list_screen_dispose",
-      "community": 139,
+      "community": 168,
       "norm_label": "dispose"
     },
     {
@@ -12381,7 +12361,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_someday_list_screen_build",
-      "community": 139,
+      "community": 168,
       "norm_label": "build"
     },
     {
@@ -12771,7 +12751,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_logbook_screen",
-      "community": 18,
+      "community": 1100,
       "norm_label": "logbook_screen.dart"
     },
     {
@@ -12781,7 +12761,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_logbook_screen_logbookscreen",
-      "community": 18,
+      "community": 1100,
       "norm_label": "logbookscreen"
     },
     {
@@ -12791,7 +12771,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_logbook_screen_build",
-      "community": 18,
+      "community": 1100,
       "norm_label": "build"
     },
     {
@@ -12801,7 +12781,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_views_daily_summary_view_dart",
-      "community": 18,
+      "community": 1100,
       "norm_label": "package:missions/src/widgets/views/daily_summary_view.dart"
     },
     {
@@ -13391,7 +13371,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_ui_nora_message_bubble_dart",
-      "community": 154,
+      "community": 83,
       "norm_label": "package:missions/src/widgets/ui/nora_message_bubble.dart"
     },
     {
@@ -13401,7 +13381,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_onboarding_app_tour_screen",
-      "community": 154,
+      "community": 83,
       "norm_label": "app_tour_screen.dart"
     },
     {
@@ -13411,7 +13391,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_onboarding_app_tour_screen_apptourscreen",
-      "community": 154,
+      "community": 83,
       "norm_label": "apptourscreen"
     },
     {
@@ -13421,7 +13401,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_onboarding_app_tour_screen_apptourscreenstate",
-      "community": 154,
+      "community": 83,
       "norm_label": "_apptourscreenstate"
     },
     {
@@ -13431,7 +13411,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_onboarding_app_tour_screen_pagecontroller",
-      "community": 154,
+      "community": 83,
       "norm_label": "_pagecontroller"
     },
     {
@@ -13451,7 +13431,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_onboarding_app_tour_screen_apicontroller",
-      "community": 154,
+      "community": 83,
       "norm_label": "_apicontroller"
     },
     {
@@ -13461,7 +13441,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_onboarding_app_tour_screen_currentpage",
-      "community": 154,
+      "community": 83,
       "norm_label": "_currentpage"
     },
     {
@@ -13471,7 +13451,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_onboarding_app_tour_screen_createstate",
-      "community": 154,
+      "community": 83,
       "norm_label": "createstate"
     },
     {
@@ -13481,7 +13461,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_onboarding_app_tour_screen_dispose",
-      "community": 154,
+      "community": 83,
       "norm_label": "dispose"
     },
     {
@@ -13491,7 +13471,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_onboarding_app_tour_screen_finishtour",
-      "community": 154,
+      "community": 83,
       "norm_label": "_finishtour"
     },
     {
@@ -13501,7 +13481,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_onboarding_app_tour_screen_build",
-      "community": 154,
+      "community": 83,
       "norm_label": "build"
     },
     {
@@ -13511,7 +13491,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_onboarding_tour_slide_dart",
-      "community": 154,
+      "community": 83,
       "norm_label": "package:missions/src/widgets/onboarding/tour_slide.dart"
     },
     {
@@ -13531,7 +13511,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_ui_wellbeing_card_dart",
-      "community": 154,
+      "community": 18,
       "norm_label": "package:missions/src/widgets/ui/wellbeing_card.dart"
     },
     {
@@ -13591,7 +13571,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_project_detail_screen_projectnotecard",
-      "community": 1104,
+      "community": 12,
       "norm_label": "_projectnotecard"
     },
     {
@@ -13601,7 +13581,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_project_detail_screen_projectnotecardstate",
-      "community": 1104,
+      "community": 12,
       "norm_label": "_projectnotecardstate"
     },
     {
@@ -13611,7 +13591,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_project_detail_screen_linktaskdialog",
-      "community": 12,
+      "community": 11,
       "norm_label": "_linktaskdialog"
     },
     {
@@ -13621,7 +13601,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_project_detail_screen_linktaskdialogstate",
-      "community": 12,
+      "community": 11,
       "norm_label": "_linktaskdialogstate"
     },
     {
@@ -14231,7 +14211,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_flutter_services_dart",
-      "community": 1087,
+      "community": 165,
       "norm_label": "package:flutter/services.dart"
     },
     {
@@ -14791,7 +14771,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "animationcontroller",
-      "community": 170,
+      "community": 127,
       "norm_label": "animationcontroller"
     },
     {
@@ -15851,7 +15831,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_settings_habit_control_screen",
-      "community": 166,
+      "community": 135,
       "norm_label": "habit_control_screen.dart"
     },
     {
@@ -15861,7 +15841,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_settings_habit_control_screen_habitcontrolscreen",
-      "community": 166,
+      "community": 135,
       "norm_label": "habitcontrolscreen"
     },
     {
@@ -15871,7 +15851,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_settings_habit_control_screen_build",
-      "community": 166,
+      "community": 135,
       "norm_label": "build"
     },
     {
@@ -15881,7 +15861,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_settings_habit_control_screen_buildframeworkitem",
-      "community": 166,
+      "community": 135,
       "norm_label": "_buildframeworkitem"
     },
     {
@@ -15891,7 +15871,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_settings_habit_control_screen_buildstatcol",
-      "community": 166,
+      "community": 135,
       "norm_label": "_buildstatcol"
     },
     {
@@ -15901,7 +15881,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_dialogs_add_habit_rule_dialog_dart",
-      "community": 166,
+      "community": 135,
       "norm_label": "package:missions/src/widgets/dialogs/add_habit_rule_dialog.dart"
     },
     {
@@ -16621,7 +16601,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "stream",
-      "community": 169,
+      "community": 60,
       "norm_label": "stream"
     },
     {
@@ -16821,7 +16801,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service",
-      "community": 169,
+      "community": 60,
       "norm_label": "firebase_service.dart"
     },
     {
@@ -16831,7 +16811,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service_authstatechanges",
-      "community": 169,
+      "community": 60,
       "norm_label": "authstatechanges"
     },
     {
@@ -16841,7 +16821,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service_currentuser",
-      "community": 169,
+      "community": 60,
       "norm_label": "currentuser"
     },
     {
@@ -16851,7 +16831,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service_signinwithemail",
-      "community": 169,
+      "community": 60,
       "norm_label": "signinwithemail"
     },
     {
@@ -16861,7 +16841,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service_signupwithemail",
-      "community": 169,
+      "community": 60,
       "norm_label": "signupwithemail"
     },
     {
@@ -16871,7 +16851,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service_signout",
-      "community": 169,
+      "community": 60,
       "norm_label": "signout"
     },
     {
@@ -16881,7 +16861,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service_changepassword",
-      "community": 169,
+      "community": 60,
       "norm_label": "changepassword"
     },
     {
@@ -16891,7 +16871,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service_updatedisplayname",
-      "community": 169,
+      "community": 60,
       "norm_label": "updatedisplayname"
     },
     {
@@ -16901,7 +16881,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service_reload",
-      "community": 169,
+      "community": 60,
       "norm_label": "reload"
     },
     {
@@ -16911,7 +16891,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_services_auth_service_dart",
-      "community": 169,
+      "community": 60,
       "norm_label": "package:missions/src/services/auth_service.dart"
     },
     {
@@ -16941,7 +16921,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_home_widget_publisher_homewidgethost",
-      "community": 12,
+      "community": 95,
       "norm_label": "homewidgethost"
     },
     {
@@ -16951,7 +16931,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_home_widget_publisher_homewidgethoststate",
-      "community": 12,
+      "community": 95,
       "norm_label": "_homewidgethoststate"
     },
     {
@@ -21131,7 +21111,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_utils_finance_helpers",
-      "community": 101,
+      "community": 18,
       "norm_label": "finance_helpers.dart"
     },
     {
@@ -21141,7 +21121,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_utils_finance_helpers_financehelpers",
-      "community": 101,
+      "community": 18,
       "norm_label": "financehelpers"
     },
     {
@@ -21151,7 +21131,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_utils_finance_helpers_geticondata",
-      "community": 101,
+      "community": 18,
       "norm_label": "geticondata"
     },
     {
@@ -21471,7 +21451,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_utils_history_helper",
-      "community": 122,
+      "community": 101,
       "norm_label": "history_helper.dart"
     },
     {
@@ -21481,7 +21461,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_utils_history_helper_historyhelper",
-      "community": 122,
+      "community": 101,
       "norm_label": "historyhelper"
     },
     {
@@ -21491,7 +21471,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_utils_history_helper_getsessionhistorystring",
-      "community": 122,
+      "community": 101,
       "norm_label": "getsessionhistorystring"
     },
     {
@@ -22301,7 +22281,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_action_plan_action_plan_steps_list_actionplanstepslist",
-      "community": 69,
+      "community": 12,
       "norm_label": "actionplanstepslist"
     },
     {
@@ -22311,7 +22291,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_action_plan_action_plan_steps_list_actionplanstepsliststate",
-      "community": 69,
+      "community": 12,
       "norm_label": "_actionplanstepsliststate"
     },
     {
@@ -22931,7 +22911,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_atoms_hero_stat_item",
-      "community": 1084,
+      "community": 184,
       "norm_label": "hero_stat_item.dart"
     },
     {
@@ -22941,7 +22921,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_atoms_hero_stat_item_herostatitem",
-      "community": 1084,
+      "community": 184,
       "norm_label": "herostatitem"
     },
     {
@@ -22951,7 +22931,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_atoms_hero_stat_item_label",
-      "community": 1084,
+      "community": 184,
       "norm_label": "label"
     },
     {
@@ -22961,7 +22941,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_atoms_hero_stat_item_value",
-      "community": 1084,
+      "community": 184,
       "norm_label": "value"
     },
     {
@@ -22971,7 +22951,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_atoms_hero_stat_item_subvalue",
-      "community": 1084,
+      "community": 184,
       "norm_label": "subvalue"
     },
     {
@@ -22981,7 +22961,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_atoms_hero_stat_item_icon",
-      "community": 1084,
+      "community": 184,
       "norm_label": "icon"
     },
     {
@@ -22991,7 +22971,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_atoms_hero_stat_item_color",
-      "community": 1084,
+      "community": 184,
       "norm_label": "color"
     },
     {
@@ -23001,7 +22981,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_atoms_hero_stat_item_build",
-      "community": 1084,
+      "community": 184,
       "norm_label": "build"
     },
     {
@@ -23741,7 +23721,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_atoms_valorant_timer_text_dart",
-      "community": 170,
+      "community": 127,
       "norm_label": "package:missions/src/widgets/atoms/valorant_timer_text.dart"
     },
     {
@@ -23821,7 +23801,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card",
-      "community": 170,
+      "community": 127,
       "norm_label": "task_header_card.dart"
     },
     {
@@ -23851,7 +23831,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_taskheadercard",
-      "community": 170,
+      "community": 127,
       "norm_label": "taskheadercard"
     },
     {
@@ -23861,7 +23841,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_progress",
-      "community": 170,
+      "community": 127,
       "norm_label": "progress"
     },
     {
@@ -23871,7 +23851,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_color",
-      "community": 170,
+      "community": 127,
       "norm_label": "color"
     },
     {
@@ -23881,7 +23861,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_controller",
-      "community": 170,
+      "community": 127,
       "norm_label": "_controller"
     },
     {
@@ -23891,7 +23871,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_task",
-      "community": 170,
+      "community": 127,
       "norm_label": "task"
     },
     {
@@ -23901,7 +23881,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_createstate",
-      "community": 170,
+      "community": 127,
       "norm_label": "createstate"
     },
     {
@@ -23911,7 +23891,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_initstate",
-      "community": 170,
+      "community": 127,
       "norm_label": "initstate"
     },
     {
@@ -23921,7 +23901,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_dispose",
-      "community": 170,
+      "community": 127,
       "norm_label": "dispose"
     },
     {
@@ -23931,7 +23911,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_build",
-      "community": 170,
+      "community": 127,
       "norm_label": "build"
     },
     {
@@ -24111,7 +24091,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_charts_subtask_progress_time_chart_point",
-      "community": 17,
+      "community": 160,
       "norm_label": "_point"
     },
     {
@@ -25101,7 +25081,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_common_growing_text_field",
-      "community": 156,
+      "community": 154,
       "norm_label": "growing_text_field.dart"
     },
     {
@@ -25111,7 +25091,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_common_growing_text_field_growingtextfield",
-      "community": 156,
+      "community": 154,
       "norm_label": "growingtextfield"
     },
     {
@@ -25121,7 +25101,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_common_growing_text_field_controller",
-      "community": 156,
+      "community": 154,
       "norm_label": "controller"
     },
     {
@@ -25131,7 +25111,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_common_growing_text_field_hint",
-      "community": 156,
+      "community": 154,
       "norm_label": "hint"
     },
     {
@@ -25141,7 +25121,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_common_growing_text_field_minlines",
-      "community": 156,
+      "community": 154,
       "norm_label": "minlines"
     },
     {
@@ -25151,7 +25131,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_common_growing_text_field_build",
-      "community": 156,
+      "community": 154,
       "norm_label": "build"
     },
     {
@@ -25281,7 +25261,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_dialogs_xp_gain_dialog_dart",
-      "community": 10,
+      "community": 102,
       "norm_label": "package:missions/src/widgets/dialogs/xp_gain_dialog.dart"
     },
     {
@@ -26091,7 +26071,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_savings_log_dialog",
-      "community": 1100,
+      "community": 166,
       "norm_label": "add_savings_log_dialog.dart"
     },
     {
@@ -26101,7 +26081,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_savings_log_dialog_addsavingslogdialog",
-      "community": 1100,
+      "community": 166,
       "norm_label": "addsavingslogdialog"
     },
     {
@@ -26111,7 +26091,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_savings_log_dialog_addsavingslogdialogstate",
-      "community": 1100,
+      "community": 166,
       "norm_label": "_addsavingslogdialogstate"
     },
     {
@@ -26121,7 +26101,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_savings_log_dialog_goalid",
-      "community": 1100,
+      "community": 166,
       "norm_label": "goalid"
     },
     {
@@ -26131,7 +26111,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_savings_log_dialog_amountcontroller",
-      "community": 1100,
+      "community": 166,
       "norm_label": "_amountcontroller"
     },
     {
@@ -26141,7 +26121,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_savings_log_dialog_createstate",
-      "community": 1100,
+      "community": 166,
       "norm_label": "createstate"
     },
     {
@@ -26151,7 +26131,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_savings_log_dialog_build",
-      "community": 1100,
+      "community": 166,
       "norm_label": "build"
     },
     {
@@ -26171,7 +26151,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_session_dialog_addsessiondialog",
-      "community": 12,
+      "community": 109,
       "norm_label": "addsessiondialog"
     },
     {
@@ -26181,7 +26161,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_session_dialog_addsessiondialogstate",
-      "community": 12,
+      "community": 109,
       "norm_label": "_addsessiondialogstate"
     },
     {
@@ -26941,7 +26921,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_jwe_task_options_dialog",
-      "community": 1087,
+      "community": 165,
       "norm_label": "jwe_task_options_dialog.dart"
     },
     {
@@ -26951,7 +26931,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_jwe_task_options_dialog_jwetaskoptionsdialog",
-      "community": 1087,
+      "community": 165,
       "norm_label": "jwetaskoptionsdialog"
     },
     {
@@ -26961,7 +26941,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_jwe_task_options_dialog_task",
-      "community": 1087,
+      "community": 165,
       "norm_label": "task"
     },
     {
@@ -26971,7 +26951,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_jwe_task_options_dialog_build",
-      "community": 1087,
+      "community": 165,
       "norm_label": "build"
     },
     {
@@ -26981,7 +26961,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_jwe_task_options_dialog_showpastealertdialog",
-      "community": 1087,
+      "community": 165,
       "norm_label": "_showpastealertdialog"
     },
     {
@@ -26991,7 +26971,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_jwe_task_options_dialog_handlepaste",
-      "community": 1087,
+      "community": 165,
       "norm_label": "_handlepaste"
     },
     {
@@ -27011,7 +26991,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_last_insight_dialog",
-      "community": 10,
+      "community": 102,
       "norm_label": "last_insight_dialog.dart"
     },
     {
@@ -27021,7 +27001,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_last_insight_dialog_lastinsightdialog",
-      "community": 10,
+      "community": 102,
       "norm_label": "lastinsightdialog"
     },
     {
@@ -27031,7 +27011,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_last_insight_dialog_log",
-      "community": 10,
+      "community": 102,
       "norm_label": "log"
     },
     {
@@ -27041,7 +27021,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_last_insight_dialog_build",
-      "community": 10,
+      "community": 102,
       "norm_label": "build"
     },
     {
@@ -28451,7 +28431,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_dialogs_wellbeing_detail_dialog_dart",
-      "community": 154,
+      "community": 18,
       "norm_label": "package:missions/src/widgets/dialogs/wellbeing_detail_dialog.dart"
     },
     {
@@ -28581,7 +28561,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_drawers_wellbeing_drawer",
-      "community": 154,
+      "community": 18,
       "norm_label": "wellbeing_drawer.dart"
     },
     {
@@ -28591,7 +28571,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_drawers_wellbeing_drawer_wellbeingdrawer",
-      "community": 154,
+      "community": 18,
       "norm_label": "wellbeingdrawer"
     },
     {
@@ -28601,7 +28581,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_drawers_wellbeing_drawer_build",
-      "community": 154,
+      "community": 18,
       "norm_label": "build"
     },
     {
@@ -29431,7 +29411,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_add_sleep_dialog",
-      "community": 176,
+      "community": 87,
       "norm_label": "add_sleep_dialog.dart"
     },
     {
@@ -29441,7 +29421,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_add_sleep_dialog_addsleepdialog",
-      "community": 12,
+      "community": 87,
       "norm_label": "addsleepdialog"
     },
     {
@@ -29451,7 +29431,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_add_sleep_dialog_addsleepdialogstate",
-      "community": 12,
+      "community": 87,
       "norm_label": "_addsleepdialogstate"
     },
     {
@@ -29461,7 +29441,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_add_sleep_dialog_datestr",
-      "community": 176,
+      "community": 87,
       "norm_label": "datestr"
     },
     {
@@ -29471,7 +29451,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_add_sleep_dialog_startdate",
-      "community": 176,
+      "community": 87,
       "norm_label": "_startdate"
     },
     {
@@ -29481,7 +29461,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_add_sleep_dialog_starttime",
-      "community": 176,
+      "community": 87,
       "norm_label": "_starttime"
     },
     {
@@ -29491,7 +29471,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_add_sleep_dialog_endtime",
-      "community": 176,
+      "community": 87,
       "norm_label": "_endtime"
     },
     {
@@ -29501,7 +29481,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_add_sleep_dialog_createstate",
-      "community": 176,
+      "community": 87,
       "norm_label": "createstate"
     },
     {
@@ -29511,7 +29491,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_add_sleep_dialog_initstate",
-      "community": 176,
+      "community": 87,
       "norm_label": "initstate"
     },
     {
@@ -29521,7 +29501,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_add_sleep_dialog_build",
-      "community": 176,
+      "community": 87,
       "norm_label": "build"
     },
     {
@@ -29531,7 +29511,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_add_sleep_dialog_builddatepickerrow",
-      "community": 176,
+      "community": 87,
       "norm_label": "_builddatepickerrow"
     },
     {
@@ -29541,7 +29521,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_add_sleep_dialog_buildtimepickerrow",
-      "community": 176,
+      "community": 87,
       "norm_label": "_buildtimepickerrow"
     },
     {
@@ -29551,7 +29531,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_energy_panel",
-      "community": 168,
+      "community": 87,
       "norm_label": "energy_panel.dart"
     },
     {
@@ -29561,7 +29541,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_energy_panel_energypanel",
-      "community": 168,
+      "community": 87,
       "norm_label": "energypanel"
     },
     {
@@ -29571,7 +29551,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_energy_panel_energychart",
-      "community": 168,
+      "community": 87,
       "norm_label": "_energychart"
     },
     {
@@ -29601,7 +29581,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_energy_panel_datestr",
-      "community": 168,
+      "community": 87,
       "norm_label": "datestr"
     },
     {
@@ -29611,7 +29591,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_energy_panel_entries",
-      "community": 168,
+      "community": 87,
       "norm_label": "entries"
     },
     {
@@ -29621,7 +29601,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_energy_panel_provider",
-      "community": 168,
+      "community": 87,
       "norm_label": "provider"
     },
     {
@@ -29631,7 +29611,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_energy_panel_level",
-      "community": 168,
+      "community": 87,
       "norm_label": "_level"
     },
     {
@@ -29641,7 +29621,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_energy_panel_timestamp",
-      "community": 168,
+      "community": 87,
       "norm_label": "_timestamp"
     },
     {
@@ -29651,7 +29631,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_energy_panel_showlogdialog",
-      "community": 168,
+      "community": 87,
       "norm_label": "_showlogdialog"
     },
     {
@@ -29661,7 +29641,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_energy_panel_build",
-      "community": 168,
+      "community": 87,
       "norm_label": "build"
     },
     {
@@ -29671,7 +29651,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_energy_panel_levelcolor",
-      "community": 168,
+      "community": 87,
       "norm_label": "_levelcolor"
     },
     {
@@ -29681,7 +29661,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_energy_panel_createstate",
-      "community": 168,
+      "community": 87,
       "norm_label": "createstate"
     },
     {
@@ -29691,7 +29671,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_energy_panel_initstate",
-      "community": 168,
+      "community": 87,
       "norm_label": "initstate"
     },
     {
@@ -29701,7 +29681,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_energy_panel_picktime",
-      "community": 168,
+      "community": 87,
       "norm_label": "_picktime"
     },
     {
@@ -30771,7 +30751,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_journaling_person_core_stats",
-      "community": 186,
+      "community": 144,
       "norm_label": "person_core_stats.dart"
     },
     {
@@ -30781,7 +30761,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_journaling_person_core_stats_personcorestats",
-      "community": 186,
+      "community": 144,
       "norm_label": "personcorestats"
     },
     {
@@ -30791,7 +30771,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_journaling_person_core_stats_relation",
-      "community": 186,
+      "community": 144,
       "norm_label": "relation"
     },
     {
@@ -30801,7 +30781,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_journaling_person_core_stats_status",
-      "community": 186,
+      "community": 144,
       "norm_label": "status"
     },
     {
@@ -30811,7 +30791,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_journaling_person_core_stats_updatedstr",
-      "community": 186,
+      "community": 144,
       "norm_label": "updatedstr"
     },
     {
@@ -30821,7 +30801,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_journaling_person_core_stats_role",
-      "community": 186,
+      "community": 144,
       "norm_label": "role"
     },
     {
@@ -30831,7 +30811,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_journaling_person_core_stats_build",
-      "community": 186,
+      "community": 144,
       "norm_label": "build"
     },
     {
@@ -30841,7 +30821,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_journaling_person_core_stats_buildsectionheader",
-      "community": 186,
+      "community": 144,
       "norm_label": "_buildsectionheader"
     },
     {
@@ -30851,7 +30831,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_journaling_person_core_stats_builddatarow",
-      "community": 186,
+      "community": 144,
       "norm_label": "_builddatarow"
     },
     {
@@ -31921,7 +31901,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_screens_checkpoint_detail_screen_checkpointdetailscreen",
-      "community": 41,
+      "community": 12,
       "norm_label": "checkpointdetailscreen"
     },
     {
@@ -31931,7 +31911,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_screens_checkpoint_detail_screen_checkpointdetailscreenstate",
-      "community": 41,
+      "community": 12,
       "norm_label": "_checkpointdetailscreenstate"
     },
     {
@@ -32171,7 +32151,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_screens_reflection_editor_screen_reflectioneditorscreen",
-      "community": 12,
+      "community": 36,
       "norm_label": "reflectioneditorscreen"
     },
     {
@@ -32181,7 +32161,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_screens_reflection_editor_screen_reflectioneditorscreenstate",
-      "community": 12,
+      "community": 36,
       "norm_label": "_reflectioneditorscreenstate"
     },
     {
@@ -33311,7 +33291,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_settings_api_key_manager",
-      "community": 1093,
+      "community": 135,
       "norm_label": "api_key_manager.dart"
     },
     {
@@ -33321,7 +33301,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_settings_api_key_manager_apikeymanager",
-      "community": 1093,
+      "community": 135,
       "norm_label": "apikeymanager"
     },
     {
@@ -33331,7 +33311,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_settings_api_key_manager_apikeymanagerstate",
-      "community": 1093,
+      "community": 135,
       "norm_label": "_apikeymanagerstate"
     },
     {
@@ -33341,7 +33321,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_settings_api_key_manager_keycontroller",
-      "community": 1093,
+      "community": 135,
       "norm_label": "_keycontroller"
     },
     {
@@ -33351,7 +33331,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_settings_api_key_manager_createstate",
-      "community": 1093,
+      "community": 135,
       "norm_label": "createstate"
     },
     {
@@ -33361,7 +33341,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_settings_api_key_manager_dispose",
-      "community": 1093,
+      "community": 135,
       "norm_label": "dispose"
     },
     {
@@ -33371,7 +33351,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_settings_api_key_manager_addkey",
-      "community": 1093,
+      "community": 135,
       "norm_label": "_addkey"
     },
     {
@@ -33381,7 +33361,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_settings_api_key_manager_build",
-      "community": 1093,
+      "community": 135,
       "norm_label": "build"
     },
     {
@@ -35491,7 +35471,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_compact_engage_button",
-      "community": 102,
+      "community": 1092,
       "norm_label": "jwe_compact_engage_button.dart"
     },
     {
@@ -35501,7 +35481,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_compact_engage_button_jwecompactengagebutton",
-      "community": 102,
+      "community": 1092,
       "norm_label": "jwecompactengagebutton"
     },
     {
@@ -35511,7 +35491,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_compact_engage_button_isrunning",
-      "community": 102,
+      "community": 1092,
       "norm_label": "isrunning"
     },
     {
@@ -35521,7 +35501,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_compact_engage_button_onpressed",
-      "community": 102,
+      "community": 1092,
       "norm_label": "onpressed"
     },
     {
@@ -35531,7 +35511,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_compact_engage_button_build",
-      "community": 102,
+      "community": 1092,
       "norm_label": "build"
     },
     {
@@ -35541,7 +35521,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_compact_task_card",
-      "community": 102,
+      "community": 126,
       "norm_label": "jwe_compact_task_card.dart"
     },
     {
@@ -35551,7 +35531,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_compact_task_card_jwecompacttaskcard",
-      "community": 102,
+      "community": 126,
       "norm_label": "jwecompacttaskcard"
     },
     {
@@ -35561,7 +35541,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_compact_task_card_task",
-      "community": 102,
+      "community": 126,
       "norm_label": "task"
     },
     {
@@ -35571,7 +35551,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_compact_task_card_isselected",
-      "community": 102,
+      "community": 126,
       "norm_label": "isselected"
     },
     {
@@ -35581,7 +35561,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_compact_task_card_ontap",
-      "community": 102,
+      "community": 126,
       "norm_label": "ontap"
     },
     {
@@ -35591,7 +35571,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_compact_task_card_onlongpress",
-      "community": 102,
+      "community": 126,
       "norm_label": "onlongpress"
     },
     {
@@ -35601,7 +35581,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_compact_task_card_build",
-      "community": 102,
+      "community": 126,
       "norm_label": "build"
     },
     {
@@ -35731,7 +35711,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_panel",
-      "community": 1102,
+      "community": 309,
       "norm_label": "jwe_panel.dart"
     },
     {
@@ -35741,7 +35721,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_panel_jwepanel",
-      "community": 1102,
+      "community": 309,
       "norm_label": "jwepanel"
     },
     {
@@ -35751,7 +35731,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_panel_title",
-      "community": 1102,
+      "community": 309,
       "norm_label": "title"
     },
     {
@@ -35761,7 +35741,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_panel_child",
-      "community": 1102,
+      "community": 309,
       "norm_label": "child"
     },
     {
@@ -35771,7 +35751,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_panel_accentcolor",
-      "community": 1102,
+      "community": 309,
       "norm_label": "accentcolor"
     },
     {
@@ -35781,7 +35761,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_panel_build",
-      "community": 1102,
+      "community": 309,
       "norm_label": "build"
     },
     {
@@ -35791,7 +35771,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_panel_matchtone",
-      "community": 1102,
+      "community": 309,
       "norm_label": "_matchtone"
     },
     {
@@ -35901,7 +35881,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_sync_overlay",
-      "community": 102,
+      "community": 87,
       "norm_label": "jwe_sync_overlay.dart"
     },
     {
@@ -35911,7 +35891,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_sync_overlay_jwesyncoverlay",
-      "community": 102,
+      "community": 87,
       "norm_label": "jwesyncoverlay"
     },
     {
@@ -35921,7 +35901,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_sync_overlay_build",
-      "community": 102,
+      "community": 87,
       "norm_label": "build"
     },
     {
@@ -36301,7 +36281,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_reflection_log_card",
-      "community": 10,
+      "community": 102,
       "norm_label": "reflection_log_card.dart"
     },
     {
@@ -36311,7 +36291,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_reflection_log_card_reflectionlogcard",
-      "community": 10,
+      "community": 102,
       "norm_label": "reflectionlogcard"
     },
     {
@@ -36321,7 +36301,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_reflection_log_card_log",
-      "community": 10,
+      "community": 102,
       "norm_label": "log"
     },
     {
@@ -36331,7 +36311,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_reflection_log_card_isselected",
-      "community": 10,
+      "community": 102,
       "norm_label": "isselected"
     },
     {
@@ -36341,7 +36321,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_reflection_log_card_build",
-      "community": 10,
+      "community": 102,
       "norm_label": "build"
     },
     {
@@ -36351,7 +36331,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_reflection_log_card_buildrow",
-      "community": 10,
+      "community": 102,
       "norm_label": "_buildrow"
     },
     {
@@ -36421,7 +36401,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_rhombus_checkbox",
-      "community": 1095,
+      "community": 18,
       "norm_label": "rhombus_checkbox.dart"
     },
     {
@@ -36431,7 +36411,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_rhombus_checkbox_checkboxsize",
-      "community": 1095,
+      "community": 18,
       "norm_label": "checkboxsize"
     },
     {
@@ -36441,7 +36421,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_rhombus_checkbox_rhombuscheckbox",
-      "community": 1095,
+      "community": 18,
       "norm_label": "rhombuscheckbox"
     },
     {
@@ -36451,7 +36431,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_rhombus_checkbox_checked",
-      "community": 1095,
+      "community": 18,
       "norm_label": "checked"
     },
     {
@@ -36461,7 +36441,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_rhombus_checkbox_onchanged",
-      "community": 1095,
+      "community": 18,
       "norm_label": "onchanged"
     },
     {
@@ -36471,7 +36451,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_rhombus_checkbox_disabled",
-      "community": 1095,
+      "community": 18,
       "norm_label": "disabled"
     },
     {
@@ -36481,7 +36461,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_rhombus_checkbox_size",
-      "community": 1095,
+      "community": 18,
       "norm_label": "size"
     },
     {
@@ -36491,7 +36471,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_rhombus_checkbox_build",
-      "community": 1095,
+      "community": 18,
       "norm_label": "build"
     },
     {
@@ -36501,7 +36481,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_saved_prompts_list",
-      "community": 63,
+      "community": 118,
       "norm_label": "saved_prompts_list.dart"
     },
     {
@@ -36511,7 +36491,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_saved_prompts_list_savedpromptslist",
-      "community": 63,
+      "community": 118,
       "norm_label": "savedpromptslist"
     },
     {
@@ -36521,7 +36501,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_saved_prompts_list_build",
-      "community": 63,
+      "community": 118,
       "norm_label": "build"
     },
     {
@@ -36531,7 +36511,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_spidey_progress_bar",
-      "community": 1103,
+      "community": 184,
       "norm_label": "spidey_progress_bar.dart"
     },
     {
@@ -36541,7 +36521,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_spidey_progress_bar_spideyprogressbar",
-      "community": 1103,
+      "community": 184,
       "norm_label": "spideyprogressbar"
     },
     {
@@ -36551,7 +36531,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_spidey_progress_bar_progress",
-      "community": 1103,
+      "community": 184,
       "norm_label": "progress"
     },
     {
@@ -36561,7 +36541,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_spidey_progress_bar_color",
-      "community": 1103,
+      "community": 184,
       "norm_label": "color"
     },
     {
@@ -36571,7 +36551,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_spidey_progress_bar_build",
-      "community": 1103,
+      "community": 184,
       "norm_label": "build"
     },
     {
@@ -36581,7 +36561,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_startup_wellbeing_metrics",
-      "community": 102,
+      "community": 74,
       "norm_label": "startup_wellbeing_metrics.dart"
     },
     {
@@ -36591,7 +36571,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_startup_wellbeing_metrics_startupwellbeingmetrics",
-      "community": 102,
+      "community": 74,
       "norm_label": "startupwellbeingmetrics"
     },
     {
@@ -36601,7 +36581,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_startup_wellbeing_metrics_metrics",
-      "community": 102,
+      "community": 74,
       "norm_label": "metrics"
     },
     {
@@ -36611,7 +36591,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_startup_wellbeing_metrics_build",
-      "community": 102,
+      "community": 74,
       "norm_label": "build"
     },
     {
@@ -36941,7 +36921,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_tactical_directives_list",
-      "community": 101,
+      "community": 18,
       "norm_label": "tactical_directives_list.dart"
     },
     {
@@ -36951,7 +36931,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_tactical_directives_list_tacticaldirectiveslist",
-      "community": 101,
+      "community": 18,
       "norm_label": "tacticaldirectiveslist"
     },
     {
@@ -36961,7 +36941,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_tactical_directives_list_directives",
-      "community": 101,
+      "community": 18,
       "norm_label": "directives"
     },
     {
@@ -36971,7 +36951,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_tactical_directives_list_build",
-      "community": 101,
+      "community": 18,
       "norm_label": "build"
     },
     {
@@ -50396,7 +50376,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt",
-      "source_location": "L11",
+      "source_location": "L10",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget",
@@ -50406,7 +50386,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt",
-      "source_location": "L13",
+      "source_location": "L12",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget_onupdate",
@@ -50416,7 +50396,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt",
-      "source_location": "L24",
+      "source_location": "L23",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget_render",
@@ -50426,7 +50406,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt",
-      "source_location": "L11",
+      "source_location": "L10",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget",
       "target": "homewidgetprovider",
@@ -50436,7 +50416,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L12",
+      "source_location": "L11",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget",
       "target": "homewidgetprovider",
@@ -50457,7 +50437,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt",
-      "source_location": "L20",
+      "source_location": "L19",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget_onupdate",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget_render",
@@ -50467,7 +50447,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt",
-      "source_location": "L13",
+      "source_location": "L12",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget_onupdate",
@@ -50478,7 +50458,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt",
-      "source_location": "L13",
+      "source_location": "L12",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget_onupdate",
@@ -50489,7 +50469,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt",
-      "source_location": "L13",
+      "source_location": "L12",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget_onupdate",
@@ -50500,7 +50480,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt",
-      "source_location": "L13",
+      "source_location": "L12",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget_onupdate",
@@ -50511,7 +50491,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt",
-      "source_location": "L24",
+      "source_location": "L23",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget_render",
@@ -50522,7 +50502,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt",
-      "source_location": "L24",
+      "source_location": "L23",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget_render",
@@ -50533,7 +50513,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt",
-      "source_location": "L24",
+      "source_location": "L23",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget_render",
@@ -50544,7 +50524,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/FinanceWidget.kt",
-      "source_location": "L24",
+      "source_location": "L23",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_financewidget_financewidget_render",
@@ -50555,7 +50535,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L12",
+      "source_location": "L11",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget",
@@ -50565,7 +50545,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L14",
+      "source_location": "L13",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_onupdate",
@@ -50575,7 +50555,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L25",
+      "source_location": "L24",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_render",
@@ -50585,7 +50565,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L67",
+      "source_location": "L55",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_setpip",
@@ -50596,7 +50576,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L21",
+      "source_location": "L20",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_onupdate",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_render",
@@ -50606,7 +50586,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L14",
+      "source_location": "L13",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_onupdate",
@@ -50617,7 +50597,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L14",
+      "source_location": "L13",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_onupdate",
@@ -50628,7 +50608,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L14",
+      "source_location": "L13",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_onupdate",
@@ -50639,7 +50619,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L14",
+      "source_location": "L13",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_onupdate",
@@ -50650,7 +50630,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L25",
+      "source_location": "L24",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_render",
@@ -50661,7 +50641,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L67",
+      "source_location": "L55",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_setpip",
@@ -50672,7 +50652,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L25",
+      "source_location": "L24",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_render",
@@ -50683,7 +50663,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L25",
+      "source_location": "L24",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_render",
@@ -50695,7 +50675,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L37",
+      "source_location": "L33",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_render",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_setpip",
@@ -50705,7 +50685,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L25",
+      "source_location": "L24",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_render",
@@ -50717,7 +50697,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L26",
+      "source_location": "L25",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_render",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_kt_remoteviews",
@@ -50727,7 +50707,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L67",
+      "source_location": "L55",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_setpip",
@@ -50738,7 +50718,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L67",
+      "source_location": "L55",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_setpip",
@@ -50749,7 +50729,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/JournalWidget.kt",
-      "source_location": "L67",
+      "source_location": "L55",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_journalwidget_journalwidget_setpip",
@@ -50790,7 +50770,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/RunningTaskWidget.kt",
-      "source_location": "L138",
+      "source_location": "L127",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_runningtaskwidget_runningtaskwidget",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_runningtaskwidget_runningtaskwidget_renderdayplan",
@@ -50800,7 +50780,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/RunningTaskWidget.kt",
-      "source_location": "L55",
+      "source_location": "L44",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_runningtaskwidget_runningtaskwidget",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_runningtaskwidget_runningtaskwidget_renderrunning",
@@ -50876,7 +50856,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/RunningTaskWidget.kt",
-      "source_location": "L138",
+      "source_location": "L127",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_runningtaskwidget_runningtaskwidget_renderdayplan",
@@ -50887,7 +50867,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/RunningTaskWidget.kt",
-      "source_location": "L55",
+      "source_location": "L44",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_runningtaskwidget_runningtaskwidget_renderrunning",
@@ -50920,7 +50900,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/RunningTaskWidget.kt",
-      "source_location": "L138",
+      "source_location": "L127",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_runningtaskwidget_runningtaskwidget_renderdayplan",
@@ -50931,7 +50911,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/RunningTaskWidget.kt",
-      "source_location": "L55",
+      "source_location": "L44",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_runningtaskwidget_runningtaskwidget_renderrunning",
@@ -50965,7 +50945,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/RunningTaskWidget.kt",
-      "source_location": "L38",
+      "source_location": "L34",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_runningtaskwidget_runningtaskwidget_render",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_runningtaskwidget_runningtaskwidget_renderdayplan",
@@ -50976,7 +50956,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/RunningTaskWidget.kt",
-      "source_location": "L37",
+      "source_location": "L38",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_runningtaskwidget_runningtaskwidget_render",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_runningtaskwidget_runningtaskwidget_renderrunning",
@@ -50986,7 +50966,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/RunningTaskWidget.kt",
-      "source_location": "L55",
+      "source_location": "L44",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_runningtaskwidget_runningtaskwidget_renderrunning",
@@ -50997,7 +50977,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/RunningTaskWidget.kt",
-      "source_location": "L138",
+      "source_location": "L127",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_runningtaskwidget_runningtaskwidget_renderdayplan",
@@ -51008,7 +50988,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/WidgetActionReceiver.kt",
-      "source_location": "L23",
+      "source_location": "L19",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_widgetactionreceiver",
@@ -51018,17 +50998,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/WidgetActionReceiver.kt",
-      "source_location": "L42",
-      "weight": 1.0,
-      "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_widgetactionreceiver",
-      "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_widgetactionreceiver_applyinstantfeedback",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/WidgetActionReceiver.kt",
-      "source_location": "L24",
+      "source_location": "L20",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_widgetactionreceiver",
       "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_widgetactionreceiver_onreceive",
@@ -51038,7 +51008,7 @@
       "relation": "inherits",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/WidgetActionReceiver.kt",
-      "source_location": "L23",
+      "source_location": "L19",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_widgetactionreceiver",
       "target": "broadcastreceiver",
@@ -51048,7 +51018,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/WidgetActionReceiver.kt",
-      "source_location": "L24",
+      "source_location": "L20",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_widgetactionreceiver_onreceive",
@@ -51056,36 +51026,14 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/WidgetActionReceiver.kt",
-      "source_location": "L28",
-      "weight": 1.0,
-      "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_widgetactionreceiver_onreceive",
-      "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_widgetactionreceiver_applyinstantfeedback",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "references",
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/WidgetActionReceiver.kt",
-      "source_location": "L24",
+      "source_location": "L20",
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_widgetactionreceiver_onreceive",
       "target": "intent",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/WidgetActionReceiver.kt",
-      "source_location": "L42",
-      "weight": 1.0,
-      "context": "parameter_type",
-      "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_widgetactionreceiver_applyinstantfeedback",
-      "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_kt_context",
       "confidence_score": 1.0
     },
     {
@@ -51098,17 +51046,6 @@
       "weight": 1.0,
       "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetcommon_widgetcommon_actionintent",
       "target": "intent"
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "source_file": "android/app/src/main/kotlin/me/ihjas/missions/widgets/WidgetActionReceiver.kt",
-      "source_location": "L42",
-      "weight": 1.0,
-      "context": "parameter_type",
-      "source": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_widgetactionreceiver_applyinstantfeedback",
-      "target": "android_app_src_main_kotlin_me_ihjas_missions_widgets_widgetactionreceiver_kt_string",
-      "confidence_score": 1.0
     },
     {
       "relation": "contains",

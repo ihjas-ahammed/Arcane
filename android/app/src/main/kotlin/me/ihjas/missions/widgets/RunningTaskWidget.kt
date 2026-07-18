@@ -26,16 +26,27 @@ class RunningTaskWidget : HomeWidgetProvider() {
     private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int, prefs: SharedPreferences) {
         val views = RemoteViews(context.packageName, R.layout.widget_running_task)
 
+        val options = mgr.getAppWidgetOptions(widgetId)
+        val minHeight = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT) ?: 0
         val dayPlannerWidgetCheckable = WidgetCommon.getSafeBoolean(prefs, "arcane.task.dayPlannerWidgetCheckable", false)
 
-        if (dayPlannerWidgetCheckable) {
-            views.setViewVisibility(R.id.widget_running_layout, View.GONE)
+        if (minHeight >= 220) {
+            // Expanded: Show both stacked vertically
+            views.setViewVisibility(R.id.widget_running_layout, View.VISIBLE)
             views.setViewVisibility(R.id.widget_dayplan_layout, View.VISIBLE)
+            renderRunning(context, views, prefs)
             renderDayPlan(context, views, prefs)
         } else {
-            views.setViewVisibility(R.id.widget_running_layout, View.VISIBLE)
-            views.setViewVisibility(R.id.widget_dayplan_layout, View.GONE)
-            renderRunning(context, views, prefs)
+            // Standard: Show either one depending on preferences
+            if (dayPlannerWidgetCheckable) {
+                views.setViewVisibility(R.id.widget_running_layout, View.GONE)
+                views.setViewVisibility(R.id.widget_dayplan_layout, View.VISIBLE)
+                renderDayPlan(context, views, prefs)
+            } else {
+                views.setViewVisibility(R.id.widget_running_layout, View.VISIBLE)
+                views.setViewVisibility(R.id.widget_dayplan_layout, View.GONE)
+                renderRunning(context, views, prefs)
+            }
         }
 
         mgr.updateAppWidget(widgetId, views)

@@ -3,6 +3,7 @@ package me.ihjas.missions.widgets
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.SharedPreferences
+import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.ContextCompat
 import es.antonborri.home_widget.HomeWidgetProvider
@@ -24,6 +25,9 @@ class JournalWidget : HomeWidgetProvider() {
     private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int, prefs: SharedPreferences) {
         val views = RemoteViews(context.packageName, R.layout.widget_journal)
 
+        val options = mgr.getAppWidgetOptions(widgetId)
+        val minHeight = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT) ?: 0
+
         val count = WidgetCommon.getSafeInt(prefs, "arcane.journal.count", 0)
         views.setTextViewText(
             R.id.widget_journal_count,
@@ -35,6 +39,14 @@ class JournalWidget : HomeWidgetProvider() {
         setPip(context, views, R.id.widget_journal_pip_aft, WidgetCommon.getSafeBoolean(prefs, "arcane.journal.aft", false))
         setPip(context, views, R.id.widget_journal_pip_eve, WidgetCommon.getSafeBoolean(prefs, "arcane.journal.eve", false))
         setPip(context, views, R.id.widget_journal_pip_night, WidgetCommon.getSafeBoolean(prefs, "arcane.journal.night", false))
+
+        if (minHeight > 0 && minHeight < 100) {
+            views.setViewVisibility(R.id.widget_journal_pips_layout, View.GONE)
+            views.setViewVisibility(R.id.widget_journal_buttons_layout, View.GONE)
+        } else {
+            views.setViewVisibility(R.id.widget_journal_pips_layout, View.VISIBLE)
+            views.setViewVisibility(R.id.widget_journal_buttons_layout, View.VISIBLE)
+        }
 
         views.setOnClickPendingIntent(
             R.id.widget_journal_root,
