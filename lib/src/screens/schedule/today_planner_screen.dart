@@ -5,6 +5,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/theme/person_info_theme.dart';
@@ -46,6 +47,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   String _searchQuery = '';
   final TextEditingController _searchCtrl = TextEditingController();
   bool _isInit = true;
+  int _activeAddTab = 0; // 0 for Missions, 1 for Routines
 
   @override
   void didChangeDependencies() {
@@ -399,7 +401,11 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
               onToggle: () => setState(() => _addExpanded = !_addExpanded),
               searchController: _searchCtrl,
               onSearchChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
-              child: _buildAvailableList(provider),
+              activeTab: _activeAddTab,
+              onTabChanged: (val) => setState(() => _activeAddTab = val),
+              child: _activeAddTab == 0
+                  ? _buildAvailableList(provider)
+                  : _buildRoutinesList(provider),
             ),
           ],
         ),
@@ -490,22 +496,19 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
           animateIn: entry.addedAtRuntime,
           leaving: _leaving[entry.key],
           onLeft: () => _finishLeave(provider, entry),
-          child: ReorderableDelayedDragStartListener(
-            index: index,
-            child: _PlanRow(
-              compoundId: entry.id,
-              provider: provider,
-              dragIndex: index,
-              minutes: _estimateFor(entry.id, provider),
-              isCustomEstimate: _estimates.containsKey(entry.id),
-              isDone: _isEntryDone(provider, entry.id),
-              hasReminder: provider.plannerReminderTime(entry.id) != null,
-              onEditEstimate: () => _editEstimate(provider, entry.id),
-              onEditReminder: () => _editReminder(provider, entry.id),
-              onRemove: () => _removeFromPlan(provider, entry),
-              onAnoint: () => _togglePhoenix(provider, entry),
-              onCheck: () => _completePlanItem(provider, entry),
-            ),
+          child: _PlanRow(
+            compoundId: entry.id,
+            provider: provider,
+            dragIndex: index,
+            minutes: _estimateFor(entry.id, provider),
+            isCustomEstimate: _estimates.containsKey(entry.id),
+            isDone: _isEntryDone(provider, entry.id),
+            hasReminder: provider.plannerReminderTime(entry.id) != null,
+            onEditEstimate: () => _editEstimate(provider, entry.id),
+            onEditReminder: () => _editReminder(provider, entry.id),
+            onRemove: () => _removeFromPlan(provider, entry),
+            onAnoint: () => _togglePhoenix(provider, entry),
+            onCheck: () => _completePlanItem(provider, entry),
           ),
         );
       },
@@ -658,6 +661,348 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   bool _matchesQuery(String text, String q) {
     if (q.isEmpty) return true;
     return text.toLowerCase().contains(q);
+  }
+
+  Widget _buildRoutinesList(AppProvider provider) {
+    final routines = provider.routineLists;
+    if (routines.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'NO ROUTINES CREATED YET',
+              style: GoogleFonts.rajdhani(
+                  color: AppTheme.fhTextDisabled,
+                  fontSize: 13,
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => _showCreateRoutineDialog(provider),
+              icon: Icon(MdiIcons.plusBoxOutline, size: 16, color: AppTheme.fhAccentTeal),
+              label: Text('CREATE ROUTINE',
+                  style: TextStyle(
+                      color: AppTheme.fhAccentTeal,
+                      fontSize: 12,
+                      letterSpacing: 1.5,
+                      fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              onPressed: () => _showCreateRoutineDialog(provider),
+              icon: Icon(MdiIcons.plusBoxOutline, size: 14, color: AppTheme.fhAccentTeal),
+              label: Text('CREATE ROUTINE',
+                  style: TextStyle(
+                      color: AppTheme.fhAccentTeal,
+                      fontSize: 11,
+                      letterSpacing: 1,
+                      fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: routines.length,
+            itemBuilder: (context, idx) {
+              final routine = routines[idx];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.fhBgDeepDark,
+                  border: Border.all(color: AppTheme.fhBorderColor),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            routine.name,
+                            style: GoogleFonts.rajdhani(
+                              color: AppTheme.fhTextPrimary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${routine.taskIds.length} items',
+                            style: TextStyle(
+                              color: AppTheme.fhTextDisabled,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        _addRoutineToPlan(provider, routine);
+                        showGlobalToast('Added "${routine.name}" routine to plan');
+                      },
+                      child: Text('ADD ALL',
+                          style: TextStyle(
+                              color: AppTheme.fhAccentTeal,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.edit, size: 16, color: AppTheme.fhTextSecondary),
+                      onPressed: () => _showCreateRoutineDialog(provider, routine),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.delete, size: 16, color: AppTheme.fhAccentRed),
+                      onPressed: () => _confirmDeleteRoutine(provider, routine),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _addRoutineToPlan(AppProvider provider, RoutineList routine) {
+    setState(() {
+      for (final compoundId in routine.taskIds) {
+        _entries.add(_PlanEntry(compoundId, addedAtRuntime: true));
+      }
+    });
+    _persistPlan(provider);
+  }
+
+  void _confirmDeleteRoutine(AppProvider provider, RoutineList routine) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgDark,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        title: Text('DELETE ROUTINE',
+            style: GoogleFonts.rajdhani(
+                color: AppTheme.fhAccentRed,
+                letterSpacing: 1.5,
+                fontWeight: FontWeight.bold)),
+        content: Text(
+          'Are you sure you want to delete the routine "${routine.name}"?',
+          style: TextStyle(color: AppTheme.fhTextPrimary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('CANCEL', style: TextStyle(color: AppTheme.fhTextSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              provider.taskActions.deleteRoutineList(routine.id);
+              Navigator.pop(ctx);
+              showGlobalToast('Deleted routine: ${routine.name}');
+            },
+            child: Text('DELETE', style: TextStyle(color: AppTheme.fhAccentRed)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCreateRoutineDialog(AppProvider provider, [RoutineList? existing]) {
+    final nameController = TextEditingController(text: existing?.name ?? '');
+    final allItems = _getAvailableRoutineItems(provider);
+    final selectedIds = (existing?.taskIds ?? <String>[]).toSet();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, dialogState) {
+            return AlertDialog(
+              backgroundColor: AppTheme.fhBgDark,
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+              title: Text(existing == null ? 'CREATE ROUTINE' : 'EDIT ROUTINE',
+                  style: GoogleFonts.rajdhani(
+                      color: AppTheme.fhAccentTeal,
+                      letterSpacing: 1.5,
+                      fontWeight: FontWeight.bold)),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      style: TextStyle(color: AppTheme.fhTextPrimary),
+                      decoration: InputDecoration(
+                        labelText: 'Routine Name',
+                        labelStyle: TextStyle(color: AppTheme.fhTextSecondary),
+                        enabledBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+                        focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: AppTheme.fhAccentTeal)),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'SELECT TASKS / CHECKPOINTS:',
+                      style: GoogleFonts.rajdhani(
+                        color: AppTheme.fhTextSecondary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (allItems.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: Center(
+                          child: Text(
+                            'No tasks or checkpoints available.',
+                            style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12),
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        height: 250,
+                        width: 320,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppTheme.fhBorderColor),
+                        ),
+                        child: ListView.builder(
+                          itemCount: allItems.length,
+                          itemBuilder: (context, idx) {
+                            final item = allItems[idx];
+                            final isSelected = selectedIds.contains(item.compoundId);
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                unselectedWidgetColor: AppTheme.fhTextDisabled,
+                              ),
+                              child: CheckboxListTile(
+                                title: Text(item.title,
+                                    style: TextStyle(
+                                        color: AppTheme.fhTextPrimary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold)),
+                                subtitle: Text(item.parentPath,
+                                    style: TextStyle(
+                                        color: AppTheme.fhTextDisabled,
+                                        fontSize: 10)),
+                                value: isSelected,
+                                activeColor: AppTheme.fhAccentTeal,
+                                checkColor: AppTheme.fhBgDark,
+                                controlAffinity: ListTileControlAffinity.leading,
+                                contentPadding: EdgeInsets.zero,
+                                onChanged: (val) {
+                                  dialogState(() {
+                                    if (val == true) {
+                                      selectedIds.add(item.compoundId);
+                                    } else {
+                                      selectedIds.remove(item.compoundId);
+                                    }
+                                  });
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text('CANCEL', style: TextStyle(color: AppTheme.fhTextSecondary)),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final name = nameController.text.trim();
+                    if (name.isEmpty) {
+                      showGlobalToast('Please enter a routine name');
+                      return;
+                    }
+                    if (selectedIds.isEmpty) {
+                      showGlobalToast('Please select at least one task');
+                      return;
+                    }
+
+                    final routine = RoutineList(
+                      id: existing?.id ?? const Uuid().v4(),
+                      name: name,
+                      taskIds: selectedIds.toList(),
+                    );
+                    provider.taskActions.addOrUpdateRoutineList(routine);
+                    Navigator.pop(ctx);
+                    showGlobalToast(existing == null ? 'Created routine: $name' : 'Updated routine: $name');
+                  },
+                  child: Text(existing == null ? 'CREATE' : 'SAVE', style: TextStyle(color: AppTheme.fhAccentTeal)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  List<RoutineItemSelectable> _getAvailableRoutineItems(AppProvider provider) {
+    final List<RoutineItemSelectable> items = [];
+    final activeTasks = provider.mainTasks.where((t) => t.isActive && !t.isDeleted).toList();
+
+    for (final task in activeTasks) {
+      final activeSubs = task.subTasks.where((s) => !s.isDeleted).toList();
+      for (final sub in activeSubs) {
+        final subId = '${task.id}|${sub.id}';
+        
+        // Add the subtask itself
+        items.add(RoutineItemSelectable(
+          compoundId: subId,
+          title: sub.name,
+          parentPath: task.name,
+          color: task.taskColor,
+        ));
+
+        // Add its checkpoints
+        final activeCps = _getAllCheckpointsForPlanning(sub);
+        for (final cp in activeCps) {
+          final cpId = '$subId|${cp.id}';
+          items.add(RoutineItemSelectable(
+            compoundId: cpId,
+            title: cp.name,
+            parentPath: '${task.name} > ${_findParentPath(sub, cp)}',
+            color: task.taskColor,
+          ));
+        }
+      }
+    }
+    return items;
   }
 }
 
@@ -1565,6 +1910,8 @@ class _AddSection extends StatelessWidget {
   final TextEditingController searchController;
   final ValueChanged<String> onSearchChanged;
   final Widget child;
+  final int activeTab;
+  final ValueChanged<int> onTabChanged;
 
   const _AddSection({
     required this.expanded,
@@ -1572,6 +1919,8 @@ class _AddSection extends StatelessWidget {
     required this.searchController,
     required this.onSearchChanged,
     required this.child,
+    required this.activeTab,
+    required this.onTabChanged,
   });
 
   static const double _headerHeight = 53;
@@ -1633,27 +1982,47 @@ class _AddSection extends StatelessWidget {
                   child: Column(
                     children: [
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                        child: TextField(
-                          controller: searchController,
-                          onChanged: onSearchChanged,
-                          style:   TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
-                          decoration: InputDecoration(
-                            isDense: true,
-                            hintText: 'Search…',
-                            hintStyle:   TextStyle(color: AppTheme.fhTextDisabled, fontSize: 13),
-                            prefixIcon:   Icon(Icons.search,
-                                size: 16, color: AppTheme.fhTextSecondary),
-                            prefixIconConstraints:
-                                const BoxConstraints(minWidth: 32, minHeight: 32),
-                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                            enabledBorder:   UnderlineInputBorder(
-                                borderSide: BorderSide(color: AppTheme.fhBorderColor)),
-                            focusedBorder:   UnderlineInputBorder(
-                                borderSide: BorderSide(color: AppTheme.fhAccentTeal)),
-                          ),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _TabButton(
+                              title: 'MISSIONS',
+                              isActive: activeTab == 0,
+                              onTap: () => onTabChanged(0),
+                            ),
+                            const SizedBox(width: 24),
+                            _TabButton(
+                              title: 'ROUTINES',
+                              isActive: activeTab == 1,
+                              onTap: () => onTabChanged(1),
+                            ),
+                          ],
                         ),
                       ),
+                      if (activeTab == 0)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                          child: TextField(
+                            controller: searchController,
+                            onChanged: onSearchChanged,
+                            style:   TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              hintText: 'Search…',
+                              hintStyle:   TextStyle(color: AppTheme.fhTextDisabled, fontSize: 13),
+                              prefixIcon:   Icon(Icons.search,
+                                  size: 16, color: AppTheme.fhTextSecondary),
+                              prefixIconConstraints:
+                                  const BoxConstraints(minWidth: 32, minHeight: 32),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                              enabledBorder:   UnderlineInputBorder(
+                                  borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+                              focusedBorder:   UnderlineInputBorder(
+                                  borderSide: BorderSide(color: AppTheme.fhAccentTeal)),
+                            ),
+                          ),
+                        ),
                       Expanded(child: child),
                     ],
                   ).animate().fadeIn(duration: 200.ms, delay: 60.ms),
@@ -1664,6 +2033,59 @@ class _AddSection extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TabButton extends StatelessWidget {
+  final String title;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _TabButton({
+    required this.title,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.rajdhani(
+              color: isActive ? AppTheme.fhAccentTeal : AppTheme.fhTextDisabled,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            height: 2,
+            width: 40,
+            color: isActive ? AppTheme.fhAccentTeal : Colors.transparent,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class RoutineItemSelectable {
+  final String compoundId;
+  final String title;
+  final String parentPath;
+  final Color color;
+
+  RoutineItemSelectable({
+    required this.compoundId,
+    required this.title,
+    required this.parentPath,
+    required this.color,
+  });
 }
 
 List<SubSubTask> _getAllCheckpointsForPlanning(SubTask sub) {

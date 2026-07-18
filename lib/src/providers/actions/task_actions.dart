@@ -419,6 +419,7 @@ class TaskActions {
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
+    sanitizeRoutineLists();
   }
 
   void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool silent = false}) {
@@ -838,8 +839,9 @@ class TaskActions {
       logToDailySummary('taskTime', {'taskId': mainTaskId, 'time': timeDifference});
     }
 
-    final newMainTasks = _provider.mainTasks.map((t) => t.id == mainTaskId ? taskToUpdate! : t).toList();
+    final newMainTasks = _provider.mainTasks.map((t) => t.id == mainTaskId ? taskToUpdate : t).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
+    sanitizeRoutineLists();
   }
 
   bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) {
@@ -897,6 +899,7 @@ class TaskActions {
       'name': subTask.name,
       'timeLogged': subTask.currentTimeSpent,
     });
+    sanitizeRoutineLists();
     return true;
   }
 
@@ -1310,5 +1313,95 @@ class TaskActions {
 
     newCompletedByDay[today] = dayData;
     _provider.setProviderState(completedByDay: newCompletedByDay);
+  }
+
+  // --- Routine Lists Management ---
+  void addOrUpdateRoutineList(RoutineList routine) {
+    final lists = List<RoutineList>.from(_provider.routineLists);
+    final idx = lists.indexWhere((r) => r.id == routine.id);
+    if (idx != -1) {
+      lists[idx] = routine;
+    } else {
+      lists.add(routine);
+    }
+    _provider.setRoutineLists(lists);
+    _provider.notify();
+  }
+
+  void deleteRoutineList(String routineId) {
+    final lists = _provider.routineLists.where((r) => r.id != routineId).toList();
+    _provider.setRoutineLists(lists);
+    _provider.notify();
+  }
+
+  void sanitizeRoutineLists() {
+    final lists = <RoutineList>[];
+    bool changed = false;
+
+    for (final routine in _provider.routineLists) {
+      final sanitizedTaskIds = <String>[];
+      bool routineChanged = false;
+
+      for (final compoundId in routine.taskIds) {
+        final parts = compoundId.split('|');
+        if (parts.length < 2) {
+          routineChanged = true;
+          continue;
+        }
+
+        final mainTaskId = parts[0];
+        final subTaskId = parts[1];
+
+        final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId && !t.isDeleted);
+        if (task == null) {
+          routineChanged = true;
+          continue;
+        }
+
+        final sub = task.subTasks.firstWhereOrNull((s) => s.id == subTaskId && !s.isDeleted);
+        if (sub == null) {
+          routineChanged = true;
+          continue;
+        }
+
+        if (parts.length == 3) {
+          // Checkpoint
+          final cpId = parts[2];
+          final cp = sub.findCheckpoint(cpId);
+          if (cp == null) {
+            routineChanged = true;
+            continue;
+          }
+
+          if (cp.completed && !sub.isRecurring) {
+            routineChanged = true;
+            continue;
+          }
+        } else {
+          // Subtask itself
+          if (sub.completed && !sub.isRecurring) {
+            routineChanged = true;
+            continue;
+          }
+        }
+
+        sanitizedTaskIds.add(compoundId);
+      }
+
+      if (routineChanged) {
+        changed = true;
+        lists.add(RoutineList(
+          id: routine.id,
+          name: routine.name,
+          taskIds: sanitizedTaskIds,
+        ));
+      } else {
+        lists.add(routine);
+      }
+    }
+
+    if (changed) {
+      _provider.setRoutineLists(lists);
+    }
   }
 }

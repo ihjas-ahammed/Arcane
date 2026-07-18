@@ -749,3 +749,31 @@ Map<String, dynamic> parseTaskOutline(String text) {
     'children': children,
   };
 }
+
+class RoutineList {
+  final String id;
+  final String name;
+  final List<String> taskIds;
+
+  RoutineList({
+    required this.id,
+    required this.name,
+    required this.taskIds,
+  });
+
+  factory RoutineList.fromJson(Map<String, dynamic> json) {
+    return RoutineList(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      taskIds: List<String>.from(json['taskIds'] ?? []),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'taskIds': taskIds,
+    };
+  }
+}

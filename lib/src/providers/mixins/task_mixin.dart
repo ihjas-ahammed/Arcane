@@ -14,6 +14,7 @@ mixin TaskMixin on ChangeNotifier {
   Map<String, ActiveTimerInfo> _activeTimers = {}; // Store typed objects internally
   List<Project> _projects = [];
   String? _activeProjectId;
+  List<RoutineList> _routineLists = [];
 
   // --- Getters ---
   List<MainTask> get mainTasks => _mainTasks;
@@ -22,6 +23,7 @@ mixin TaskMixin on ChangeNotifier {
   Map<String, ActiveTimerInfo> get activeTimers => _activeTimers;
   List<Project> get projects => _projects;
   String? get activeProjectId => _activeProjectId;
+  List<RoutineList> get routineLists => _routineLists;
 
   // --- Requirements from AppProvider ---
   SyncMixin get sync => this as SyncMixin;
@@ -70,6 +72,11 @@ mixin TaskMixin on ChangeNotifier {
     }
   }
 
+  void setRoutineLists(List<RoutineList> lists) {
+    _routineLists = List.from(lists);
+    sync.markDirty('tasks');
+  }
+
   void setActiveProjectId(String? id) {
     if (_activeProjectId != id) {
       _activeProjectId = id;
@@ -111,6 +118,14 @@ mixin TaskMixin on ChangeNotifier {
     } else {
       _projects = [];
     }
+
+    if (data['routineLists'] != null) {
+      _routineLists = (data['routineLists'] as List)
+          .map((e) => RoutineList.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    } else {
+      _routineLists = [];
+    }
   }
 
   Map<String, dynamic> getTaskStateMap() {
@@ -120,6 +135,7 @@ mixin TaskMixin on ChangeNotifier {
       'selectedTaskId': _selectedTaskId,
       'activeTimers': _activeTimers.map((k, v) => MapEntry(k, v.toJson())),
       'projects': _projects.map((p) => p.toJson()).toList(),
+      'routineLists': _routineLists.map((r) => r.toJson()).toList(),
     };
   }
 }
