@@ -23,6 +23,8 @@ import 'package:missions/src/widgets/dialogs/pin_dialog.dart';
 import 'package:missions/src/screens/nora_ai_screen.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
 
+import 'package:missions/src/widgets/ui/desktop_floating_timer.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -37,9 +39,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final ValueNotifier<int> _scheduleOpenTick = ValueNotifier<int>(0);
   ThemeData? _scaffoldThemeBase;
   ThemeData? _scaffoldTheme;
-  // Tabs that have been shown at least once. Unvisited IndexedStack children
-  // stay as empty placeholders so startup only builds the initial view.
   final Set<int> _visitedTabs = {};
+  bool _showDesktopTimer = false;
 
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
@@ -277,6 +278,7 @@ class _HomeScreenState extends State<HomeScreen> {
           currentViewLabel: headerLabel,
           leading: customLeading,
           onOpenPersona: () => _scaffoldKey.currentState?.openEndDrawer(),
+          onToggleFocusClock: () => setState(() => _showDesktopTimer = !_showDesktopTimer),
           customAction: IconButton(
             icon:  Icon(MdiIcons.cogOutline, color: JweTheme.textMuted),
             tooltip: "SYSTEM SETTINGS",
@@ -284,15 +286,23 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         endDrawer: const WellbeingDrawer(),
-        body: Row(
+        body: Stack(
           children: [
-            if (isLargeScreen) _buildDesktopNavRail(currentTaskColor),
-            Expanded(
-              child: IndexedStack(
-                index: _selectedIndex,
-                children: widgetOptions,
-              ),
+            Row(
+              children: [
+                if (isLargeScreen) _buildDesktopNavRail(currentTaskColor),
+                Expanded(
+                  child: IndexedStack(
+                    index: _selectedIndex,
+                    children: widgetOptions,
+                  ),
+                ),
+              ],
             ),
+            if (_showDesktopTimer && isLargeScreen)
+              DesktopFloatingTimer(
+                onClose: () => setState(() => _showDesktopTimer = false),
+              ),
           ],
         ),
         floatingActionButton: isLargeScreen

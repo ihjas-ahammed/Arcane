@@ -1385,13 +1385,13 @@
     "semantic_hash": ""
   },
   "lib/src/widgets/views/daily_summary_view.dart": {
-    "mtime": 1784554302.1963224,
-    "ast_hash": "787105315eb5ff402c5adde628fc1c7d",
+    "mtime": 1784554228.4027128,
+    "ast_hash": "91cc5b596d63e7eefa7a4a1c143ee09d",
     "semantic_hash": ""
   },
   "lib/src/widgets/views/schedule_view.dart": {
-    "mtime": 1784554431.447457,
-    "ast_hash": "576273498b3564860aca4bfda923d492",
+    "mtime": 1784554077.4464862,
+    "ast_hash": "9b5832045f01d4563fea33f3180fab4e",
     "semantic_hash": ""
   },
   "lib/src/widgets/views/chatbot_view.dart": {
@@ -2180,8 +2180,8 @@
     "semantic_hash": ""
   },
   "lib/src/widgets/views/projects_view.dart": {
-    "mtime": 1784554394.0149305,
-    "ast_hash": "563ecbfd2aff5f6d3a18404fc438282d",
+    "mtime": 1784554221.900929,
+    "ast_hash": "eeb4008a9646bd17238b669fe47d2717",
     "semantic_hash": ""
   },
   ".dart_tool/extension_discovery/devtools.json": {
@@ -2280,8 +2280,8 @@
     "semantic_hash": ""
   },
   "lib/src/widgets/ui/desktop_floating_timer.dart": {
-    "mtime": 1784554323.694965,
-    "ast_hash": "fcd27e6a3feebe790412a8484dbe16b6",
+    "mtime": 1784554011.8955941,
+    "ast_hash": "d66e4ea17af677da8a2a40cbf8c84d2a",
     "semantic_hash": ""
   }
 }

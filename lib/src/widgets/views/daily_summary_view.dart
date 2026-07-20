@@ -397,11 +397,15 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
     return Scaffold(
       backgroundColor: JweTheme.bgBase,
-      body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(0, 14, 0, bottomPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(0, 14, 0, bottomPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
             // ── Hero header ────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -642,7 +646,9 @@ class _DailySummaryViewState extends State<DailySummaryView> {
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }
 

@@ -1018,7 +1018,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
 
       final activeSubs = task.subTasks.where((s) {
         if (s.isDeleted) return false;
-        if (!isSelectionMode && s.completed && !s.isRecurring) return false;
+        if (s.completed && !s.isRecurring) return false;
         return true;
       }).toList();
 
@@ -1164,7 +1164,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
       final isRecurring = sub?.isRecurring ?? false;
 
-      if (!isSelectionMode && cp.completed && !isRecurring) continue;
+      if (cp.completed && !isRecurring) continue;
 
       final bool cpMatched = parentMatched || q.isEmpty || cp.name.toLowerCase().contains(q);
       final bool cpOrDescendantMatch = cpMatched || _checkpointOrDescendantsMatch(cp, q);

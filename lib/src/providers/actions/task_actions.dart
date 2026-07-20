@@ -22,6 +22,15 @@ class TaskActions {
     );
   }
 
+  SubSubTask _markAllDescendantsUncompleted(SubSubTask node) {
+    return node.copyWith(
+      completed: false,
+      completionTimestamp: null,
+      currentCount: node.isCountable ? 0 : node.currentCount,
+      substeps: node.substeps.map((child) => _markAllDescendantsUncompleted(child)).toList(),
+    );
+  }
+
   // --- Helper for SubSubTask Recursion ---
   List<SubSubTask> _recursiveNodeOperation(List<SubSubTask> nodes, String targetId, String action, dynamic payload) {
     List<SubSubTask> newNodes = [];
@@ -33,6 +42,7 @@ class TaskActions {
         } else if (action == 'update') {
           final updates = payload as Map<String, dynamic>;
           final isCompletedChange = updates.containsKey('completed') && updates['completed'] == true;
+          final isUncompletedChange = updates.containsKey('completed') && updates['completed'] == false;
           
           var updatedNode = node.copyWith(
             name: updates['name'] as String?,
@@ -46,11 +56,19 @@ class TaskActions {
             what: updates['what'] as String?,
             substeps: updates['substeps'] as List<SubSubTask>?,
           );
-          if (updatedNode.isCountable) updatedNode.currentCount = updatedNode.currentCount.clamp(0, updatedNode.targetCount);
+          if (updatedNode.isCountable) {
+            if (isUncompletedChange) {
+              updatedNode.currentCount = 0;
+            } else {
+              updatedNode.currentCount = updatedNode.currentCount.clamp(0, updatedNode.targetCount);
+            }
+          }
           
           if (isCompletedChange) {
             final ts = updates['completionTimestamp'] as String? ?? DateTime.now().toIso8601String();
             updatedNode = _markAllDescendantsCompleted(updatedNode, ts);
+          } else if (isUncompletedChange) {
+            updatedNode = _markAllDescendantsUncompleted(updatedNode);
           }
 
           newNodes.add(updatedNode);
@@ -813,6 +831,8 @@ class TaskActions {
         subtaskToUpdate.completed = false;
         subtaskToUpdate.completedDate = null;
         subtaskToUpdate.lastCompletedDate = null;
+        subtaskToUpdate.subSubTasks = subtaskToUpdate.subSubTasks.map((child) => _markAllDescendantsUncompleted(child)).toList();
+        if (subtaskToUpdate.isCountable) subtaskToUpdate.currentCount = 0;
       }
     }
 
@@ -822,6 +842,8 @@ class TaskActions {
       if (!subtaskToUpdate.completed) {
         subtaskToUpdate.completedDate = null;
         subtaskToUpdate.lastCompletedDate = null;
+        subtaskToUpdate.subSubTasks = subtaskToUpdate.subSubTasks.map((child) => _markAllDescendantsUncompleted(child)).toList();
+        if (subtaskToUpdate.isCountable) subtaskToUpdate.currentCount = 0;
       } else {
         subtaskToUpdate.completedDate = getTodayDateString();
         subtaskToUpdate.lastCompletedDate = DateTime.now();
@@ -909,9 +931,14 @@ class TaskActions {
         return task.copyWith(
           subTasks: task.subTasks.map((st) {
             if (st.id == subtaskId) {
+              final updatedSubSubTasks = st.subSubTasks.map((child) => _markAllDescendantsUncompleted(child)).toList();
               return st.copyWith(
-                  completed: false, completedDate: null,
-                  lastCompletedDate: null, updatedAt: DateTime.now()
+                completed: false, 
+                completedDate: null,
+                lastCompletedDate: null, 
+                updatedAt: DateTime.now(),
+                currentCount: st.isCountable ? 0 : st.currentCount,
+                subSubTasks: updatedSubSubTasks,
               );
             }
             return st;

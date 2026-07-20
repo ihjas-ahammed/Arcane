@@ -512,13 +512,17 @@ class _ProjectsViewState extends State<ProjectsView> {
       onRefresh: () async {
         await provider.performManualSync();
       },
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildPhoenixProjectsHero(context, provider, projectsList, accentColor),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1100),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildPhoenixProjectsHero(context, provider, projectsList, accentColor),
             Row(
               children: [
                 Container(width: 4, height: 16, color: accentColor),
@@ -817,6 +821,8 @@ class _ProjectsViewState extends State<ProjectsView> {
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }

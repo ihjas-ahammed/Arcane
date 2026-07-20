@@ -241,11 +241,15 @@ class _SettingsViewState extends State<SettingsView> {
           "Last synced: ${DateFormat('MMM d, yyyy, hh:mm:ss a').format(appProvider.lastSuccessfulSaveTimestamp!.toLocal())}";
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           // 1. CLOUD SYNC
           Card(
             margin: const EdgeInsets.only(bottom: 24),
@@ -789,7 +793,9 @@ class _SettingsViewState extends State<SettingsView> {
               ]),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildNotificationsSection(AppProvider appProvider, ThemeData theme) {

@@ -40,6 +40,73 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
   bool _isHeaderHovered = false;
   bool _aiMode = false;
   bool _aiLoading = false;
+  bool _isSelectionMode = false;
+  Set<String> _selectedKeys = {};
+
+  void _copySelected(SubSubTask liveCheckpoint) {
+    final buffer = StringBuffer();
+    for (final step in liveCheckpoint.substeps) {
+      if (_selectedKeys.contains(step.id)) {
+        buffer.writeln(step.toCopyStructure());
+        buffer.writeln();
+      }
+    }
+    if (buffer.isNotEmpty) {
+      Clipboard.setData(ClipboardData(text: buffer.toString().trimRight()));
+      showGlobalToast("Copied selected checkpoints to clipboard");
+    }
+    setState(() {
+      _selectedKeys.clear();
+      _isSelectionMode = false;
+    });
+  }
+
+  void _completeSelected(AppProvider provider, SubSubTask liveCheckpoint) {
+    int completedCount = 0;
+    for (final stepId in _selectedKeys) {
+      final step = liveCheckpoint.substeps.firstWhereOrNull((s) => s.id == stepId);
+      if (step != null && !step.completed) {
+        provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.parentSubTaskId, stepId);
+        completedCount++;
+      }
+    }
+    setState(() {
+      _selectedKeys.clear();
+      _isSelectionMode = false;
+    });
+    if (completedCount > 0) {
+      showGlobalToast("✓ Completed $completedCount checkpoints");
+    }
+  }
+
+  void _deleteSelected(AppProvider provider) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgDark,
+        title: Text("DELETE SELECTED OBJECTIVES?", style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
+        content: Text("This action cannot be undone.", style: TextStyle(color: AppTheme.fhTextSecondary)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentRed),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Delete")
+          ),
+        ],
+      )
+    );
+    if (confirm != true) return;
+
+    for (final stepId in _selectedKeys) {
+      provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, stepId);
+    }
+    setState(() {
+      _selectedKeys.clear();
+      _isSelectionMode = false;
+    });
+    showGlobalToast("Selected checkpoints deleted");
+  }
 
   SubSubTask? _getLiveCheckpoint(AppProvider provider) {
     try {
@@ -448,7 +515,95 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                       decoration: BoxDecoration(
                         border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3)))
                       ),
-                      child:   Text("SUB-ROUTINES (NESTED)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (_isSelectionMode) ...[
+                            Text(
+                              "${_selectedKeys.length} SELECTED",
+                              style: GoogleFonts.jetBrainsMono(
+                                color: agentColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.select_all, size: 18),
+                                  color: JweTheme.textWhite,
+                                  onPressed: () {
+                                    setState(() {
+                                      if (_selectedKeys.length == liveCheckpoint.substeps.length) {
+                                        _selectedKeys.clear();
+                                      } else {
+                                        _selectedKeys = liveCheckpoint.substeps.map((e) => e.id).toSet();
+                                      }
+                                    });
+                                  },
+                                  tooltip: _selectedKeys.length == liveCheckpoint.substeps.length ? "Deselect All" : "Select All",
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  constraints: const BoxConstraints(),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.copy, size: 18),
+                                  color: agentColor,
+                                  onPressed: _selectedKeys.isEmpty ? null : () => _copySelected(liveCheckpoint),
+                                  tooltip: "Copy Selected",
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  constraints: const BoxConstraints(),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.check_circle_outline, size: 18),
+                                  color: agentColor,
+                                  onPressed: _selectedKeys.isEmpty ? null : () => _completeSelected(provider, liveCheckpoint),
+                                  tooltip: "Complete Selected",
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  constraints: const BoxConstraints(),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, size: 18),
+                                  color: AppTheme.fhAccentRed,
+                                  onPressed: _selectedKeys.isEmpty ? null : () => _deleteSelected(provider),
+                                  tooltip: "Delete Selected",
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  constraints: const BoxConstraints(),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, size: 18),
+                                  color: JweTheme.textMuted,
+                                  onPressed: () {
+                                    setState(() {
+                                      _isSelectionMode = false;
+                                      _selectedKeys.clear();
+                                    });
+                                  },
+                                  tooltip: "Cancel",
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  constraints: const BoxConstraints(),
+                                ),
+                              ],
+                            ),
+                          ] else ...[
+                            Text("SUB-ROUTINES (NESTED)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
+                            if (liveCheckpoint.substeps.isNotEmpty)
+                              IconButton(
+                                icon: Icon(Icons.playlist_add_check, color: agentColor, size: 18),
+                                onPressed: () {
+                                  setState(() {
+                                    _isSelectionMode = true;
+                                    _selectedKeys.clear();
+                                  });
+                                },
+                                tooltip: "Select Multiple",
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                          ],
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 12),
                     
@@ -464,45 +619,61 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                         itemCount: liveCheckpoint.substeps.length,
                         itemBuilder: (ctx, index) {
                           final child = liveCheckpoint.substeps[index];
+                          final item = CheckpointItem(
+                            key: ValueKey(child.id),
+                            title: child.name,
+                            isCompleted: child.completed,
+                            type: child.type,
+                            accentColor: agentColor,
+                            hasCheckableSubsteps: child.hasCheckableSubsteps,
+                            progress: child.calculateProgress(),
+                            substeps: child.substeps,
+                            onToggleSubstep: (grand) {
+                              if (grand.completed) {
+                                provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, grand.id);
+                              } else {
+                                provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.parentSubTaskId, grand.id);
+                              }
+                            },
+                            onTap: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
+                                mainTaskId: widget.mainTaskId,
+                                parentSubTaskId: widget.parentSubTaskId,
+                                checkpointId: child.id,
+                              )));
+                            },
+                            onToggle: () {
+                              final updates = {'completed': !child.completed};
+                              provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, updates);
+                            },
+                            onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
+                            onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
+                            onToggleType: () {
+                              final newType = child.type == 'check' ? 'info' : 'check';
+                              provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, {'type': newType});
+                            },
+                            isSelectionMode: _isSelectionMode,
+                            isSelected: _selectedKeys.contains(child.id),
+                            onSelectedChanged: (val) {
+                              setState(() {
+                                if (val == true) {
+                                  _selectedKeys.add(child.id);
+                                } else {
+                                  _selectedKeys.remove(child.id);
+                                }
+                              });
+                            },
+                          );
+
+                          if (_isSelectionMode) {
+                            return item;
+                          }
                           return DraggableCheckpointWrapper(
                             checkpointId: child.id,
                             onMove: (draggedId, targetId, pos) {
                                provider.taskActions.moveCheckpointRelative(widget.mainTaskId, widget.parentSubTaskId, draggedId, targetId, pos);
                             },
-                            child: CheckpointItem(
-                              key: ValueKey(child.id),
-                              title: child.name,
-                              isCompleted: child.completed,
-                              type: child.type,
-                              accentColor: agentColor,
-                              hasCheckableSubsteps: child.hasCheckableSubsteps,
-                              progress: child.calculateProgress(),
-                              substeps: child.substeps,
-                              onToggleSubstep: (grand) {
-                                if (grand.completed) {
-                                  provider.taskActions.uncompleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, grand.id);
-                                } else {
-                                  provider.taskActions.completeSubSubtask(widget.mainTaskId, widget.parentSubTaskId, grand.id);
-                                }
-                              },
-                              onTap: () {
-                                Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
-                                  mainTaskId: widget.mainTaskId,
-                                  parentSubTaskId: widget.parentSubTaskId,
-                                  checkpointId: child.id,
-                                )));
-                              },
-                              onToggle: () {
-                                final updates = {'completed': !child.completed};
-                                provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, updates);
-                              },
-                              onDelete: () => provider.taskActions.deleteSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
-                              onDuplicate: () => provider.taskActions.duplicateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id),
-                              onToggleType: () {
-                                final newType = child.type == 'check' ? 'info' : 'check';
-                                provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, child.id, {'type': newType});
-                              },
-                            ),
+                            child: item,
                           );
                         },
                       ),
@@ -535,8 +706,9 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                               controller: _stepController,
                               style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 14),
                               minLines: 1,
-                              maxLines: _aiMode ? 6 : 1,
-                              textInputAction: _aiMode ? TextInputAction.newline : TextInputAction.done,
+                              maxLines: 5,
+                              keyboardType: TextInputType.multiline,
+                              textInputAction: TextInputAction.newline,
                               decoration: InputDecoration(
                                 hintText: _aiMode
                                     ? "DESCRIBE NESTED STEPS FOR AI..."
@@ -547,7 +719,6 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                                 focusedBorder: InputBorder.none,
                                 filled: false,
                               ),
-                              onSubmitted: _aiMode ? null : (_) => _handleAdd(provider, liveCheckpoint),
                             ),
                           ),
                           IconButton(

@@ -463,7 +463,9 @@ class _ScheduleViewState extends State<ScheduleView> {
       phoenixId: phoenixId,
     );
 
-    return Column(
+    final bool isLargeScreen = MediaQuery.of(context).size.width > 900;
+
+    Widget leftPanel = Column(
       children: [
         if (isToday) _CarryoverBanner(provider: provider),
 
@@ -518,17 +520,20 @@ class _ScheduleViewState extends State<ScheduleView> {
             }
           },
           onTitleTap: () {
-            if (nextMainTask != null && nextSubTask != null) {
-              if (nextCheckpoint != null) {
+            final m = nextMainTask;
+            final s = nextSubTask;
+            final cp = nextCheckpoint;
+            if (m != null && s != null) {
+              if (cp != null) {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => CheckpointDetailScreen(
-                  mainTaskId: nextMainTask!.id,
-                  parentSubTaskId: nextSubTask!.id,
-                  checkpointId: nextCheckpoint!.id,
+                  mainTaskId: m.id,
+                  parentSubTaskId: s.id,
+                  checkpointId: cp.id,
                 )));
               } else {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => SubmissionDetailScreen(
-                  parentTask: nextMainTask!,
-                  subTask: nextSubTask!,
+                  parentTask: m,
+                  subTask: s,
                 )));
               }
             }
@@ -624,21 +629,36 @@ class _ScheduleViewState extends State<ScheduleView> {
             ],
           ),
         ),
+      ],
+    );
 
-        Expanded(
-          child: Stack(
-            children: [
-              ScheduleTimeline(
-                entries: entries,
-                onAddSession: () => _handleAddSession(context, provider),
-                onEditEntry: (entry) => _handleEditEntry(context, provider, entry),
-                initialScrollOffset: 0,
-                scrollToNow: isToday,
-                scrollToNowTick: widget.openTick,
-              ),
-            ],
+    Widget timelineWidget = ScheduleTimeline(
+      entries: entries,
+      onAddSession: () => _handleAddSession(context, provider),
+      onEditEntry: (entry) => _handleEditEntry(context, provider, entry),
+      initialScrollOffset: 0,
+      scrollToNow: isToday,
+      scrollToNowTick: widget.openTick,
+    );
+
+    if (isLargeScreen) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 440,
+            child: SingleChildScrollView(child: leftPanel),
           ),
-        ),
+          Container(width: 1, color: JweTheme.lineSoft),
+          Expanded(child: timelineWidget),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        leftPanel,
+        Expanded(child: timelineWidget),
       ],
     );
   }

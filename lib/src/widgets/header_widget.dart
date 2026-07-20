@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
   final String currentViewLabel;
   final VoidCallback? onOpenPersona;
+  final VoidCallback? onToggleFocusClock;
   final Widget? customAction;
 
   static const double _stripH = 22;
@@ -21,6 +22,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     required this.currentViewLabel,
     this.onOpenPersona,
+    this.onToggleFocusClock,
     this.customAction,
     this.leading,
   });
@@ -90,6 +92,12 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
             ),
+          ),
+        if (isLargeScreen && onToggleFocusClock != null)
+          IconButton(
+            icon: Icon(MdiIcons.clockFast, color: JweTheme.accentAmber, size: 20),
+            onPressed: onToggleFocusClock,
+            tooltip: 'FOCUS CLOCK',
           ),
         if (customAction != null) customAction!,
         IconButton(

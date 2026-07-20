@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'package:missions/src/services/ai_service.dart';
@@ -117,6 +118,16 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
     _initialize();
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  AppProvider.forTest() {
+    _taskActions = TaskActions(this);
+    _aiGenerationActions = AIGenerationActions(this);
+    _timerActions = TimerActions(this);
+    _reportActions = ReportActions(this);
+    _scheduleActions = ScheduleActions(this);
+    _financeActions = FinanceActions(this);
+    _journalingActions = JournalingActions(this);
   }
 
   @override
@@ -527,10 +538,18 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       if (currentUser == null || currentUser!.uid != user.uid) {
         setCurrentUser(user);
         
-        // IMMEDIATE OFFLINE FIRST BOOT
         final localData = await _localStorage.loadState(user.uid);
+        final bool isDesktop = !kIsWeb && (defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS);
         if (localData != null) {
           loadStateFromMap(localData);
+          if (isDesktop) {
+            // Auto restore from database when on desktop (secondary device sync)
+            try {
+              await manuallyLoadFromCloud();
+            } catch (e) {
+              debugPrint("Failed auto restore from cloud on desktop: $e");
+            }
+          }
         } else {
           // FIX: Auto load from cloud if local state is missing (Fixes web resets)
           await _resetToInitialState();

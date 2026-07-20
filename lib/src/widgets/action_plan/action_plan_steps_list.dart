@@ -257,49 +257,19 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
                 ),
               ] else ...[
                 Text("TACTICAL EXECUTION (HOW)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12, letterSpacing: 1.0, fontWeight: FontWeight.bold)),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (widget.steps.isEmpty)
-                      TextButton.icon(
-                        onPressed: isLoading ? null : () async {
-                          final prompt = await showDialog<String>(
-                            context: context,
-                            builder: (_) => const AiGenerationPromptDialog(
-                              title: "GENERATE STRATEGY",
-                              hintText: "Add specific instructions, e.g. Focus on low budget...",
-                              actionLabel: "GENERATE",
-                            ),
-                          );
-                          if (prompt != null && prompt.isNotEmpty) {
-                            widget.onGenerate(prompt);
-                          }
-                        },
-                        icon: isLoading
-                          ? SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: widget.accentColor))
-                          : Icon(MdiIcons.robotExcitedOutline, size: 14, color: widget.accentColor),
-                        label: Text(isLoading ? "THINKING..." : "GENERATE STEPS", style: TextStyle(fontSize: 10, color: widget.accentColor)),
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(0, 30),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap
-                        ),
-                      ),
-                    if (widget.steps.isNotEmpty)
-                      IconButton(
-                        icon: Icon(Icons.playlist_add_check, color: widget.accentColor, size: 18),
-                        onPressed: () {
-                          setState(() {
-                            _isSelectionMode = true;
-                            _selectedKeys.clear();
-                          });
-                        },
-                        tooltip: "Select Multiple",
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                  ],
-                ),
+                if (widget.steps.isNotEmpty)
+                  IconButton(
+                    icon: Icon(Icons.playlist_add_check, color: widget.accentColor, size: 18),
+                    onPressed: () {
+                      setState(() {
+                        _isSelectionMode = true;
+                        _selectedKeys.clear();
+                      });
+                    },
+                    tooltip: "Select Multiple",
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
               ],
             ],
           ),
@@ -392,8 +362,9 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
                   controller: _stepController,
                   style: GoogleFonts.chakraPetch(color: AppTheme.fhTextPrimary, fontSize: 14),
                   minLines: 1,
-                  maxLines: _aiMode ? 6 : 1,
-                  textInputAction: _aiMode ? TextInputAction.newline : TextInputAction.done,
+                  maxLines: 5,
+                  keyboardType: TextInputType.multiline,
+                  textInputAction: TextInputAction.newline,
                   decoration: InputDecoration(
                     hintText: _aiMode
                         ? "DESCRIBE STEPS FOR AI..."
@@ -407,7 +378,6 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
                     isDense: true,
                     contentPadding: const EdgeInsets.all(12),
                   ),
-                  onSubmitted: _aiMode ? null : (_) => _handleAdd(provider),
                 ),
               ),
               const SizedBox(width: 6),

@@ -1191,7 +1191,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_firebase_options",
-      "community": 139,
+      "community": 19,
       "norm_label": "firebase_options.dart"
     },
     {
@@ -1201,7 +1201,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_firebase_options_defaultfirebaseoptions",
-      "community": 139,
+      "community": 19,
       "norm_label": "defaultfirebaseoptions"
     },
     {
@@ -1211,7 +1211,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_firebase_options_web",
-      "community": 139,
+      "community": 19,
       "norm_label": "web"
     },
     {
@@ -1221,7 +1221,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "static_const_firebaseoptions",
-      "community": 139,
+      "community": 19,
       "norm_label": "static const firebaseoptions"
     },
     {
@@ -1231,7 +1231,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_firebase_options_android",
-      "community": 139,
+      "community": 19,
       "norm_label": "android"
     },
     {
@@ -1241,7 +1241,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_firebase_options_windows",
-      "community": 139,
+      "community": 19,
       "norm_label": "windows"
     },
     {
@@ -1251,7 +1251,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_firebase_options_macos",
-      "community": 139,
+      "community": 19,
       "norm_label": "macos"
     },
     {
@@ -1261,7 +1261,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_firebase_options_ios",
-      "community": 139,
+      "community": 19,
       "norm_label": "ios"
     },
     {
@@ -1281,7 +1281,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_flutter_foundation_dart",
-      "community": 139,
+      "community": 19,
       "norm_label": "package:flutter/foundation.dart"
     },
     {
@@ -1291,7 +1291,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_main",
-      "community": 127,
+      "community": 19,
       "norm_label": "main.dart"
     },
     {
@@ -1301,7 +1301,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_main_initfirebase",
-      "community": 127,
+      "community": 19,
       "norm_label": "_initfirebase"
     },
     {
@@ -1311,7 +1311,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_main_main",
-      "community": 127,
+      "community": 19,
       "norm_label": "main"
     },
     {
@@ -1331,7 +1331,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_flutter_material_dart",
-      "community": 170,
+      "community": 149,
       "norm_label": "package:flutter/material.dart"
     },
     {
@@ -1341,7 +1341,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_firebase_dart_firebase_dart_dart",
-      "community": 127,
+      "community": 19,
       "norm_label": "package:firebase_dart/firebase_dart.dart"
     },
     {
@@ -1351,7 +1351,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_firedart_firedart_dart",
-      "community": 127,
+      "community": 19,
       "norm_label": "package:firedart/firedart.dart"
     },
     {
@@ -1371,7 +1371,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_app_dart",
-      "community": 127,
+      "community": 19,
       "norm_label": "package:missions/src/app.dart"
     },
     {
@@ -1381,7 +1381,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_firebase_options_dart",
-      "community": 127,
+      "community": 19,
       "norm_label": "package:missions/firebase_options.dart"
     },
     {
@@ -1401,7 +1401,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_services_ai_service_dart",
-      "community": 8,
+      "community": 19,
       "norm_label": "package:missions/src/services/ai_service.dart"
     },
     {
@@ -1411,7 +1411,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_services_home_widget_service_dart",
-      "community": 127,
+      "community": 19,
       "norm_label": "package:missions/src/services/home_widget_service.dart"
     },
     {
@@ -1441,7 +1441,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_provider_provider_dart",
-      "community": 118,
+      "community": 1095,
       "norm_label": "package:provider/provider.dart"
     },
     {
@@ -1451,7 +1451,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_screens_logbook_screen",
-      "community": 22,
+      "community": 139,
       "norm_label": "logbook_screen.dart"
     },
     {
@@ -1461,7 +1461,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_screens_logbook_screen_logbookscreen",
-      "community": 22,
+      "community": 139,
       "norm_label": "logbookscreen"
     },
     {
@@ -1481,7 +1481,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_screens_logbook_screen_build",
-      "community": 22,
+      "community": 139,
       "norm_label": "build"
     },
     {
@@ -1491,7 +1491,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_screens_logbook_screen_buildpiechartsection",
-      "community": 22,
+      "community": 139,
       "norm_label": "_buildpiechartsection"
     },
     {
@@ -1501,7 +1501,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_screens_logbook_screen_buildlinechartsection",
-      "community": 22,
+      "community": 139,
       "norm_label": "_buildlinechartsection"
     },
     {
@@ -1511,7 +1511,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_screens_logbook_screen_buildstatcard",
-      "community": 22,
+      "community": 139,
       "norm_label": "_buildstatcard"
     },
     {
@@ -1521,7 +1521,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_screens_logbook_screen_buildrecentlogs",
-      "community": 22,
+      "community": 139,
       "norm_label": "_buildrecentlogs"
     },
     {
@@ -1541,7 +1541,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_gap_gap_dart",
-      "community": 173,
+      "community": 139,
       "norm_label": "package:gap/gap.dart"
     },
     {
@@ -1551,7 +1551,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_flutter_animate_flutter_animate_dart",
-      "community": 22,
+      "community": 139,
       "norm_label": "package:flutter_animate/flutter_animate.dart"
     },
     {
@@ -1561,7 +1561,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_theme_valorant_theme_dart",
-      "community": 22,
+      "community": 172,
       "norm_label": "package:missions/theme/valorant_theme.dart"
     },
     {
@@ -1641,7 +1641,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "texteditingcontroller",
-      "community": 156,
+      "community": 177,
       "norm_label": "texteditingcontroller"
     },
     {
@@ -1821,7 +1821,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_utils_global_toast_dart",
-      "community": 149,
+      "community": 94,
       "norm_label": "package:missions/src/utils/global_toast.dart"
     },
     {
@@ -2181,7 +2181,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "int_get",
-      "community": 104,
+      "community": 38,
       "norm_label": "int get"
     },
     {
@@ -2421,7 +2421,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "map",
-      "community": 164,
+      "community": 22,
       "norm_label": "map"
     },
     {
@@ -2761,7 +2761,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_models_chatbot_models_gratitudeitem",
-      "community": 169,
+      "community": 63,
       "norm_label": "gratitudeitem"
     },
     {
@@ -5341,7 +5341,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "dart_convert",
-      "community": 19,
+      "community": 8,
       "norm_label": "dart:convert"
     },
     {
@@ -5561,7 +5561,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_collection_collection_dart",
-      "community": 105,
+      "community": 149,
       "norm_label": "package:collection/collection.dart"
     },
     {
@@ -5711,7 +5711,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_models_chatbot_models_dart",
-      "community": 169,
+      "community": 63,
       "norm_label": "package:missions/src/models/chatbot_models.dart"
     },
     {
@@ -5721,7 +5721,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions",
-      "community": 8,
+      "community": 93,
       "norm_label": "report_actions.dart"
     },
     {
@@ -5731,7 +5731,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_reportactions",
-      "community": 8,
+      "community": 93,
       "norm_label": "reportactions"
     },
     {
@@ -5741,7 +5741,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_provider",
-      "community": 8,
+      "community": 93,
       "norm_label": "_provider"
     },
     {
@@ -5751,7 +5751,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_aiservice",
-      "community": 8,
+      "community": 93,
       "norm_label": "_aiservice"
     },
     {
@@ -5761,7 +5761,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_generatestartdayreport",
-      "community": 8,
+      "community": 93,
       "norm_label": "generatestartdayreport"
     },
     {
@@ -5771,7 +5771,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_buildmonthlywellbeingcomparison",
-      "community": 8,
+      "community": 93,
       "norm_label": "_buildmonthlywellbeingcomparison"
     },
     {
@@ -5781,7 +5781,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_buildmonthlyfinancecontext",
-      "community": 8,
+      "community": 93,
       "norm_label": "_buildmonthlyfinancecontext"
     },
     {
@@ -5791,7 +5791,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_buildmonthlyhealthcontext",
-      "community": 8,
+      "community": 93,
       "norm_label": "_buildmonthlyhealthcontext"
     },
     {
@@ -5801,7 +5801,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_buildweeklyreportscontext",
-      "community": 8,
+      "community": 93,
       "norm_label": "_buildweeklyreportscontext"
     },
     {
@@ -5811,7 +5811,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_buildpreviousmonthlycontext",
-      "community": 8,
+      "community": 93,
       "norm_label": "_buildpreviousmonthlycontext"
     },
     {
@@ -5821,7 +5821,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_report_actions_generatemonthlyreport",
-      "community": 8,
+      "community": 93,
       "norm_label": "generatemonthlyreport"
     },
     {
@@ -5841,7 +5841,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_utils_history_helper_dart",
-      "community": 8,
+      "community": 93,
       "norm_label": "package:missions/src/utils/history_helper.dart"
     },
     {
@@ -5861,7 +5861,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_schedule_actions",
-      "community": 105,
+      "community": 149,
       "norm_label": "schedule_actions.dart"
     },
     {
@@ -5871,7 +5871,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_schedule_actions_scheduleactions",
-      "community": 105,
+      "community": 149,
       "norm_label": "scheduleactions"
     },
     {
@@ -5881,7 +5881,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_schedule_actions_provider",
-      "community": 105,
+      "community": 149,
       "norm_label": "_provider"
     },
     {
@@ -5891,7 +5891,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_providers_actions_schedule_actions_predictschedule",
-      "community": 105,
+      "community": 149,
       "norm_label": "predictschedule"
     },
     {
@@ -8301,7 +8301,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_services_app_user_dart",
-      "community": 136,
+      "community": 60,
       "norm_label": "package:missions/src/services/app_user.dart"
     },
     {
@@ -8901,7 +8901,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "appuser_get",
-      "community": 136,
+      "community": 60,
       "norm_label": "appuser? get"
     },
     {
@@ -9891,7 +9891,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_chatbot_screen",
-      "community": 118,
+      "community": 135,
       "norm_label": "chatbot_screen.dart"
     },
     {
@@ -9901,7 +9901,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_chatbot_screen_chatbotscreen",
-      "community": 118,
+      "community": 135,
       "norm_label": "chatbotscreen"
     },
     {
@@ -9911,7 +9911,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_chatbot_screen_build",
-      "community": 118,
+      "community": 135,
       "norm_label": "build"
     },
     {
@@ -9921,7 +9921,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_views_chatbot_view_dart",
-      "community": 118,
+      "community": 135,
       "norm_label": "package:missions/src/widgets/views/chatbot_view.dart"
     },
     {
@@ -10081,7 +10081,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_finance_finance_dashboard_screen",
-      "community": 170,
+      "community": 149,
       "norm_label": "finance_dashboard_screen.dart"
     },
     {
@@ -10091,7 +10091,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_finance_finance_dashboard_screen_financedashboardscreen",
-      "community": 170,
+      "community": 149,
       "norm_label": "financedashboardscreen"
     },
     {
@@ -10101,7 +10101,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_finance_finance_dashboard_screen_build",
-      "community": 170,
+      "community": 149,
       "norm_label": "build"
     },
     {
@@ -10111,7 +10111,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_finance_finance_tracker_view_dart",
-      "community": 170,
+      "community": 149,
       "norm_label": "package:missions/src/widgets/finance/finance_tracker_view.dart"
     },
     {
@@ -10121,7 +10121,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_finance_savings_detail_screen",
-      "community": 166,
+      "community": 149,
       "norm_label": "savings_detail_screen.dart"
     },
     {
@@ -10131,7 +10131,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_finance_savings_detail_screen_savingsdetailscreen",
-      "community": 166,
+      "community": 149,
       "norm_label": "savingsdetailscreen"
     },
     {
@@ -10141,7 +10141,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_finance_savings_detail_screen_goalid",
-      "community": 166,
+      "community": 149,
       "norm_label": "goalid"
     },
     {
@@ -10151,7 +10151,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_finance_savings_detail_screen_build",
-      "community": 166,
+      "community": 149,
       "norm_label": "build"
     },
     {
@@ -10161,7 +10161,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_finance_savings_detail_screen_showaddlogdialog",
-      "community": 166,
+      "community": 149,
       "norm_label": "_showaddlogdialog"
     },
     {
@@ -10171,7 +10171,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "dart_math",
-      "community": 93,
+      "community": 59,
       "norm_label": "dart:math"
     },
     {
@@ -10181,7 +10181,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_dialogs_add_savings_log_dialog_dart",
-      "community": 166,
+      "community": 149,
       "norm_label": "package:missions/src/widgets/dialogs/add_savings_log_dialog.dart"
     },
     {
@@ -10231,7 +10231,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_views_health_dashboard_view_dart",
-      "community": 87,
+      "community": 65,
       "norm_label": "package:missions/src/widgets/views/health_dashboard_view.dart"
     },
     {
@@ -10581,7 +10581,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "dart_ui",
-      "community": 93,
+      "community": 155,
       "norm_label": "dart:ui"
     },
     {
@@ -10591,7 +10591,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_ui_hud_components_dart",
-      "community": 22,
+      "community": 42,
       "norm_label": "package:missions/src/widgets/ui/hud_components.dart"
     },
     {
@@ -11051,7 +11051,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "voidcallback",
-      "community": 22,
+      "community": 104,
       "norm_label": "voidcallback"
     },
     {
@@ -11101,7 +11101,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_ui_gratitude_intel_card_dart",
-      "community": 22,
+      "community": 149,
       "norm_label": "package:missions/src/widgets/ui/gratitude_intel_card.dart"
     },
     {
@@ -11601,7 +11601,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_valorant_valorant_button_dart",
-      "community": 118,
+      "community": 154,
       "norm_label": "package:missions/src/widgets/valorant/valorant_button.dart"
     },
     {
@@ -12171,7 +12171,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_simulate_event_screen",
-      "community": 118,
+      "community": 163,
       "norm_label": "simulate_event_screen.dart"
     },
     {
@@ -12181,7 +12181,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_simulate_event_screen_simulateeventscreen",
-      "community": 118,
+      "community": 163,
       "norm_label": "simulateeventscreen"
     },
     {
@@ -12191,7 +12191,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_simulate_event_screen_simulateeventscreenstate",
-      "community": 118,
+      "community": 163,
       "norm_label": "_simulateeventscreenstate"
     },
     {
@@ -12201,7 +12201,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_simulate_event_screen_inputcontroller",
-      "community": 118,
+      "community": 163,
       "norm_label": "_inputcontroller"
     },
     {
@@ -12211,7 +12211,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_simulate_event_screen_result",
-      "community": 118,
+      "community": 163,
       "norm_label": "_result"
     },
     {
@@ -12221,7 +12221,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_simulate_event_screen_createstate",
-      "community": 118,
+      "community": 163,
       "norm_label": "createstate"
     },
     {
@@ -12231,7 +12231,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_simulate_event_screen_submit",
-      "community": 118,
+      "community": 163,
       "norm_label": "_submit"
     },
     {
@@ -12241,7 +12241,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_journaling_simulate_event_screen_build",
-      "community": 118,
+      "community": 163,
       "norm_label": "build"
     },
     {
@@ -13641,7 +13641,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_project_detail_screen_linktaskdialog",
-      "community": 12,
+      "community": 11,
       "norm_label": "_linktaskdialog"
     },
     {
@@ -13651,7 +13651,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_screens_project_detail_screen_linktaskdialogstate",
-      "community": 12,
+      "community": 11,
       "norm_label": "_linktaskdialogstate"
     },
     {
@@ -14261,7 +14261,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_flutter_services_dart",
-      "community": 149,
+      "community": 94,
       "norm_label": "package:flutter/services.dart"
     },
     {
@@ -14781,7 +14781,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "widget",
-      "community": 163,
+      "community": 143,
       "norm_label": "widget"
     },
     {
@@ -14821,7 +14821,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "animationcontroller",
-      "community": 105,
+      "community": 170,
       "norm_label": "animationcontroller"
     },
     {
@@ -15271,7 +15271,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "static_const_double",
-      "community": 73,
+      "community": 136,
       "norm_label": "static const double"
     },
     {
@@ -16441,7 +16441,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_app_user",
-      "community": 104,
+      "community": 38,
       "norm_label": "app_user.dart"
     },
     {
@@ -16451,7 +16451,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_app_user_appuser",
-      "community": 104,
+      "community": 38,
       "norm_label": "appuser"
     },
     {
@@ -16461,7 +16461,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_app_user_authfailure",
-      "community": 104,
+      "community": 38,
       "norm_label": "authfailure"
     },
     {
@@ -16471,7 +16471,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "exception",
-      "community": 104,
+      "community": 38,
       "norm_label": "exception"
     },
     {
@@ -16481,7 +16481,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_app_user_uid",
-      "community": 104,
+      "community": 38,
       "norm_label": "uid"
     },
     {
@@ -16491,7 +16491,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_app_user_email",
-      "community": 104,
+      "community": 38,
       "norm_label": "email"
     },
     {
@@ -16501,7 +16501,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_app_user_displayname",
-      "community": 104,
+      "community": 38,
       "norm_label": "displayname"
     },
     {
@@ -16511,7 +16511,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_app_user_operator",
-      "community": 104,
+      "community": 38,
       "norm_label": "operator"
     },
     {
@@ -16521,7 +16521,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_app_user_hashcode",
-      "community": 104,
+      "community": 38,
       "norm_label": "hashcode"
     },
     {
@@ -16531,7 +16531,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_app_user_code",
-      "community": 104,
+      "community": 38,
       "norm_label": "code"
     },
     {
@@ -16541,7 +16541,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_app_user_message",
-      "community": 104,
+      "community": 38,
       "norm_label": "message"
     },
     {
@@ -16551,7 +16551,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_app_user_copywith",
-      "community": 104,
+      "community": 38,
       "norm_label": "copywith"
     },
     {
@@ -16561,7 +16561,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_app_user_tostring",
-      "community": 104,
+      "community": 38,
       "norm_label": "tostring"
     },
     {
@@ -16651,7 +16651,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "stream",
-      "community": 136,
+      "community": 60,
       "norm_label": "stream"
     },
     {
@@ -16851,7 +16851,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service",
-      "community": 136,
+      "community": 60,
       "norm_label": "firebase_service.dart"
     },
     {
@@ -16861,7 +16861,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service_authstatechanges",
-      "community": 136,
+      "community": 60,
       "norm_label": "authstatechanges"
     },
     {
@@ -16871,7 +16871,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service_currentuser",
-      "community": 136,
+      "community": 60,
       "norm_label": "currentuser"
     },
     {
@@ -16881,7 +16881,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service_signinwithemail",
-      "community": 136,
+      "community": 60,
       "norm_label": "signinwithemail"
     },
     {
@@ -16891,7 +16891,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service_signupwithemail",
-      "community": 136,
+      "community": 60,
       "norm_label": "signupwithemail"
     },
     {
@@ -16901,7 +16901,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service_signout",
-      "community": 136,
+      "community": 60,
       "norm_label": "signout"
     },
     {
@@ -16911,7 +16911,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service_changepassword",
-      "community": 136,
+      "community": 60,
       "norm_label": "changepassword"
     },
     {
@@ -16921,7 +16921,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service_updatedisplayname",
-      "community": 136,
+      "community": 60,
       "norm_label": "updatedisplayname"
     },
     {
@@ -16931,7 +16931,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_firebase_service_reload",
-      "community": 136,
+      "community": 60,
       "norm_label": "reload"
     },
     {
@@ -16941,7 +16941,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_services_auth_service_dart",
-      "community": 136,
+      "community": 60,
       "norm_label": "package:missions/src/services/auth_service.dart"
     },
     {
@@ -17471,7 +17471,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "annotation_pragma",
-      "community": 5,
+      "community": 1081,
       "norm_label": "@pragma"
     },
     {
@@ -18031,7 +18031,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_services_notification_service_backgroundresponsehandler",
-      "community": 5,
+      "community": 1081,
       "norm_label": "_backgroundresponsehandler"
     },
     {
@@ -21611,7 +21611,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_utils_json_utils",
-      "community": 19,
+      "community": 8,
       "norm_label": "json_utils.dart"
     },
     {
@@ -21621,7 +21621,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_utils_json_utils_jsonutils",
-      "community": 19,
+      "community": 8,
       "norm_label": "jsonutils"
     },
     {
@@ -21631,7 +21631,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_utils_json_utils_cleanjsonstring",
-      "community": 19,
+      "community": 8,
       "norm_label": "cleanjsonstring"
     },
     {
@@ -21641,7 +21641,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_utils_json_utils_trydecode",
-      "community": 19,
+      "community": 8,
       "norm_label": "trydecode"
     },
     {
@@ -21651,7 +21651,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_utils_math_utils",
-      "community": 93,
+      "community": 59,
       "norm_label": "math_utils.dart"
     },
     {
@@ -21661,7 +21661,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_utils_math_utils_mathutils",
-      "community": 93,
+      "community": 59,
       "norm_label": "mathutils"
     },
     {
@@ -21671,7 +21671,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_utils_math_utils_linearregression",
-      "community": 93,
+      "community": 59,
       "norm_label": "linearregression"
     },
     {
@@ -21681,7 +21681,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_utils_math_utils_predictx",
-      "community": 93,
+      "community": 59,
       "norm_label": "predictx"
     },
     {
@@ -22691,7 +22691,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_analytics_jwe_date_selector",
-      "community": 22,
+      "community": 42,
       "norm_label": "jwe_date_selector.dart"
     },
     {
@@ -22701,7 +22701,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_analytics_jwe_date_selector_jwedateselector",
-      "community": 22,
+      "community": 42,
       "norm_label": "jwedateselector"
     },
     {
@@ -22711,7 +22711,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_analytics_jwe_date_selector_datestr",
-      "community": 22,
+      "community": 42,
       "norm_label": "datestr"
     },
     {
@@ -22721,7 +22721,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_analytics_jwe_date_selector_ontap",
-      "community": 22,
+      "community": 42,
       "norm_label": "ontap"
     },
     {
@@ -22731,7 +22731,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_analytics_jwe_date_selector_build",
-      "community": 22,
+      "community": 42,
       "norm_label": "build"
     },
     {
@@ -23221,7 +23221,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_bus_bus_next_card",
-      "community": 164,
+      "community": 22,
       "norm_label": "bus_next_card.dart"
     },
     {
@@ -23231,7 +23231,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_bus_bus_next_card_busnextcard",
-      "community": 164,
+      "community": 22,
       "norm_label": "busnextcard"
     },
     {
@@ -23241,7 +23241,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_bus_bus_next_card_nextbusdata",
-      "community": 164,
+      "community": 22,
       "norm_label": "nextbusdata"
     },
     {
@@ -23251,7 +23251,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_bus_bus_next_card_routeinfo",
-      "community": 164,
+      "community": 22,
       "norm_label": "routeinfo"
     },
     {
@@ -23261,7 +23261,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_bus_bus_next_card_formattimeremaining",
-      "community": 164,
+      "community": 22,
       "norm_label": "_formattimeremaining"
     },
     {
@@ -23271,7 +23271,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_bus_bus_next_card_build",
-      "community": 164,
+      "community": 22,
       "norm_label": "build"
     },
     {
@@ -23771,7 +23771,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_missions_src_widgets_atoms_valorant_timer_text_dart",
-      "community": 105,
+      "community": 170,
       "norm_label": "package:missions/src/widgets/atoms/valorant_timer_text.dart"
     },
     {
@@ -23781,7 +23781,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_tactical_briefing_card",
-      "community": 22,
+      "community": 149,
       "norm_label": "tactical_briefing_card.dart"
     },
     {
@@ -23791,7 +23791,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_tactical_briefing_card_tacticalbriefingcard",
-      "community": 22,
+      "community": 149,
       "norm_label": "tacticalbriefingcard"
     },
     {
@@ -23801,7 +23801,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_tactical_briefing_card_briefingdata",
-      "community": 22,
+      "community": 149,
       "norm_label": "briefingdata"
     },
     {
@@ -23811,7 +23811,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_tactical_briefing_card_onsave",
-      "community": 22,
+      "community": 149,
       "norm_label": "onsave"
     },
     {
@@ -23821,7 +23821,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_tactical_briefing_card_issaved",
-      "community": 22,
+      "community": 149,
       "norm_label": "issaved"
     },
     {
@@ -23831,7 +23831,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_tactical_briefing_card_date",
-      "community": 22,
+      "community": 149,
       "norm_label": "date"
     },
     {
@@ -23841,7 +23841,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_tactical_briefing_card_build",
-      "community": 22,
+      "community": 149,
       "norm_label": "build"
     },
     {
@@ -23851,7 +23851,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card",
-      "community": 105,
+      "community": 170,
       "norm_label": "task_header_card.dart"
     },
     {
@@ -23881,7 +23881,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_taskheadercard",
-      "community": 105,
+      "community": 170,
       "norm_label": "taskheadercard"
     },
     {
@@ -23891,7 +23891,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_progress",
-      "community": 105,
+      "community": 170,
       "norm_label": "progress"
     },
     {
@@ -23901,7 +23901,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_color",
-      "community": 105,
+      "community": 170,
       "norm_label": "color"
     },
     {
@@ -23911,7 +23911,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_controller",
-      "community": 105,
+      "community": 170,
       "norm_label": "_controller"
     },
     {
@@ -23921,7 +23921,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_task",
-      "community": 105,
+      "community": 170,
       "norm_label": "task"
     },
     {
@@ -23931,7 +23931,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_createstate",
-      "community": 105,
+      "community": 170,
       "norm_label": "createstate"
     },
     {
@@ -23941,7 +23941,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_initstate",
-      "community": 105,
+      "community": 170,
       "norm_label": "initstate"
     },
     {
@@ -23951,7 +23951,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_dispose",
-      "community": 105,
+      "community": 170,
       "norm_label": "dispose"
     },
     {
@@ -23961,7 +23961,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_cards_task_header_card_build",
-      "community": 105,
+      "community": 170,
       "norm_label": "build"
     },
     {
@@ -24141,7 +24141,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_charts_subtask_progress_time_chart_point",
-      "community": 17,
+      "community": 160,
       "norm_label": "_point"
     },
     {
@@ -25131,7 +25131,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_common_growing_text_field",
-      "community": 156,
+      "community": 177,
       "norm_label": "growing_text_field.dart"
     },
     {
@@ -25141,7 +25141,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_common_growing_text_field_growingtextfield",
-      "community": 156,
+      "community": 177,
       "norm_label": "growingtextfield"
     },
     {
@@ -25151,7 +25151,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_common_growing_text_field_controller",
-      "community": 156,
+      "community": 177,
       "norm_label": "controller"
     },
     {
@@ -25161,7 +25161,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_common_growing_text_field_hint",
-      "community": 156,
+      "community": 177,
       "norm_label": "hint"
     },
     {
@@ -25171,7 +25171,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_common_growing_text_field_minlines",
-      "community": 156,
+      "community": 177,
       "norm_label": "minlines"
     },
     {
@@ -25181,7 +25181,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_common_growing_text_field_build",
-      "community": 156,
+      "community": 177,
       "norm_label": "build"
     },
     {
@@ -26051,7 +26051,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_savings_goal_dialog_addsavingsgoaldialog",
-      "community": 1095,
+      "community": 12,
       "norm_label": "addsavingsgoaldialog"
     },
     {
@@ -26061,7 +26061,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_savings_goal_dialog_addsavingsgoaldialogstate",
-      "community": 1095,
+      "community": 12,
       "norm_label": "_addsavingsgoaldialogstate"
     },
     {
@@ -26121,7 +26121,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_savings_log_dialog",
-      "community": 172,
+      "community": 166,
       "norm_label": "add_savings_log_dialog.dart"
     },
     {
@@ -26131,7 +26131,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_savings_log_dialog_addsavingslogdialog",
-      "community": 172,
+      "community": 166,
       "norm_label": "addsavingslogdialog"
     },
     {
@@ -26141,7 +26141,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_savings_log_dialog_addsavingslogdialogstate",
-      "community": 172,
+      "community": 166,
       "norm_label": "_addsavingslogdialogstate"
     },
     {
@@ -26151,7 +26151,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_savings_log_dialog_goalid",
-      "community": 172,
+      "community": 166,
       "norm_label": "goalid"
     },
     {
@@ -26161,7 +26161,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_savings_log_dialog_amountcontroller",
-      "community": 172,
+      "community": 166,
       "norm_label": "_amountcontroller"
     },
     {
@@ -26171,7 +26171,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_savings_log_dialog_createstate",
-      "community": 172,
+      "community": 166,
       "norm_label": "createstate"
     },
     {
@@ -26181,7 +26181,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_add_savings_log_dialog_build",
-      "community": 172,
+      "community": 166,
       "norm_label": "build"
     },
     {
@@ -26561,7 +26561,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_asset_info_dialog",
-      "community": 169,
+      "community": 63,
       "norm_label": "asset_info_dialog.dart"
     },
     {
@@ -26571,7 +26571,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_asset_info_dialog_assetinfodialog",
-      "community": 169,
+      "community": 63,
       "norm_label": "assetinfodialog"
     },
     {
@@ -26581,7 +26581,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_asset_info_dialog_item",
-      "community": 169,
+      "community": 63,
       "norm_label": "item"
     },
     {
@@ -26591,7 +26591,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_asset_info_dialog_build",
-      "community": 169,
+      "community": 63,
       "norm_label": "build"
     },
     {
@@ -26601,7 +26601,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_asset_info_dialog_buildsection",
-      "community": 169,
+      "community": 63,
       "norm_label": "_buildsection"
     },
     {
@@ -26611,7 +26611,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_color_selector_dialog",
-      "community": 155,
+      "community": 184,
       "norm_label": "color_selector_dialog.dart"
     },
     {
@@ -26621,7 +26621,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_color_selector_dialog_colorselectordialog",
-      "community": 155,
+      "community": 184,
       "norm_label": "colorselectordialog"
     },
     {
@@ -26631,7 +26631,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_color_selector_dialog_selectedcolor",
-      "community": 155,
+      "community": 184,
       "norm_label": "selectedcolor"
     },
     {
@@ -26641,7 +26641,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_color_selector_dialog_palette",
-      "community": 155,
+      "community": 184,
       "norm_label": "palette"
     },
     {
@@ -26651,7 +26651,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "static_list",
-      "community": 155,
+      "community": 184,
       "norm_label": "static  list"
     },
     {
@@ -26661,7 +26661,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_color_selector_dialog_build",
-      "community": 155,
+      "community": 184,
       "norm_label": "build"
     },
     {
@@ -26971,7 +26971,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_jwe_task_options_dialog",
-      "community": 149,
+      "community": 94,
       "norm_label": "jwe_task_options_dialog.dart"
     },
     {
@@ -26981,7 +26981,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_jwe_task_options_dialog_jwetaskoptionsdialog",
-      "community": 149,
+      "community": 94,
       "norm_label": "jwetaskoptionsdialog"
     },
     {
@@ -26991,7 +26991,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_jwe_task_options_dialog_task",
-      "community": 149,
+      "community": 94,
       "norm_label": "task"
     },
     {
@@ -27001,7 +27001,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_jwe_task_options_dialog_build",
-      "community": 149,
+      "community": 94,
       "norm_label": "build"
     },
     {
@@ -27011,7 +27011,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_jwe_task_options_dialog_showpastealertdialog",
-      "community": 149,
+      "community": 94,
       "norm_label": "_showpastealertdialog"
     },
     {
@@ -27021,7 +27021,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_dialogs_jwe_task_options_dialog_handlepaste",
-      "community": 149,
+      "community": 94,
       "norm_label": "_handlepaste"
     },
     {
@@ -28741,7 +28741,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_finance_finance_tracker_view_financetrackerview",
-      "community": 177,
+      "community": 20,
       "norm_label": "financetrackerview"
     },
     {
@@ -28751,7 +28751,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_finance_finance_tracker_view_financetrackerviewstate",
-      "community": 177,
+      "community": 20,
       "norm_label": "_financetrackerviewstate"
     },
     {
@@ -29251,7 +29251,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_header_widget_arcaneappiconpainter",
-      "community": 73,
+      "community": 2,
       "norm_label": "_arcaneappiconpainter"
     },
     {
@@ -29751,7 +29751,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_health_combined_chart",
-      "community": 184,
+      "community": 169,
       "norm_label": "health_combined_chart.dart"
     },
     {
@@ -29761,7 +29761,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_health_combined_chart_healthcombinedchart",
-      "community": 184,
+      "community": 169,
       "norm_label": "healthcombinedchart"
     },
     {
@@ -29771,7 +29771,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_health_combined_chart_legenditem",
-      "community": 184,
+      "community": 169,
       "norm_label": "_legenditem"
     },
     {
@@ -29781,7 +29781,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_health_combined_chart_provider",
-      "community": 184,
+      "community": 169,
       "norm_label": "provider"
     },
     {
@@ -29791,7 +29791,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_health_combined_chart_label",
-      "community": 184,
+      "community": 169,
       "norm_label": "label"
     },
     {
@@ -29801,7 +29801,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_health_combined_chart_color",
-      "community": 184,
+      "community": 169,
       "norm_label": "color"
     },
     {
@@ -29811,7 +29811,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_health_combined_chart_build",
-      "community": 184,
+      "community": 169,
       "norm_label": "build"
     },
     {
@@ -29821,7 +29821,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "linetooltipitem",
-      "community": 184,
+      "community": 169,
       "norm_label": "linetooltipitem"
     },
     {
@@ -29891,7 +29891,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_spidey_panel",
-      "community": 73,
+      "community": 136,
       "norm_label": "spidey_panel.dart"
     },
     {
@@ -29901,7 +29901,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_spidey_panel_spideypanel",
-      "community": 73,
+      "community": 136,
       "norm_label": "spideypanel"
     },
     {
@@ -29911,7 +29911,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_spidey_panel_cutcornerclipper",
-      "community": 59,
+      "community": 103,
       "norm_label": "_cutcornerclipper"
     },
     {
@@ -29921,7 +29921,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "customclipper",
-      "community": 59,
+      "community": 103,
       "norm_label": "customclipper"
     },
     {
@@ -29931,7 +29931,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "path",
-      "community": 59,
+      "community": 103,
       "norm_label": "path"
     },
     {
@@ -29941,7 +29941,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_spidey_panel_title",
-      "community": 73,
+      "community": 136,
       "norm_label": "title"
     },
     {
@@ -29951,7 +29951,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_spidey_panel_child",
-      "community": 73,
+      "community": 136,
       "norm_label": "child"
     },
     {
@@ -29961,7 +29961,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_spidey_panel_accentcolor",
-      "community": 73,
+      "community": 136,
       "norm_label": "accentcolor"
     },
     {
@@ -29971,7 +29971,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_spidey_panel_cut",
-      "community": 73,
+      "community": 136,
       "norm_label": "_cut"
     },
     {
@@ -29981,7 +29981,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_spidey_panel_build",
-      "community": 73,
+      "community": 136,
       "norm_label": "build"
     },
     {
@@ -29991,7 +29991,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_spidey_panel_getclip",
-      "community": 73,
+      "community": 136,
       "norm_label": "getclip"
     },
     {
@@ -30001,7 +30001,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_health_spidey_panel_shouldreclip",
-      "community": 73,
+      "community": 136,
       "norm_label": "shouldreclip"
     },
     {
@@ -31321,7 +31321,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_schedule_schedule_hero_widget_scheduleherowidget",
-      "community": 1081,
+      "community": 24,
       "norm_label": "scheduleherowidget"
     },
     {
@@ -31331,7 +31331,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_schedule_schedule_hero_widget_scheduleherowidgetstate",
-      "community": 1081,
+      "community": 24,
       "norm_label": "_scheduleherowidgetstate"
     },
     {
@@ -33591,7 +33591,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_task_navigation_drawer_tasknavigationdrawer",
-      "community": 64,
+      "community": 12,
       "norm_label": "tasknavigationdrawer"
     },
     {
@@ -33601,7 +33601,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_task_navigation_drawer_tasknavigationdrawerstate",
-      "community": 64,
+      "community": 12,
       "norm_label": "_tasknavigationdrawerstate"
     },
     {
@@ -34161,7 +34161,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_circular_time_progress",
-      "community": 93,
+      "community": 155,
       "norm_label": "circular_time_progress.dart"
     },
     {
@@ -34171,7 +34171,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_circular_time_progress_circulartimeprogress",
-      "community": 93,
+      "community": 155,
       "norm_label": "circulartimeprogress"
     },
     {
@@ -34181,7 +34181,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_circular_time_progress_dendroelementpainter",
-      "community": 93,
+      "community": 155,
       "norm_label": "_dendroelementpainter"
     },
     {
@@ -34191,7 +34191,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_circular_time_progress_progress",
-      "community": 93,
+      "community": 155,
       "norm_label": "progress"
     },
     {
@@ -34201,7 +34201,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_circular_time_progress_iscompleted",
-      "community": 93,
+      "community": 155,
       "norm_label": "iscompleted"
     },
     {
@@ -34211,7 +34211,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_circular_time_progress_color",
-      "community": 93,
+      "community": 155,
       "norm_label": "color"
     },
     {
@@ -34221,7 +34221,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_circular_time_progress_basecolor",
-      "community": 93,
+      "community": 155,
       "norm_label": "basecolor"
     },
     {
@@ -34231,7 +34231,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_circular_time_progress_build",
-      "community": 93,
+      "community": 155,
       "norm_label": "build"
     },
     {
@@ -34241,7 +34241,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_circular_time_progress_paint",
-      "community": 93,
+      "community": 155,
       "norm_label": "paint"
     },
     {
@@ -34251,7 +34251,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_circular_time_progress_drawcap",
-      "community": 93,
+      "community": 155,
       "norm_label": "_drawcap"
     },
     {
@@ -34261,7 +34261,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_circular_time_progress_shouldrepaint",
-      "community": 93,
+      "community": 155,
       "norm_label": "shouldrepaint"
     },
     {
@@ -34455,6 +34455,16 @@
       "norm_label": "build"
     },
     {
+      "label": "package:missions/src/widgets/ui/circular_time_progress.dart",
+      "file_type": "code",
+      "source_file": null,
+      "source_location": null,
+      "_origin": "ast",
+      "id": "package_missions_src_widgets_ui_circular_time_progress_dart",
+      "community": 105,
+      "norm_label": "package:missions/src/widgets/ui/circular_time_progress.dart"
+    },
+    {
       "label": "gratitude_intel_card.dart",
       "file_type": "code",
       "source_file": "lib/src/widgets/ui/gratitude_intel_card.dart",
@@ -34541,7 +34551,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_hextech_components_hexcardclipper",
-      "community": 59,
+      "community": 103,
       "norm_label": "hexcardclipper"
     },
     {
@@ -34551,7 +34561,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_hextech_components_hexbuttonclipper",
-      "community": 59,
+      "community": 103,
       "norm_label": "hexbuttonclipper"
     },
     {
@@ -34691,7 +34701,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_hud_components_hudcutclipper",
-      "community": 59,
+      "community": 103,
       "norm_label": "hudcutclipper"
     },
     {
@@ -35031,7 +35041,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "edgeinsetsgeometry",
-      "community": 103,
+      "community": 104,
       "norm_label": "edgeinsetsgeometry"
     },
     {
@@ -35911,7 +35921,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_panel",
-      "community": 163,
+      "community": 42,
       "norm_label": "jwe_panel.dart"
     },
     {
@@ -35921,7 +35931,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_panel_jwepanel",
-      "community": 163,
+      "community": 42,
       "norm_label": "jwepanel"
     },
     {
@@ -35931,7 +35941,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_panel_title",
-      "community": 163,
+      "community": 42,
       "norm_label": "title"
     },
     {
@@ -35941,7 +35951,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_panel_child",
-      "community": 163,
+      "community": 42,
       "norm_label": "child"
     },
     {
@@ -35951,7 +35961,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_panel_accentcolor",
-      "community": 163,
+      "community": 42,
       "norm_label": "accentcolor"
     },
     {
@@ -35961,7 +35971,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_panel_build",
-      "community": 163,
+      "community": 42,
       "norm_label": "build"
     },
     {
@@ -35971,7 +35981,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_panel_matchtone",
-      "community": 163,
+      "community": 42,
       "norm_label": "_matchtone"
     },
     {
@@ -36081,7 +36091,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_sync_overlay",
-      "community": 87,
+      "community": 102,
       "norm_label": "jwe_sync_overlay.dart"
     },
     {
@@ -36091,7 +36101,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_sync_overlay_jwesyncoverlay",
-      "community": 87,
+      "community": 102,
       "norm_label": "jwesyncoverlay"
     },
     {
@@ -36101,7 +36111,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_jwe_sync_overlay_build",
-      "community": 87,
+      "community": 102,
       "norm_label": "build"
     },
     {
@@ -36111,7 +36121,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_linked_task_indicator",
-      "community": 22,
+      "community": 104,
       "norm_label": "linked_task_indicator.dart"
     },
     {
@@ -36121,7 +36131,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_linked_task_indicator_linkedtaskindicator",
-      "community": 22,
+      "community": 104,
       "norm_label": "linkedtaskindicator"
     },
     {
@@ -36131,7 +36141,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_linked_task_indicator_label",
-      "community": 22,
+      "community": 104,
       "norm_label": "label"
     },
     {
@@ -36141,7 +36151,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_linked_task_indicator_onunlink",
-      "community": 22,
+      "community": 104,
       "norm_label": "onunlink"
     },
     {
@@ -36151,7 +36161,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_linked_task_indicator_build",
-      "community": 22,
+      "community": 104,
       "norm_label": "build"
     },
     {
@@ -36211,7 +36221,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_nfs_components_playbtnclipper",
-      "community": 59,
+      "community": 103,
       "norm_label": "_playbtnclipper"
     },
     {
@@ -36601,7 +36611,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_rhombus_checkbox",
-      "community": 135,
+      "community": 1095,
       "norm_label": "rhombus_checkbox.dart"
     },
     {
@@ -36611,7 +36621,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_rhombus_checkbox_checkboxsize",
-      "community": 135,
+      "community": 1095,
       "norm_label": "checkboxsize"
     },
     {
@@ -36621,7 +36631,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_rhombus_checkbox_rhombuscheckbox",
-      "community": 135,
+      "community": 1095,
       "norm_label": "rhombuscheckbox"
     },
     {
@@ -36631,7 +36641,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_rhombus_checkbox_checked",
-      "community": 135,
+      "community": 1095,
       "norm_label": "checked"
     },
     {
@@ -36641,7 +36651,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_rhombus_checkbox_onchanged",
-      "community": 135,
+      "community": 1095,
       "norm_label": "onchanged"
     },
     {
@@ -36651,7 +36661,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_rhombus_checkbox_disabled",
-      "community": 135,
+      "community": 1095,
       "norm_label": "disabled"
     },
     {
@@ -36661,7 +36671,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_rhombus_checkbox_size",
-      "community": 135,
+      "community": 1095,
       "norm_label": "size"
     },
     {
@@ -36671,7 +36681,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_rhombus_checkbox_build",
-      "community": 135,
+      "community": 1095,
       "norm_label": "build"
     },
     {
@@ -36681,7 +36691,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_saved_prompts_list",
-      "community": 170,
+      "community": 1095,
       "norm_label": "saved_prompts_list.dart"
     },
     {
@@ -36691,7 +36701,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_saved_prompts_list_savedpromptslist",
-      "community": 170,
+      "community": 1095,
       "norm_label": "savedpromptslist"
     },
     {
@@ -36701,7 +36711,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_saved_prompts_list_build",
-      "community": 170,
+      "community": 1095,
       "norm_label": "build"
     },
     {
@@ -36761,7 +36771,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_startup_wellbeing_metrics",
-      "community": 102,
+      "community": 126,
       "norm_label": "startup_wellbeing_metrics.dart"
     },
     {
@@ -36771,7 +36781,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_startup_wellbeing_metrics_startupwellbeingmetrics",
-      "community": 102,
+      "community": 126,
       "norm_label": "startupwellbeingmetrics"
     },
     {
@@ -36781,7 +36791,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_startup_wellbeing_metrics_metrics",
-      "community": 102,
+      "community": 126,
       "norm_label": "metrics"
     },
     {
@@ -36791,7 +36801,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_ui_startup_wellbeing_metrics_build",
-      "community": 102,
+      "community": 126,
       "norm_label": "build"
     },
     {
@@ -37891,7 +37901,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_valorant_valorant_card",
-      "community": 103,
+      "community": 104,
       "norm_label": "valorant_card.dart"
     },
     {
@@ -37901,7 +37911,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_valorant_valorant_card_valorantcard",
-      "community": 103,
+      "community": 104,
       "norm_label": "valorantcard"
     },
     {
@@ -37911,7 +37921,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_valorant_valorant_card_child",
-      "community": 103,
+      "community": 104,
       "norm_label": "child"
     },
     {
@@ -37921,7 +37931,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_valorant_valorant_card_bordercolor",
-      "community": 103,
+      "community": 104,
       "norm_label": "bordercolor"
     },
     {
@@ -37931,7 +37941,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_valorant_valorant_card_backgroundcolor",
-      "community": 103,
+      "community": 104,
       "norm_label": "backgroundcolor"
     },
     {
@@ -37941,7 +37951,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_valorant_valorant_card_isselected",
-      "community": 103,
+      "community": 104,
       "norm_label": "isselected"
     },
     {
@@ -37951,7 +37961,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_valorant_valorant_card_ontap",
-      "community": 103,
+      "community": 104,
       "norm_label": "ontap"
     },
     {
@@ -37961,7 +37971,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_valorant_valorant_card_onlongpress",
-      "community": 103,
+      "community": 104,
       "norm_label": "onlongpress"
     },
     {
@@ -37971,7 +37981,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_valorant_valorant_card_padding",
-      "community": 103,
+      "community": 104,
       "norm_label": "padding"
     },
     {
@@ -37981,7 +37991,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_valorant_valorant_card_margin",
-      "community": 103,
+      "community": 104,
       "norm_label": "margin"
     },
     {
@@ -37991,7 +38001,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_valorant_valorant_card_cornercut",
-      "community": 103,
+      "community": 104,
       "norm_label": "cornercut"
     },
     {
@@ -38001,7 +38011,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_src_widgets_valorant_valorant_card_build",
-      "community": 103,
+      "community": 104,
       "norm_label": "build"
     },
     {
@@ -40221,7 +40231,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_widgets_valorant_button",
-      "community": 22,
+      "community": 172,
       "norm_label": "valorant_button.dart"
     },
     {
@@ -40231,7 +40241,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_widgets_valorant_button_valorantbutton",
-      "community": 22,
+      "community": 172,
       "norm_label": "valorantbutton"
     },
     {
@@ -40241,7 +40251,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_widgets_valorant_button_label",
-      "community": 22,
+      "community": 172,
       "norm_label": "label"
     },
     {
@@ -40251,7 +40261,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_widgets_valorant_button_onpressed",
-      "community": 22,
+      "community": 172,
       "norm_label": "onpressed"
     },
     {
@@ -40261,7 +40271,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_widgets_valorant_button_isprimary",
-      "community": 22,
+      "community": 172,
       "norm_label": "isprimary"
     },
     {
@@ -40271,7 +40281,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_widgets_valorant_button_icon",
-      "community": 22,
+      "community": 172,
       "norm_label": "icon"
     },
     {
@@ -40281,7 +40291,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_widgets_valorant_button_build",
-      "community": 22,
+      "community": 172,
       "norm_label": "build"
     },
     {
@@ -40311,7 +40321,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "lib_widgets_valorant_container_cutcornerclipper",
-      "community": 59,
+      "community": 103,
       "norm_label": "_cutcornerclipper"
     },
     {
@@ -98377,16 +98387,6 @@
       "target": "package_missions_src_widgets_atoms_valorant_timer_text_dart"
     },
     {
-      "relation": "imports",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "lib/src/widgets/ui/desktop_floating_timer.dart",
-      "source_location": null,
-      "weight": 1.0,
-      "source": "lib_src_widgets_ui_desktop_floating_timer",
-      "target": "package_missions_src_widgets_atoms_valorant_timer_text_dart"
-    },
-    {
       "relation": "defines",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
@@ -109148,6 +109148,16 @@
       "context": "variable_type",
       "source": "lib_src_widgets_ui_desktop_floating_timer",
       "target": "offset"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/src/widgets/ui/desktop_floating_timer.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "lib_src_widgets_ui_desktop_floating_timer",
+      "target": "package_missions_src_widgets_ui_circular_time_progress_dart"
     },
     {
       "relation": "references",
