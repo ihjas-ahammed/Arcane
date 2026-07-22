@@ -486,16 +486,20 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 16, color: color),
         const SizedBox(width: 8),
-        Text(
-          title,
-          style: GoogleFonts.jetBrainsMono(
-            color: color,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.4,
+        Flexible(
+          child: Text(
+            title,
+            style: GoogleFonts.jetBrainsMono(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -808,44 +812,96 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
     final now = DateTime.now();
     final weekAgo = now.subtract(const Duration(days: 7));
 
-    // Gather completed tasks & checkpoints
-    final completedItems = <Map<String, dynamic>>[];
-    for (final task in provider.mainTasks.where((t) => !t.isDeleted)) {
-      for (final sub in task.subTasks.where((s) => !s.isDeleted)) {
-        if (sub.completed && sub.completedDate != null) {
-          try {
-            final compDate = DateTime.parse(sub.completedDate!);
-            if (compDate.isAfter(weekAgo)) {
-              completedItems.add({
-                'type': 'Subtask',
-                'name': sub.name,
-                'path': task.name,
-                'date': sub.completedDate,
-                'color': task.taskColor,
-              });
-            }
-          } catch (_) {}
-        }
-        void checkCps(List<SubSubTask> list, String parentPath) {
-          for (final cp in list) {
-            if (cp.completed && cp.completionTimestamp != null) {
-              try {
-                final compDate = DateTime.parse(cp.completionTimestamp!);
-                if (compDate.isAfter(weekAgo)) {
-                  completedItems.add({
-                    'type': 'Checkpoint',
-                    'name': cp.name,
-                    'path': '$parentPath > ${sub.name}',
-                    'date': DateFormat('yyyy-MM-dd').format(compDate),
-                    'color': task.taskColor,
-                  });
-                }
-              } catch (_) {}
-            }
-            checkCps(cp.substeps, '$parentPath > ${cp.name}');
+    // Gather infinitely nested completed tasks & checkpoints tree
+    CompletedNode? buildSubSubTaskNode(SubSubTask cp, Color color) {
+      bool selfCompleted = false;
+      String? compDateStr;
+      if (cp.completed && cp.completionTimestamp != null) {
+        try {
+          final compDate = DateTime.parse(cp.completionTimestamp!);
+          if (compDate.isAfter(weekAgo)) {
+            selfCompleted = true;
+            compDateStr = DateFormat('yyyy-MM-dd').format(compDate);
           }
+        } catch (_) {}
+      }
+
+      final childNodes = <CompletedNode>[];
+      for (final childCp in cp.substeps) {
+        final node = buildSubSubTaskNode(childCp, color);
+        if (node != null) {
+          childNodes.add(node);
         }
-        checkCps(sub.subSubTasks, task.name);
+      }
+
+      if (selfCompleted || childNodes.isNotEmpty) {
+        return CompletedNode(
+          id: cp.id,
+          name: cp.name,
+          nodeType: 'checkpoint',
+          color: color,
+          date: compDateStr,
+          isCompleted: selfCompleted,
+          children: childNodes,
+        );
+      }
+      return null;
+    }
+
+    CompletedNode? buildSubTaskNode(SubTask sub, Color color) {
+      if (sub.isRecurring) return null;
+      bool selfCompleted = false;
+      String? compDateStr;
+      if (sub.completed && sub.completedDate != null) {
+        try {
+          final compDate = DateTime.parse(sub.completedDate!);
+          if (compDate.isAfter(weekAgo)) {
+            selfCompleted = true;
+            compDateStr = sub.completedDate;
+          }
+        } catch (_) {}
+      }
+
+      final childNodes = <CompletedNode>[];
+      for (final cp in sub.subSubTasks) {
+        final node = buildSubSubTaskNode(cp, color);
+        if (node != null) {
+          childNodes.add(node);
+        }
+      }
+
+      if (selfCompleted || childNodes.isNotEmpty) {
+        return CompletedNode(
+          id: sub.id,
+          name: sub.name,
+          nodeType: 'subtask',
+          color: color,
+          date: compDateStr,
+          isCompleted: selfCompleted,
+          children: childNodes,
+        );
+      }
+      return null;
+    }
+
+    final missionNodes = <CompletedNode>[];
+    for (final task in provider.mainTasks.where((t) => !t.isDeleted)) {
+      final childNodes = <CompletedNode>[];
+      for (final sub in task.subTasks.where((s) => !s.isDeleted)) {
+        final node = buildSubTaskNode(sub, task.taskColor);
+        if (node != null) {
+          childNodes.add(node);
+        }
+      }
+
+      if (childNodes.isNotEmpty) {
+        missionNodes.add(CompletedNode(
+          id: task.id,
+          name: task.name,
+          nodeType: 'mission',
+          color: task.taskColor,
+          children: childNodes,
+        ));
       }
     }
 
@@ -884,80 +940,8 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── 1. COMPLETED TASKS & CHECKPOINTS ──
-        _SectionLabel(
-          title: 'WEEKLY OPERATION LOG (COMPLETED)',
-          icon: MdiIcons.checkboxMarkedCircleOutline,
-          color: JweTheme.accentTeal,
-        ),
-        const SizedBox(height: 12),
-        if (completedItems.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: JweTheme.bgBase.withOpacity(0.3),
-              border: Border.all(color: JweTheme.lineSoft),
-            ),
-            child: Text(
-              'NO COMPLETED TASKS OR CHECKPOINTS DETECTED THIS WEEK.',
-              style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 11),
-              textAlign: TextAlign.center,
-            ),
-          )
-        else
-          Column(
-            children: completedItems.map((item) {
-              final color = item['color'] as Color? ?? JweTheme.accentTeal;
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.08),
-                  border: Border(left: BorderSide(color: color, width: 3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      item['type'] == 'Subtask' ? MdiIcons.bookmarkCheckOutline : MdiIcons.checkCircleOutline,
-                      size: 16,
-                      color: color,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            (item['name'] as String).toUpperCase(),
-                            style: GoogleFonts.saira(
-                              color: JweTheme.textWhite,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                          Text(
-                            (item['path'] as String).toUpperCase(),
-                            style: GoogleFonts.jetBrainsMono(
-                              color: JweTheme.textMuted,
-                              fontSize: 9,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      item['date'] as String,
-                      style: GoogleFonts.jetBrainsMono(
-                        color: JweTheme.textMuted,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
+        // ── 1. COMPLETED TASKS & CHECKPOINTS (INFINITELY NESTED DROPDOWN) ──
+        _WeeklyCompletedLogWidget(missions: missionNodes),
         const SizedBox(height: 24),
 
         // ── 2. METRIC DASHBOARDS (FINANCE & HEALTH) ──
@@ -1128,3 +1112,464 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
     );
   }
 }
+
+class CompletedNode {
+  final String id;
+  final String name;
+  final String nodeType; // 'mission' | 'subtask' | 'checkpoint'
+  final Color color;
+  final String? date;
+  final bool isCompleted;
+  final List<CompletedNode> children;
+
+  CompletedNode({
+    required this.id,
+    required this.name,
+    required this.nodeType,
+    required this.color,
+    this.date,
+    this.isCompleted = false,
+    List<CompletedNode>? children,
+  }) : children = children ?? [];
+
+  int get totalCompletedCount {
+    int count = (isCompleted && nodeType != 'mission') ? 1 : 0;
+    for (final child in children) {
+      count += child.totalCompletedCount;
+    }
+    return count;
+  }
+}
+
+class _WeeklyCompletedLogWidget extends StatefulWidget {
+  final List<CompletedNode> missions;
+
+  const _WeeklyCompletedLogWidget({required this.missions});
+
+  @override
+  State<_WeeklyCompletedLogWidget> createState() => _WeeklyCompletedLogWidgetState();
+}
+
+class _WeeklyCompletedLogWidgetState extends State<_WeeklyCompletedLogWidget> {
+  int _expandAllTrigger = 0;
+  bool _expandAllValue = false;
+
+  void _toggleAll(bool expand) {
+    setState(() {
+      _expandAllTrigger++;
+      _expandAllValue = expand;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.missions.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SectionLabel(
+            title: 'WEEKLY OPERATION LOG (COMPLETED)',
+            icon: MdiIcons.checkboxMarkedCircleOutline,
+            color: JweTheme.accentTeal,
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: JweTheme.bgBase.withOpacity(0.3),
+              border: Border.all(color: JweTheme.lineSoft),
+            ),
+            child: Text(
+              'NO COMPLETED TASKS OR CHECKPOINTS DETECTED THIS WEEK.',
+              style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 11),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      );
+    }
+
+    final totalCompletedCount = widget.missions.fold<int>(0, (sum, m) => sum + m.totalCompletedCount);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionLabel(
+                    title: 'WEEKLY OPERATION LOG',
+                    icon: MdiIcons.checkboxMarkedCircleOutline,
+                    color: JweTheme.accentTeal,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${widget.missions.length} MISSIONS • $totalCompletedCount COMPLETED',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.textMuted,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                InkWell(
+                  onTap: () => _toggleAll(true),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(MdiIcons.expandAll, size: 14, color: JweTheme.accentTeal),
+                        const SizedBox(width: 2),
+                        Text(
+                          'EXPAND ALL',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.accentTeal,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: () => _toggleAll(false),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(MdiIcons.collapseAll, size: 14, color: JweTheme.accentTeal),
+                        const SizedBox(width: 2),
+                        Text(
+                          'COLLAPSE ALL',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.accentTeal,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...widget.missions.map((missionNode) {
+          return _NestedCompletedNodeWidget(
+            node: missionNode,
+            depth: 0,
+            expandAllTrigger: _expandAllTrigger,
+            expandAllValue: _expandAllValue,
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class _NestedCompletedNodeWidget extends StatefulWidget {
+  final CompletedNode node;
+  final int depth;
+  final int expandAllTrigger;
+  final bool expandAllValue;
+
+  const _NestedCompletedNodeWidget({
+    required this.node,
+    required this.depth,
+    required this.expandAllTrigger,
+    required this.expandAllValue,
+  });
+
+  @override
+  State<_NestedCompletedNodeWidget> createState() => _NestedCompletedNodeWidgetState();
+}
+
+class _NestedCompletedNodeWidgetState extends State<_NestedCompletedNodeWidget> {
+  late bool _isExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = false;
+  }
+
+  @override
+  void didUpdateWidget(covariant _NestedCompletedNodeWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.expandAllTrigger != oldWidget.expandAllTrigger) {
+      _isExpanded = widget.expandAllValue;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final node = widget.node;
+    final hasChildren = node.children.isNotEmpty;
+    final color = node.color;
+    final isMission = widget.depth == 0;
+    final isSubtask = node.nodeType == 'subtask';
+
+    // ── LEAF NODE (No children) ──
+    if (!hasChildren) {
+      return Container(
+        margin: EdgeInsets.only(
+          bottom: 6,
+          left: widget.depth == 0 ? 0 : 10.0 * widget.depth,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: JweTheme.bgBase.withOpacity(0.5),
+          border: Border(
+            left: BorderSide(
+              color: isSubtask ? color : JweTheme.textMuted.withOpacity(0.5),
+              width: 2,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSubtask ? MdiIcons.bookmarkCheckOutline : MdiIcons.checkCircleOutline,
+              size: 14,
+              color: isSubtask ? color : JweTheme.textMuted,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                node.name.toUpperCase(),
+                style: GoogleFonts.saira(
+                  color: JweTheme.textWhite,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            if (node.date != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                node.date!,
+                style: GoogleFonts.jetBrainsMono(
+                  color: JweTheme.textMuted,
+                  fontSize: 9,
+                ),
+              ),
+            ]
+          ],
+        ),
+      );
+    }
+
+    // ── DROPDOWN NODE (Has children recursively) ──
+    if (isMission) {
+      // Top Level Mission Card
+      return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: JweTheme.bgBase.withOpacity(0.4),
+          border: Border.all(
+            color: _isExpanded ? color.withOpacity(0.6) : JweTheme.lineSoft,
+            width: _isExpanded ? 1.5 : 1.0,
+          ),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              onTap: () => setState(() => _isExpanded = !_isExpanded),
+              borderRadius: BorderRadius.circular(4),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(2),
+                        boxShadow: [
+                          BoxShadow(color: color.withOpacity(0.5), blurRadius: 6),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            node.name.toUpperCase(),
+                            style: GoogleFonts.saira(
+                              color: JweTheme.textWhite,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${node.children.length} DIRECT ITEM${node.children.length > 1 ? 'S' : ''} • ${node.totalCompletedCount} COMPLETED',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: color,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      _isExpanded ? MdiIcons.chevronUp : MdiIcons.chevronDown,
+                      color: _isExpanded ? color : JweTheme.textMuted,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            AnimatedCrossFade(
+              firstChild: const SizedBox(width: double.infinity),
+              secondChild: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: color.withOpacity(0.2))),
+                  color: color.withOpacity(0.04),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: node.children.map((child) {
+                    return _NestedCompletedNodeWidget(
+                      node: child,
+                      depth: widget.depth + 1,
+                      expandAllTrigger: widget.expandAllTrigger,
+                      expandAllValue: widget.expandAllValue,
+                    );
+                  }).toList(),
+                ),
+              ),
+              crossFadeState: _isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 250),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Nested Subtask / Checkpoint Dropdown (Depth >= 1)
+    return Container(
+      margin: EdgeInsets.only(
+        bottom: 6,
+        left: 8.0 * widget.depth,
+      ),
+      decoration: BoxDecoration(
+        color: JweTheme.bgBase.withOpacity(0.35),
+        border: Border(
+          left: BorderSide(color: color.withOpacity(0.7), width: 2.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    isSubtask ? MdiIcons.folderCheckOutline : MdiIcons.checkboxMultipleMarkedOutline,
+                    size: 14,
+                    color: color,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          node.name.toUpperCase(),
+                          style: GoogleFonts.saira(
+                            color: JweTheme.textWhite,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            Text(
+                              '${node.children.length} SUB-ITEM${node.children.length > 1 ? 'S' : ''}',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: color.withOpacity(0.9),
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (node.isCompleted && node.date != null) ...[
+                              Text(
+                                ' • DONE ${node.date}',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: JweTheme.textMuted,
+                                  fontSize: 8,
+                                ),
+                              ),
+                            ]
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    _isExpanded ? MdiIcons.chevronDown : MdiIcons.chevronRight,
+                    color: color,
+                    size: 16,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: node.children.map((child) {
+                  return _NestedCompletedNodeWidget(
+                    node: child,
+                    depth: widget.depth + 1,
+                    expandAllTrigger: widget.expandAllTrigger,
+                    expandAllValue: widget.expandAllValue,
+                  );
+                }).toList(),
+              ),
+            ),
+            crossFadeState: _isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

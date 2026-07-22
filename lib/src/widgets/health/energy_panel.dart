@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
@@ -16,10 +17,10 @@ class EnergyPanel extends StatelessWidget {
   final String dateStr;
   const EnergyPanel({super.key, required this.dateStr});
 
-  void _showLogDialog(BuildContext context, AppProvider provider) {
+  void _showLowEnergyDialog(BuildContext context, AppProvider provider) {
     showDialog(
       context: context,
-      builder: (ctx) => _EnergyLogDialog(dateStr: dateStr, provider: provider),
+      builder: (ctx) => LogLowEnergyDialog(dateStr: dateStr, provider: provider),
     );
   }
 
@@ -30,92 +31,131 @@ class EnergyPanel extends StatelessWidget {
     final entries = List<EnergyLog>.from(log.energyLogs)
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-    final avg = entries.isEmpty
-        ? 0.0
-        : entries.fold<int>(0, (s, e) => s + e.level) / entries.length;
-    final latest = entries.isNotEmpty ? entries.last.level : null;
+    final peakHoursStr = _calculatePeakWindows(entries);
 
     return SpideyPanel(
-      title: "ENERGY LOG",
+      title: "ENERGY WAVE",
       accentColor: SpideyTheme.spideyCyan,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("LATEST",
-                      style: GoogleFonts.rajdhani(
-                          color: SpideyTheme.textMuted,
-                          fontSize: 10,
+          // Subtitle / Inferred Peak Hours Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: JweTheme.accentCyan.withValues(alpha: 0.08),
+              border: Border.all(color: JweTheme.accentCyan.withValues(alpha: 0.3)),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              children: [
+                Icon(MdiIcons.sineWave, size: 16, color: JweTheme.accentCyan),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "INFERRED PEAK WINDOWS",
+                        style: GoogleFonts.rajdhani(
+                          color: JweTheme.textMuted,
+                          fontSize: 9,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2)),
-                  Text(latest == null ? "—" : "$latest / 10",
-                      style: GoogleFonts.rajdhani(
-                          fontSize: 26,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      Text(
+                        peakHoursStr,
+                        style: GoogleFonts.rajdhani(
+                          color: JweTheme.accentCyan,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: latest == null
-                              ? SpideyTheme.textGrey
-                              : _levelColor(latest.toDouble()))),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text("DAY AVG",
-                      style: GoogleFonts.rajdhani(
-                          color: SpideyTheme.textMuted,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2)),
-                  Text(entries.isEmpty ? "—" : avg.toStringAsFixed(1),
-                      style: GoogleFonts.rajdhani(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: SpideyTheme.spideyCyan)),
-                ],
-              ),
-            ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: entries.isEmpty
+                        ? JweTheme.accentAmber.withValues(alpha: 0.15)
+                        : JweTheme.accentRed.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: Text(
+                    "${entries.length} DIPS",
+                    style: GoogleFonts.jetBrainsMono(
+                      color: entries.isEmpty ? JweTheme.accentAmber : JweTheme.accentRed,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
 
+          // 24h Wave Chart
           SizedBox(
-            height: 160,
-            child: entries.isEmpty
-                ?   Center(
-                    child: Text("No energy logs for this cycle. Tap LOG ENERGY.",
-                        style: TextStyle(color: SpideyTheme.textMuted, fontSize: 12, fontStyle: FontStyle.italic)),
-                  )
-                : _EnergyChart(entries: entries),
+            height: 170,
+            child: _EnergyWaveChart(entries: entries),
           ),
 
           const SizedBox(height: 12),
 
+          // Logged Low Energy Dips chips
           if (entries.isNotEmpty) ...[
+            Text(
+              "LOGGED LOW ENERGY POINTS (TROUGHS)",
+              style: GoogleFonts.rajdhani(
+                color: SpideyTheme.textMuted,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 6),
             Wrap(
               spacing: 6,
               runSpacing: 6,
               children: entries.map((e) {
-                final c = _levelColor(e.level.toDouble());
                 return InkWell(
-                  onLongPress: () => provider.deleteEnergyLog(dateStr, e.id),
+                  onTap: () => provider.deleteEnergyLog(dateStr, e.id),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: c.withOpacity(0.08),
-                      border: Border.all(color: c.withOpacity(0.4)),
+                      color: SpideyTheme.spideyRed.withValues(alpha: 0.1),
+                      border: Border.all(color: SpideyTheme.spideyRed.withValues(alpha: 0.4)),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text("${e.level}",
-                            style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'RobotoMono')),
-                        const SizedBox(width: 6),
-                        Text(DateFormat('HH:mm').format(e.timestamp),
-                            style:  TextStyle(color: SpideyTheme.textGrey, fontSize: 10, fontFamily: 'RobotoMono')),
+                        Icon(MdiIcons.batteryAlert, size: 12, color: SpideyTheme.spideyRed),
+                        const SizedBox(width: 4),
+                        Text(
+                          DateFormat('HH:mm').format(e.timestamp),
+                          style: TextStyle(
+                            color: SpideyTheme.spideyRed,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            fontFamily: 'RobotoMono',
+                          ),
+                        ),
+                        if (e.note != null && e.note!.isNotEmpty) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            "(${e.note})",
+                            style: TextStyle(
+                              color: SpideyTheme.textMuted,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(width: 4),
+                        const Icon(Icons.close, size: 12, color: Colors.white54),
                       ],
                     ),
                   ),
@@ -123,43 +163,125 @@ class EnergyPanel extends StatelessWidget {
               }).toList(),
             ),
             const SizedBox(height: 12),
+          ] else ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: Text(
+                "No fatigue points logged today. Tap below when you feel tired.",
+                style: TextStyle(color: SpideyTheme.textMuted, fontSize: 11, fontStyle: FontStyle.italic),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 8),
           ],
 
+          // Log Low Energy Button
           OutlinedButton.icon(
-            icon: const Icon(Icons.add, size: 16),
-            label: Text("LOG ENERGY",
-                style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+            icon: Icon(MdiIcons.flashOff, size: 16),
+            label: Text(
+              "LOG LOW ENERGY",
+              style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.4),
+            ),
             style: OutlinedButton.styleFrom(
               foregroundColor: SpideyTheme.spideyRed,
-              side:  BorderSide(color: SpideyTheme.spideyRed),
+              side: BorderSide(color: SpideyTheme.spideyRed),
               shape: const BeveledRectangleBorder(
-                  borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(6),
-                      bottomRight: Radius.circular(6))),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(6),
+                  bottomRight: Radius.circular(6),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
             ),
-            onPressed: () => _showLogDialog(context, provider),
+            onPressed: () => _showLowEnergyDialog(context, provider),
           ),
         ],
       ),
     );
   }
 
-  static Color _levelColor(double v) {
-    if (v <= 3) return SpideyTheme.spideyRed;
-    if (v <= 6) return SpideyTheme.spideyGold;
-    return SpideyTheme.spideyCyan;
+  String _calculatePeakWindows(List<EnergyLog> logs) {
+    final spots = _generateWaveSpotsStatic(logs);
+    final peakHours = <int>[];
+    for (final s in spots) {
+      if (s.y >= 70) {
+        peakHours.add(s.x.round());
+      }
+    }
+    if (peakHours.isEmpty) return "09:00 - 12:00, 18:00 - 20:00";
+
+    peakHours.sort();
+    final uniqueHours = peakHours.toSet().toList();
+    final intervals = <String>[];
+    int? start;
+    int? prev;
+    for (final h in uniqueHours) {
+      if (start == null) {
+        start = h;
+        prev = h;
+      } else if (h == prev! + 1) {
+        prev = h;
+      } else {
+        intervals.add('${start.toString().padLeft(2, '0')}:00–${(prev + 1).toString().padLeft(2, '0')}:00');
+        start = h;
+        prev = h;
+      }
+    }
+    if (start != null && prev != null) {
+      intervals.add('${start.toString().padLeft(2, '0')}:00–${(prev + 1).toString().padLeft(2, '0')}:00');
+    }
+    return intervals.take(2).join(', ');
+  }
+
+  static List<FlSpot> _generateWaveSpotsStatic(List<EnergyLog> logs) {
+    final lowHours = logs.map((e) => e.timestamp.hour + e.timestamp.minute / 60.0).toList();
+    final spots = <FlSpot>[];
+
+    for (double hour = 0; hour <= 24; hour += 0.25) {
+      double base;
+      if (hour < 6) {
+        base = 0.25 + 0.1 * math.sin((hour / 6) * math.pi / 2);
+      } else if (hour <= 12) {
+        base = 0.35 + 0.5 * math.sin(((hour - 6) / 6) * math.pi / 2);
+      } else if (hour <= 16) {
+        base = 0.85 - 0.25 * math.sin(((hour - 12) / 4) * math.pi);
+      } else if (hour <= 21) {
+        base = 0.6 + 0.25 * math.sin(((hour - 16) / 5) * math.pi / 2);
+      } else {
+        base = 0.85 - 0.65 * ((hour - 21) / 3);
+      }
+
+      double dipFactor = 1.0;
+      for (final lowH in lowHours) {
+        final diff = (hour - lowH).abs();
+        if (diff < 2.5) {
+          final dip = math.exp(-(diff * diff) / 1.2);
+          dipFactor *= (1.0 - 0.75 * dip);
+        }
+      }
+
+      double finalVal = (base * dipFactor).clamp(0.1, 1.0) * 100.0;
+      spots.add(FlSpot(hour, finalVal));
+    }
+    return spots;
   }
 }
 
-class _EnergyChart extends StatelessWidget {
+class _EnergyWaveChart extends StatelessWidget {
   final List<EnergyLog> entries;
-  const _EnergyChart({required this.entries});
+  const _EnergyWaveChart({required this.entries});
 
   @override
   Widget build(BuildContext context) {
-    final spots = entries.map((e) {
+    final spots = EnergyPanel._generateWaveSpotsStatic(entries);
+
+    final lowEnergySpots = entries.map((e) {
       final hour = e.timestamp.hour + e.timestamp.minute / 60.0;
-      return FlSpot(hour, e.level.toDouble());
+      final spot = spots.firstWhere(
+        (s) => (s.x - hour).abs() < 0.3,
+        orElse: () => FlSpot(hour, 15.0),
+      );
+      return FlSpot(hour, spot.y);
     }).toList();
 
     return LineChart(
@@ -167,30 +289,25 @@ class _EnergyChart extends StatelessWidget {
         minX: 0,
         maxX: 24,
         minY: 0,
-        maxY: 10,
+        maxY: 100,
         clipData: const FlClipData.all(),
         gridData: FlGridData(
           show: true,
           drawVerticalLine: true,
-          horizontalInterval: 2,
+          horizontalInterval: 25,
           verticalInterval: 6,
-          getDrawingHorizontalLine: (_) =>
-               FlLine(color: SpideyTheme.borderSoft, strokeWidth: 1),
-          getDrawingVerticalLine: (_) =>
-               FlLine(color: SpideyTheme.borderSoft, strokeWidth: 1),
+          getDrawingHorizontalLine: (_) => FlLine(color: JweTheme.border.withValues(alpha: 0.3), strokeWidth: 1),
+          getDrawingVerticalLine: (_) => FlLine(color: JweTheme.border.withValues(alpha: 0.3), strokeWidth: 1),
         ),
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              interval: 2,
-              reservedSize: 22,
+              interval: 25,
+              reservedSize: 28,
               getTitlesWidget: (v, _) {
-                if (v == 0 || v == 10 || v % 2 != 0) {
-                  if (v != 0 && v != 10) return const SizedBox.shrink();
-                }
-                return Text("${v.toInt()}",
-                    style:  TextStyle(color: SpideyTheme.textMuted, fontSize: 9, fontFamily: 'RobotoMono'));
+                if (v == 0) return const SizedBox.shrink();
+                return Text('${v.toInt()}%', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8));
               },
             ),
           ),
@@ -200,14 +317,13 @@ class _EnergyChart extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               interval: 6,
-              reservedSize: 22,
+              reservedSize: 20,
               getTitlesWidget: (v, _) {
                 if (v < 0 || v > 24) return const SizedBox.shrink();
-                final h = v.toInt();
                 return Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text("${h.toString().padLeft(2, '0')}h",
-                      style:  TextStyle(color: SpideyTheme.textMuted, fontSize: 9, fontFamily: 'RobotoMono')),
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text('${v.toInt().toString().padLeft(2, '0')}h',
+                      style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8)),
                 );
               },
             ),
@@ -216,29 +332,41 @@ class _EnergyChart extends StatelessWidget {
         borderData: FlBorderData(show: false),
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) => SpideyTheme.bgElevated,
-            getTooltipItems: (touched) => touched
-                .map((s) => LineTooltipItem(
-                      "${s.y.toInt()} @ ${s.x.toInt().toString().padLeft(2, '0')}:${(((s.x - s.x.toInt()) * 60).round()).toString().padLeft(2, '0')}",
-                       TextStyle(color: SpideyTheme.spideyCyan, fontSize: 11, fontWeight: FontWeight.bold),
-                    ))
-                .toList(),
+            getTooltipColor: (_) => JweTheme.panel,
+            getTooltipItems: (touched) => touched.map((s) {
+              final h = s.x.toInt();
+              final m = (((s.x - h) * 60).round());
+              final isPeak = s.y >= 70;
+              final isTrough = s.y <= 35;
+              final stateStr = isTrough ? 'TROUGH (Low Energy)' : (isPeak ? 'PEAK (High Energy)' : 'MODERATE');
+              return LineTooltipItem(
+                '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')} — ${s.y.round()}%\n$stateStr',
+                GoogleFonts.jetBrainsMono(
+                  color: isTrough ? JweTheme.accentRed : (isPeak ? JweTheme.accentCyan : JweTheme.textWhite),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              );
+            }).toList(),
           ),
         ),
         lineBarsData: [
           LineChartBarData(
             spots: spots,
             isCurved: true,
-            curveSmoothness: 0.25,
-            color: SpideyTheme.spideyCyan,
-            barWidth: 2,
+            curveSmoothness: 0.35,
+            color: JweTheme.accentCyan,
+            barWidth: 2.5,
             dotData: FlDotData(
               show: true,
+              checkToShowDot: (spot, data) {
+                return lowEnergySpots.any((l) => (l.x - spot.x).abs() < 0.2);
+              },
               getDotPainter: (spot, _, __, ___) => FlDotCirclePainter(
-                radius: 3.5,
-                color: EnergyPanel._levelColor(spot.y),
-                strokeWidth: 1.5,
-                strokeColor: SpideyTheme.bgPanel,
+                radius: 4.5,
+                color: JweTheme.accentRed,
+                strokeWidth: 2,
+                strokeColor: JweTheme.bgDeep,
               ),
             ),
             belowBarData: BarAreaData(
@@ -247,8 +375,8 @@ class _EnergyChart extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  SpideyTheme.spideyCyan.withOpacity(0.25),
-                  SpideyTheme.spideyCyan.withOpacity(0.0),
+                  JweTheme.accentCyan.withValues(alpha: 0.25),
+                  JweTheme.accentCyan.withValues(alpha: 0.0),
                 ],
               ),
             ),
@@ -259,18 +387,18 @@ class _EnergyChart extends StatelessWidget {
   }
 }
 
-class _EnergyLogDialog extends StatefulWidget {
+class LogLowEnergyDialog extends StatefulWidget {
   final String dateStr;
   final AppProvider provider;
-  const _EnergyLogDialog({required this.dateStr, required this.provider});
+  const LogLowEnergyDialog({super.key, required this.dateStr, required this.provider});
 
   @override
-  State<_EnergyLogDialog> createState() => _EnergyLogDialogState();
+  State<LogLowEnergyDialog> createState() => _LogLowEnergyDialogState();
 }
 
-class _EnergyLogDialogState extends State<_EnergyLogDialog> {
-  double _level = 5;
+class _LogLowEnergyDialogState extends State<LogLowEnergyDialog> {
   late DateTime _timestamp;
+  final _noteController = TextEditingController();
 
   @override
   void initState() {
@@ -284,13 +412,25 @@ class _EnergyLogDialogState extends State<_EnergyLogDialog> {
     }
   }
 
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  void _quickSetTime(Duration offset) {
+    setState(() {
+      _timestamp = DateTime.now().subtract(offset);
+    });
+  }
+
   Future<void> _pickTime() async {
     final t = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_timestamp),
       builder: (c, ch) => Theme(
         data: Theme.of(c).copyWith(
-          colorScheme:   ColorScheme.dark(
+          colorScheme: ColorScheme.dark(
             primary: SpideyTheme.spideyCyan,
             onPrimary: JweTheme.onAccent,
             surface: SpideyTheme.bgPanel,
@@ -306,78 +446,91 @@ class _EnergyLogDialogState extends State<_EnergyLogDialog> {
     });
   }
 
-  Color _levelColor(double v) {
-    if (v <= 3) return SpideyTheme.spideyRed;
-    if (v <= 6) return SpideyTheme.spideyGold;
-    return SpideyTheme.spideyCyan;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final color = _levelColor(_level);
     return AlertDialog(
       backgroundColor: SpideyTheme.bgPanel,
       shape: BeveledRectangleBorder(
-        side: BorderSide(color: SpideyTheme.spideyRed.withOpacity(0.6)),
+        side: BorderSide(color: SpideyTheme.spideyRed.withValues(alpha: 0.6)),
         borderRadius: const BorderRadius.only(topLeft: Radius.circular(8), bottomRight: Radius.circular(8)),
       ),
       title: Row(
         children: [
           Container(width: 3, height: 16, color: SpideyTheme.spideyRed),
           const SizedBox(width: 8),
-          Text("LOG ENERGY",
-              style: GoogleFonts.rajdhani(
-                  color: SpideyTheme.textWhite, fontWeight: FontWeight.bold, letterSpacing: 1.8)),
+          Text(
+            "LOG LOW ENERGY / FATIGUE",
+            style: GoogleFonts.rajdhani(
+              color: SpideyTheme.textWhite,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+              fontSize: 15,
+            ),
+          ),
         ],
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text("${_level.round()} / 10",
-              textAlign: TextAlign.center,
-              style: GoogleFonts.rajdhani(color: color, fontSize: 42, fontWeight: FontWeight.bold)),
-          SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: color,
-              inactiveTrackColor: color.withOpacity(0.15),
-              thumbColor: color,
-              overlayColor: color.withOpacity(0.2),
-              trackHeight: 4,
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              "WHEN DID YOU FEEL TIRED?",
+              style: GoogleFonts.rajdhani(color: SpideyTheme.textMuted, fontSize: 11, fontWeight: FontWeight.bold),
             ),
-            child: Slider(
-              value: _level,
-              min: 1,
-              max: 10,
-              divisions: 9,
-              onChanged: (v) => setState(() => _level = v),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _quickTimeChip("RIGHT NOW", Duration.zero),
+                _quickTimeChip("30M AGO", const Duration(minutes: 30)),
+                _quickTimeChip("1H AGO", const Duration(hours: 1)),
+                _quickTimeChip("2H AGO", const Duration(hours: 2)),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          InkWell(
-            onTap: _pickTime,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: SpideyTheme.bgElevated,
-                border: Border.all(color: SpideyTheme.border),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: _pickTime,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: SpideyTheme.bgElevated,
+                  border: Border.all(color: SpideyTheme.border),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    Icon(MdiIcons.clockOutline, color: SpideyTheme.spideyCyan, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      DateFormat('MMM dd — HH:mm').format(_timestamp),
+                      style: TextStyle(color: SpideyTheme.textWhite, fontFamily: 'RobotoMono', fontSize: 13),
+                    ),
+                    const Spacer(),
+                    Text("CHANGE", style: TextStyle(color: SpideyTheme.spideyCyan, fontSize: 10, fontWeight: FontWeight.bold)),
+                  ],
+                ),
               ),
-              child: Row(
-                children: [
-                  Icon(MdiIcons.clockOutline, color: SpideyTheme.spideyCyan, size: 16),
-                  const SizedBox(width: 8),
-                  Text(DateFormat('MMM dd - HH:mm').format(_timestamp),
-                      style:  TextStyle(color: SpideyTheme.textWhite, fontFamily: 'RobotoMono')),
-                ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _noteController,
+              style: TextStyle(color: SpideyTheme.textWhite, fontSize: 13),
+              decoration: InputDecoration(
+                labelText: 'STATUS NOTE (OPTIONAL)',
+                labelStyle: GoogleFonts.rajdhani(color: SpideyTheme.textMuted, fontSize: 11),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: SpideyTheme.border)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: SpideyTheme.spideyRed)),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child:  Text("CANCEL", style: TextStyle(color: SpideyTheme.textGrey)),
+          child: Text("CANCEL", style: TextStyle(color: SpideyTheme.textGrey)),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
@@ -392,15 +545,29 @@ class _EnergyLogDialogState extends State<_EnergyLogDialog> {
               widget.dateStr,
               EnergyLog(
                 id: const Uuid().v4(),
-                level: _level.round(),
+                level: 1,
                 timestamp: _timestamp,
+                note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
               ),
             );
             Navigator.pop(context);
           },
-          child: const Text("SAVE", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          child: const Text("RECORD FATIGUE", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
         ),
       ],
+    );
+  }
+
+  Widget _quickTimeChip(String label, Duration offset) {
+    final targetTime = DateTime.now().subtract(offset);
+    final isSelected = (_timestamp.difference(targetTime).inMinutes).abs() < 5;
+    return ChoiceChip(
+      label: Text(label, style: GoogleFonts.rajdhani(fontSize: 11, fontWeight: FontWeight.bold)),
+      selected: isSelected,
+      selectedColor: SpideyTheme.spideyRed,
+      backgroundColor: SpideyTheme.bgElevated,
+      labelStyle: TextStyle(color: isSelected ? Colors.white : SpideyTheme.textWhite),
+      onSelected: (_) => _quickSetTime(offset),
     );
   }
 }

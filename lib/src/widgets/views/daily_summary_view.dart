@@ -183,34 +183,43 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final buf = StringBuffer();
 
     // 1. Completed Tasks (Last 7 Days)
-    buf.writeln('=== COMPLETED TASKS & CHECKPOINTS (LAST 7 DAYS) ===');
+    buf.writeln('=== COMPLETED TASKS & CHECKPOINTS (LAST 7 DAYS BY MISSION) ===');
     int completedCount = 0;
     for (final task in provider.mainTasks.where((t) => !t.isDeleted)) {
-      for (final sub in task.subTasks.where((s) => !s.isDeleted)) {
+      bool taskHeaderWritten = false;
+      for (final sub in task.subTasks.where((s) => !s.isDeleted && !s.isRecurring)) {
         if (sub.completed && sub.completedDate != null) {
           try {
             final compDate = DateTime.parse(sub.completedDate!);
             if (compDate.isAfter(weekAgo)) {
-              buf.writeln('- [Subtask] ${task.name} > ${sub.name} (Completed: ${sub.completedDate})');
+              if (!taskHeaderWritten) {
+                buf.writeln('[Mission: ${task.name}]');
+                taskHeaderWritten = true;
+              }
+              buf.writeln('  - [Subtask] ${sub.name} (Completed: ${sub.completedDate})');
               completedCount++;
             }
           } catch (_) {}
         }
-        void checkCps(List<SubSubTask> list) {
+        void checkCps(List<SubSubTask> list, String parentPath) {
           for (final cp in list) {
             if (cp.completed && cp.completionTimestamp != null) {
               try {
                 final compDate = DateTime.parse(cp.completionTimestamp!);
                 if (compDate.isAfter(weekAgo)) {
-                  buf.writeln('- [Checkpoint] ${task.name} > ${sub.name} > ${cp.name} (Completed: ${cp.completionTimestamp})');
+                  if (!taskHeaderWritten) {
+                    buf.writeln('[Mission: ${task.name}]');
+                    taskHeaderWritten = true;
+                  }
+                  buf.writeln('  - [Checkpoint] $parentPath > ${cp.name} (Completed: ${cp.completionTimestamp})');
                   completedCount++;
                 }
               } catch (_) {}
             }
-            checkCps(cp.substeps);
+            checkCps(cp.substeps, '$parentPath > ${cp.name}');
           }
         }
-        checkCps(sub.subSubTasks);
+        checkCps(sub.subSubTasks, sub.name);
       }
     }
     if (completedCount == 0) {

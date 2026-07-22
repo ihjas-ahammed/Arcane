@@ -113,6 +113,16 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       } else if (payload.startsWith('undo_check:')) {
         _handleNotificationCheck(payload.substring('undo_check:'.length),
             undo: true);
+      } else if (payload.startsWith('log_low_energy') || payload == 'log_low_energy') {
+        final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        addEnergyLog(
+          todayStr,
+          EnergyLog(
+            id: const Uuid().v4(),
+            level: 1,
+            timestamp: DateTime.now(),
+          ),
+        );
       }
     });
 
@@ -495,7 +505,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     required String emotion,
     required String reason,
     required String action,
-    required double energyLevel,
+    double energyLevel = 5,
   }) {
     final draft = ReflectionDraft(
       trigger: trigger,
@@ -519,6 +529,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   Future<void> _initialize() async {
     initializeSkills();
     initializeDefaultFinanceCategories();
+    NotificationService.instance.scheduleEnergyCheckReminders();
 
     fb_service.authStateChanges.listen(_onAuthStateChanged);
 

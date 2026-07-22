@@ -11,6 +11,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:uuid/uuid.dart';
 import 'package:collection/collection.dart';
 import 'package:missions/src/services/widget_action_router.dart';
+import 'package:missions/src/widgets/health/energy_panel.dart';
 
 class HealthDashboardView extends StatefulWidget {
   const HealthDashboardView({super.key});
@@ -315,82 +316,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
     );
   }
 
-  // --- Energy Logging Dialog ---
-  void _showEnergyDialog(BuildContext context, AppProvider provider, String dateStr) {
-    int level = 5;
-    final noteController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: JweTheme.panel,
-          scrollable: true,
-          shape: RoundedRectangleBorder(
-            side: BorderSide(color: JweTheme.accentAmber, width: 2),
-            borderRadius: BorderRadius.zero,
-          ),
-          title: Text(
-            'LOG ENERGY LEVEL',
-            style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'ENERGY STATE: $level / 10',
-                style: GoogleFonts.jetBrainsMono(color: JweTheme.accentAmber, fontWeight: FontWeight.bold, fontSize: 13),
-               ),
-               Slider(
-                 value: level.toDouble(),
-                 min: 1,
-                 max: 10,
-                 divisions: 9,
-                 activeColor: JweTheme.accentAmber,
-                 inactiveColor: JweTheme.border,
-                 onChanged: (val) {
-                   setDialogState(() => level = val.round());
-                 },
-               ),
-               const SizedBox(height: 12),
-               TextField(
-                 controller: noteController,
-                 style:  TextStyle(color: JweTheme.textWhite),
-                 decoration: InputDecoration(
-                   labelText: 'STATUS NOTE (OPTIONAL)',
-                   labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
-                   enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
-                   focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
-                 ),
-               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('ABORT', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: JweTheme.accentAmber,
-                foregroundColor: JweTheme.onAccent,
-                shape: const BeveledRectangleBorder(),
-              ),
-              onPressed: () {
-                provider.addEnergyLog(dateStr, EnergyLog(
-                  id: const Uuid().v4(),
-                  level: level,
-                  timestamp: DateTime.now(),
-                  note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
-                ));
-                Navigator.pop(ctx);
-              },
-              child: Text('LOG', style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   // --- Meal AI Analyzer Function ---
   Future<void> _handleFoodAILog(AppProvider provider, String dateStr) async {
@@ -793,77 +719,8 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
           ),
           const SizedBox(height: 16),
 
-          // Energy State Panel
-          HudPanel(
-            clip: HudClip.br,
-            accent: JweTheme.accentAmber,
-            brackets: true,
-            allBrackets: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'DAILY ENERGY LEVEL',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: JweTheme.accentAmber,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (log.energyLogs.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Text(
-                      "NO ENERGY ENTRIES LOGGED TODAY.",
-                      style: GoogleFonts.jetBrainsMono(
-                        color: JweTheme.textMuted,
-                        fontSize: 10,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  )
-                else
-                  ...log.energyLogs.map((e) => Padding(
-                        padding: const EdgeInsets.only(bottom: 6.0),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          color: JweTheme.bgCanvas.withValues(alpha: 0.3),
-                          child: Row(
-                            children: [
-                              Icon(MdiIcons.batteryCharging, size: 14, color: JweTheme.accentAmber),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  "${e.level}/10 energy level logged ${e.note != null ? '(${e.note})' : ''}",
-                                  style: GoogleFonts.jetBrainsMono(color: JweTheme.textMid, fontSize: 10.5),
-                                ),
-                              ),
-                              IconButton(
-                                icon:  Icon(Icons.close, color: JweTheme.accentRed, size: 14),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: () => provider.deleteEnergyLog(dateStr, e.id),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.add, size: 14),
-                  label: const Text('RECORD ENERGY LOG'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: JweTheme.accentAmber,
-                    side: BorderSide(color: JweTheme.accentAmber.withValues(alpha: 0.5)),
-                    shape: const BeveledRectangleBorder(),
-                  ),
-                  onPressed: () => _showEnergyDialog(context, provider, dateStr),
-                ),
-              ],
-            ),
-          ),
+          // Energy Wave Panel
+          EnergyPanel(dateStr: dateStr),
         ],
       ),
     );

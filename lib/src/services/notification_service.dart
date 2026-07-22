@@ -199,8 +199,17 @@ class NotificationService {
       case 'undo_check':
         _onTap?.call('undo_check:$payload');
         break;
+      case 'log_low_energy':
+        _onTap?.call('log_low_energy');
+        break;
+      case 'dismiss_energy':
+        break;
       default:
-        _onTap?.call(payload);
+        if (payload.startsWith('log_low_energy')) {
+          _onTap?.call('log_low_energy');
+        } else {
+          _onTap?.call(payload);
+        }
     }
   }
 
@@ -488,6 +497,8 @@ class NotificationService {
     required String body,
     required int hour,
     required int minute,
+    List<AndroidNotificationAction>? actions,
+    String? payload,
   }) async {
     if (!_initialized) return;
     await cancelDailyReminder(id);
@@ -495,14 +506,50 @@ class NotificationService {
     if (kIsWeb) return;
 
     if (_supportsZonedSchedule) {
-      await _scheduleAndroidDailyReminder(id, title, body, hour, minute);
+      await _scheduleAndroidDailyReminder(id, title, body, hour, minute, actions: actions, payload: payload);
     } else {
       _scheduleInAppDailyReminder(id, title, body, hour, minute);
     }
   }
 
+  /// Schedule 10-times-a-day low energy checks asking "Are you tired?"
+  Future<void> scheduleEnergyCheckReminders() async {
+    if (!_initialized) return;
+    final times = [
+      const [9, 0],
+      const [10, 30],
+      const [12, 0],
+      const [13, 30],
+      const [15, 0],
+      const [16, 30],
+      const [18, 0],
+      const [19, 30],
+      const [21, 0],
+      const [22, 30],
+    ];
+
+    for (int i = 0; i < times.length; i++) {
+      final h = times[i][0];
+      final m = times[i][1];
+      final id = 5000 + i;
+      await scheduleDailyReminder(
+        id: id,
+        title: 'ENERGY CHECK',
+        body: 'Are you feeling tired or low on energy right now?',
+        hour: h,
+        minute: m,
+        payload: 'log_low_energy',
+        actions: const [
+          AndroidNotificationAction('log_low_energy', 'YES (Tired)', showsUserInterface: true),
+          AndroidNotificationAction('dismiss_energy', 'NO', showsUserInterface: false),
+        ],
+      );
+    }
+  }
+
   Future<void> _scheduleAndroidDailyReminder(
-      int id, String title, String body, int hour, int minute) async {
+      int id, String title, String body, int hour, int minute,
+      {List<AndroidNotificationAction>? actions, String? payload}) async {
     // Build TZDateTime for today at [hour:minute] in local offset expressed as UTC
     final now = DateTime.now();
     var local =
@@ -514,7 +561,7 @@ class NotificationService {
     final tzScheduled = tz.TZDateTime(tz.UTC, utc.year, utc.month, utc.day,
         utc.hour, utc.minute, utc.second);
 
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: AndroidNotificationDetails(
         _reminderChannelId,
         _reminderChannelName,
@@ -522,8 +569,9 @@ class NotificationService {
         importance: Importance.high,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',
+        actions: actions,
       ),
-      iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
+      iOS: const DarwinNotificationDetails(presentAlert: true, presentSound: true),
     );
 
     await _plugin.zonedSchedule(
@@ -532,6 +580,7 @@ class NotificationService {
       body,
       tzScheduled,
       details,
+      payload: payload,
       matchDateTimeComponents: DateTimeComponents.time,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:

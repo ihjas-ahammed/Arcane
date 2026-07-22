@@ -3,11 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/spidey_theme.dart';
 import 'package:missions/src/models/skill_models.dart';
-import 'package:missions/src/models/health_models.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/widgets/common/growing_text_field.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
@@ -32,7 +30,6 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
   late TextEditingController _reasonController;
   late TextEditingController _actionController;
   late DateTime _selectedDateTime;
-  double _energyLevel = 5;
 
   @override
   void initState() {
@@ -54,7 +51,6 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     _emotionController = TextEditingController(text: draft?.emotion ?? '');
     _reasonController = TextEditingController(text: draft?.reason ?? '');
     _actionController = TextEditingController(text: draft?.action ?? '');
-    if (draft != null) _energyLevel = draft.energyLevel;
 
     if (widget.dateStr.isNotEmpty) {
       final parsed = DateTime.tryParse(widget.dateStr) ?? DateTime.now();
@@ -95,7 +91,6 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         emotion: _emotionController.text.trim(),
         reason: _reasonController.text.trim(),
         action: _actionController.text.trim(),
-        energyLevel: _energyLevel,
       );
     }
   }
@@ -153,18 +148,6 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     });
   }
 
-  void _logEnergy(AppProvider provider) {
-    final dateKey = DateFormat('yyyy-MM-dd').format(_selectedDateTime);
-    provider.addEnergyLog(
-      dateKey,
-      EnergyLog(
-        id: const Uuid().v4(),
-        level: _energyLevel.round(),
-        timestamp: _selectedDateTime,
-      ),
-    );
-  }
-
   Future<void> _saveReflection({bool analyze = true}) async {
     if (_triggerController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Situation cannot be empty.")));
@@ -184,8 +167,6 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       Navigator.pop(context);
       return;
     }
-
-    _logEnergy(appProvider);
 
     if (!analyze) {
       appProvider.startReflectionAnalysis(
@@ -247,12 +228,6 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         ],
       ),
     );
-  }
-
-  Color _energyColor(double v) {
-    if (v <= 3) return SpideyTheme.spideyRed;
-    if (v <= 6) return SpideyTheme.spideyGold;
-    return SpideyTheme.spideyCyan;
   }
 
   @override
@@ -346,10 +321,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    if (widget.initialLog == null) ...[
-                      _buildEnergySlider(),
-                      const SizedBox(height: 20),
-                    ],
+
 
                     _buildSectionHeader("SITUATION (What happened?)"),
                     GrowingTextField(controller: _triggerController, hint: "Describe the event or situation...", minLines: 2),
@@ -448,61 +420,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     );
   }
 
-  Widget _buildEnergySlider() {
-    final color = _energyColor(_energyLevel);
-    return Container(
-      padding:   EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      decoration: BoxDecoration(
-        color: SpideyTheme.bgPanel,
-        border: Border.all(color: color.withOpacity(0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(MdiIcons.lightningBolt, color: color, size: 18),
-                    SizedBox(width: 8),
-                  Text("ENERGY LEVEL",
-                      style: GoogleFonts.rajdhani(
-                          color: color, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
-                ],
-              ),
-              Text("${_energyLevel.round()} / 10",
-                  style: GoogleFonts.rajdhani(
-                      color: color, fontWeight: FontWeight.bold, fontSize: 22)),
-            ],
-          ),
-          SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: color,
-              inactiveTrackColor: color.withOpacity(0.15),
-              thumbColor: color,
-              overlayColor: color.withOpacity(0.2),
-              trackHeight: 4,
-            ),
-            child: Slider(
-              value: _energyLevel,
-              min: 1,
-              max: 10,
-              divisions: 9,
-              onChanged: (v) => setState(() => _energyLevel = v),
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children:   [
-              Text("DRAINED", style: TextStyle(color: SpideyTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold)),
-              Text("CHARGED", style: TextStyle(color: SpideyTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+
 }
 
 class _SpideyActionButton extends StatelessWidget {
