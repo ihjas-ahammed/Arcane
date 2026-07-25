@@ -85,6 +85,184 @@ class _ScheduleViewState extends State<ScheduleView> {
     }
   }
 
+  void _showManualPredictionDialog(BuildContext context, AppProvider provider) {
+    if (!_isSameDay(_selectedDate, DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Predictions only available for today.")));
+      return;
+    }
+
+    final activeMainTasks = provider.mainTasks.where((t) => !t.isDeleted && t.isActive).toList();
+    MainTask? selectedMainTask = activeMainTasks.isNotEmpty ? activeMainTasks.first : null;
+    final activityCtrl = TextEditingController();
+    TimeOfDay selectedStartTime = TimeOfDay.now();
+    int selectedDurationMinutes = 30;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return AlertDialog(
+            backgroundColor: AppTheme.fhBgMedium,
+            title: Row(
+              children: [
+                Icon(MdiIcons.crystalBall, color: JweTheme.accentCyan, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'MANUAL PREDICTED EVENT',
+                    style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('SELECT TASK / PROTOCOL', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentCyan, fontSize: 10, letterSpacing: 1.2)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<MainTask>(
+                    value: selectedMainTask,
+                    dropdownColor: AppTheme.fhBgMedium,
+                    items: activeMainTasks.map((t) => DropdownMenuItem(
+                      value: t,
+                      child: Text(t.name, style: TextStyle(color: JweTheme.textWhite, fontSize: 13)),
+                    )).toList(),
+                    onChanged: (val) => setModalState(() => selectedMainTask = val),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      filled: true,
+                      fillColor: JweTheme.bgCanvas,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: JweTheme.lineSoft)),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  Text('PREDICTED ACTIVITY NAME', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentCyan, fontSize: 10, letterSpacing: 1.2)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: activityCtrl,
+                    style: TextStyle(color: JweTheme.textWhite, fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Focus Session',
+                      hintStyle: TextStyle(color: JweTheme.textMuted, fontSize: 12),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      filled: true,
+                      fillColor: JweTheme.bgCanvas,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: JweTheme.lineSoft)),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('START TIME', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentCyan, fontSize: 10, letterSpacing: 1.2)),
+                            const SizedBox(height: 6),
+                            InkWell(
+                              onTap: () async {
+                                final time = await showTimePicker(context: context, initialTime: selectedStartTime);
+                                if (time != null) setModalState(() => selectedStartTime = time);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: JweTheme.bgCanvas,
+                                  border: Border.all(color: JweTheme.lineSoft),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  selectedStartTime.format(context),
+                                  style: TextStyle(color: JweTheme.textWhite, fontSize: 13),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('DURATION (MINS)', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentCyan, fontSize: 10, letterSpacing: 1.2)),
+                            const SizedBox(height: 6),
+                            DropdownButtonFormField<int>(
+                              value: selectedDurationMinutes,
+                              dropdownColor: AppTheme.fhBgMedium,
+                              items: const [15, 25, 30, 45, 60, 90, 120].map((d) => DropdownMenuItem(
+                                value: d,
+                                child: Text('${d}m', style: TextStyle(color: Colors.white, fontSize: 13)),
+                              )).toList(),
+                              onChanged: (val) {
+                                if (val != null) setModalState(() => selectedDurationMinutes = val);
+                              },
+                              decoration: InputDecoration(
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                filled: true,
+                                fillColor: JweTheme.bgCanvas,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: JweTheme.lineSoft)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final title = activityCtrl.text.trim().isNotEmpty
+                      ? activityCtrl.text.trim()
+                      : (selectedMainTask?.name ?? 'Manual Event');
+                  final now = DateTime.now();
+                  final start = DateTime(now.year, now.month, now.day, selectedStartTime.hour, selectedStartTime.minute);
+                  final end = start.add(Duration(minutes: selectedDurationMinutes));
+
+                  final entry = TimelineEntry(
+                    id: "pred_manual_${DateTime.now().millisecondsSinceEpoch}",
+                    startTime: start,
+                    endTime: end,
+                    title: title,
+                    subtitle: selectedMainTask?.name ?? 'Manual Prediction',
+                    color: selectedMainTask?.taskColor ?? AppTheme.fhAccentTeal,
+                    isPredicted: true,
+                    isEditable: true,
+                  );
+
+                  setState(() {
+                    _predictedEntries.add(entry);
+                  });
+
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Manual predicted event added to schedule!')),
+                  );
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: JweTheme.bgBase),
+                child: const Text('ADD PREDICTION'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   // --- Entries Merging ---
   List<TimelineEntry> _buildEntries(AppProvider provider) {
     final List<TimelineEntry> entries = [];
@@ -620,8 +798,9 @@ class _ScheduleViewState extends State<ScheduleView> {
                   icon: _isPredicting ? null : MdiIcons.crystalBall,
                   loading: _isPredicting,
                   accent: JweTheme.accentCyan,
-                  tooltip: 'PREDICT',
+                  tooltip: 'PREDICT (Tap: AI Predict | Long-Click: Manual Event)',
                   onTap: _isPredicting ? null : () => _handlePredictSchedule(context, provider),
+                  onLongPress: _isPredicting ? null : () => _showManualPredictionDialog(context, provider),
                 ),
               if (isToday) const SizedBox(width: 6),
               _ScheduleControlIcon(
@@ -764,9 +943,12 @@ class _ScheduleControlIcon extends StatelessWidget {
   final String? tooltip;
   final bool loading;
 
+  final VoidCallback? onLongPress;
+
   const _ScheduleControlIcon({
     this.icon,
     this.onTap,
+    this.onLongPress,
     this.accent,
     this.tooltip,
     this.loading = false,
@@ -774,7 +956,7 @@ class _ScheduleControlIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final disabled = onTap == null;
+    final disabled = onTap == null && onLongPress == null;
     final activeAccent = accent ?? JweTheme.accentCyan;
     Widget child = Container(
       width: 36,
@@ -793,8 +975,8 @@ class _ScheduleControlIcon extends StatelessWidget {
             )
           : Icon(icon, size: 16, color: disabled ? JweTheme.textMuted : activeAccent),
     );
-    if (onTap != null) {
-      child = InkWell(onTap: onTap, child: child);
+    if (onTap != null || onLongPress != null) {
+      child = InkWell(onTap: onTap, onLongPress: onLongPress, child: child);
     }
     if (tooltip != null) child = Tooltip(message: tooltip!, child: child);
     return child;

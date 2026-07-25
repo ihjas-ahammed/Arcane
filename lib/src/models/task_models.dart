@@ -455,7 +455,7 @@ class SubTask {
     if (progressMode == 'manual') {
       return manualProgress.clamp(0.0, 1.0);
     }
-    final checkables = subSubTasks.where((sst) => sst.type != 'info').toList();
+    final checkables = subSubTasks.where((sst) => sst.isActive && sst.type != 'info').toList();
     if (checkables.isEmpty) return completed ? 1.0 : 0.0;
     double total = 0;
     for (var sst in checkables) {
@@ -491,6 +491,9 @@ class SubSubTask {
   String why;
   String what;
 
+  bool isActive;
+  int timeSpentMinutes;
+
   SubSubTask({
     required this.id,
     required this.name,
@@ -503,6 +506,8 @@ class SubSubTask {
     List<SubSubTask>? substeps,
     this.why = '',
     this.what = '',
+    this.isActive = true,
+    this.timeSpentMinutes = 0,
   }) : substeps = substeps ?? [];
 
   SubSubTask copyWith({
@@ -517,6 +522,8 @@ class SubSubTask {
     List<SubSubTask>? substeps,
     String? why,
     String? what,
+    bool? isActive,
+    int? timeSpentMinutes,
   }) {
     return SubSubTask(
       id: id ?? this.id,
@@ -530,6 +537,8 @@ class SubSubTask {
       substeps: substeps ?? this.substeps,
       why: why ?? this.why,
       what: what ?? this.what,
+      isActive: isActive ?? this.isActive,
+      timeSpentMinutes: timeSpentMinutes ?? this.timeSpentMinutes,
     );
   }
 
@@ -545,6 +554,8 @@ class SubSubTask {
       type: json['type'] as String? ?? 'check',
       why: json['why'] as String? ?? '',
       what: json['what'] as String? ?? '',
+      isActive: json['isActive'] as bool? ?? true,
+      timeSpentMinutes: json['timeSpentMinutes'] as int? ?? 0,
       substeps: (json['substeps'] as List<dynamic>?)
               ?.map((e) => SubSubTask.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -564,14 +575,17 @@ class SubSubTask {
       'type': type,
       'why': why,
       'what': what,
+      'isActive': isActive,
+      'timeSpentMinutes': timeSpentMinutes,
       'substeps': substeps.map((e) => e.toJson()).toList(),
     };
   }
   
-  bool get hasCheckableSubsteps => substeps.any((s) => s.type != 'info');
+  bool get hasCheckableSubsteps => substeps.any((s) => s.isActive && s.type != 'info');
 
   double calculateProgress() {
-    final checkables = substeps.where((sst) => sst.type != 'info').toList();
+    if (!isActive) return 0.0;
+    final checkables = substeps.where((sst) => sst.isActive && sst.type != 'info').toList();
     if (checkables.isEmpty) return completed ? 1.0 : 0.0;
     double total = 0;
     for (var sst in checkables) {

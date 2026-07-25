@@ -55,12 +55,13 @@ class _StepBarsRowState extends State<StepBarsRow> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.steps.isEmpty) return const SizedBox.shrink();
+    final activeSteps = widget.steps.where((s) => s.isActive).toList();
+    if (activeSteps.isEmpty) return const SizedBox.shrink();
 
     final completedCount =
-        widget.steps.where((s) => s.type == 'check' && s.completed).length;
+        activeSteps.where((s) => s.type == 'check' && s.completed).length;
     final checkableCount =
-        widget.steps.where((s) => s.type == 'check').length;
+        activeSteps.where((s) => s.type == 'check').length;
     final allDone = checkableCount > 0 && completedCount == checkableCount;
 
     final caption = _buildCaption(
@@ -153,22 +154,23 @@ class _StepBarsRowState extends State<StepBarsRow> {
   }
 
   Widget _buildBar() {
+    final activeSteps = widget.steps.where((s) => s.isActive).toList();
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: SizedBox(
         height: 24,
         child: Row(
           children: [
-            for (var i = 0; i < widget.steps.length; i++) ...[
+            for (var i = 0; i < activeSteps.length; i++) ...[
               _Segment(
-                step: widget.steps[i],
+                step: activeSteps[i],
                 accent: widget.accent,
-                onTap: () => widget.onToggle(widget.steps[i]),
+                onTap: () => widget.onToggle(activeSteps[i]),
               ),
-              if (i != widget.steps.length - 1)
+              if (i != activeSteps.length - 1)
                 Expanded(
                   child: _ConnectorLine(
-                    isActive: widget.steps[i].type != 'info' && widget.steps[i].completed,
+                    isActive: activeSteps[i].type != 'info' && activeSteps[i].completed,
                     accent: widget.accent,
                   ),
                 ),

@@ -823,6 +823,8 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     required String sessionHistory, 
     required String currentTime,
     required String availableTasksContext, 
+    required String reflectionLogsContext,
+    required String uncompletedPlanContext,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
@@ -830,31 +832,39 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     required Function(String) onLog,
   }) async {
     final prompt = """
-    Based on the user's session history for the last 14 days, predict the schedule for the REST of today (starting from $currentTime).
+    You are an intelligent schedule predictor. Based on the user's recent session history, reflection logs, and today's remaining uncompleted plan, predict a realistic schedule for the REST of today (starting from $currentTime).
     
-    HISTORY:
+    HISTORICAL SESSIONS (Last 14 days):
     $sessionHistory
     
-    AVAILABLE TASKS (Map prediction to these if possible):
+    RECENT REFLECTION LOGS (Last 30 days):
+    $reflectionLogsContext
+    
+    TODAY'S REMAINING UNCOMPLETED PLAN:
+    $uncompletedPlanContext
+
+    AVAILABLE ACTIVE TASKS & PROTOCOLS:
     $availableTasksContext
     
     INSTRUCTIONS:
-    1. Analyze patterns (time of day, duration, sequence).
-    2. Suggest 1-10 likely sessions for the remainder of the day.
-    3. Do not predict past midnight. Also regular sleep time, (based on daily end time of each session history)
-    4. CONFIDENTIALITY: Do not use specific names of real people.
+    1. Analyze user habits, energy patterns, reflection logs, and remaining plan items.
+    2. PRIORITIZE scheduling today's remaining uncompleted plan items during realistic available time slots today.
+    3. Suggest 1-8 likely sessions for the remainder of today.
+    4. Do not predict past midnight. Respect regular sleep time.
+    5. CONFIDENTIALITY: Do not use specific names of real people.
     
     CRITICAL OUTPUT FORMATTING:
     - Return ONLY valid JSON.
     - Do NOT wrap in markdown code blocks (e.g. ```json ... ```).
-    - Do NOT include comments or trailing commas (e.g. `[{"a":1},]` is invalid).
+    - Do NOT include comments or trailing commas.
     
-    OUTPUT JSON ARRAY STRUCTURE:[
+    OUTPUT JSON ARRAY STRUCTURE:
+    [
       {
-        "taskName": "Exact Name from Available Tasks or New Name",
-        "subTaskName": "Specific Activity",
-        "startOffsetMinutes": int (minutes from Now to start),
-        "durationMinutes": int
+        "taskName": "Exact Main Task Name from Available Tasks",
+        "subTaskName": "Specific Activity / Subtask Name",
+        "startOffsetMinutes": int (minutes from NOW to start session, e.g. 15 for 15 minutes from now),
+        "durationMinutes": int (duration of session in minutes, e.g. 30)
       }
     ]
     """;

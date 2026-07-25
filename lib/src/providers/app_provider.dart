@@ -210,6 +210,13 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     for (final r in s.scheduledReminders) {
       _armReminder(r);
     }
+
+    NotificationService.instance.scheduleEnergyCheckReminders(
+      enabled: s.energyNotificationsEnabled,
+      title: s.energyNotificationTitle,
+      body: s.energyNotificationBody,
+      customTimes: s.energyNotificationTimes,
+    );
   }
 
   /// Schedule or cancel one reminder with the OS, based on its current state.
@@ -529,7 +536,12 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   Future<void> _initialize() async {
     initializeSkills();
     initializeDefaultFinanceCategories();
-    NotificationService.instance.scheduleEnergyCheckReminders();
+    try {
+      await NotificationService.instance.init();
+      rescheduleReminders();
+    } catch (e) {
+      debugPrint("Notification init error: $e");
+    }
 
     fb_service.authStateChanges.listen(_onAuthStateChanged);
 
@@ -1706,6 +1718,52 @@ $assetsContext
       markDirty('settings');
       notifyListeners();
     }
+  }
+
+  String getLast30DaysReflectionLogsContext() {
+    final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
+    final logs = reflectionLogs.where((l) => l.timestamp.isAfter(thirtyDaysAgo)).toList();
+    if (logs.isEmpty) return "No reflection logs recorded in the last 30 days.";
+    return logs.map((l) =>
+      "- [Date: ${DateFormat('yyyy-MM-dd').format(l.timestamp)}] trigger: '${l.trigger}', emotion: '${l.emotion}', reason: '${l.reason}', action: '${l.action}'"
+    ).join("\n");
+  }
+
+  String getTodayUncompletedPlanContext() {
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final plan = taskActions.getDayPlan(todayStr);
+    if (plan.isEmpty) return "No plan items scheduled for today.";
+
+    final List<String> uncompletedItems = [];
+    for (String idPair in plan) {
+      final parts = idPair.split('|');
+      if (parts.length >= 2) {
+        final mTask = mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
+        final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
+        if (mTask != null && sTask != null && !sTask.completed) {
+          if (parts.length == 3) {
+            final cp = sTask.findCheckpoint(parts[2]);
+            if (cp != null && !cp.completed) {
+              uncompletedItems.add("- Checkpoint: ${mTask.name} > ${sTask.name} > ${cp.name}");
+            }
+          } else {
+            uncompletedItems.add("- Subtask: ${mTask.name} > ${sTask.name}");
+          }
+        }
+      }
+    }
+
+    if (uncompletedItems.isEmpty) return "All scheduled plan items for today are completed!";
+    return uncompletedItems.join("\n");
+  }
+
+  void addAiLog({
+    required String action,
+    required String model,
+    required String promptSnippet,
+    required String status,
+  }) {
+    debugPrint("[AI LOG][$status] Action: $action | Model: $model | Snippet: $promptSnippet");
   }
 
   Future<void> executeNoraAgentActions(List<dynamic> actions) async {

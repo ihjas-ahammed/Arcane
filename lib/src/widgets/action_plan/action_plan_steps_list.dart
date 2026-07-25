@@ -10,7 +10,6 @@ import 'package:collection/collection.dart';
 import 'package:missions/src/widgets/items/checkpoint_item.dart';
 import 'package:missions/src/widgets/items/draggable_checkpoint_wrapper.dart';
 import 'package:missions/src/widgets/screens/checkpoint_detail_screen.dart';
-import 'package:missions/src/widgets/dialogs/ai_generation_prompt_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -324,6 +323,30 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
                 onToggleType: () {
                   final newType = step.type == 'check' ? 'info' : 'check';
                   provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.subTaskId, step.id, {'type': newType});
+                },
+                isActive: step.isActive,
+                timeSpentMinutes: step.timeSpentMinutes,
+                onToggleActive: () {
+                  provider.taskActions.updateSubSubtask(
+                    widget.mainTaskId, widget.subTaskId, step.id,
+                    {'isActive': !step.isActive},
+                  );
+                },
+                onLogTime: () {
+                  final mins = provider.taskActions.calculateSubSubtaskStepTime(
+                    widget.mainTaskId, widget.subTaskId, step.id,
+                  );
+                  provider.taskActions.updateSubSubtask(
+                    widget.mainTaskId, widget.subTaskId, step.id,
+                    {'timeSpentMinutes': mins},
+                  );
+                  showGlobalToast("Auto-logged step time: ${mins}m");
+                },
+                onUpdateTimeSpent: (mins) {
+                  provider.taskActions.updateSubSubtask(
+                    widget.mainTaskId, widget.subTaskId, step.id,
+                    {'timeSpentMinutes': mins},
+                  );
                 },
                 isSelectionMode: _isSelectionMode,
                 isSelected: _selectedKeys.contains(step.id),

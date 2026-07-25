@@ -1,14 +1,14 @@
-// lib/src/widgets/views/settings_view.dart
 import 'package:flutter/material.dart';
 import 'package:missions/src/services/ai_service.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/services/app_user.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/screens/settings/data_recovery_screen.dart';
-import 'package:missions/src/screens/settings/sop_list_screen.dart';
 import 'package:missions/src/screens/schedule/scheduled_reminders_screen.dart';
 import 'package:missions/src/widgets/settings/ai_providers_manager.dart';
 import 'package:missions/src/widgets/settings/model_configuration_widget.dart';
@@ -602,30 +602,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ]),
           
-          // 7. SYSTEM & UTILITIES
-          _buildSettingsSection(appProvider, theme,
-              icon: MdiIcons.cogOutline,
-              title: 'System & Utilities',
-              children: [
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(MdiIcons.clipboardListOutline,
-                      color: (appProvider.getSelectedTask()?.taskColor ??
-                          AppTheme.fhAccentTealFixed)),
-                  title: const Text('SOP'),
-                  subtitle: const Text(
-                      'Standard Operational Procedures & decision trees for recurring situations.'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SopListScreen()),
-                    );
-                  },
-                ),
-              ]),
-
-          // 8. NOTIFICATIONS
+          // 7. NOTIFICATIONS
           _buildNotificationsSection(appProvider, theme),
 
           // 8. DIAGNOSTICS & ONBOARDING
@@ -1010,6 +987,123 @@ class _SettingsViewState extends State<SettingsView> {
                   foregroundColor: accent,
                   side: BorderSide(color: accent.withValues(alpha: 0.5)),
                   minimumSize: const Size(double.infinity, 40),
+                ),
+              )),
+            ],
+
+            const SizedBox(height: 16),
+              Divider(height: 1, color: AppTheme.fhBorderColor),
+            const SizedBox(height: 16),
+
+            // --- Energy Check Reminders ---
+            Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Log Energy Reminders',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(
+                    s.energyNotificationsEnabled
+                        ? '${s.energyNotificationTimes.length} reminders scheduled daily'
+                        : 'Disabled',
+                    style: TextStyle(
+                        color: AppTheme.fhTextSecondary, fontSize: 12),
+                  ),
+                ]),
+              ),
+              Switch.adaptive(
+                value: s.energyNotificationsEnabled,
+                activeTrackColor: accent,
+                onChanged: (v) {
+                  appProvider.setSettings(s..energyNotificationsEnabled = v);
+                  appProvider.rescheduleReminders();
+                },
+              ),
+            ]),
+            if (s.energyNotificationsEnabled) ...[
+              const SizedBox(height: 12),
+              // Custom Title Input
+              TextField(
+                controller: TextEditingController(text: s.energyNotificationTitle)
+                  ..selection = TextSelection.collapsed(offset: s.energyNotificationTitle.length),
+                style: TextStyle(color: JweTheme.textWhite, fontSize: 13),
+                decoration: InputDecoration(
+                  labelText: 'Notification Title',
+                  labelStyle: TextStyle(color: accent, fontSize: 11),
+                  filled: true,
+                  fillColor: JweTheme.bgCanvas,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: JweTheme.lineSoft)),
+                ),
+                onChanged: (val) {
+                  appProvider.setSettings(s..energyNotificationTitle = val);
+                  appProvider.rescheduleReminders();
+                },
+              ),
+              const SizedBox(height: 10),
+              // Custom Body Input
+              TextField(
+                controller: TextEditingController(text: s.energyNotificationBody)
+                  ..selection = TextSelection.collapsed(offset: s.energyNotificationBody.length),
+                style: TextStyle(color: JweTheme.textWhite, fontSize: 13),
+                decoration: InputDecoration(
+                  labelText: 'Notification Text / Body',
+                  labelStyle: TextStyle(color: accent, fontSize: 11),
+                  filled: true,
+                  fillColor: JweTheme.bgCanvas,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: JweTheme.lineSoft)),
+                ),
+                onChanged: (val) {
+                  appProvider.setSettings(s..energyNotificationBody = val);
+                  appProvider.rescheduleReminders();
+                },
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'DAILY REMINDER TIMINGS (${s.energyNotificationTimes.length} Active)',
+                style: GoogleFonts.jetBrainsMono(fontSize: 10, color: JweTheme.textMuted, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (int i = 0; i < s.energyNotificationTimes.length; i++)
+                    Builder(builder: (ctx) {
+                      final timeStr = s.energyNotificationTimes[i];
+                      return Chip(
+                        backgroundColor: JweTheme.bgCanvas,
+                        side: BorderSide(color: accent.withValues(alpha: 0.5)),
+                        avatar: Icon(MdiIcons.clockOutline, size: 14, color: accent),
+                        label: Text(timeStr, style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 12)),
+                        onDeleted: s.energyNotificationTimes.length > 1
+                            ? () {
+                                final updatedTimes = List<String>.from(s.energyNotificationTimes)..removeAt(i);
+                                appProvider.setSettings(s..energyNotificationTimes = updatedTimes);
+                                appProvider.rescheduleReminders();
+                              }
+                            : null,
+                        deleteIconColor: AppTheme.fhAccentRed,
+                      );
+                    }),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Builder(builder: (ctx) => OutlinedButton.icon(
+                icon: Icon(MdiIcons.plus, size: 16),
+                label: const Text('ADD REMINDER TIME'),
+                onPressed: () => pickTime(ctx, 12, 0, (h, m) {
+                  final timeStr = '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+                  if (!s.energyNotificationTimes.contains(timeStr)) {
+                    final updatedTimes = List<String>.from(s.energyNotificationTimes)..add(timeStr);
+                    updatedTimes.sort();
+                    appProvider.setSettings(s..energyNotificationTimes = updatedTimes);
+                    appProvider.rescheduleReminders();
+                  }
+                }),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: accent,
+                  side: BorderSide(color: accent.withValues(alpha: 0.5)),
+                  minimumSize: const Size(double.infinity, 38),
                 ),
               )),
             ],

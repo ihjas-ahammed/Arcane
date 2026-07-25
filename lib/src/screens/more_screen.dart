@@ -6,6 +6,7 @@ import 'package:missions/src/screens/journaling/quick_therapy_screen.dart';
 import 'package:missions/src/screens/journaling/gratitude_list_screen.dart';
 import 'package:missions/src/screens/journaling/someday_list_screen.dart';
 import 'package:missions/src/screens/settings/habit_control_screen.dart';
+import 'package:missions/src/screens/settings/sop_list_screen.dart';
 import 'package:missions/src/widgets/views/settings_view.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -65,6 +66,18 @@ class MoreScreen extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                       builder: (context) => const SomedayListScreen()));
+            }),
+
+            _buildMenuTile(context,
+                icon: MdiIcons.clipboardListOutline,
+                title: "Standard Operational Procedures (SOP)",
+                subtitle: "Actionable procedures & execution logs for recurring situations",
+                colorOverride: JweTheme.accentAmber,
+                onTap: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const SopListScreen()));
             }),
 
             _buildMenuTile(context,

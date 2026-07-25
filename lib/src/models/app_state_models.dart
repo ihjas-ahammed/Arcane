@@ -254,6 +254,12 @@ class AppSettings {
   int healthReminderHour;
   int healthReminderMinute;
 
+  // Energy Log Notifications
+  bool energyNotificationsEnabled;
+  String energyNotificationTitle;
+  String energyNotificationBody;
+  List<String> energyNotificationTimes;
+
   // Persisted user reminders (task / planner / custom) shown in the
   // Scheduled Reminders screen and re-armed on launch.
   List<ScheduledReminder> scheduledReminders;
@@ -316,12 +322,29 @@ class AppSettings {
     this.healthReminderEnabled = false,
     this.healthReminderHour = 21,
     this.healthReminderMinute = 0,
+    this.energyNotificationsEnabled = true,
+    this.energyNotificationTitle = 'ENERGY CHECK',
+    this.energyNotificationBody = 'Are you feeling tired or low on energy right now?',
+    List<String>? energyNotificationTimes,
     List<ScheduledReminder>? scheduledReminders,
     this.adaptWritingStyle = false,
     this.writingStyleMap,
     this.storyCharacter = 'Ayan',
     this.themeMode = 'system',
-  })  : scheduledReminders = scheduledReminders ?? [],
+  })  : energyNotificationTimes = energyNotificationTimes ??
+            const [
+              "09:00",
+              "10:30",
+              "12:00",
+              "13:30",
+              "15:00",
+              "16:30",
+              "18:00",
+              "19:30",
+              "21:00",
+              "22:30"
+            ],
+        scheduledReminders = scheduledReminders ?? [],
         lastModified = lastModified ?? DateTime.now().millisecondsSinceEpoch;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -390,6 +413,24 @@ class AppSettings {
       healthReminderEnabled: json['healthReminderEnabled'] as bool? ?? false,
       healthReminderHour: json['healthReminderHour'] as int? ?? 21,
       healthReminderMinute: json['healthReminderMinute'] as int? ?? 0,
+      energyNotificationsEnabled: json['energyNotificationsEnabled'] as bool? ?? true,
+      energyNotificationTitle: json['energyNotificationTitle'] as String? ?? 'ENERGY CHECK',
+      energyNotificationBody: json['energyNotificationBody'] as String? ?? 'Are you feeling tired or low on energy right now?',
+      energyNotificationTimes: (json['energyNotificationTimes'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [
+            "09:00",
+            "10:30",
+            "12:00",
+            "13:30",
+            "15:00",
+            "16:30",
+            "18:00",
+            "19:30",
+            "21:00",
+            "22:30"
+          ],
       scheduledReminders: (json['scheduledReminders'] as List<dynamic>?)
               ?.map((e) => ScheduledReminder.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -446,6 +487,10 @@ class AppSettings {
       'healthReminderEnabled': healthReminderEnabled,
       'healthReminderHour': healthReminderHour,
       'healthReminderMinute': healthReminderMinute,
+      'energyNotificationsEnabled': energyNotificationsEnabled,
+      'energyNotificationTitle': energyNotificationTitle,
+      'energyNotificationBody': energyNotificationBody,
+      'energyNotificationTimes': energyNotificationTimes,
       'scheduledReminders': scheduledReminders.map((e) => e.toJson()).toList(),
       'customBusSchedules': customBusSchedules,
       'adaptWritingStyle': adaptWritingStyle,

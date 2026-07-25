@@ -54,6 +54,8 @@ class TaskActions {
             type: updates['type'] as String?,
             why: updates['why'] as String?,
             what: updates['what'] as String?,
+            isActive: updates['isActive'] as bool?,
+            timeSpentMinutes: updates['timeSpentMinutes'] as int?,
             substeps: updates['substeps'] as List<SubSubTask>?,
           );
           if (updatedNode.isCountable) {
@@ -195,6 +197,54 @@ class TaskActions {
     if (idx == -1) return;
     final newPlan = List<String>.from(currentPlan)..removeAt(idx);
     updateDayPlan(targetDate, newPlan);
+  }
+
+  int calculateSubSubtaskStepTime(String mainTaskId, String subTaskId, String cpId) {
+    final taskIndex = _provider.mainTasks.indexWhere((t) => t.id == mainTaskId);
+    if (taskIndex < 0) return 15;
+    final subIndex = _provider.mainTasks[taskIndex].subTasks.indexWhere((s) => s.id == subTaskId);
+    if (subIndex < 0) return 15;
+
+    final subTask = _provider.mainTasks[taskIndex].subTasks[subIndex];
+
+    List<SubSubTask> getActiveFlatList(List<SubSubTask> list) {
+      final List<SubSubTask> result = [];
+      for (final sst in list) {
+        if (sst.isActive) {
+          result.add(sst);
+          result.addAll(getActiveFlatList(sst.substeps));
+        }
+      }
+      return result;
+    }
+
+    final activeFlat = getActiveFlatList(subTask.subSubTasks);
+    final targetIndex = activeFlat.indexWhere((c) => c.id == cpId);
+    if (targetIndex < 0) return 15;
+
+    final targetCp = activeFlat[targetIndex];
+
+    DateTime getTimestamp(SubSubTask sst) {
+      if (sst.completionTimestamp != null) {
+        final parsed = DateTime.tryParse(sst.completionTimestamp!);
+        if (parsed != null) return parsed;
+      }
+      return DateTime.now();
+    }
+
+    DateTime startTime;
+    if (targetIndex == 0) {
+      startTime = subTask.createdAt;
+    } else {
+      final prevCp = activeFlat[targetIndex - 1];
+      startTime = prevCp.completionTimestamp != null
+          ? (DateTime.tryParse(prevCp.completionTimestamp!) ?? subTask.createdAt)
+          : subTask.createdAt;
+    }
+
+    final endTime = getTimestamp(targetCp);
+    final diffMins = endTime.difference(startTime).inMinutes;
+    return diffMins > 0 ? diffMins : (targetCp.timeSpentMinutes > 0 ? targetCp.timeSpentMinutes : 15);
   }
 
   Map<String, int> getDayPlanEstimates(String dateStr) {

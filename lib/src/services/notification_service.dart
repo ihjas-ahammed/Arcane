@@ -512,30 +512,48 @@ class NotificationService {
     }
   }
 
-  /// Schedule 10-times-a-day low energy checks asking "Are you tired?"
-  Future<void> scheduleEnergyCheckReminders() async {
+  /// Schedule energy check reminders asking "Are you tired?" based on user settings
+  Future<void> scheduleEnergyCheckReminders({
+    bool enabled = true,
+    String title = 'ENERGY CHECK',
+    String body = 'Are you feeling tired or low on energy right now?',
+    List<String>? customTimes,
+  }) async {
     if (!_initialized) return;
-    final times = [
-      const [9, 0],
-      const [10, 30],
-      const [12, 0],
-      const [13, 30],
-      const [15, 0],
-      const [16, 30],
-      const [18, 0],
-      const [19, 30],
-      const [21, 0],
-      const [22, 30],
+
+    // Cancel existing energy reminders (IDs 5000 to 5099)
+    for (int i = 0; i < 100; i++) {
+      await cancelDailyReminder(5000 + i);
+    }
+
+    if (!enabled) return;
+
+    final defaultTimes = const [
+      "09:00",
+      "10:30",
+      "12:00",
+      "13:30",
+      "15:00",
+      "16:30",
+      "18:00",
+      "19:30",
+      "21:00",
+      "22:30"
     ];
+    final times = (customTimes != null && customTimes.isNotEmpty) ? customTimes : defaultTimes;
 
     for (int i = 0; i < times.length; i++) {
-      final h = times[i][0];
-      final m = times[i][1];
+      final parts = times[i].split(':');
+      if (parts.length != 2) continue;
+      final h = int.tryParse(parts[0]);
+      final m = int.tryParse(parts[1]);
+      if (h == null || m == null) continue;
+
       final id = 5000 + i;
       await scheduleDailyReminder(
         id: id,
-        title: 'ENERGY CHECK',
-        body: 'Are you feeling tired or low on energy right now?',
+        title: title.isNotEmpty ? title : 'ENERGY CHECK',
+        body: body.isNotEmpty ? body : 'Are you feeling tired or low on energy right now?',
         hour: h,
         minute: m,
         payload: 'log_low_energy',
@@ -550,16 +568,12 @@ class NotificationService {
   Future<void> _scheduleAndroidDailyReminder(
       int id, String title, String body, int hour, int minute,
       {List<AndroidNotificationAction>? actions, String? payload}) async {
-    // Build TZDateTime for today at [hour:minute] in local offset expressed as UTC
-    final now = DateTime.now();
-    var local =
-        DateTime(now.year, now.month, now.day, hour, minute, 0);
-    if (local.isBefore(now)) {
-      local = local.add(const Duration(days: 1));
+    final location = tz.local;
+    final now = tz.TZDateTime.now(location);
+    var tzScheduled = tz.TZDateTime(location, now.year, now.month, now.day, hour, minute);
+    if (tzScheduled.isBefore(now)) {
+      tzScheduled = tzScheduled.add(const Duration(days: 1));
     }
-    final utc = local.toUtc();
-    final tzScheduled = tz.TZDateTime(tz.UTC, utc.year, utc.month, utc.day,
-        utc.hour, utc.minute, utc.second);
 
     final details = NotificationDetails(
       android: AndroidNotificationDetails(

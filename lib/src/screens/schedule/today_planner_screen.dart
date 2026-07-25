@@ -602,8 +602,8 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   }
 
   Widget _buildRoutinesList(AppProvider provider) {
-    final routines = provider.routineLists;
-    if (routines.isEmpty) {
+    final allRoutines = provider.routineLists;
+    if (allRoutines.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -633,6 +633,33 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
               ),
             ),
           ],
+        ),
+      );
+    }
+
+    final q = _searchQuery.trim().toLowerCase();
+    final routines = allRoutines.where((r) {
+      if (q.isEmpty) return true;
+      if (_matchesQuery(r.name, q)) return true;
+      for (final compoundId in r.taskIds) {
+        final details = _resolveRoutineItemDetails(provider, compoundId);
+        if (_matchesQuery(details.title, q) ||
+            _matchesQuery(details.parentPath, q)) {
+          return true;
+        }
+      }
+      return false;
+    }).toList();
+
+    if (routines.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No routine matches for "$_searchQuery".',
+            style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
         ),
       );
     }
@@ -2291,29 +2318,28 @@ class _AddSection extends StatelessWidget {
                           ],
                         ),
                       ),
-                      if (activeTab == 0)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                          child: TextField(
-                            controller: searchController,
-                            onChanged: onSearchChanged,
-                            style:   TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
-                            decoration: InputDecoration(
-                              isDense: true,
-                              hintText: 'Search…',
-                              hintStyle:   TextStyle(color: AppTheme.fhTextDisabled, fontSize: 13),
-                              prefixIcon:   Icon(Icons.search,
-                                  size: 16, color: AppTheme.fhTextSecondary),
-                              prefixIconConstraints:
-                                  const BoxConstraints(minWidth: 32, minHeight: 32),
-                              contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                              enabledBorder:   UnderlineInputBorder(
-                                  borderSide: BorderSide(color: AppTheme.fhBorderColor)),
-                              focusedBorder:   UnderlineInputBorder(
-                                  borderSide: BorderSide(color: AppTheme.fhAccentTeal)),
-                            ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                        child: TextField(
+                          controller: searchController,
+                          onChanged: onSearchChanged,
+                          style: TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: activeTab == 0 ? 'Search missions…' : 'Search routines…',
+                            hintStyle: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 13),
+                            prefixIcon: Icon(Icons.search,
+                                size: 16, color: AppTheme.fhTextSecondary),
+                            prefixIconConstraints:
+                                const BoxConstraints(minWidth: 32, minHeight: 32),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                            enabledBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(color: AppTheme.fhBorderColor)),
+                            focusedBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(color: AppTheme.fhAccentTeal)),
                           ),
                         ),
+                      ),
                       Expanded(child: child),
                     ],
                   ).animate().fadeIn(duration: 200.ms, delay: 60.ms),

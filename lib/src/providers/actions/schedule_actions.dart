@@ -11,20 +11,38 @@ class ScheduleActions {
   ScheduleActions(this._provider);
 
   Future<List<TimelineEntry>> predictSchedule() async {
-    // Use the new 'sessions' key which contains actual session logs instead of reflections
     final historyLogs = _provider.getLast7DaysData()['sessions'] as String;
-    final availableTasks = _provider.mainTasks.map((t) => t.name).join(", ");
+    final availableTasks = _provider.mainTasks
+        .where((t) => !t.isDeleted && t.isActive)
+        .map((t) => "${t.name}: ${t.subTasks.where((s) => !s.isDeleted && s.isActive && !s.completed).map((s) => s.name).join(', ')}")
+        .join("\n");
+    final reflectionLogs = _provider.getLast30DaysReflectionLogsContext();
+    final uncompletedPlan = _provider.getTodayUncompletedPlanContext();
     final now = DateTime.now();
+
+    // Use Pro AI models first (heavyModels), with fallback to liteModels
+    final proModels = _provider.settings.heavyModels.isNotEmpty
+        ? _provider.settings.heavyModels
+        : const ['gemini-2.0-pro-exp-02-05', 'gemini-1.5-pro'];
+    final liteModels = _provider.settings.liteModels.isNotEmpty
+        ? _provider.settings.liteModels
+        : const ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash'];
+    final modelCandidates = <String>[
+      ...proModels,
+      ...liteModels.where((m) => !proModels.contains(m)),
+    ];
 
     try {
       final predictions = await _provider.aiService.generateSchedulePrediction(
         sessionHistory: historyLogs,
         currentTime: DateFormat('HH:mm').format(now),
         availableTasksContext: availableTasks,
-        modelCandidates: _provider.settings.liteModels,
+        reflectionLogsContext: reflectionLogs,
+        uncompletedPlanContext: uncompletedPlan,
+        modelCandidates: modelCandidates,
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
-        onNewApiKeyIndex: (i) => _provider.setProviderApiKeyIndex(i),
+        onNewApiKeyIndex: (i) => _provider.setApiKeyIndex(i),
         onLog: (m) => debugPrint(m),
       );
 
@@ -53,8 +71,22 @@ class ScheduleActions {
           isEditable: true,
         ));
       }
+
+      _provider.addAiLog(
+        action: 'Schedule Prediction',
+        model: modelCandidates.first,
+        promptSnippet: 'Predicted ${newEntries.length} schedule entries using Pro AI model, reflection logs & today uncompleted plan',
+        status: 'SUCCESS',
+      );
+
       return newEntries;
     } catch (e) {
+      _provider.addAiLog(
+        action: 'Schedule Prediction',
+        model: modelCandidates.first,
+        promptSnippet: 'Failed schedule prediction: $e',
+        status: 'ERROR',
+      );
       debugPrint("Schedule Prediction Error: $e");
       rethrow;
     }

@@ -142,11 +142,46 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
     final pts = widget.subTask.progressDataPoints;
     final sorted = [...pts]..sort((a, b) => a.spentSeconds.compareTo(b.spentSeconds));
     final result = <_Point>[];
-    if (sorted.isEmpty || sorted.first.spentSeconds != 0) {
-      result.add(_Point(0.0, 0.0));
+
+    if (sorted.isNotEmpty) {
+      if (sorted.first.spentSeconds != 0) {
+        result.add(_Point(0.0, 0.0));
+      }
+      for (final p in sorted) {
+        result.add(_Point(p.spentSeconds.toDouble(), p.progress));
+      }
+      return result;
     }
-    for (final p in sorted) {
-      result.add(_Point(p.spentSeconds.toDouble(), p.progress));
+
+    // Derived from active checkpoints step-by-step time logs
+    result.add(_Point(0.0, 0.0));
+    final activeFlat = _getFlatActiveCheckpoints(widget.subTask.subSubTasks);
+    if (activeFlat.isNotEmpty) {
+      double cumSecs = 0;
+      int completedCount = 0;
+      final totalActive = activeFlat.length;
+      for (final cp in activeFlat) {
+        if (cp.timeSpentMinutes > 0) {
+          cumSecs += cp.timeSpentMinutes * 60;
+        } else if (cp.completed) {
+          cumSecs += 15 * 60;
+        }
+        if (cp.completed || cp.timeSpentMinutes > 0) {
+          if (cp.completed) completedCount++;
+          result.add(_Point(cumSecs, (completedCount / totalActive).clamp(0.0, 1.0)));
+        }
+      }
+    }
+    return result;
+  }
+
+  List<SubSubTask> _getFlatActiveCheckpoints(List<SubSubTask> list) {
+    final List<SubSubTask> result = [];
+    for (final sst in list) {
+      if (sst.isActive) {
+        result.add(sst);
+        result.addAll(_getFlatActiveCheckpoints(sst.substeps));
+      }
     }
     return result;
   }

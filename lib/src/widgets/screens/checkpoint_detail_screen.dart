@@ -491,7 +491,67 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                       onSubmitted: (_) => _saveTitle(provider, liveCheckpoint),
                       onEditingComplete: () => _saveTitle(provider, liveCheckpoint),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
+
+                    // Log Time Card on Screen
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 20),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.fhBgDark,
+                        border: Border.all(color: liveCheckpoint.timeSpentMinutes > 0 ? agentColor : JweTheme.lineSoft),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(MdiIcons.timerOutline, color: agentColor, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "TIME LOGGED ON THIS STEP",
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: JweTheme.textMuted,
+                                    fontSize: 9,
+                                    letterSpacing: 1.2,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  liveCheckpoint.timeSpentMinutes > 0 ? "${liveCheckpoint.timeSpentMinutes} MINUTES" : "0 MINUTES LOGGED",
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: liveCheckpoint.timeSpentMinutes > 0 ? agentColor : JweTheme.textWhite,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              final mins = provider.taskActions.calculateSubSubtaskStepTime(
+                                widget.mainTaskId, widget.parentSubTaskId, liveCheckpoint.id,
+                              );
+                              provider.taskActions.updateSubSubtask(
+                                widget.mainTaskId, widget.parentSubTaskId, liveCheckpoint.id,
+                                {'timeSpentMinutes': mins},
+                              );
+                              showGlobalToast("Auto-logged step time: ${mins}m");
+                            },
+                            icon: Icon(MdiIcons.autoFix, size: 14),
+                            label: Text("AUTO LOG", style: GoogleFonts.jetBrainsMono(fontSize: 10, fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: agentColor,
+                              foregroundColor: AppTheme.fhBgDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
                     // Why/What
                     ActionPlanWhyCard(
