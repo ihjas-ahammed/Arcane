@@ -4,6 +4,8 @@ import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/models/habit_models.dart';
 import 'package:missions/src/models/chatbot_models.dart';
+import 'package:missions/src/models/sop_model.dart';
+import 'package:missions/src/models/sop_session_model.dart';
 import 'package:missions/src/providers/mixins/sync_mixin.dart';
 import 'package:missions/src/services/app_user.dart';
 
@@ -18,6 +20,9 @@ mixin UserMixin on ChangeNotifier {
   AppSettings _settings = AppSettings();
   List<Skill> _skills = [];
   List<ReflectionLog> _reflectionLogs = [];
+  List<SopModel> _sops = [];
+  SopSessionState? _activeSopSession;
+  SopSessionState? get activeSopSession => _activeSopSession;
   
   // AI Memory
   ChatbotMemory _chatbotMemory = ChatbotMemory();
@@ -31,6 +36,7 @@ mixin UserMixin on ChangeNotifier {
   AppSettings get settings => _settings;
   List<Skill> get skills => _skills;
   List<ReflectionLog> get reflectionLogs => _reflectionLogs;
+  List<SopModel> get sops => _sops;
   ChatbotMemory get chatbotMemory => _chatbotMemory;
   int get apiKeyIndex => _apiKeyIndex;
 
@@ -154,6 +160,135 @@ mixin UserMixin on ChangeNotifier {
     setSettings(_settings..habitRules = newRules);
   }
 
+  void setSops(List<SopModel> list) {
+    _sops = list;
+    sync.markDirty('settings');
+    notifyListeners();
+  }
+
+  void addSop(SopModel sop) {
+    _sops = [..._sops, sop];
+    sync.markDirty('settings');
+    notifyListeners();
+  }
+
+  void updateSop(SopModel sop) {
+    _sops = _sops.map((s) => s.id == sop.id ? sop : s).toList();
+    sync.markDirty('settings');
+    notifyListeners();
+  }
+
+  void deleteSop(String id) {
+    _sops = _sops.where((s) => s.id != id).toList();
+    sync.markDirty('settings');
+    notifyListeners();
+  }
+
+  void addSopExecutionLog(String sopId, SopExecutionLog log) {
+    _sops = _sops.map((sop) {
+      if (sop.id == sopId) {
+        final updatedLogs = [log, ...sop.executionLogs];
+        return sop.copyWith(executionLogs: updatedLogs, updatedAt: DateTime.now());
+      }
+      return sop;
+    }).toList();
+    sync.markDirty('settings');
+    notifyListeners();
+  }
+
+  void startSopSession(
+    SopModel sop, {
+    String? mainTaskId,
+    String? subTaskId,
+    String? taskTitle,
+    int? targetDurationSeconds,
+  }) {
+    _activeSopSession = SopSessionState(
+      sop: sop,
+      mainTaskId: mainTaskId,
+      subTaskId: subTaskId,
+      taskTitle: taskTitle,
+      startTime: DateTime.now(),
+      targetDurationSeconds: targetDurationSeconds,
+    );
+    notifyListeners();
+  }
+
+  void toggleStepInActiveSopSession(int stepIndex) {
+    if (_activeSopSession == null) return;
+    final set = Set<int>.from(_activeSopSession!.completedStepIndices);
+    if (set.contains(stepIndex)) {
+      set.remove(stepIndex);
+    } else {
+      set.add(stepIndex);
+    }
+
+    final elapsedMins = _activeSopSession!.elapsedSeconds / 60.0;
+    final totalSteps = _activeSopSession!.sop.steps.length;
+    final pct = totalSteps > 0 ? (set.length / totalSteps) * 100.0 : 100.0;
+
+    final newPoints = [
+      ..._activeSopSession!.progressPoints,
+      SopProgressPoint(elapsedMinutes: elapsedMins, completionPercentage: pct),
+    ];
+
+    _activeSopSession = _activeSopSession!.copyWith(
+      completedStepIndices: set,
+      progressPoints: newPoints,
+    );
+    notifyListeners();
+  }
+
+  void pauseActiveSopSession() {
+    if (_activeSopSession == null || _activeSopSession!.isPaused) return;
+    _activeSopSession = _activeSopSession!.copyWith(
+      isPaused: true,
+      pauseStartTime: DateTime.now(),
+    );
+    notifyListeners();
+  }
+
+  void resumeActiveSopSession() {
+    if (_activeSopSession == null || !_activeSopSession!.isPaused) return;
+    final now = DateTime.now();
+    int additionalPaused = 0;
+    if (_activeSopSession!.pauseStartTime != null) {
+      additionalPaused = now.difference(_activeSopSession!.pauseStartTime!).inSeconds;
+    }
+    _activeSopSession = _activeSopSession!.copyWith(
+      isPaused: false,
+      accumulatedPausedSeconds: _activeSopSession!.accumulatedPausedSeconds + additionalPaused,
+      pauseStartTime: null,
+    );
+    notifyListeners();
+  }
+
+  void finishActiveSopSession({
+    required String notes,
+    required int rating,
+    required String status,
+  }) {
+    if (_activeSopSession == null) return;
+    final sessionState = _activeSopSession!;
+
+    final log = SopExecutionLog(
+      id: 'log_${DateTime.now().millisecondsSinceEpoch}',
+      timestamp: DateTime.now(),
+      notes: notes,
+      successStatus: status,
+      rating: rating,
+    );
+    addSopExecutionLog(sessionState.sop.id, log);
+
+    _activeSopSession = null;
+    notifyListeners();
+  }
+
+  void cancelActiveSopSession() {
+    _activeSopSession = null;
+    notifyListeners();
+  }
+
   void loadUserState(Map<String, dynamic> data) {
     _lastLoginDate = data['lastLoginDate'];
     if (data['settings'] != null) {
@@ -167,6 +302,12 @@ mixin UserMixin on ChangeNotifier {
 
     if (data['reflectionLogs'] != null) {
       _reflectionLogs = (data['reflectionLogs'] as List).map((e) => ReflectionLog.fromJson(e)).toList();
+    }
+
+    if (data['sops'] != null) {
+      _sops = (data['sops'] as List)
+          .map((e) => SopModel.fromJson(e as Map<String, dynamic>))
+          .toList();
     }
     
     // Auto-recalculate levels based purely on the 7-day window of logs.
@@ -185,6 +326,7 @@ mixin UserMixin on ChangeNotifier {
       'settings': _settings.toJson(),
       'skills': _skills.map((e) => e.toJson()).toList(),
       'reflectionLogs': _reflectionLogs.map((e) => e.toJson()).toList(),
+      'sops': _sops.map((e) => e.toJson()).toList(),
       'chatbotMemory': _chatbotMemory.toJson(),
       'apiKeyIndex': _apiKeyIndex,
     };

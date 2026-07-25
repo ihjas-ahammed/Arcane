@@ -142,13 +142,17 @@ class _ScheduleViewState extends State<ScheduleView> {
       }
     });
 
-    // 3. Process predicted entries (ensure no overlap)
+    // 3. Process predicted entries (ensure no overlap unless all lessons are less than 5 minutes)
     for (var pred in _predictedEntries) {
       bool overlaps = false;
       for (var real in entries) {
         if (pred.startTime.isBefore(real.endTime) && pred.endTime.isAfter(real.startTime)) {
-          overlaps = true;
-          break;
+          final predIsShort = pred.endTime.difference(pred.startTime) < const Duration(minutes: 5);
+          final realIsShort = real.endTime.difference(real.startTime) < const Duration(minutes: 5);
+          if (!(predIsShort && realIsShort)) {
+            overlaps = true;
+            break;
+          }
         }
       }
       if (!overlaps) entries.add(pred);

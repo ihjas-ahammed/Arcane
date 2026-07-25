@@ -12,6 +12,8 @@ class TimeValidationHelper {
     required List<MainTask> allTasks,
     String? excludeSessionId,
   }) {
+    final proposedDuration = end.difference(start);
+
     for (var task in allTasks) {
       for (var sub in task.subTasks) {
         for (var session in sub.sessions) {
@@ -21,7 +23,21 @@ class TimeValidationHelper {
           
           // Check for overlap
           // Overlap exists if (StartA < EndB) and (EndA > StartB)
-          if (start.isBefore(session.endTime) && end.isAfter(session.startTime)) {
+          bool isOverlapping = start.isBefore(session.endTime) && end.isAfter(session.startTime);
+          if (!isOverlapping && start == session.startTime && end == session.endTime) {
+            isOverlapping = true;
+          }
+
+          if (isOverlapping) {
+            final existingDuration = session.endTime.difference(session.startTime);
+            final proposedIsShort = proposedDuration < const Duration(minutes: 5);
+            final existingIsShort = existingDuration < const Duration(minutes: 5);
+
+            // Allow overlap if all lessons inside (involved in overlap) are less than 5 minutes
+            if (proposedIsShort && existingIsShort) {
+              continue;
+            }
+
             return true;
           }
         }

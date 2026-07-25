@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:missions/src/models/timeline_models.dart';
 import 'package:intl/intl.dart';
@@ -43,9 +44,10 @@ class TimelineEntryCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Container(
         width: width,
-        height: height,
+        height: math.max(3.0, height),
         decoration: BoxDecoration(
           color: effectiveColor,
           border: Border.all(

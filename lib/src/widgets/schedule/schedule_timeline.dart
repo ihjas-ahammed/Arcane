@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -94,7 +95,6 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
   }
 
   List<_LayoutEntry> _calculateLayout(List<TimelineEntry> entries) {
-    // Exact representation, so no minimum duration required visually if drawn properly
     if (entries.isEmpty) return [];
 
     final sorted = List<TimelineEntry>.from(entries)
@@ -102,8 +102,13 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
 
     final List<_LayoutEntry> layout = [];
     final List<List<_LayoutEntry>> columns = [];
+    final minVisualHours = 3.0 / _basePixelsPerHour;
 
     for (var entry in sorted) {
+      final entryStartHours = entry.startTime.hour + (entry.startTime.minute / 60.0) + (entry.startTime.second / 3600.0);
+      final entryDurationHours = math.max(minVisualHours, entry.durationSeconds / 3600.0);
+      final entryEndHours = entryStartHours + entryDurationHours;
+
       int columnIndex = 0;
       bool placed = false;
 
@@ -114,8 +119,11 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
 
         bool hasOverlap = false;
         for (var colEntry in columns[columnIndex]) {
-          if (entry.startTime.isBefore(colEntry.entry.endTime) &&
-              entry.endTime.isAfter(colEntry.entry.startTime)) {
+          final colStartHours = colEntry.entry.startTime.hour + (colEntry.entry.startTime.minute / 60.0) + (colEntry.entry.startTime.second / 3600.0);
+          final colDurationHours = math.max(minVisualHours, colEntry.entry.durationSeconds / 3600.0);
+          final colEndHours = colStartHours + colDurationHours;
+
+          if (entryStartHours < colEndHours && entryEndHours > colStartHours) {
             hasOverlap = true;
             break;
           }
@@ -211,11 +219,12 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                   // Entries
                   ...layoutEntries.map((le) {
                     final entry = le.entry;
-                    final startTotalHours = entry.startTime.hour + (entry.startTime.minute / 60.0);
+                    final startTotalHours = entry.startTime.hour + (entry.startTime.minute / 60.0) + (entry.startTime.second / 3600.0);
                     final top = startTotalHours * pixelsPerHour;
                     
-                    // Exact Height Calculation
-                    final height = (entry.durationSeconds / 3600.0) * pixelsPerHour;
+                    // Exact Height Calculation with 3px minimum height
+                    final rawHeight = (entry.durationSeconds / 3600.0) * pixelsPerHour;
+                    final height = math.max(3.0, rawHeight);
 
                     const double leftGutter = 60.0;
                     final double availableWidth = (constraints.maxWidth - leftGutter - 10).clamp(0.0, double.infinity);

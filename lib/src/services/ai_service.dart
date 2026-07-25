@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:google_generative_ai/google_generative_ai.dart' as genai;
+import 'package:intl/intl.dart';
+import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/config/api_keys.dart';
 import 'package:missions/src/services/secrets_service.dart';
 import 'package:flutter/foundation.dart';
@@ -131,6 +133,17 @@ class AIService {
       }
     }
     return (buffer.toString(), images.isNotEmpty ? images : null);
+  }
+
+  String _cleanJsonFences(String raw) {
+    String cleaned = raw.trim();
+    if (cleaned.startsWith("```")) {
+      final lines = cleaned.split("\n");
+      if (lines.first.startsWith("```")) lines.removeAt(0);
+      if (lines.isNotEmpty && lines.last.startsWith("```")) lines.removeLast();
+      cleaned = lines.join("\n").trim();
+    }
+    return cleaned;
   }
 
   /// Parses a NORA agent response into the `{messages, actions}` map, tolerating
@@ -383,6 +396,7 @@ class AIService {
           }
           final result = await requestFn(effectiveKey, model);
           onNewApiKeyIndex(effectiveIndex);
+          onLog("Model $model succeeded with Key Index: $effectiveIndex");
           return result;
         } catch (e) {
           if (e is FormatException && e.message.contains("JSON Decode Failed")) {
@@ -435,9 +449,13 @@ class AIService {
         fallbackPrompt: fbPrompt,
         fallbackImages: fbImages,
         fallbackJson: true,
-        fallbackParse: (raw) => JsonUtils.tryDecode(raw),
+        fallbackParse: (raw) => JsonUtils.tryDecode(_cleanJsonFences(raw)),
         requestFn: (apiKey, modelName) async {
-          final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+          final model = genai.GenerativeModel(
+            model: modelName,
+            apiKey: apiKey,
+            generationConfig: genai.GenerationConfig(responseMimeType: 'application/json'),
+          );
 
           final response = await model.generateContent([genai.Content.multi(contentParts)]);
 
@@ -446,7 +464,7 @@ class AIService {
             throw Exception("AI response was empty.");
           }
 
-          return JsonUtils.tryDecode(rawResponseText);
+          return JsonUtils.tryDecode(_cleanJsonFences(rawResponseText));
         },
       );
     } catch (e) {
@@ -734,6 +752,66 @@ Output ONLY the JSON object. Do not include markdown code block syntax (like ```
         currentApiKeyIndex: currentApiKeyIndex,
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog);
+
+    return ((result['steps'] as List?) ?? const [])
+        .map((e) => e.toString().trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
+  Future<List<String>> generateSopSteps({
+    required String situation,
+    required List<ReflectionLog> reflectionLogs,
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    final oneMonthAgo = DateTime.now().subtract(const Duration(days: 30));
+    var filteredLogs = reflectionLogs.where((l) => l.timestamp.isAfter(oneMonthAgo)).toList();
+    if (filteredLogs.isEmpty && reflectionLogs.isNotEmpty) {
+      filteredLogs = List<ReflectionLog>.from(reflectionLogs)
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      filteredLogs = filteredLogs.take(20).toList();
+    }
+
+    final reflectionsContext = filteredLogs.isEmpty
+        ? 'No reflection logs available.'
+        : filteredLogs.map((l) {
+            final dateStr = DateFormat('yyyy-MM-dd').format(l.timestamp);
+            return '[$dateStr] Trigger: ${l.trigger} | Emotion: ${l.emotion} | Reason: ${l.reason} | Action Taken: ${l.action} | AI Feedback: ${l.aiFeedback}';
+          }).join('\n');
+
+    final prompt = """
+You are an expert Standard Operational Procedure (SOP) architect and behavioral systems designer.
+Your goal is to generate concrete, highly actionable, step-by-step operational instructions (SOP steps) for a user's specific situation, grounded in their historical reflection logs.
+
+USER SITUATION:
+"$situation"
+
+USER'S RECENT REFLECTION LOGS (LAST MONTH):
+$reflectionsContext
+
+Instructions:
+1. Analyze the situation and synthesize insights/lessons from the historical reflection logs.
+2. Formulate 4 to 8 clear, sequential, imperative operational steps that the user must follow when this situation occurs.
+3. Keep each step concise, practical, direct, and under 120 characters.
+4. Do NOT include numbers or bullet prefixes (e.g. "1.", "Step 1:"). Plain step text only.
+
+Return JSON strictly in the following format:
+{"steps": ["First step description", "Second step description", "Third step description"]}
+ENSURE VALID JSON. NO TRAILING COMMAS.
+""";
+
+    final result = await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      customApiKeys: customApiKeys,
+      currentApiKeyIndex: currentApiKeyIndex,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
 
     return ((result['steps'] as List?) ?? const [])
         .map((e) => e.toString().trim())

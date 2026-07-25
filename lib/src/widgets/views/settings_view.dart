@@ -8,6 +8,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:missions/src/services/app_user.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/screens/settings/data_recovery_screen.dart';
+import 'package:missions/src/screens/settings/sop_list_screen.dart';
 import 'package:missions/src/screens/schedule/scheduled_reminders_screen.dart';
 import 'package:missions/src/widgets/settings/ai_providers_manager.dart';
 import 'package:missions/src/widgets/settings/model_configuration_widget.dart';
@@ -601,7 +602,30 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ]),
           
-          // 7. NOTIFICATIONS
+          // 7. SYSTEM & UTILITIES
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.cogOutline,
+              title: 'System & Utilities',
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(MdiIcons.clipboardListOutline,
+                      color: (appProvider.getSelectedTask()?.taskColor ??
+                          AppTheme.fhAccentTealFixed)),
+                  title: const Text('SOP'),
+                  subtitle: const Text(
+                      'Standard Operational Procedures & decision trees for recurring situations.'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SopListScreen()),
+                    );
+                  },
+                ),
+              ]),
+
+          // 8. NOTIFICATIONS
           _buildNotificationsSection(appProvider, theme),
 
           // 8. DIAGNOSTICS & ONBOARDING
