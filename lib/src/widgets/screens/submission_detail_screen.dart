@@ -675,7 +675,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: SubtaskProgressTimeChart(
-                        subTask: liveSubTask,
+                        dataPoints: liveSubTask.progressDataPoints,
                         accentColor: activeAccent,
                         currentSpentSeconds: liveSubTask.isRecurring
                             ? TaskCalculations.getTodaySeconds(liveSubTask, timerState).toInt()
@@ -683,6 +683,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                                 (isRunning && timerState?.startTime != null
                                     ? DateTime.now().difference(timerState!.startTime).inSeconds
                                     : 0),
+                        currentProgress: liveSubTask.calculateProgress(),
                         onAddEntry: (progress, spentSeconds) => provider.saveProgressDataPoint(
                             widget.parentTask.id, liveSubTask.id, progress, spentSeconds),
                         onDeleteEntry: (index) => provider.deleteProgressDataPoint(

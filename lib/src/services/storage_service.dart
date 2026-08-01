@@ -52,17 +52,33 @@ abstract class StorageService {
 // Shared helper — collapses the RTDB chunk JSON back into one flat state map.
 Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
   Map<String, dynamic> fullData = {};
-  if (raw[_docSettings] is String) {
-    fullData.addAll(jsonDecode(raw[_docSettings] as String));
+  if (raw[_docSettings] != null) {
+    if (raw[_docSettings] is String) {
+      fullData.addAll(jsonDecode(raw[_docSettings] as String));
+    } else if (raw[_docSettings] is Map) {
+      fullData.addAll(Map<String, dynamic>.from(raw[_docSettings] as Map));
+    }
   }
-  if (raw[_docTasks] is String) {
-    fullData.addAll(jsonDecode(raw[_docTasks] as String));
+  if (raw[_docTasks] != null) {
+    if (raw[_docTasks] is String) {
+      fullData.addAll(jsonDecode(raw[_docTasks] as String));
+    } else if (raw[_docTasks] is Map) {
+      fullData.addAll(Map<String, dynamic>.from(raw[_docTasks] as Map));
+    }
   }
-  if (raw[_docFinance] is String) {
-    fullData.addAll(jsonDecode(raw[_docFinance] as String));
+  if (raw[_docFinance] != null) {
+    if (raw[_docFinance] is String) {
+      fullData.addAll(jsonDecode(raw[_docFinance] as String));
+    } else if (raw[_docFinance] is Map) {
+      fullData.addAll(Map<String, dynamic>.from(raw[_docFinance] as Map));
+    }
   }
-  if (raw[_docHealth] is String) {
-    fullData.addAll(jsonDecode(raw[_docHealth] as String));
+  if (raw[_docHealth] != null) {
+    if (raw[_docHealth] is String) {
+      fullData.addAll(jsonDecode(raw[_docHealth] as String));
+    } else if (raw[_docHealth] is Map) {
+      fullData.addAll(Map<String, dynamic>.from(raw[_docHealth] as Map));
+    }
   }
 
   if (raw['history'] != null) {
@@ -71,7 +87,15 @@ Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
     } else if (raw['history'] is Map) {
       Map<String, dynamic> history = {};
       (raw['history'] as Map).forEach((date, jsonStr) {
-        history[date.toString()] = jsonDecode(jsonStr.toString());
+        if (jsonStr is String) {
+          try {
+            history[date.toString()] = jsonDecode(jsonStr);
+          } catch (_) {
+            history[date.toString()] = jsonStr;
+          }
+        } else {
+          history[date.toString()] = jsonStr;
+        }
       });
       fullData['completedByDay'] = history;
     }
@@ -83,11 +107,47 @@ Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
     } else if (raw['reflections'] is Map) {
       List<dynamic> reflections = [];
       (raw['reflections'] as Map).forEach((id, jsonStr) {
-        reflections.add(jsonDecode(jsonStr.toString()));
+        if (jsonStr is String) {
+          try {
+            reflections.add(jsonDecode(jsonStr));
+          } catch (_) {
+            reflections.add(jsonStr);
+          }
+        } else {
+          reflections.add(jsonStr);
+        }
       });
       fullData['reflectionLogs'] = reflections;
     }
   }
+
+  // Catch-all for any additional raw nodes under data/
+  raw.forEach((key, val) {
+    final k = key.toString();
+    if (k != _docSettings &&
+        k != _docTasks &&
+        k != _docFinance &&
+        k != _docHealth &&
+        k != 'history' &&
+        k != 'reflections') {
+      if (val is String) {
+        try {
+          final decoded = jsonDecode(val);
+          if (decoded is Map) {
+            fullData.addAll(Map<String, dynamic>.from(decoded));
+          } else {
+            fullData[k] = decoded;
+          }
+        } catch (_) {
+          fullData[k] = val;
+        }
+      } else if (val is Map) {
+        fullData[k] = val;
+      } else {
+        fullData[k] = val;
+      }
+    }
+  });
 
   return fullData;
 }
@@ -109,6 +169,11 @@ class _FlutterFireStorageService implements StorageService {
 
     try {
       final baseRef = _rtdb.ref('users/$userId/data');
+
+      final rootSnap = await baseRef.get();
+      if (rootSnap.exists && rootSnap.value != null && rootSnap.value is Map) {
+        return _parseRtdbData(rootSnap.value as Map);
+      }
 
       final settingsSnap = await baseRef.child(_docSettings).get();
       final tasksSnap = await baseRef.child(_docTasks).get();
@@ -403,6 +468,11 @@ class _LinuxStorageService implements StorageService {
     if (userId.isEmpty) return null;
     try {
       final baseRef = _rtdb.reference().child('users/$userId/data');
+
+      final rootSnap = await baseRef.once();
+      if (rootSnap.value != null && rootSnap.value is Map) {
+        return _parseRtdbData(rootSnap.value as Map);
+      }
 
       final settingsSnap = await baseRef.child(_docSettings).once();
       final tasksSnap = await baseRef.child(_docTasks).once();

@@ -332,16 +332,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
                     {'isActive': !step.isActive},
                   );
                 },
-                onLogTime: () {
-                  final mins = provider.taskActions.calculateSubSubtaskStepTime(
-                    widget.mainTaskId, widget.subTaskId, step.id,
-                  );
-                  provider.taskActions.updateSubSubtask(
-                    widget.mainTaskId, widget.subTaskId, step.id,
-                    {'timeSpentMinutes': mins},
-                  );
-                  showGlobalToast("Auto-logged step time: ${mins}m");
-                },
+                onLogTime: null,
                 onUpdateTimeSpent: (mins) {
                   provider.taskActions.updateSubSubtask(
                     widget.mainTaskId, widget.subTaskId, step.id,

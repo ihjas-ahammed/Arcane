@@ -493,6 +493,8 @@ class SubSubTask {
 
   bool isActive;
   int timeSpentMinutes;
+  List<ProgressDataPoint> progressDataPoints;
+  int currentTimeSpent;
 
   SubSubTask({
     required this.id,
@@ -508,7 +510,10 @@ class SubSubTask {
     this.what = '',
     this.isActive = true,
     this.timeSpentMinutes = 0,
-  }) : substeps = substeps ?? [];
+    List<ProgressDataPoint>? progressDataPoints,
+    this.currentTimeSpent = 0,
+  })  : substeps = substeps ?? [],
+        progressDataPoints = progressDataPoints ?? [];
 
   SubSubTask copyWith({
     String? id,
@@ -524,6 +529,8 @@ class SubSubTask {
     String? what,
     bool? isActive,
     int? timeSpentMinutes,
+    List<ProgressDataPoint>? progressDataPoints,
+    int? currentTimeSpent,
   }) {
     return SubSubTask(
       id: id ?? this.id,
@@ -539,6 +546,8 @@ class SubSubTask {
       what: what ?? this.what,
       isActive: isActive ?? this.isActive,
       timeSpentMinutes: timeSpentMinutes ?? this.timeSpentMinutes,
+      progressDataPoints: progressDataPoints ?? this.progressDataPoints,
+      currentTimeSpent: currentTimeSpent ?? this.currentTimeSpent,
     );
   }
 
@@ -560,6 +569,11 @@ class SubSubTask {
               ?.map((e) => SubSubTask.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+      progressDataPoints: (json['progressDataPoints'] as List<dynamic>?)
+              ?.map((p) => ProgressDataPoint.fromJson(p as Map<String, dynamic>))
+              .toList() ??
+          [],
+      currentTimeSpent: json['currentTimeSpent'] as int? ?? 0,
     );
   }
   
@@ -578,6 +592,8 @@ class SubSubTask {
       'isActive': isActive,
       'timeSpentMinutes': timeSpentMinutes,
       'substeps': substeps.map((e) => e.toJson()).toList(),
+      'progressDataPoints': progressDataPoints.map((p) => p.toJson()).toList(),
+      'currentTimeSpent': currentTimeSpent,
     };
   }
   

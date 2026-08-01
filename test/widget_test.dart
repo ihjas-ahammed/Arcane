@@ -39,7 +39,7 @@ void main() {
     // This app structure is different. Let's verify something basic from LoginScreen or HomeScreen.
 
     // If LoginScreen is expected (no user by default in AppProvider mock or fresh state)
-    await tester.pumpAndSettle(); // Wait for UI to stabilize
+    await tester.pump(const Duration(seconds: 1)); // Wait for initial frame
 
     // Check if LoginScreen elements are present
     // This is a placeholder. Actual test would depend on AppProvider's initial state.

@@ -24,6 +24,7 @@ import 'package:missions/src/screens/nora_ai_screen.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
 
 import 'package:missions/src/widgets/ui/desktop_floating_timer.dart';
+import 'package:missions/src/widgets/drawers/goals_bottom_drawer.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -318,10 +319,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     allBrackets: true,
                     background: ArcSurfaces.ink(0.07),
                     padding: EdgeInsets.zero,
-                    onTap: () => _checkPinAndNavigate(context, const NoraAiScreen()),
+                    onTap: () => GoalsBottomDrawer.show(context),
                     child: Center(
                       child: Icon(
-                        MdiIcons.creation,
+                        MdiIcons.target,
                         size: 24,
                         color: isLightTheme ? AppTheme.fhLightTextPrimary : Colors.white,
                       ),
@@ -336,7 +337,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 selectedIndex: _selectedIndex,
                 activeColor: currentTaskColor,
                 onItemTapped: _onItemTapped,
-                onNoraTapped: () => _checkPinAndNavigate(context, const NoraAiScreen()),
+                onGoalsTapped: () => GoalsBottomDrawer.show(context),
               ),
       ),
     );

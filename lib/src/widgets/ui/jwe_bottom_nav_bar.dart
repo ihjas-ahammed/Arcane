@@ -5,6 +5,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
+import 'package:missions/src/widgets/header_widget.dart';
 
 /// Operator HUD bottom nav — icon + label, top amber hairline,
 /// glassy backdrop filter, Nora circle in the center.
@@ -12,15 +13,19 @@ class JweBottomNavBar extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onItemTapped;
   final Color activeColor;
-  final VoidCallback onNoraTapped;
+  final VoidCallback? onGoalsTapped;
+  final VoidCallback? onNoraTapped;
 
   const JweBottomNavBar({
     super.key,
     required this.selectedIndex,
     required this.onItemTapped,
     required this.activeColor,
-    required this.onNoraTapped,
+    this.onGoalsTapped,
+    this.onNoraTapped,
   });
+
+  VoidCallback get _handleGoalsTap => onGoalsTapped ?? onNoraTapped ?? () {};
 
   static const _tabs = <_TabSpec>[
     _TabSpec(label: 'MISSIONS', icon: 'target'),
@@ -101,7 +106,7 @@ class JweBottomNavBar extends StatelessWidget {
 
   Widget _buildNoraCircle(BuildContext context) {
     return GestureDetector(
-      onTap: onNoraTapped,
+      onTap: _handleGoalsTap,
       child: Container(
         width: 44,
         height: 44,
@@ -121,10 +126,9 @@ class JweBottomNavBar extends StatelessWidget {
                 ),
               ),
               child: Center(
-                child: Icon(
-                  MdiIcons.creation, // Sparkles icon
-                  color: JweTheme.isLight ? AppTheme.fhAccentPurple : Colors.white, // Dynamic color for light theme contrast
-                  size: 20,
+                child: ArcaneAppIcon(
+                  size: 22,
+                  color: JweTheme.accentAmber,
                 ),
               ),
             ),

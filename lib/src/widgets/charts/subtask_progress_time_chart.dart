@@ -13,17 +13,19 @@ import 'package:missions/src/widgets/ui/hud_components.dart';
 /// Y = user-entered completion % (0–100).
 /// Data points are added manually via the "ADD ENTRY" button.
 class SubtaskProgressTimeChart extends StatefulWidget {
-  final SubTask subTask;
+  final List<ProgressDataPoint> dataPoints;
   final Color accentColor;
   final int currentSpentSeconds;
+  final double? currentProgress;
   final void Function(double progress, int spentSeconds) onAddEntry;
   final void Function(int index) onDeleteEntry;
 
   const SubtaskProgressTimeChart({
     super.key,
-    required this.subTask,
+    required this.dataPoints,
     required this.accentColor,
     required this.currentSpentSeconds,
+    this.currentProgress,
     required this.onAddEntry,
     required this.onDeleteEntry,
   });
@@ -36,12 +38,10 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
   bool _showList = false;
 
   void _showAddEntryDialog() {
-    // Pre-populate with hierarchical progress from nested tasks
-    final calcPct = widget.subTask.calculateProgress() * 100;
-    final initialText = calcPct > 0 ? calcPct.round().toString() : '';
-    final ctrl = TextEditingController(text: initialText);
-    ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
-    final totalSecs = widget.currentSpentSeconds;
+    final initialMins = widget.currentSpentSeconds > 0 ? (widget.currentSpentSeconds / 60).round().toString() : '';
+    final autoProgressPct = widget.currentProgress != null ? (widget.currentProgress! * 100).round() : null;
+    final timeCtrl = TextEditingController(text: initialMins);
+    final progCtrl = TextEditingController(text: autoProgressPct != null ? autoProgressPct.toString() : '');
 
     showDialog(
       context: context,
@@ -62,7 +62,7 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'TIME SPENT',
+              'TIME SPENT (MINUTES)',
               style: GoogleFonts.jetBrainsMono(
                 fontSize: 9,
                 color: JweTheme.textMuted,
@@ -70,45 +70,68 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              _fmtSeconds(totalSecs),
-              style: GoogleFonts.jetBrainsMono(
-                fontSize: 20,
-                color: widget.accentColor,
-                fontWeight: FontWeight.bold,
+            TextField(
+              controller: timeCtrl,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: TextStyle(color: JweTheme.textWhite, fontSize: 20),
+              decoration: InputDecoration(
+                suffixText: 'min',
+                suffixStyle: TextStyle(color: widget.accentColor, fontSize: 16),
+                hintText: 'e.g. 15, 30, 60',
+                hintStyle: TextStyle(color: JweTheme.textMuted),
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              'PROGRESS (0 – 100)',
-              style: GoogleFonts.jetBrainsMono(
-                fontSize: 9,
-                color: JweTheme.textMuted,
-                letterSpacing: 1.4,
-              ),
-            ),
-            if (calcPct > 0) ...[
-              const SizedBox(height: 2),
-              Text(
-                'pre-filled from task steps',
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 8,
-                  color: widget.accentColor.withValues(alpha: 0.6),
-                  letterSpacing: 0.8,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'PROGRESS % (0 – 100)',
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 9,
+                    color: JweTheme.textMuted,
+                    letterSpacing: 1.4,
+                  ),
                 ),
-              ),
-            ],
+                if (autoProgressPct != null)
+                  InkWell(
+                    onTap: () {
+                      progCtrl.text = autoProgressPct.toString();
+                    },
+                    borderRadius: BorderRadius.circular(2),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.auto_fix_high, size: 11, color: widget.accentColor),
+                          const SizedBox(width: 3),
+                          Text(
+                            'AUTO-FILL ($autoProgressPct%)',
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 9,
+                              color: widget.accentColor,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(height: 4),
             TextField(
-              controller: ctrl,
-              autofocus: true,
+              controller: progCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: TextStyle(color: JweTheme.textWhite, fontSize: 24),
+              style: TextStyle(color: JweTheme.textWhite, fontSize: 20),
               decoration: InputDecoration(
                 suffixText: '%',
-                suffixStyle: TextStyle(color: widget.accentColor, fontSize: 20),
-                hintText: '0',
-                hintStyle:  TextStyle(color: JweTheme.textMuted),
+                suffixStyle: TextStyle(color: widget.accentColor, fontSize: 16),
+                hintText: 'e.g. 25, 50, 100',
+                hintStyle: TextStyle(color: JweTheme.textMuted),
               ),
             ),
           ],
@@ -116,7 +139,7 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child:  Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+            child: Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -125,9 +148,11 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
               shape: const BeveledRectangleBorder(),
             ),
             onPressed: () {
-              final pct = double.tryParse(ctrl.text);
-              if (pct != null && pct >= 0 && pct <= 100) {
-                widget.onAddEntry(pct / 100.0, totalSecs);
+              final mins = double.tryParse(timeCtrl.text);
+              final pct = double.tryParse(progCtrl.text);
+              if (mins != null && mins >= 0 && pct != null && pct >= 0 && pct <= 100) {
+                final spentSecs = (mins * 60).round();
+                widget.onAddEntry(pct / 100.0, spentSecs);
                 Navigator.pop(ctx);
               }
             },
@@ -139,51 +164,10 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
   }
 
   List<_Point> _buildPoints() {
-    final pts = widget.subTask.progressDataPoints;
+    final pts = widget.dataPoints;
+    if (pts.isEmpty) return [];
     final sorted = [...pts]..sort((a, b) => a.spentSeconds.compareTo(b.spentSeconds));
-    final result = <_Point>[];
-
-    if (sorted.isNotEmpty) {
-      if (sorted.first.spentSeconds != 0) {
-        result.add(_Point(0.0, 0.0));
-      }
-      for (final p in sorted) {
-        result.add(_Point(p.spentSeconds.toDouble(), p.progress));
-      }
-      return result;
-    }
-
-    // Derived from active checkpoints step-by-step time logs
-    result.add(_Point(0.0, 0.0));
-    final activeFlat = _getFlatActiveCheckpoints(widget.subTask.subSubTasks);
-    if (activeFlat.isNotEmpty) {
-      double cumSecs = 0;
-      int completedCount = 0;
-      final totalActive = activeFlat.length;
-      for (final cp in activeFlat) {
-        if (cp.timeSpentMinutes > 0) {
-          cumSecs += cp.timeSpentMinutes * 60;
-        } else if (cp.completed) {
-          cumSecs += 15 * 60;
-        }
-        if (cp.completed || cp.timeSpentMinutes > 0) {
-          if (cp.completed) completedCount++;
-          result.add(_Point(cumSecs, (completedCount / totalActive).clamp(0.0, 1.0)));
-        }
-      }
-    }
-    return result;
-  }
-
-  List<SubSubTask> _getFlatActiveCheckpoints(List<SubSubTask> list) {
-    final List<SubSubTask> result = [];
-    for (final sst in list) {
-      if (sst.isActive) {
-        result.add(sst);
-        result.addAll(_getFlatActiveCheckpoints(sst.substeps));
-      }
-    }
-    return result;
+    return sorted.map((p) => _Point(p.spentSeconds.toDouble(), p.progress)).toList();
   }
 
   /// Linear regression over (spentSeconds, progress) points.
@@ -219,7 +203,7 @@ class _SubtaskProgressTimeChartState extends State<SubtaskProgressTimeChart> {
   Widget build(BuildContext context) {
     final points = _buildPoints();
     final hasData = points.length >= 2;
-    final dataPoints = [...widget.subTask.progressDataPoints]
+    final dataPoints = [...widget.dataPoints]
       ..sort((a, b) => a.spentSeconds.compareTo(b.spentSeconds));
 
     final forecast = hasData ? _computeForecast(points) : null;

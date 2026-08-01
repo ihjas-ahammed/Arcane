@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -16,6 +17,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/charts/subtask_progress_time_chart.dart';
 
 class CheckpointDetailScreen extends StatefulWidget {
   final String mainTaskId;
@@ -137,6 +139,83 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
         _titleController.text = cp.name;
       }
     });
+  }
+
+  void _showEditTimeSpentDialog(BuildContext context, AppProvider provider, SubSubTask cp, Color accentColor) {
+    final ctrl = TextEditingController(
+      text: cp.timeSpentMinutes > 0 ? cp.timeSpentMinutes.toString() : '',
+    );
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.fhBgDark,
+        title: Text(
+          'LOG STEP TIME',
+          style: GoogleFonts.rajdhani(
+            color: accentColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            letterSpacing: 1.5,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'TIME SPENT (MINUTES)',
+              style: GoogleFonts.jetBrainsMono(
+                color: JweTheme.textMuted,
+                fontSize: 10,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 6),
+            TextField(
+              controller: ctrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: false),
+              autofocus: true,
+              style: TextStyle(color: JweTheme.textWhite, fontSize: 16),
+              decoration: InputDecoration(
+                suffixText: 'm',
+                suffixStyle: TextStyle(color: accentColor, fontWeight: FontWeight.bold),
+                filled: true,
+                fillColor: JweTheme.bgCanvas,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: JweTheme.lineSoft),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final parsed = int.tryParse(ctrl.text.trim());
+              if (parsed != null && parsed >= 0) {
+                provider.taskActions.updateSubSubtask(
+                  widget.mainTaskId,
+                  widget.parentSubTaskId,
+                  cp.id,
+                  {'timeSpentMinutes': parsed},
+                );
+                Navigator.pop(ctx);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: accentColor,
+              foregroundColor: AppTheme.fhBgDark,
+            ),
+            child: const Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _saveTitle(AppProvider provider, SubSubTask cp) {
@@ -494,62 +573,57 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                     const SizedBox(height: 16),
 
                     // Log Time Card on Screen
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 20),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppTheme.fhBgDark,
-                        border: Border.all(color: liveCheckpoint.timeSpentMinutes > 0 ? agentColor : JweTheme.lineSoft),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(MdiIcons.timerOutline, color: agentColor, size: 20),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "TIME LOGGED ON THIS STEP",
-                                  style: GoogleFonts.jetBrainsMono(
-                                    color: JweTheme.textMuted,
-                                    fontSize: 9,
-                                    letterSpacing: 1.2,
-                                    fontWeight: FontWeight.bold,
+                    InkWell(
+                      onTap: () => _showEditTimeSpentDialog(context, provider, liveCheckpoint, agentColor),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 20),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppTheme.fhBgDark,
+                          border: Border.all(color: liveCheckpoint.timeSpentMinutes > 0 ? agentColor : JweTheme.lineSoft),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(MdiIcons.timerOutline, color: agentColor, size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "TIME LOGGED ON THIS STEP",
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: JweTheme.textMuted,
+                                      fontSize: 9,
+                                      letterSpacing: 1.2,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  liveCheckpoint.timeSpentMinutes > 0 ? "${liveCheckpoint.timeSpentMinutes} MINUTES" : "0 MINUTES LOGGED",
-                                  style: GoogleFonts.jetBrainsMono(
-                                    color: liveCheckpoint.timeSpentMinutes > 0 ? agentColor : JweTheme.textWhite,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    liveCheckpoint.timeSpentMinutes > 0 ? "${liveCheckpoint.timeSpentMinutes} MINUTES" : "0 MINUTES LOGGED",
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: liveCheckpoint.timeSpentMinutes > 0 ? agentColor : JweTheme.textWhite,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              final mins = provider.taskActions.calculateSubSubtaskStepTime(
-                                widget.mainTaskId, widget.parentSubTaskId, liveCheckpoint.id,
-                              );
-                              provider.taskActions.updateSubSubtask(
-                                widget.mainTaskId, widget.parentSubTaskId, liveCheckpoint.id,
-                                {'timeSpentMinutes': mins},
-                              );
-                              showGlobalToast("Auto-logged step time: ${mins}m");
-                            },
-                            icon: Icon(MdiIcons.autoFix, size: 14),
-                            label: Text("AUTO LOG", style: GoogleFonts.jetBrainsMono(fontSize: 10, fontWeight: FontWeight.bold)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: agentColor,
-                              foregroundColor: AppTheme.fhBgDark,
+                            ElevatedButton.icon(
+                              onPressed: () => _showEditTimeSpentDialog(context, provider, liveCheckpoint, agentColor),
+                              icon: Icon(MdiIcons.clockOutline, size: 14),
+                              label: Text("LOG TIME", style: GoogleFonts.jetBrainsMono(fontSize: 10, fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: agentColor,
+                                foregroundColor: AppTheme.fhBgDark,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
 
@@ -566,7 +640,53 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                       onChanged: (val) => provider.taskActions.updateSubSubtask(widget.mainTaskId, widget.parentSubTaskId, liveCheckpoint.id, {'what': val}),
                     ),
 
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
+
+                    // ── Progress · Time chart ────────────────────────
+                    Row(
+                      children: [
+                        Container(width: 3, height: 10, color: agentColor),
+                        const SizedBox(width: 8),
+                        Icon(MdiIcons.chartLine, size: 12, color: agentColor),
+                        const SizedBox(width: 6),
+                        Text(
+                          "PROGRESS · TIME",
+                          style: GoogleFonts.jetBrainsMono(
+                            color: agentColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.6,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    SubtaskProgressTimeChart(
+                      dataPoints: liveCheckpoint.progressDataPoints,
+                      accentColor: agentColor,
+                      currentSpentSeconds: math.max(liveCheckpoint.currentTimeSpent, liveCheckpoint.timeSpentMinutes * 60),
+                      currentProgress: liveCheckpoint.calculateProgress(),
+                      onAddEntry: (progress, spentSeconds) {
+                        provider.taskActions.saveSubSubtaskProgressDataPoint(
+                          widget.mainTaskId,
+                          widget.parentSubTaskId,
+                          liveCheckpoint.id,
+                          progress,
+                          spentSeconds,
+                        );
+                      },
+                      onDeleteEntry: (index) {
+                        provider.taskActions.deleteSubSubtaskProgressDataPoint(
+                          widget.mainTaskId,
+                          widget.parentSubTaskId,
+                          liveCheckpoint.id,
+                          index,
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 24),
 
                     // Nested Steps
                     Container(

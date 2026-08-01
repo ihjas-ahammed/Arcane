@@ -2,10 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/models/project_models.dart';
+import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/utils/constants.dart';
 import 'package:missions/src/providers/mixins/sync_mixin.dart';
 
-/// Manages Tasks, Projects, and History Logic
+/// Manages Tasks, Projects, History Logic, and Goals
 mixin TaskMixin on ChangeNotifier {
   // --- State ---
   List<MainTask> _mainTasks = initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
@@ -15,6 +16,7 @@ mixin TaskMixin on ChangeNotifier {
   List<Project> _projects = [];
   String? _activeProjectId;
   List<RoutineList> _routineLists = [];
+  List<GoalModel> _goals = [];
 
   // --- Getters ---
   List<MainTask> get mainTasks => _mainTasks;
@@ -24,6 +26,7 @@ mixin TaskMixin on ChangeNotifier {
   List<Project> get projects => _projects;
   String? get activeProjectId => _activeProjectId;
   List<RoutineList> get routineLists => _routineLists;
+  List<GoalModel> get goals => _goals;
 
   // --- Requirements from AppProvider ---
   SyncMixin get sync => this as SyncMixin;
@@ -84,6 +87,55 @@ mixin TaskMixin on ChangeNotifier {
     }
   }
 
+  // --- Goal Actions ---
+  void setGoals(List<GoalModel> goals) {
+    _goals = List.from(goals);
+    sync.markDirty('tasks');
+    notifyListeners();
+  }
+
+  void addGoal(GoalModel goal) {
+    _goals = [..._goals, goal];
+    sync.markDirty('tasks');
+    notifyListeners();
+  }
+
+  void updateGoal(GoalModel goal) {
+    _goals = _goals.map((g) => g.id == goal.id ? goal : g).toList();
+    sync.markDirty('tasks');
+    notifyListeners();
+  }
+
+  void deleteGoal(String id) {
+    _goals = _goals.where((g) => g.id != id).toList();
+    sync.markDirty('tasks');
+    notifyListeners();
+  }
+
+  void toggleGoalCheck(String id) {
+    _goals = _goals.map((g) {
+      if (g.id == id) {
+        return g.copyWith(isCompleted: !g.isCompleted);
+      }
+      return g;
+    }).toList();
+    sync.markDirty('tasks');
+    notifyListeners();
+  }
+
+  void updateGoalCounter(String id, double delta) {
+    _goals = _goals.map((g) {
+      if (g.id == id) {
+        final newVal = (g.currentValue + delta).clamp(0.0, 999999.0);
+        final isDone = g.targetValue > 0 && newVal >= g.targetValue;
+        return g.copyWith(currentValue: newVal, isCompleted: isDone);
+      }
+      return g;
+    }).toList();
+    sync.markDirty('tasks');
+    notifyListeners();
+  }
+
   MainTask? getSelectedTask() {
     try {
       return _mainTasks.firstWhere((t) => t.id == _selectedTaskId);
@@ -126,6 +178,14 @@ mixin TaskMixin on ChangeNotifier {
     } else {
       _routineLists = [];
     }
+
+    if (data['goals'] != null) {
+      _goals = (data['goals'] as List)
+          .map((e) => GoalModel.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    } else {
+      _goals = [];
+    }
   }
 
   Map<String, dynamic> getTaskStateMap() {
@@ -136,6 +196,7 @@ mixin TaskMixin on ChangeNotifier {
       'activeTimers': _activeTimers.map((k, v) => MapEntry(k, v.toJson())),
       'projects': _projects.map((p) => p.toJson()).toList(),
       'routineLists': _routineLists.map((r) => r.toJson()).toList(),
+      'goals': _goals.map((g) => g.toJson()).toList(),
     };
   }
 }

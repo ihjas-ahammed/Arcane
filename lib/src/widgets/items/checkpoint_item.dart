@@ -131,21 +131,6 @@ class _CheckpointItemState extends State<CheckpointItem> {
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: JweTheme.lineSoft)),
               ),
             ),
-            if (widget.onLogTime != null) ...[
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  widget.onLogTime!();
-                },
-                icon: Icon(MdiIcons.autoFix, size: 16, color: widget.accentColor),
-                label: Text('AUTO-CALCULATE FROM PREVIOUS STEP', style: GoogleFonts.jetBrainsMono(fontSize: 10)),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: widget.accentColor,
-                  side: BorderSide(color: widget.accentColor),
-                ),
-              ),
-            ],
           ],
         ),
         actions: [
@@ -362,11 +347,7 @@ class _CheckpointItemState extends State<CheckpointItem> {
                         if (value == 'toggle_type' && widget.onToggleType != null) widget.onToggleType!();
                         if (value == 'toggle_active' && widget.onToggleActive != null) widget.onToggleActive!();
                         if (value == 'log_time') {
-                          if (widget.onLogTime != null) {
-                            widget.onLogTime!();
-                          } else {
-                            _showEditTimeSpentDialog(context);
-                          }
+                          _showEditTimeSpentDialog(context);
                         }
                         if (value == 'open' && widget.onTap != null) widget.onTap!();
                       },

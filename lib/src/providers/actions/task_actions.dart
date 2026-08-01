@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/utils/helpers.dart';
@@ -56,6 +57,8 @@ class TaskActions {
             what: updates['what'] as String?,
             isActive: updates['isActive'] as bool?,
             timeSpentMinutes: updates['timeSpentMinutes'] as int?,
+            progressDataPoints: updates['progressDataPoints'] as List<ProgressDataPoint>?,
+            currentTimeSpent: updates['currentTimeSpent'] as int?,
             substeps: updates['substeps'] as List<SubSubTask>?,
           );
           if (updatedNode.isCountable) {
@@ -1344,6 +1347,65 @@ class TaskActions {
       return t;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  void saveSubSubtaskProgressDataPoint(String mainTaskId, String parentSubtaskId, String subSubtaskId, double progress, int spentSeconds) {
+    final point = ProgressDataPoint(
+      timestamp: DateTime.now(),
+      progress: progress.clamp(0.0, 1.0),
+      spentSeconds: spentSeconds,
+    );
+
+    try {
+      final task = _provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+      final sub = task.subTasks.firstWhere((s) => s.id == parentSubtaskId);
+      
+      SubSubTask? findRecursive(List<SubSubTask> list, String id) {
+        for (var item in list) {
+          if (item.id == id) return item;
+          final found = findRecursive(item.substeps, id);
+          if (found != null) return found;
+        }
+        return null;
+      }
+
+      final cp = findRecursive(sub.subSubTasks, subSubtaskId);
+      if (cp != null) {
+        final updatedPoints = [...cp.progressDataPoints, point]
+          ..sort((a, b) => a.spentSeconds.compareTo(b.spentSeconds));
+        updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, {
+          'progressDataPoints': updatedPoints,
+          'currentTimeSpent': math.max(cp.currentTimeSpent, spentSeconds),
+        });
+      }
+    } catch (_) {}
+  }
+
+  void deleteSubSubtaskProgressDataPoint(String mainTaskId, String parentSubtaskId, String subSubtaskId, int index) {
+    try {
+      final task = _provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
+      final sub = task.subTasks.firstWhere((s) => s.id == parentSubtaskId);
+
+      SubSubTask? findRecursive(List<SubSubTask> list, String id) {
+        for (var item in list) {
+          if (item.id == id) return item;
+          final found = findRecursive(item.substeps, id);
+          if (found != null) return found;
+        }
+        return null;
+      }
+
+      final cp = findRecursive(sub.subSubTasks, subSubtaskId);
+      if (cp != null) {
+        final updatedPoints = List<ProgressDataPoint>.from(cp.progressDataPoints);
+        if (index >= 0 && index < updatedPoints.length) {
+          updatedPoints.removeAt(index);
+        }
+        updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, {
+          'progressDataPoints': updatedPoints,
+        });
+      }
+    } catch (_) {}
   }
 
   void addMainTask({required String name, required String description, required String theme, required String colorHex}) {
