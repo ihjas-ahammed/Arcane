@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
+import 'package:missions/src/screens/journaling/person_detail_screen.dart';
 
 class WeeklyReviewScreen extends StatelessWidget {
   final Map<String, dynamic> reportData;
@@ -46,6 +47,7 @@ class WeeklyReviewScreen extends StatelessWidget {
     final energizers = (energyMap?['energizers'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
     final drainers = (energyMap?['drainers'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
     final shareWin = reportData['share_win'] as Map<String, dynamic>?;
+    final creativeStory = reportData['creative_story'] as Map<String, dynamic>?;
 
     return Scaffold(
       backgroundColor: JweTheme.bgDeep,
@@ -123,6 +125,69 @@ class WeeklyReviewScreen extends StatelessWidget {
                 ],
               ),
             ),
+
+            // ── Creative Inspiration Story ──────────────────────
+            if (creativeStory != null && (creativeStory['story']?.toString() ?? '').isNotEmpty) ...[
+              const HudSectionHead(label: 'PARALLEL JOURNEY STORY', code: 'STR', accent: HudTone.amber),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: HudPanel(
+                  background: JweTheme.bgBase.withOpacity(0.5),
+                  allBrackets: false,
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(MdiIcons.bookOpenVariant, size: 16, color: JweTheme.accentAmber),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              (creativeStory['title']?.toString() ?? 'THE PARALLEL JOURNEY').toUpperCase(),
+                              style: GoogleFonts.saira(
+                                color: JweTheme.accentAmber,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        creativeStory['story']?.toString() ?? '',
+                        style: TextStyle(
+                          color: JweTheme.textWhite,
+                          fontSize: 13,
+                          height: 1.55,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      if ((creativeStory['takeaway']?.toString() ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: JweTheme.accentAmber.withOpacity(0.08),
+                            border: Border(left: BorderSide(color: JweTheme.accentAmber, width: 3)),
+                          ),
+                          child: Text(
+                            'LESSON: ${creativeStory['takeaway']}',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: JweTheme.accentAmber,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ).animate().fadeIn(delay: 250.ms).slideY(begin: 0.05, end: 0),
+              ),
+            ],
 
             // ── Telemetry (Summary & Wellbeing) ──────────────────────
             const HudSectionHead(label: 'TELEMETRY & STATUS', code: 'TLM', accent: HudTone.cyan),
@@ -905,18 +970,24 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
       }
     }
 
-    // Gather finance metrics
-    double weekIncome = 0, weekExpense = 0;
-    for (final t in provider.transactions) {
-      if (t.timestamp.isAfter(weekAgo)) {
-        if (t.isIncome) {
-          weekIncome += t.amount;
-        } else {
-          weekExpense += t.amount;
+    // Gather finance metrics (static saved snapshot when archived, else calculated)
+    double weekIncome = 0, weekExpense = 0, balance = provider.financeActions.currentBalance;
+    final savedFinance = reportData['saved_finance'] as Map<String, dynamic>?;
+    if (savedFinance != null) {
+      weekIncome = (savedFinance['income'] as num?)?.toDouble() ?? 0;
+      weekExpense = (savedFinance['expense'] as num?)?.toDouble() ?? 0;
+      balance = (savedFinance['balance'] as num?)?.toDouble() ?? 0;
+    } else {
+      for (final t in provider.transactions) {
+        if (t.timestamp.isAfter(weekAgo)) {
+          if (t.isIncome) {
+            weekIncome += t.amount;
+          } else {
+            weekExpense += t.amount;
+          }
         }
       }
     }
-    final balance = provider.financeActions.currentBalance;
 
     // Gather health metrics
     double totalWater = 0;
@@ -934,8 +1005,13 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
     final avgWater = totalWater / 7;
     final avgSleep = totalSleepMins / 7 / 60;
 
-    // Gather people (active/known)
+    // Gather people (active/known) grouped by relation/classification
     final people = provider.chatbotMemory.people;
+    final groupedPeople = <String, List<dynamic>>{};
+    for (final p in people) {
+      final relationCategory = p.relation.trim().isNotEmpty ? p.relation.trim().toUpperCase() : 'OTHER';
+      groupedPeople.putIfAbsent(relationCategory, () => []).add(p);
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1019,7 +1095,7 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
         ),
         const SizedBox(height: 24),
 
-        // ── 3. INTERACTION BRIEF ──
+        // ── 3. INTERACTION BRIEF (CLASSIFIED DROPDOWN) ──
         _SectionLabel(
           title: 'SOCIAL DOSSIER & ENCOUNTERS',
           icon: MdiIcons.accountMultipleOutline,
@@ -1041,47 +1117,68 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
           )
         else
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: JweTheme.bgBase.withOpacity(0.4),
               border: Border.all(color: JweTheme.lineSoft),
             ),
-            child: Column(
-              children: people.map((p) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Icon(MdiIcons.accountNetworkOutline, size: 14, color: JweTheme.accentCyan),
-                      const SizedBox(width: 10),
-                      Text(
-                        p.name.toUpperCase(),
-                        style: GoogleFonts.saira(
-                          color: JweTheme.textWhite,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: JweTheme.accentCyan.withOpacity(0.1),
-                          border: Border.all(color: JweTheme.accentCyan.withOpacity(0.3)),
-                        ),
-                        child: Text(
-                          p.relation.toUpperCase(),
+            child: Builder(
+              builder: (context) {
+                return Column(
+                  children: groupedPeople.entries.map((entry) {
+                    final category = entry.key;
+                    final members = entry.value;
+                    return Theme(
+                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        initiallyExpanded: true,
+                        tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+                        title: Text(
+                          '$category (${members.length})',
                           style: GoogleFonts.jetBrainsMono(
                             color: JweTheme.accentCyan,
-                            fontSize: 8,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
                           ),
                         ),
+                        children: members.map((p) {
+                          return InkWell(
+                            onTap: () {
+                              final matches = provider.chatbotMemory.people.where(
+                                  (e) => e.name.toLowerCase().trim() == p.name.toLowerCase().trim());
+                              final existing = matches.isNotEmpty ? matches.first : null;
+                              if (existing != null) {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => PersonDetailScreen(personId: existing.id)));
+                              }
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                              child: Row(
+                                children: [
+                                  Icon(MdiIcons.accountOutline, size: 14, color: JweTheme.accentTeal),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      p.name.toUpperCase(),
+                                      style: GoogleFonts.saira(
+                                        color: JweTheme.textWhite,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(MdiIcons.chevronRight, size: 14, color: JweTheme.accentCyan),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
                       ),
-                    ],
-                  ),
+                    );
+                  }).toList(),
                 );
-              }).toList(),
+              },
             ),
           ),
       ],

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/src/widgets/drawers/goals_bottom_drawer.dart';
 
 /// Operator HUD classified-access tiles.
 class JweQuickAccessGrid extends StatelessWidget {
@@ -42,6 +43,16 @@ class JweQuickAccessGrid extends StatelessWidget {
         tone: HudTone.teal,
         code: 'A-02',
         onTap: onAdvanced,
+      ),
+      const SizedBox(height: 6),
+      _Tile(
+        title: 'GOALS & METRICS OPERATOR',
+        sub: 'Daily, weekly & monthly targets',
+        icon: MdiIcons.target,
+        accent: JweTheme.accentAmber,
+        tone: HudTone.amber,
+        code: 'A-03',
+        onTap: () => GoalsBottomDrawer.show(context),
       ),
     ]);
   }

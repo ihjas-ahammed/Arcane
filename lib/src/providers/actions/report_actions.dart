@@ -60,19 +60,11 @@ class ReportActions {
       final startOfTodayMinus7 = startOfToday.subtract(const Duration(days: 7));
       final startOfYesterdayMinus7 = startOfYesterday.subtract(const Duration(days: 7));
 
-      Map<String, int> todayMetricsMap = {};
       Map<String, int> yesterdayMetricsMap = {};
+      Map<String, int> dayBeforeMetricsMap = {};
 
       for (var log in _provider.reflectionLogs) {
         if (log.timestamp.isAfter(startOfTodayMinus7) && log.timestamp.isBefore(startOfToday)) {
-          log.xpGained.forEach((k, v) {
-            final normalized = WellbeingTheme.normalizeSkillName(k);
-            if (normalized != null) {
-              todayMetricsMap[normalized] = (todayMetricsMap[normalized] ?? 0) + v;
-            }
-          });
-        }
-        if (log.timestamp.isAfter(startOfYesterdayMinus7) && log.timestamp.isBefore(startOfYesterday)) {
           log.xpGained.forEach((k, v) {
             final normalized = WellbeingTheme.normalizeSkillName(k);
             if (normalized != null) {
@@ -80,18 +72,31 @@ class ReportActions {
             }
           });
         }
+        if (log.timestamp.isAfter(startOfYesterdayMinus7) && log.timestamp.isBefore(startOfYesterday)) {
+          log.xpGained.forEach((k, v) {
+            final normalized = WellbeingTheme.normalizeSkillName(k);
+            if (normalized != null) {
+              dayBeforeMetricsMap[normalized] = (dayBeforeMetricsMap[normalized] ?? 0) + v;
+            }
+          });
+        }
       }
 
       List<Map<String, dynamic>> metrics = [];
       for (var skill in _provider.getBaseWellbeingSkills()) {
-        final t = todayMetricsMap[skill.name] ?? 0;
         final y = yesterdayMetricsMap[skill.name] ?? 0;
-        metrics.add({'name': skill.name, 'today': t, 'yesterday': y, 'delta': t - y});
+        final db = dayBeforeMetricsMap[skill.name] ?? 0;
+        metrics.add({'name': skill.name, 'today': y, 'yesterday': db, 'delta': y - db});
       }
+
+      final peopleContext = _provider.chatbotMemory.people
+          .map((p) => "${p.name} (${p.relation})")
+          .join(', ');
 
       final aiResult = await _aiService.generateStartDayReport(
         reflectionsList: reflectionsStr,
         sessionsList: sessionsStrBuffer.toString(),
+        knownPeopleText: peopleContext,
         modelCandidates: _provider.settings.heavyModels,
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
@@ -269,6 +274,14 @@ class ReportActions {
           .map((p) => "${p.name} (${p.relation})")
           .join(', ');
 
+      // Save static finance snapshot
+      double monthIncome = 0, monthExpense = 0;
+      for (final t in _provider.transactions) {
+        if (t.timestamp.isAfter(monthAgo)) {
+          if (t.isIncome) monthIncome += t.amount; else monthExpense += t.amount;
+        }
+      }
+
       final result = await _aiService.generateMonthlyReport(
         monthLabel: monthLabel,
         logsText: logsStr.isEmpty ? 'No reflections logged this month.' : logsStr,
@@ -292,6 +305,12 @@ class ReportActions {
       final data = Map<String, dynamic>.from(result);
       data['month_label'] = monthLabel;
       data['generated_at'] = now.toIso8601String();
+      data['saved_finance'] = {
+        'income': monthIncome,
+        'expense': monthExpense,
+        'net': monthIncome - monthExpense,
+        'balance': _provider.financeActions.currentBalance,
+      };
       return data;
     } catch (e) {
       debugPrint("Error generating monthly report: $e");

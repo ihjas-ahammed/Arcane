@@ -11,22 +11,23 @@ import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/widgets/header_widget.dart';
+import 'package:missions/src/widgets/analytics/jwe_date_selector.dart';
 
 /// Goals & Metrics Operator Drawer
-/// Pixel-perfect tactical HUD replica matching specs:
-/// Features dynamic active protocol color, chamfered corner panels,
-/// robust custom scope tab bar with crisp visible titles (DAILY, WEEKLY, MONTHLY),
-/// overall progress banner, and custom progress bars with slanted end slits (///).
+/// Logbook-themed tactical HUD replica with date/period clean sheets,
+/// subchecklists support, manual count input, and accurate progress tracking.
 class GoalsBottomDrawer extends StatefulWidget {
-  const GoalsBottomDrawer({super.key});
+  final DateTime? initialDate;
 
-  static Future<void> show(BuildContext context) {
+  const GoalsBottomDrawer({super.key, this.initialDate});
+
+  static Future<void> show(BuildContext context, {DateTime? initialDate}) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: JweTheme.isLight ? 0.4 : 0.65),
-      builder: (ctx) => const GoalsBottomDrawer(),
+      builder: (ctx) => GoalsBottomDrawer(initialDate: initialDate),
     );
   }
 
@@ -36,6 +37,14 @@ class GoalsBottomDrawer extends StatefulWidget {
 
 class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
   GoalScope _activeScope = GoalScope.daily;
+  late DateTime _selectedDate;
+  final Map<String, bool> _expandedSublists = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = widget.initialDate ?? DateTime.now();
+  }
 
   /// Calculates spent time in minutes for linked tasks based on session time
   double _calculateLinkedTimeMinutes(AppProvider provider, GoalModel goal) {
@@ -69,7 +78,93 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _CreateGoalSheet(initialScope: _activeScope),
+      builder: (ctx) => _CreateGoalSheet(
+        initialScope: _activeScope,
+        selectedDate: _selectedDate,
+      ),
+    );
+  }
+
+  Future<void> _pickDate(BuildContext context, Color themeColor) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            colorScheme: ColorScheme.dark(
+              primary: themeColor,
+              onPrimary: Colors.black,
+              surface: const Color(0xFF14151E),
+              onSurface: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  void _showManualCountDialog(BuildContext context, AppProvider appProvider, GoalModel goal) {
+    final controller = TextEditingController(text: goal.currentValue.toInt().toString());
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF14151E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: JweTheme.accentCyan.withValues(alpha: 0.5)),
+        ),
+        title: Text(
+          'ENTER COUNT VALUE',
+          style: GoogleFonts.orbitron(
+            color: JweTheme.accentCyan,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          style: GoogleFonts.jetBrainsMono(color: Colors.white, fontSize: 16),
+          decoration: InputDecoration(
+            labelText: 'CURRENT VALUE (TARGET: ${goal.targetValue.toInt()})',
+            labelStyle: GoogleFonts.orbitron(fontSize: 10, color: JweTheme.textMuted),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: JweTheme.accentCyan.withValues(alpha: 0.3)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: JweTheme.accentCyan),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('CANCEL', style: GoogleFonts.orbitron(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan),
+            onPressed: () {
+              final val = double.tryParse(controller.text.trim());
+              if (val != null) {
+                appProvider.setGoalCounterValue(goal.id, val);
+                showGlobalToast('Count updated to ${val.toInt()}');
+              }
+              Navigator.pop(ctx);
+            },
+            child: Text('SET COUNT', style: GoogleFonts.orbitron(color: Colors.black, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -77,13 +172,10 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
     final isLight = JweTheme.isLight;
+    final themeColor = appProvider.getSelectedTask()?.taskColor ?? JweTheme.accentAmber;
 
-    // Inherits CURRENT PROTOCOL COLOR
-    final Color themeColor = appProvider.getSelectedTask()?.taskColor ?? JweTheme.accentAmber;
-
-    final goals = appProvider.goals
-        .where((g) => g.scope == _activeScope)
-        .toList();
+    // Get period goals for current selected date & scope
+    final goals = appProvider.getGoalsForDate(_selectedDate, _activeScope);
 
     final completedCount = goals.where((g) {
       final timeMins = _calculateLinkedTimeMinutes(appProvider, g);
@@ -96,11 +188,18 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
       return sum + (isDone ? g.xpReward : 0);
     });
 
-    final progressRatio = goals.isEmpty ? 0.0 : completedCount / goals.length;
+    final double overallProgressRatio = goals.isEmpty
+        ? 0.0
+        : goals.fold<double>(0.0, (sum, g) {
+            final timeMins = _calculateLinkedTimeMinutes(appProvider, g);
+            return sum + g.getProgressRatio(dynamicTimeMinutes: timeMins);
+          }) / goals.length;
+
     final sheetBg = isLight ? const Color(0xFFF6F3EC) : const Color(0xFF0D0E14);
+    final periodKeyStr = GoalModel.getPeriodKey(_activeScope, _selectedDate);
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.88,
+      height: MediaQuery.of(context).size.height * 0.90,
       decoration: BoxDecoration(
         color: sheetBg,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -132,7 +231,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                 ),
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
 
               // Header Row: Left Icon Box, Non-Overflowing Titles, Right XP Badge
               Padding(
@@ -140,10 +239,9 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Left Double-Chevron Icon Container
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 42,
+                      height: 42,
                       decoration: BoxDecoration(
                         color: themeColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
@@ -151,14 +249,13 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                       ),
                       child: Center(
                         child: ArcaneAppIcon(
-                          size: 24,
+                          size: 22,
                           color: themeColor,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
 
-                    // Title & Subtitle Column (Robust Non-Overflowing Layout)
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,11 +285,11 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Track targets, counters &\nlinked session time',
-                            maxLines: 2,
+                            'Period: $periodKeyStr · Track count, time & subchecklists',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.jetBrainsMono(
                               fontSize: 9.5,
-                              height: 1.15,
                               color: isLight ? const Color(0xFF475569) : Colors.white54,
                             ),
                           ),
@@ -202,22 +299,21 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
 
                     const SizedBox(width: 8),
 
-                    // Right XP Badge Box
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                       decoration: BoxDecoration(
                         color: themeColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: themeColor.withValues(alpha: 0.4), width: 1.2),
                       ),
                       child: Row(
                         children: [
-                          ArcaneAppIcon(size: 14, color: themeColor),
-                          const SizedBox(width: 5),
+                          ArcaneAppIcon(size: 13, color: themeColor),
+                          const SizedBox(width: 4),
                           Text(
                             '+$totalXp XP',
                             style: GoogleFonts.orbitron(
-                              fontSize: 11,
+                              fontSize: 10.5,
                               fontWeight: FontWeight.bold,
                               color: themeColor,
                             ),
@@ -229,24 +325,36 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
-              // 3 Custom Scope Tabs: DAILY, WEEKLY, MONTHLY (Fully visible crisp text)
+              // Date Inspection Bar (Logbook Theme)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: JweDateSelector(
+                  dateStr: DateFormat('EEEE, MMM d, yyyy').format(_selectedDate),
+                  accentColor: themeColor,
+                  onTap: () => _pickDate(context, themeColor),
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              // 3 Custom Scope Tabs: DAILY, WEEKLY, MONTHLY
               _buildScopeTabRow(themeColor, isLight),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
               // Overview Progress Banner
-              _buildProgressBanner(themeColor, isLight, progressRatio, completedCount, goals.length),
+              _buildProgressBanner(themeColor, isLight, overallProgressRatio, completedCount, goals.length),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
               // Goals List Body
               Expanded(
                 child: goals.isEmpty
                     ? _buildEmptyState(isLight, themeColor)
                     : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                         itemCount: goals.length,
                         itemBuilder: (ctx, i) {
                           final goal = goals[i];
@@ -262,40 +370,35 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                 padding: EdgeInsets.only(
                   left: 16,
                   right: 16,
-                  top: 10,
-                  bottom: MediaQuery.of(context).padding.bottom + 12,
+                  top: 8,
+                  bottom: MediaQuery.of(context).padding.bottom + 10,
                 ),
                 child: ElevatedButton(
                   onPressed: () => _openCreateGoalDialog(context),
                   style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 48),
+                    minimumSize: const Size(double.infinity, 46),
                     backgroundColor: themeColor,
                     foregroundColor: Colors.black,
                     elevation: 4,
                     shadowColor: themeColor.withValues(alpha: 0.4),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.add, size: 20, color: Colors.black),
+                      const Icon(Icons.add, size: 18, color: Colors.black),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: Center(
-                          child: Text(
-                            'INITIALIZE NEW ${_activeScope.name.toUpperCase()} GOAL',
-                            style: GoogleFonts.orbitron(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.1,
-                              color: Colors.black,
-                            ),
-                          ),
+                      Text(
+                        'INITIALIZE NEW ${_activeScope.name.toUpperCase()} GOAL',
+                        style: GoogleFonts.orbitron(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                          color: Colors.black,
                         ),
                       ),
-                      ArcaneAppIcon(size: 18, color: Colors.black),
                     ],
                   ),
                 ),
@@ -307,12 +410,12 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
     );
   }
 
-  /// Custom Scope Segmented Tab Row (100% visible text, glowing active indicator line)
+  /// Custom Scope Segmented Tab Row
   Widget _buildScopeTabRow(Color themeColor, bool isLight) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        height: 44,
+        height: 42,
         padding: const EdgeInsets.all(2),
         decoration: BoxDecoration(
           color: isLight ? const Color(0xFFE8E4DA) : const Color(0xFF14151E),
@@ -366,9 +469,9 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                       child: Text(
                         label,
                         style: GoogleFonts.orbitron(
-                          fontSize: 11,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 1.1,
+                          letterSpacing: 1.0,
                           color: isSelected
                               ? (isLight ? Colors.black87 : Colors.white)
                               : (isLight ? const Color(0xFF475569) : const Color(0xFF8E9BAE)),
@@ -437,7 +540,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             SizedBox(
               height: 8,
               width: double.infinity,
@@ -462,21 +565,21 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
         children: [
           Icon(
             MdiIcons.target,
-            size: 44,
+            size: 40,
             color: themeColor.withValues(alpha: 0.4),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Text(
-            'NO ${_activeScope.name.toUpperCase()} GOALS ACTIVE',
+            'NO ${_activeScope.name.toUpperCase()} GOALS FOR THIS PERIOD',
             style: GoogleFonts.orbitron(
-              fontSize: 12,
+              fontSize: 11.5,
               fontWeight: FontWeight.bold,
               color: isLight ? Colors.black54 : Colors.white60,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            'Tap the button below to initialize your first goal metric',
+            'Tap the button below to initialize a clean goal sheet',
             style: GoogleFonts.jetBrainsMono(
               fontSize: 10,
               color: isLight ? Colors.black45 : Colors.white38,
@@ -497,9 +600,10 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
   ) {
     final isDone = goal.getIsEffectiveCompleted(dynamicTimeMinutes: timeMins);
     final ratio = goal.getProgressRatio(dynamicTimeMinutes: timeMins);
+    final isSubExpanded = _expandedSublists[goal.id] ?? false;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
       child: CustomPaint(
         painter: _TacticalCardPainter(
           activeColor: themeColor,
@@ -507,7 +611,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
           isDone: isDone,
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -516,7 +620,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildMetricBadge(goal.metricType, themeColor),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -546,6 +650,20 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                                 color: themeColor,
                               ),
                             ),
+                            if (goal.isRecurring) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: JweTheme.accentTeal.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: JweTheme.accentTeal.withValues(alpha: 0.4)),
+                                ),
+                                child: Text(
+                                  'RECURRING',
+                                  style: GoogleFonts.orbitron(fontSize: 8.5, color: JweTheme.accentTeal, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
                             if (goal.linkedTaskIds.isNotEmpty) ...[
                               Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -581,50 +699,68 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                 ],
               ),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
 
-              // Card Metric Specific Body
+              // Metric Specific Operations
               if (goal.metricType == GoalMetricType.check) ...[
-                InkWell(
-                  onTap: () {
-                    appProvider.toggleGoalCheck(goal.id);
-                    if (!goal.isCompleted) {
-                      showGlobalToast('⚡ Goal Completed! +${goal.xpReward} XP');
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isDone
-                          ? AppTheme.fhAccentGreen.withValues(alpha: 0.15)
-                          : themeColor.withValues(alpha: 0.10),
+                Row(
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        appProvider.toggleGoalCheck(goal.id);
+                        if (!goal.isCompleted) {
+                          showGlobalToast('⚡ Goal Completed! +${goal.xpReward} XP');
+                        }
+                      },
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isDone ? AppTheme.fhAccentGreen : themeColor,
-                        width: 1.2,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isDone ? MdiIcons.checkboxMarkedCircle : MdiIcons.checkboxBlankCircleOutline,
-                          color: isDone ? AppTheme.fhAccentGreen : themeColor,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          isDone ? 'COMPLETED' : 'MARK COMPLETE',
-                          style: GoogleFonts.orbitron(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.bold,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isDone
+                              ? AppTheme.fhAccentGreen.withValues(alpha: 0.15)
+                              : themeColor.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
                             color: isDone ? AppTheme.fhAccentGreen : themeColor,
+                            width: 1.2,
                           ),
                         ),
-                      ],
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isDone ? MdiIcons.checkboxMarkedCircle : MdiIcons.checkboxBlankCircleOutline,
+                              color: isDone ? AppTheme.fhAccentGreen : themeColor,
+                              size: 15,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              isDone ? 'COMPLETED' : 'MARK COMPLETE',
+                              style: GoogleFonts.orbitron(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: isDone ? AppTheme.fhAccentGreen : themeColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: SizedBox(
+                        height: 7,
+                        child: CustomPaint(
+                          size: const Size(double.infinity, 7),
+                          painter: _TacticalProgressBarPainter(
+                            progress: ratio,
+                            activeColor: isDone ? AppTheme.fhAccentGreen : themeColor,
+                            isLight: isLight,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ] else if (goal.metricType == GoalMetricType.counter) ...[
                 Row(
@@ -641,16 +777,34 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                         child: const Icon(Icons.remove, size: 14),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${goal.currentValue.toInt()} / ${goal.targetValue.toInt()}',
-                      style: GoogleFonts.orbitron(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: isDone ? AppTheme.fhAccentGreen : themeColor,
+                    const SizedBox(width: 6),
+                    InkWell(
+                      onTap: () => _showManualCountDialog(context, appProvider, goal),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: themeColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: themeColor.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${goal.currentValue.toInt()} / ${goal.targetValue.toInt()}',
+                              style: GoogleFonts.orbitron(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isDone ? AppTheme.fhAccentGreen : themeColor,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(MdiIcons.pencilOutline, size: 12, color: themeColor),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     InkWell(
                       onTap: () {
                         appProvider.updateGoalCounter(goal.id, 1);
@@ -668,7 +822,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                         child: const Icon(Icons.add, size: 14),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: SizedBox(
                         height: 7,
@@ -736,9 +890,150 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                   ],
                 ),
               ],
+
+              if (goal.metricType == GoalMetricType.check) ...[
+                const SizedBox(height: 8),
+                _buildSubchecklistWidget(context, appProvider, goal, isSubExpanded, themeColor, isLight),
+              ],
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSubchecklistWidget(
+    BuildContext context,
+    AppProvider appProvider,
+    GoalModel goal,
+    bool isExpanded,
+    Color themeColor,
+    bool isLight,
+  ) {
+    final completedCount = goal.subChecklist.where((i) => i.isCompleted).length;
+    final totalCount = goal.subChecklist.length;
+    final subRatio = totalCount == 0 ? 0.0 : (completedCount / totalCount);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isLight ? Colors.black.withValues(alpha: 0.03) : const Color(0xFF0F1018),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: themeColor.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Subchecklist Header Bar
+          InkWell(
+            onTap: () {
+              setState(() {
+                _expandedSublists[goal.id] = !isExpanded;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Row(
+                children: [
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+                    size: 16,
+                    color: themeColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'SUBCHECKLIST',
+                    style: GoogleFonts.orbitron(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.bold,
+                      color: isLight ? Colors.black87 : Colors.white70,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: themeColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '$completedCount/$totalCount (${(subRatio * 100).toInt()}%)',
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: themeColor,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(MdiIcons.playlistPlus, size: 14, color: themeColor),
+                ],
+              ),
+            ),
+          ),
+
+          if (isExpanded) ...[
+            const Divider(height: 1, thickness: 0.8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
+              child: Column(
+                children: [
+                  ...goal.subChecklist.map((item) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        children: [
+                          InkWell(
+                            onTap: () {
+                              appProvider.toggleGoalSubCheckItem(goal.id, item.id);
+                            },
+                            child: Icon(
+                              item.isCompleted
+                                  ? MdiIcons.checkboxMarkedCircleOutline
+                                  : MdiIcons.checkboxBlankCircleOutline,
+                              size: 15,
+                              color: item.isCompleted ? AppTheme.fhAccentGreen : themeColor,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              item.title,
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 11,
+                                decoration: item.isCompleted ? TextDecoration.lineThrough : null,
+                                color: item.isCompleted
+                                    ? (isLight ? Colors.black38 : Colors.white38)
+                                    : (isLight ? Colors.black87 : Colors.white),
+                              ),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () {
+                              appProvider.deleteGoalSubCheckItem(goal.id, item.id);
+                            },
+                            child: Icon(Icons.close, size: 14, color: isLight ? Colors.black38 : Colors.white38),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+
+                  const SizedBox(height: 6),
+
+                  // Add Subchecklist Item Input Row
+                  _AddSubCheckItemRow(
+                    goalId: goal.id,
+                    themeColor: themeColor,
+                    isLight: isLight,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -763,27 +1058,112 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: themeColor.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: themeColor.withValues(alpha: 0.4), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: themeColor),
+          Icon(icon, size: 12, color: themeColor),
           const SizedBox(width: 4),
           Text(
             label,
             style: GoogleFonts.orbitron(
-              fontSize: 9.5,
+              fontSize: 9,
               fontWeight: FontWeight.bold,
               color: themeColor,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AddSubCheckItemRow extends StatefulWidget {
+  final String goalId;
+  final Color themeColor;
+  final bool isLight;
+
+  const _AddSubCheckItemRow({
+    required this.goalId,
+    required this.themeColor,
+    required this.isLight,
+  });
+
+  @override
+  State<_AddSubCheckItemRow> createState() => _AddSubCheckItemRowState();
+}
+
+class _AddSubCheckItemRowState extends State<_AddSubCheckItemRow> {
+  final _subController = TextEditingController();
+
+  @override
+  void dispose() {
+    _subController.dispose();
+    super.dispose();
+  }
+
+  void _submit(AppProvider provider) {
+    final text = _subController.text.trim();
+    if (text.isNotEmpty) {
+      provider.addGoalSubCheckItem(widget.goalId, text);
+      _subController.clear();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _subController,
+            onSubmitted: (_) => _submit(provider),
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 10.5,
+              color: widget.isLight ? Colors.black87 : Colors.white,
+            ),
+            decoration: InputDecoration(
+              hintText: '+ Add subchecklist task...',
+              hintStyle: GoogleFonts.jetBrainsMono(
+                fontSize: 10,
+                color: widget.isLight ? Colors.black38 : Colors.white38,
+              ),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: widget.themeColor.withValues(alpha: 0.3)),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        InkWell(
+          onTap: () => _submit(provider),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: widget.themeColor,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              'ADD',
+              style: GoogleFonts.orbitron(
+                fontSize: 9.5,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -897,7 +1277,6 @@ class _TacticalCardPainter extends CustomPainter {
     canvas.drawPath(path, bgPaint);
     canvas.drawPath(path, borderPaint);
 
-    // Glowing Left Accent Bar & Chamfer Cutout
     final accentPaint = Paint()
       ..color = cardColor
       ..style = PaintingStyle.stroke
@@ -919,11 +1298,15 @@ class _TacticalCardPainter extends CustomPainter {
   }
 }
 
-/// Create Goal Form Bottom Sheet (with Interactive Planner Task Tree)
+/// Create Goal Form Bottom Sheet (with Slider + Manual Input Field & Subchecklist planner)
 class _CreateGoalSheet extends StatefulWidget {
   final GoalScope initialScope;
+  final DateTime selectedDate;
 
-  const _CreateGoalSheet({required this.initialScope});
+  const _CreateGoalSheet({
+    required this.initialScope,
+    required this.selectedDate,
+  });
 
   @override
   State<_CreateGoalSheet> createState() => _CreateGoalSheetState();
@@ -932,26 +1315,49 @@ class _CreateGoalSheet extends StatefulWidget {
 class _CreateGoalSheetState extends State<_CreateGoalSheet> {
   final _titleController = TextEditingController();
   final _filterController = TextEditingController();
+  final _targetValueController = TextEditingController();
   late GoalScope _selectedScope;
   GoalMetricType _selectedMetric = GoalMetricType.check;
   double _targetValue = 1.0;
+  bool _isRecurring = false;
   DateTime? _startDateTime;
   final Set<String> _selectedTaskIds = {};
   String _taskSearchQuery = '';
   final Map<String, bool> _expandedTasks = {};
+  final List<String> _initialSubItems = [];
+  final _newSubController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _selectedScope = widget.initialScope;
-    _startDateTime = DateTime.now();
+    _startDateTime = widget.selectedDate;
+    _targetValueController.text = '1';
   }
 
   @override
   void dispose() {
     _titleController.dispose();
     _filterController.dispose();
+    _targetValueController.dispose();
+    _newSubController.dispose();
     super.dispose();
+  }
+
+  void _onTargetValueInputChanged(String text) {
+    final val = double.tryParse(text);
+    if (val != null && val > 0) {
+      setState(() {
+        _targetValue = val;
+      });
+    }
+  }
+
+  void _onSliderChanged(double val) {
+    setState(() {
+      _targetValue = val;
+      _targetValueController.text = val.toInt().toString();
+    });
   }
 
   void _saveGoal(AppProvider provider) {
@@ -960,6 +1366,15 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
       showGlobalToast('Please enter a goal title');
       return;
     }
+
+    final periodKey = GoalModel.getPeriodKey(_selectedScope, _startDateTime ?? DateTime.now());
+    final subItems = _initialSubItems
+        .map((t) => GoalSubCheckItem(
+              id: 'sub_${DateTime.now().millisecondsSinceEpoch}_${t.hashCode}',
+              title: t,
+              isCompleted: false,
+            ))
+        .toList();
 
     final goal = GoalModel(
       id: 'goal_${DateTime.now().millisecondsSinceEpoch}',
@@ -970,11 +1385,14 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
       startDateTime: _startDateTime,
       linkedTaskIds: _selectedTaskIds.toList(),
       xpReward: 50,
+      dateKey: periodKey,
+      isRecurring: _isRecurring,
+      subChecklist: subItems,
     );
 
     provider.addGoal(goal);
     Navigator.of(context).pop();
-    showGlobalToast('New Goal Created!');
+    showGlobalToast('New Goal Initialized!');
   }
 
   @override
@@ -1010,7 +1428,7 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
                   Text(
                     'INITIALIZE NEW GOAL',
                     style: GoogleFonts.orbitron(
-                      fontSize: 14,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.bold,
                       color: themeColor,
                     ),
@@ -1034,14 +1452,14 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
                 decoration: InputDecoration(
                   labelText: 'GOAL TITLE',
                   hintText: 'e.g., Complete 3 Coding Checkpoints',
-                  labelStyle: GoogleFonts.orbitron(fontSize: 10.5, color: themeColor),
+                  labelStyle: GoogleFonts.orbitron(fontSize: 10, color: themeColor),
                   filled: true,
                   fillColor: isLight ? const Color(0xFFEDE9DF) : const Color(0xFF14151E),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // Scope Selector
               Text(
@@ -1082,7 +1500,7 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
                 }).toList(),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // Metric Type Selector
               Text(
@@ -1127,9 +1545,9 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
                 }).toList(),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
-              // Metric Specific Settings
+              // Metric Specific Settings (Slider + Manual Input)
               if (_selectedMetric == GoalMetricType.counter) ...[
                 Text(
                   'TARGET COUNT',
@@ -1139,23 +1557,34 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
                     color: isLight ? const Color(0xFF475569) : Colors.white60,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Row(
                   children: [
                     Expanded(
+                      flex: 3,
                       child: Slider(
                         value: _targetValue.clamp(1.0, 100.0),
                         min: 1.0,
                         max: 100.0,
                         divisions: 99,
                         activeColor: themeColor,
-                        label: '${_targetValue.toInt()}',
-                        onChanged: (val) => setState(() => _targetValue = val),
+                        onChanged: _onSliderChanged,
                       ),
                     ),
-                    Text(
-                      '${_targetValue.toInt()} Count',
-                      style: GoogleFonts.orbitron(fontSize: 11.5, fontWeight: FontWeight.bold),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        controller: _targetValueController,
+                        keyboardType: TextInputType.number,
+                        onChanged: _onTargetValueInputChanged,
+                        style: GoogleFonts.orbitron(fontSize: 12, fontWeight: FontWeight.bold, color: themeColor),
+                        decoration: InputDecoration(
+                          labelText: 'COUNT',
+                          isDense: true,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -1168,74 +1597,131 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
                     color: isLight ? const Color(0xFF475569) : Colors.white60,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Row(
                   children: [
                     Expanded(
+                      flex: 3,
                       child: Slider(
                         value: _targetValue.clamp(5.0, 480.0),
                         min: 5.0,
                         max: 480.0,
                         divisions: 95,
                         activeColor: themeColor,
-                        label: '${_targetValue.toInt()}m',
-                        onChanged: (val) => setState(() => _targetValue = val),
+                        onChanged: _onSliderChanged,
                       ),
                     ),
-                    Text(
-                      '${_targetValue.toInt()} Mins',
-                      style: GoogleFonts.orbitron(fontSize: 11.5, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-
-                // Start DateTime Picker
-                Row(
-                  children: [
-                    Icon(MdiIcons.calendarClock, size: 16, color: themeColor),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Start: ${DateFormat('yyyy-MM-dd HH:mm').format(_startDateTime ?? DateTime.now())}',
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 11,
-                        color: isLight ? Colors.black87 : Colors.white,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        controller: _targetValueController,
+                        keyboardType: TextInputType.number,
+                        onChanged: _onTargetValueInputChanged,
+                        style: GoogleFonts.orbitron(fontSize: 12, fontWeight: FontWeight.bold, color: themeColor),
+                        decoration: InputDecoration(
+                          labelText: 'MINS',
+                          isDense: true,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
                       ),
-                    ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () async {
-                        final pickedDate = await showDatePicker(
-                          context: context,
-                          initialDate: _startDateTime ?? DateTime.now(),
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2030),
-                        );
-                        if (pickedDate != null && context.mounted) {
-                          final pickedTime = await showTimePicker(
-                            context: context,
-                            initialTime: TimeOfDay.fromDateTime(_startDateTime ?? DateTime.now()),
-                          );
-                          if (pickedTime != null) {
-                            setState(() {
-                              _startDateTime = DateTime(
-                                pickedDate.year,
-                                pickedDate.month,
-                                pickedDate.day,
-                                pickedTime.hour,
-                                pickedTime.minute,
-                              );
-                            });
-                          }
-                        }
-                      },
-                      child: const Text('CHANGE'),
                     ),
                   ],
                 ),
               ],
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+
+              // Recurring Toggle Switch
+              SwitchListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                activeThumbColor: themeColor,
+                title: Text(
+                  'RECUR EVERY PERIOD (CLEAN SHEET)',
+                  style: GoogleFonts.orbitron(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                    color: isLight ? Colors.black87 : Colors.white,
+                  ),
+                ),
+                subtitle: Text(
+                  'Auto-creates a fresh goal instance for each new day/week/month',
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 9.5,
+                    color: isLight ? Colors.black45 : Colors.white38,
+                  ),
+                ),
+                value: _isRecurring,
+                onChanged: (val) => setState(() => _isRecurring = val),
+              ),
+
+              const SizedBox(height: 12),
+
+              // INITIAL SUBCHECKLIST CREATION (ONLY FOR CHECK GOALS)
+              if (_selectedMetric == GoalMetricType.check) ...[
+                Text(
+                  'SUBCHECKLIST TASKS (OPTIONAL)',
+                  style: GoogleFonts.orbitron(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isLight ? const Color(0xFF475569) : Colors.white60,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: _initialSubItems.map((item) {
+                    return Chip(
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: themeColor.withValues(alpha: 0.15),
+                      side: BorderSide(color: themeColor),
+                      label: Text(
+                        item,
+                        style: GoogleFonts.jetBrainsMono(fontSize: 10, color: isLight ? Colors.black87 : Colors.white),
+                      ),
+                      deleteIcon: const Icon(Icons.close, size: 14),
+                      onDeleted: () {
+                        setState(() => _initialSubItems.remove(item));
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _newSubController,
+                        style: GoogleFonts.jetBrainsMono(fontSize: 11, color: isLight ? Colors.black87 : Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Type sub-task & press Add...',
+                          isDense: true,
+                          filled: true,
+                          fillColor: isLight ? const Color(0xFFEDE9DF) : const Color(0xFF14151E),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: themeColor, foregroundColor: Colors.black),
+                      onPressed: () {
+                        final t = _newSubController.text.trim();
+                        if (t.isNotEmpty) {
+                          setState(() {
+                            _initialSubItems.add(t);
+                            _newSubController.clear();
+                          });
+                        }
+                      },
+                      child: const Text('ADD'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+              ],
 
               // PLANNER-STYLE TASK SELECTOR
               Text(
@@ -1248,7 +1734,6 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
               ),
               const SizedBox(height: 6),
 
-              // Selected Task Chips Bar
               if (_selectedTaskIds.isNotEmpty) ...[
                 Wrap(
                   spacing: 6,
@@ -1277,7 +1762,6 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
                 const SizedBox(height: 8),
               ],
 
-              // Filter input bar
               TextField(
                 controller: _filterController,
                 onChanged: (v) => setState(() => _taskSearchQuery = v.trim().toLowerCase()),
@@ -1287,10 +1771,6 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
                 ),
                 decoration: InputDecoration(
                   hintText: 'Filter tasks...',
-                  hintStyle: GoogleFonts.jetBrainsMono(
-                    fontSize: 11,
-                    color: isLight ? Colors.black45 : Colors.white38,
-                  ),
                   prefixIcon: const Icon(Icons.search, size: 16),
                   isDense: true,
                   filled: true,
@@ -1304,9 +1784,8 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
 
               const SizedBox(height: 8),
 
-              // Task Tree Selector Container
               Container(
-                constraints: const BoxConstraints(maxHeight: 180),
+                constraints: const BoxConstraints(maxHeight: 160),
                 decoration: BoxDecoration(
                   color: isLight ? const Color(0xFFEDE9DF) : const Color(0xFF14151E),
                   borderRadius: BorderRadius.circular(10),
@@ -1322,13 +1801,12 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
-              // Create Action Button
               ElevatedButton(
                 onPressed: () => _saveGoal(appProvider),
                 style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 48),
+                  minimumSize: const Size(double.infinity, 46),
                   backgroundColor: themeColor,
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
-import 'package:missions/src/widgets/ui/gratitude_intel_card.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,6 +11,7 @@ import 'package:collection/collection.dart';
 class TacticalBriefingCard extends StatelessWidget {
   final Map<String, dynamic> briefingData;
   final VoidCallback? onSave;
+  final VoidCallback? onDeleteAndRetry;
   final bool isSaved;
   final DateTime? date;
 
@@ -19,6 +19,7 @@ class TacticalBriefingCard extends StatelessWidget {
     super.key,
     required this.briefingData,
     this.onSave,
+    this.onDeleteAndRetry,
     this.isSaved = false,
     this.date,
   });
@@ -26,15 +27,17 @@ class TacticalBriefingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final summary      = briefingData['summary']        as String?        ?? "No intel available.";
+    final quoteReflections = briefingData['quote_reflections'] as List<dynamic>? ?? [];
     final improvements = briefingData['improvements']   as List<dynamic>? ?? [];
     final gratefulPeople  = briefingData['grateful_people']  as List<dynamic>? ?? [];
-    // Support both new 'grateful_today' and legacy 'grateful_assets' fallback
     final gratefulToday = (briefingData['grateful_today'] as List<dynamic>?)
         ?? (briefingData['grateful_assets'] as List<dynamic>?)
         ?? [];
     final savorMoment       = briefingData['savor_moment']       as String? ?? '';
     final smallWin          = briefingData['small_win']          as String? ?? '';
     final tomorrowIntention = briefingData['tomorrow_intention'] as String? ?? '';
+    final suggestedActivities = briefingData['suggested_activities'] as List<dynamic>? ?? [];
+    final financeBriefing   = briefingData['finance_briefing']   as Map<String, dynamic>?;
 
     return HudPanel(
       clip: HudClip.both,
@@ -54,41 +57,86 @@ class TacticalBriefingCard extends StatelessWidget {
             ),
             child: Row(children: [
               Container(width: 4, height: 14, color: JweTheme.accentAmber),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
-                child: Text('TACTICAL BRIEFING',
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'TACTICAL BRIEFING',
+                    maxLines: 1,
                     style: GoogleFonts.jetBrainsMono(
                       color: JweTheme.accentAmber,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 1.8,
-                    )),
-              ),
-              if (!isSaved && onSave != null)
-                InkWell(
-                  onTap: onSave,
-                  child: ClipPath(
-                    clipper: HudCutClipper(clip: HudClip.br, cut: 4),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: JweTheme.accentCyan.withValues(alpha: 0.10),
-                        border: Border.all(
-                            color: JweTheme.accentCyan.withValues(alpha: 0.45)),
-                      ),
-                      child: Text('SAVE TO LOG',
-                          style: GoogleFonts.jetBrainsMono(
-                            color: JweTheme.accentCyan,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.4,
-                          )),
+                      letterSpacing: 1.6,
                     ),
                   ),
-                )
-              else if (isSaved)
-                Icon(MdiIcons.checkBold, color: JweTheme.accentCyan, size: 16),
+                ),
+              ),
               const SizedBox(width: 6),
+              if (!isSaved && onSave != null) ...[
+                Tooltip(
+                  message: 'Save briefing to daily log',
+                  child: InkWell(
+                    onTap: onSave,
+                    child: ClipPath(
+                      clipper: HudCutClipper(clip: HudClip.br, cut: 4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: JweTheme.accentCyan.withValues(alpha: 0.10),
+                          border: Border.all(
+                              color: JweTheme.accentCyan.withValues(alpha: 0.45)),
+                        ),
+                        child: Text('SAVE',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: JweTheme.accentCyan,
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.0,
+                            )),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+              if (onDeleteAndRetry != null) ...[
+                Tooltip(
+                  message: 'Delete & Retry Briefing',
+                  child: InkWell(
+                    onTap: onDeleteAndRetry,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: JweTheme.accentRed.withValues(alpha: 0.10),
+                        border: Border.all(
+                            color: JweTheme.accentRed.withValues(alpha: 0.45)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(MdiIcons.refresh, color: JweTheme.accentRed, size: 10),
+                          const SizedBox(width: 3),
+                          Text('RETRY',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.accentRed,
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.0,
+                              )),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+              if (isSaved) ...[
+                Icon(MdiIcons.checkBold, color: JweTheme.accentCyan, size: 15),
+                const SizedBox(width: 6),
+              ],
               HudDot(tone: HudTone.amber, size: 5),
             ]),
           ),
@@ -115,6 +163,227 @@ class TacticalBriefingCard extends StatelessWidget {
                     fontStyle: FontStyle.italic,
                   ),
                 ).animate().fadeIn(duration: 500.ms),
+
+                // Quoted Reflections & AI Comments
+                if (quoteReflections.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  HudSectionHead(
+                    label: 'QUOTED REFLECTIONS & AI REVIEW',
+                    accent: HudTone.cyan,
+                    padding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(height: 10),
+                  ...quoteReflections.map((item) {
+                    final map = item as Map<String, dynamic>;
+                    final userQuote = map['user_quote'] as String? ?? '';
+                    final aiComment = map['ai_comment'] as String? ?? '';
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: JweTheme.bgDeep.withValues(alpha: 0.6),
+                        border: Border(
+                            left: BorderSide(color: JweTheme.accentCyan, width: 3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            color: JweTheme.accentCyan.withValues(alpha: 0.08),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(MdiIcons.formatQuoteOpen,
+                                    size: 14, color: JweTheme.accentCyan),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '"$userQuote"',
+                                    style: GoogleFonts.inter(
+                                      color: JweTheme.textWhite,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(MdiIcons.brain,
+                                    size: 13, color: JweTheme.accentAmber),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    aiComment,
+                                    style: GoogleFonts.inter(
+                                      color: JweTheme.textMid,
+                                      fontSize: 12,
+                                      height: 1.45,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ).animate().fadeIn(duration: 400.ms);
+                  }),
+                ],
+
+                // Daily Finance Briefing HUD
+                if (financeBriefing != null) ...[
+                  const SizedBox(height: 20),
+                  HudSectionHead(
+                    label: 'DAILY FINANCE BRIEFING',
+                    accent: HudTone.amber,
+                    padding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: JweTheme.accentAmber.withValues(alpha: 0.05),
+                      border: Border.all(
+                          color: JweTheme.accentAmber.withValues(alpha: 0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            Column(
+                              children: [
+                                Text('INFLOW',
+                                    style: GoogleFonts.jetBrainsMono(
+                                        color: JweTheme.textMuted,
+                                        fontSize: 8.5,
+                                        fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 3),
+                                Text('₹${financeBriefing['income'] ?? 0}',
+                                    style: GoogleFonts.chakraPetch(
+                                        color: JweTheme.accentTeal,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                            Container(width: 1, height: 24, color: JweTheme.lineSoft),
+                            Column(
+                              children: [
+                                Text('OUTFLOW',
+                                    style: GoogleFonts.jetBrainsMono(
+                                        color: JweTheme.textMuted,
+                                        fontSize: 8.5,
+                                        fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 3),
+                                Text('₹${financeBriefing['expense'] ?? 0}',
+                                    style: GoogleFonts.chakraPetch(
+                                        color: JweTheme.accentRed,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                            Container(width: 1, height: 24, color: JweTheme.lineSoft),
+                            Column(
+                              children: [
+                                Text('NET',
+                                    style: GoogleFonts.jetBrainsMono(
+                                        color: JweTheme.textMuted,
+                                        fontSize: 8.5,
+                                        fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 3),
+                                Text('₹${financeBriefing['net'] ?? 0}',
+                                    style: GoogleFonts.chakraPetch(
+                                        color: JweTheme.accentAmber,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ],
+                        ),
+                        if ((financeBriefing['ai_feedback']?.toString() ?? '').isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Divider(color: JweTheme.lineSoft, height: 1),
+                          const SizedBox(height: 8),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(MdiIcons.finance, size: 13, color: JweTheme.accentAmber),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  financeBriefing['ai_feedback'].toString(),
+                                  style: GoogleFonts.inter(
+                                      color: JweTheme.textWhite,
+                                      fontSize: 11.5,
+                                      height: 1.4),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ).animate().fadeIn(duration: 400.ms),
+                ],
+
+                // Suggested New Activities based on day's log
+                if (suggestedActivities.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  HudSectionHead(
+                    label: 'SUGGESTED NEW ACTIVITIES',
+                    accent: HudTone.teal,
+                    padding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(height: 8),
+                  ...suggestedActivities.map((act) {
+                    final m = act as Map<String, dynamic>;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: JweTheme.accentTeal.withValues(alpha: 0.06),
+                        border: Border(left: BorderSide(color: JweTheme.accentTeal, width: 2)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(MdiIcons.compassOutline, size: 14, color: JweTheme.accentTeal),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: RichText(
+                              text: TextSpan(children: [
+                                TextSpan(
+                                  text: '${m['activity']}: ',
+                                  style: GoogleFonts.saira(
+                                    fontWeight: FontWeight.w700,
+                                    color: JweTheme.accentTeal,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: m['reason'] ?? '',
+                                  style: GoogleFonts.saira(
+                                    color: JweTheme.textMid,
+                                    fontSize: 12,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ]),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
 
                 // Savor moment (savoring - relive the day's best moment)
                 if (savorMoment.isNotEmpty) ...[
@@ -380,32 +649,49 @@ class TacticalBriefingCard extends StatelessWidget {
                   }),
                 ],
 
-                // Gratitude Intel (replaces assets)
+                // Small Sized Gratitude Text Chips
                 if (gratefulToday.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   HudSectionHead(
-                    label: 'GRATITUDE INTEL',
+                    label: 'GRATITUDE INTEL (CONCISE)',
                     accent: HudTone.teal,
                     padding: EdgeInsets.zero,
                   ),
-                  const SizedBox(height: 8),
-                  ...List.generate(gratefulToday.length.clamp(0, 10), (i) {
-                    final item = gratefulToday[i] as Map<String, dynamic>;
-                    // Support both new format {text, icon_type} and legacy {name/why/what/reason}
-                    final text = (item['text'] as String?)?.isNotEmpty == true
-                        ? item['text'] as String
-                        : (item['name'] ?? item['why'] ?? item['reason'] ?? '').toString();
-                    final iconType = item['icon_type'] as String? ?? 'general';
-                    if (text.isEmpty) return const SizedBox.shrink();
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: GratitudeIntelCard(
-                        text: text,
-                        iconType: iconType,
-                        index: i + 1,
-                      ).animate(delay: (40 * i).ms).fadeIn(duration: 300.ms).slideX(begin: 0.05, end: 0),
-                    );
-                  }),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: List.generate(gratefulToday.length.clamp(0, 10), (i) {
+                      final item = gratefulToday[i] as Map<String, dynamic>;
+                      final text = (item['text'] as String?)?.isNotEmpty == true
+                          ? item['text'] as String
+                          : (item['name'] ?? item['why'] ?? item['reason'] ?? '').toString();
+                      if (text.isEmpty) return const SizedBox.shrink();
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: JweTheme.accentTeal.withValues(alpha: 0.08),
+                          border: Border.all(color: JweTheme.accentTeal.withValues(alpha: 0.3)),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(MdiIcons.heartOutline, size: 13, color: JweTheme.accentTeal),
+                            const SizedBox(width: 6),
+                            Text(
+                              text,
+                              style: GoogleFonts.inter(
+                                color: JweTheme.textWhite,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ).animate().fadeIn(duration: 400.ms),
                 ],
 
                 // Tomorrow's implementation intention (bridge to next day)

@@ -28,7 +28,7 @@ class StartupWellbeingMetrics extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
           Text(
-          "MOMENTUM SHIFT (YESTERDAY VS TODAY)",
+          "MOMENTUM SHIFT (YESTERDAY VS DAY BEFORE)",
           style: TextStyle(
             color: JweTheme.textMuted,
             fontSize: 9,

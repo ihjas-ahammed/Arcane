@@ -6,6 +6,8 @@ import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/gratitude_intel_card.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/screens/journaling/person_detail_screen.dart';
+import 'package:collection/collection.dart';
 
 class MonthlyReviewScreen extends StatelessWidget {
   final Map<String, dynamic> reportData;
@@ -42,6 +44,10 @@ class MonthlyReviewScreen extends StatelessWidget {
     final woop = reportData['next_month_woop'] as List<dynamic>? ?? [];
     final gratitude = reportData['gratitude_reminiscence'] as List<dynamic>? ?? [];
     final lettingGo = reportData['letting_go'] as String? ?? '';
+
+    final creativeStory = reportData['creative_story'] as Map<String, dynamic>?;
+    final quoteReflections = reportData['quote_reflections'] as List<dynamic>? ?? [];
+    final savedFinance = reportData['saved_finance'] as Map<String, dynamic>?;
 
     return Scaffold(
       backgroundColor: JweTheme.bgDeep,
@@ -123,6 +129,178 @@ class MonthlyReviewScreen extends StatelessWidget {
                 ],
               ),
             ),
+
+            // ── Creative Story ───────────────────────
+            if (creativeStory != null && (creativeStory['story']?.toString() ?? '').isNotEmpty) ...[
+              const HudSectionHead(label: 'INSPIRATIONAL JOURNEY STORY', code: 'STR', accent: HudTone.amber),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: HudPanel(
+                  background: JweTheme.bgBase.withValues(alpha: 0.5),
+                  allBrackets: false,
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(MdiIcons.bookOpenVariant, size: 16, color: JweTheme.accentAmber),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              (creativeStory['title']?.toString() ?? 'MONTHLY PARALLEL STORY').toUpperCase(),
+                              style: GoogleFonts.saira(
+                                color: JweTheme.accentAmber,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        creativeStory['story']?.toString() ?? '',
+                        style: TextStyle(
+                          color: JweTheme.textWhite,
+                          fontSize: 13,
+                          height: 1.55,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      if ((creativeStory['takeaway']?.toString() ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: JweTheme.accentAmber.withValues(alpha: 0.08),
+                            border: Border(left: BorderSide(color: JweTheme.accentAmber, width: 3)),
+                          ),
+                          child: Text(
+                            'KEY LESSON: ${creativeStory['takeaway']}',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: JweTheme.accentAmber,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ).animate().fadeIn(delay: 220.ms).slideY(begin: 0.05, end: 0),
+              ),
+            ],
+
+            // ── Quoted Reflections & AI Reviews ────────
+            if (quoteReflections.isNotEmpty) ...[
+              const HudSectionHead(label: 'QUOTED REFLECTIONS & AI REVIEW', code: 'QUT', accent: HudTone.cyan),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Column(
+                  children: quoteReflections.map((item) {
+                    final map = item as Map<String, dynamic>;
+                    final userQuote = map['user_quote'] as String? ?? '';
+                    final aiComment = map['ai_comment'] as String? ?? '';
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: JweTheme.bgBase.withValues(alpha: 0.5),
+                        border: Border(left: BorderSide(color: JweTheme.accentCyan, width: 3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            color: JweTheme.accentCyan.withValues(alpha: 0.08),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(MdiIcons.formatQuoteOpen, size: 14, color: JweTheme.accentCyan),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '"$userQuote"',
+                                    style: GoogleFonts.inter(
+                                      color: JweTheme.textWhite,
+                                      fontSize: 12.5,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(MdiIcons.brain, size: 13, color: JweTheme.accentAmber),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    aiComment,
+                                    style: GoogleFonts.inter(
+                                      color: JweTheme.textMid,
+                                      fontSize: 12,
+                                      height: 1.45,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ).animate().fadeIn(delay: 240.ms),
+              ),
+            ],
+
+            // ── Static Finance Briefing Card ─────────
+            if (savedFinance != null) ...[
+              const HudSectionHead(label: 'MONTHLY FINANCE BRIEFING', code: 'FIN', accent: HudTone.amber),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: HudPanel(
+                  background: JweTheme.bgBase.withValues(alpha: 0.5),
+                  allBrackets: false,
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Column(
+                        children: [
+                          Text('INFLOW', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9)),
+                          const SizedBox(height: 4),
+                          Text('₹${(savedFinance['income'] as num?)?.toStringAsFixed(0) ?? 0}', style: GoogleFonts.chakraPetch(color: JweTheme.accentTeal, fontSize: 15, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      Container(width: 1, height: 28, color: JweTheme.lineSoft),
+                      Column(
+                        children: [
+                          Text('OUTFLOW', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9)),
+                          const SizedBox(height: 4),
+                          Text('₹${(savedFinance['expense'] as num?)?.toStringAsFixed(0) ?? 0}', style: GoogleFonts.chakraPetch(color: JweTheme.accentRed, fontSize: 15, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      Container(width: 1, height: 28, color: JweTheme.lineSoft),
+                      Column(
+                        children: [
+                          Text('NET', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9)),
+                          const SizedBox(height: 4),
+                          Text('₹${(savedFinance['net'] as num?)?.toStringAsFixed(0) ?? 0}', style: GoogleFonts.chakraPetch(color: JweTheme.accentAmber, fontSize: 15, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ).animate().fadeIn(delay: 250.ms),
+              ),
+            ],
 
             // ── The month's story ───────────────────────
             const HudSectionHead(label: 'THE STORY OF THE MONTH', code: 'LOG', accent: HudTone.cyan),
@@ -537,64 +715,111 @@ class MonthlyReviewScreen extends StatelessWidget {
               const HudSectionHead(label: 'RELATIONSHIP AUDIT', code: 'ALY', accent: HudTone.amber),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Column(
-                  children: relationshipAudit.map((r) {
+                child: Builder(builder: (context) {
+                  final grouped = <String, List<Map<String, dynamic>>>{};
+                  for (final r in relationshipAudit) {
                     final m = r as Map<String, dynamic>;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: JweTheme.bgBase.withValues(alpha: 0.6),
-                        border: Border(
-                            left: BorderSide(color: JweTheme.accentAmber, width: 2)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            (m['name']?.toString() ?? 'Unknown').toUpperCase(),
-                            style: GoogleFonts.saira(
+                    final pName = m['name']?.toString() ?? '';
+                    final existingPerson = provider.chatbotMemory.people.firstWhereOrNull(
+                        (e) => e.name.toLowerCase().trim() == pName.toLowerCase().trim());
+                    final category = existingPerson?.relation.trim().isNotEmpty == true
+                        ? existingPerson!.relation.trim().toUpperCase()
+                        : 'ALLIES & CONTACTS';
+                    grouped.putIfAbsent(category, () => []).add(m);
+                  }
+
+                  return Column(
+                    children: grouped.entries.map((entry) {
+                      final category = entry.key;
+                      final members = entry.value;
+                      return Theme(
+                        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                        child: ExpansionTile(
+                          initiallyExpanded: true,
+                          tilePadding: EdgeInsets.zero,
+                          title: Text(
+                            '$category (${members.length})',
+                            style: GoogleFonts.jetBrainsMono(
                               color: JweTheme.accentAmber,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
                             ),
                           ),
-                          if ((m['trend']?.toString() ?? '').isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              m['trend']?.toString() ?? '',
-                              style: TextStyle(
-                                  color: JweTheme.textMid,
-                                  fontSize: 12,
-                                  height: 1.4),
-                            ),
-                          ],
-                          if ((m['action']?.toString() ?? '').isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(MdiIcons.sendOutline,
-                                    size: 11, color: JweTheme.accentTeal),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    m['action']?.toString() ?? '',
-                                    style: TextStyle(
-                                        color: JweTheme.accentTeal,
-                                        fontSize: 11.5,
-                                        fontStyle: FontStyle.italic,
-                                        height: 1.4),
-                                  ),
+                          children: members.map((m) {
+                            final pName = m['name']?.toString() ?? 'Unknown';
+                            final existingPerson = provider.chatbotMemory.people.firstWhereOrNull(
+                                (e) => e.name.toLowerCase().trim() == pName.toLowerCase().trim());
+
+                            return InkWell(
+                              onTap: existingPerson != null
+                                  ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => PersonDetailScreen(personId: existingPerson.id)))
+                                  : null,
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: JweTheme.bgBase.withValues(alpha: 0.6),
+                                  border: Border(left: BorderSide(color: JweTheme.accentAmber, width: 2)),
                                 ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.05, end: 0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          pName.toUpperCase(),
+                                          style: GoogleFonts.saira(
+                                            color: JweTheme.accentAmber,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 0.8,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        if (existingPerson != null)
+                                          Icon(MdiIcons.chevronRight, size: 14, color: JweTheme.accentAmber),
+                                      ],
+                                    ),
+                                    if ((m['trend']?.toString() ?? '').isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        m['trend']?.toString() ?? '',
+                                        style: TextStyle(
+                                            color: JweTheme.textMid,
+                                            fontSize: 12,
+                                            height: 1.4),
+                                      ),
+                                    ],
+                                    if ((m['action']?.toString() ?? '').isNotEmpty) ...[
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Icon(MdiIcons.sendOutline, size: 11, color: JweTheme.accentTeal),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              m['action']?.toString() ?? '',
+                                              style: TextStyle(
+                                                  color: JweTheme.accentTeal,
+                                                  fontSize: 11.5,
+                                                  fontStyle: FontStyle.italic,
+                                                  height: 1.4),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      );
+                    }).toList(),
+                  ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.05, end: 0);
+                }),
               ),
             ],
 

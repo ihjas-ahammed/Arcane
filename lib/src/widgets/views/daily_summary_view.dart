@@ -313,6 +313,19 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               provider: provider,
               onArchive: () async {
                 final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                final weekAgo = DateTime.now().subtract(const Duration(days: 7));
+                double weekIncome = 0, weekExpense = 0;
+                for (final t in provider.transactions) {
+                  if (t.timestamp.isAfter(weekAgo)) {
+                    if (t.isIncome) weekIncome += t.amount; else weekExpense += t.amount;
+                  }
+                }
+                result['saved_finance'] = {
+                  'income': weekIncome,
+                  'expense': weekExpense,
+                  'net': weekIncome - weekExpense,
+                  'balance': provider.financeActions.currentBalance,
+                };
                 await provider.saveWeeklyReport(dateStr, result);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Weekly Review Saved to Archive!")));
@@ -611,6 +624,12 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                                   setState(() {});
                                 }
                               : null,
+                          onDeleteAndRetry: () async {
+                            if (_selectedDate != null) {
+                              appProvider.deleteTacticalBriefing(_selectedDate!);
+                              await _generateTacticalBriefing(appProvider, reflectionsForDate);
+                            }
+                          },
                         ),
                       ],
                     )

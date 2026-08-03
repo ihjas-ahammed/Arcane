@@ -77,6 +77,10 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
     final yesterday = reportDate.subtract(const Duration(days: 1));
     final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
 
+    final yesterdayQuote = widget.report['yesterday_quote'] as String? ?? '';
+    final aiTodayAdvice = widget.report['ai_today_advice'] as String? ?? '';
+    final motivationalQuote = widget.report['motivational_quote'] as Map<String, dynamic>?;
+
     return HudPanel(
       clip: HudClip.both,
       accent: JweTheme.accentCyan,
@@ -163,6 +167,133 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Yesterday Quote vs AI Response for Today
+                  if (yesterdayQuote.isNotEmpty || aiTodayAdvice.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        Container(width: 3, height: 10, color: JweTheme.accentAmber),
+                        const SizedBox(width: 8),
+                        Text("YESTERDAY'S QUOTE VS TODAY'S AI ADVICE",
+                            style: GoogleFonts.jetBrainsMono(
+                              color: JweTheme.accentAmber,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.8,
+                            )),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: JweTheme.bgDeep.withValues(alpha: 0.65),
+                        border: Border(left: BorderSide(color: JweTheme.accentAmber, width: 3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (yesterdayQuote.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              color: JweTheme.accentAmber.withValues(alpha: 0.08),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(MdiIcons.formatQuoteOpen, size: 14, color: JweTheme.accentAmber),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '"$yesterdayQuote"',
+                                      style: GoogleFonts.inter(
+                                        color: JweTheme.textWhite,
+                                        fontSize: 12,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (aiTodayAdvice.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(MdiIcons.lightningBolt, size: 14, color: JweTheme.accentCyan),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      aiTodayAdvice,
+                                      style: GoogleFonts.inter(
+                                        color: JweTheme.accentCyan,
+                                        fontSize: 12,
+                                        height: 1.4,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+
+                  // Motivational Quote from Famous Scientist/Philosopher/Writer
+                  if (motivationalQuote != null && (motivationalQuote['quote']?.toString() ?? '').isNotEmpty) ...[
+                    Row(
+                      children: [
+                        Container(width: 3, height: 10, color: JweTheme.accentTeal),
+                        const SizedBox(width: 8),
+                        Text('MOMENTUM QUOTE OF THE DAY',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: JweTheme.accentTeal,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.8,
+                            )),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: JweTheme.accentTeal.withValues(alpha: 0.05),
+                        border: Border.all(color: JweTheme.accentTeal.withValues(alpha: 0.3)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '"${motivationalQuote['quote']}"',
+                            style: GoogleFonts.inter(
+                              color: JweTheme.textWhite,
+                              fontSize: 12.5,
+                              fontStyle: FontStyle.italic,
+                              height: 1.45,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              '— ${motivationalQuote['author'] ?? 'Unknown'}',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.accentTeal,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+
                   // Forecast
                   Row(
                     children: [
@@ -1084,74 +1215,103 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
   }
 
   Widget _buildSuggestedInteractions(BuildContext context, AppProvider provider) {
-    final now = DateTime.now();
-    final logs = provider.reflectionLogs;
-    final people = provider.chatbotMemory.people;
+    final savedContacts = widget.report['suggested_contacts'] as List<dynamic>?;
 
-    if (people.isEmpty) return const SizedBox.shrink();
+    final displaySuggestions = <Map<String, dynamic>>[];
 
-    // Map to keep track of recommendations
-    final recommendations = <Map<String, dynamic>>[];
+    if (savedContacts != null && savedContacts.isNotEmpty) {
+      for (final c in savedContacts) {
+        final map = c as Map<String, dynamic>;
+        final typeStr = map['type']?.toString() ?? 'CHECK IN';
+        Color color = JweTheme.accentCyan;
+        IconData icon = MdiIcons.accountNetworkOutline;
+        if (typeStr.contains('RECONNECT')) {
+          color = JweTheme.accentAmber;
+          icon = MdiIcons.accountClockOutline;
+        } else if (typeStr.contains('FOLLOW UP')) {
+          color = JweTheme.accentRed;
+          icon = MdiIcons.heartHalfFull;
+        } else if (typeStr.contains('APPRECIATION')) {
+          color = JweTheme.accentTeal;
+          icon = MdiIcons.heartFlash;
+        }
+        displaySuggestions.add({
+          'name': map['name'] ?? 'Contact',
+          'relation': map['relation'] ?? 'Friend',
+          'type': typeStr,
+          'reason': map['reason'] ?? '',
+          'icon': icon,
+          'color': color,
+        });
+      }
+    } else {
+      final now = DateTime.now();
+      final logs = provider.reflectionLogs;
+      final people = provider.chatbotMemory.people;
 
-    for (final person in people) {
-      final personNameLower = person.name.toLowerCase();
-      final personLogs = logs.where((l) {
-        final text = '${l.trigger} ${l.emotion} ${l.reason} ${l.action}'.toLowerCase();
-        return text.contains(personNameLower);
-      }).toList();
+      if (people.isEmpty) return const SizedBox.shrink();
 
-      personLogs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      final recommendations = <Map<String, dynamic>>[];
 
-      if (personLogs.isNotEmpty) {
-        final latestLog = personLogs.first;
-        final daysSince = now.difference(latestLog.timestamp).inDays;
+      for (final person in people) {
+        final personNameLower = person.name.toLowerCase();
+        final personLogs = logs.where((l) {
+          final text = '${l.trigger} ${l.emotion} ${l.reason} ${l.action}'.toLowerCase();
+          return text.contains(personNameLower);
+        }).toList();
 
-        if (daysSince > 7 && daysSince <= 21) {
+        personLogs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+        if (personLogs.isNotEmpty) {
+          final latestLog = personLogs.first;
+          final daysSince = now.difference(latestLog.timestamp).inDays;
+
+          if (daysSince > 7 && daysSince <= 21) {
+            recommendations.add({
+              'name': person.name,
+              'relation': person.relation,
+              'type': 'RECONNECT',
+              'reason': 'No contact recorded in $daysSince days. Plan a check-in.',
+              'icon': MdiIcons.accountClockOutline,
+              'color': JweTheme.accentAmber,
+            });
+          } else if (daysSince <= 7) {
+            final negEmotions = ['stressed', 'anxious', 'sad', 'angry', 'overwhelmed', 'tired', 'frustrated', 'worried'];
+            final isNeg = negEmotions.any((e) => latestLog.emotion.toLowerCase().contains(e) || latestLog.reason.toLowerCase().contains(e));
+            if (isNeg) {
+              recommendations.add({
+                'name': person.name,
+                'relation': person.relation,
+                'type': 'FOLLOW UP',
+                'reason': 'Follow up regarding recent tension or stress.',
+                'icon': MdiIcons.heartHalfFull,
+                'color': JweTheme.accentRed,
+              });
+            } else {
+              recommendations.add({
+                'name': person.name,
+                'relation': person.relation,
+                'type': 'APPRECIATION',
+                'reason': 'Keep the momentum going. Share a quick word of support.',
+                'icon': MdiIcons.heartFlash,
+                'color': JweTheme.accentTeal,
+              });
+            }
+          }
+        } else {
           recommendations.add({
             'name': person.name,
             'relation': person.relation,
-            'type': 'RECONNECT',
-            'reason': 'No contact recorded in $daysSince days. Plan a check-in.',
-            'icon': MdiIcons.accountClockOutline,
-            'color': JweTheme.accentAmber,
+            'type': 'STAY IN TOUCH',
+            'reason': 'No recent reflection logs mention them. Ping to catch up.',
+            'icon': MdiIcons.accountNetworkOutline,
+            'color': JweTheme.accentCyan,
           });
-        } else if (daysSince <= 7) {
-          final negEmotions = ['stressed', 'anxious', 'sad', 'angry', 'overwhelmed', 'tired', 'frustrated', 'worried'];
-          final isNeg = negEmotions.any((e) => latestLog.emotion.toLowerCase().contains(e) || latestLog.reason.toLowerCase().contains(e));
-          if (isNeg) {
-            recommendations.add({
-              'name': person.name,
-              'relation': person.relation,
-              'type': 'FOLLOW UP',
-              'reason': 'Follow up regarding recent tension or stress.',
-              'icon': MdiIcons.heartHalfFull,
-              'color': JweTheme.accentRed,
-            });
-          } else {
-            recommendations.add({
-              'name': person.name,
-              'relation': person.relation,
-              'type': 'APPRECIATION',
-              'reason': 'Keep the momentum going. Share a quick word of support.',
-              'icon': MdiIcons.heartFlash,
-              'color': JweTheme.accentTeal,
-            });
-          }
         }
-      } else {
-        recommendations.add({
-          'name': person.name,
-          'relation': person.relation,
-          'type': 'STAY IN TOUCH',
-          'reason': 'No recent reflection logs mention them. Ping to catch up.',
-          'icon': MdiIcons.accountNetworkOutline,
-          'color': JweTheme.accentCyan,
-        });
       }
-    }
 
-    recommendations.shuffle();
-    final displaySuggestions = recommendations.take(3).toList();
+      displaySuggestions.addAll(recommendations.take(3));
+    }
 
     if (displaySuggestions.isEmpty) return const SizedBox.shrink();
 

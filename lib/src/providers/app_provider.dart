@@ -1031,6 +1031,19 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     }
   }
 
+  void deleteTacticalBriefing(String date) {
+    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
+    if (newCompletedByDay.containsKey(date)) {
+      final dayData = Map<String, dynamic>.from(newCompletedByDay[date]);
+      dayData.remove('aiBriefing');
+      newCompletedByDay[date] = dayData;
+      setCompletedByDay(newCompletedByDay);
+    }
+    if (currentUser != null) {
+      _cloudStorage.saveDailyData(currentUser!.uid, date, 'briefing', {});
+    }
+  }
+
   void saveStartDayReport(String date, Map<String, dynamic> data) { 
     final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
     final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
@@ -1069,10 +1082,27 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     
     final allLogsContext = reflectionLogs.reversed.take(50).map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
     
+    // Finance context for target date
+    final targetDate = DateTime.tryParse(date) ?? DateTime.now();
+    double dayIncome = 0, dayExpense = 0;
+    for (final t in transactions) {
+      if (t.timestamp.year == targetDate.year &&
+          t.timestamp.month == targetDate.month &&
+          t.timestamp.day == targetDate.day) {
+        if (t.isIncome) {
+          dayIncome += t.amount;
+        } else {
+          dayExpense += t.amount;
+        }
+      }
+    }
+    final financeStr = 'Today Income: ₹${dayIncome.toStringAsFixed(0)}, Expense: ₹${dayExpense.toStringAsFixed(0)}, Net: ₹${(dayIncome - dayExpense).toStringAsFixed(0)}, Current Balance: ₹${financeActions.currentBalance.toStringAsFixed(0)}';
+
     final result = await _aiService.generateDailySummary(
       reflections: logsFormatted, 
       previousBriefings: recentBriefings, 
       fullContext: allLogsContext,
+      financeText: financeStr,
       modelCandidates: settings.heavyModels, 
       currentApiKeyIndex: apiKeyIndex, 
       customApiKeys: settings.customApiKeys,

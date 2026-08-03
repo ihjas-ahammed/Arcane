@@ -94,6 +94,50 @@ mixin TaskMixin on ChangeNotifier {
     notifyListeners();
   }
 
+  List<GoalModel> getGoalsForDate(DateTime date, GoalScope scope) {
+    final periodKey = GoalModel.getPeriodKey(scope, date);
+    final periodGoals = _goals.where((g) => g.scope == scope && g.dateKey == periodKey).toList();
+
+    if (periodGoals.isNotEmpty) {
+      return periodGoals;
+    }
+
+    // Auto-instantiate clean sheet copies of recurring goals for this period
+    final recurringTemplates = _goals
+        .where((g) => g.scope == scope && g.isRecurring)
+        .fold<Map<String, GoalModel>>({}, (map, g) {
+          map.putIfAbsent(g.title, () => g);
+          return map;
+        }).values.toList();
+
+    if (recurringTemplates.isNotEmpty) {
+      final newSheetGoals = <GoalModel>[];
+      for (final template in recurringTemplates) {
+        final newId = 'goal_${DateTime.now().millisecondsSinceEpoch}_${template.title.hashCode}';
+        final cleanSubChecklist = template.subChecklist
+            .map((item) => item.copyWith(isCompleted: false))
+            .toList();
+
+        final cleanGoal = template.copyWith(
+          id: newId,
+          dateKey: periodKey,
+          currentValue: 0.0,
+          isCompleted: false,
+          startDateTime: date,
+          subChecklist: cleanSubChecklist,
+        );
+        newSheetGoals.add(cleanGoal);
+      }
+
+      _goals = [..._goals, ...newSheetGoals];
+      sync.markDirty('tasks');
+      notifyListeners();
+      return newSheetGoals;
+    }
+
+    return [];
+  }
+
   void addGoal(GoalModel goal) {
     _goals = [..._goals, goal];
     sync.markDirty('tasks');
@@ -115,7 +159,14 @@ mixin TaskMixin on ChangeNotifier {
   void toggleGoalCheck(String id) {
     _goals = _goals.map((g) {
       if (g.id == id) {
-        return g.copyWith(isCompleted: !g.isCompleted);
+        final nextState = !g.isCompleted;
+        // If subChecklist exists, toggle all or main state
+        final updatedSubs = nextState && g.subChecklist.isNotEmpty
+            ? g.subChecklist.map((s) => s.copyWith(isCompleted: true)).toList()
+            : (!nextState && g.subChecklist.isNotEmpty
+                ? g.subChecklist.map((s) => s.copyWith(isCompleted: false)).toList()
+                : g.subChecklist);
+        return g.copyWith(isCompleted: nextState, subChecklist: updatedSubs);
       }
       return g;
     }).toList();
@@ -129,6 +180,70 @@ mixin TaskMixin on ChangeNotifier {
         final newVal = (g.currentValue + delta).clamp(0.0, 999999.0);
         final isDone = g.targetValue > 0 && newVal >= g.targetValue;
         return g.copyWith(currentValue: newVal, isCompleted: isDone);
+      }
+      return g;
+    }).toList();
+    sync.markDirty('tasks');
+    notifyListeners();
+  }
+
+  void setGoalCounterValue(String id, double newValue) {
+    _goals = _goals.map((g) {
+      if (g.id == id) {
+        final val = newValue.clamp(0.0, 999999.0);
+        final isDone = g.targetValue > 0 && val >= g.targetValue;
+        return g.copyWith(currentValue: val, isCompleted: isDone);
+      }
+      return g;
+    }).toList();
+    sync.markDirty('tasks');
+    notifyListeners();
+  }
+
+  void toggleGoalSubCheckItem(String goalId, String itemId) {
+    _goals = _goals.map((g) {
+      if (g.id == goalId) {
+        final updatedList = g.subChecklist.map((item) {
+          if (item.id == itemId) {
+            return item.copyWith(isCompleted: !item.isCompleted);
+          }
+          return item;
+        }).toList();
+
+        final allCompleted = updatedList.isNotEmpty && updatedList.every((i) => i.isCompleted);
+        return g.copyWith(subChecklist: updatedList, isCompleted: allCompleted);
+      }
+      return g;
+    }).toList();
+    sync.markDirty('tasks');
+    notifyListeners();
+  }
+
+  void addGoalSubCheckItem(String goalId, String title) {
+    if (title.trim().isEmpty) return;
+    _goals = _goals.map((g) {
+      if (g.id == goalId) {
+        final newItem = GoalSubCheckItem(
+          id: 'sub_${DateTime.now().millisecondsSinceEpoch}',
+          title: title.trim(),
+          isCompleted: false,
+        );
+        return g.copyWith(
+          subChecklist: [...g.subChecklist, newItem],
+          isCompleted: false,
+        );
+      }
+      return g;
+    }).toList();
+    sync.markDirty('tasks');
+    notifyListeners();
+  }
+
+  void deleteGoalSubCheckItem(String goalId, String itemId) {
+    _goals = _goals.map((g) {
+      if (g.id == goalId) {
+        final updatedList = g.subChecklist.where((item) => item.id != itemId).toList();
+        return g.copyWith(subChecklist: updatedList);
       }
       return g;
     }).toList();

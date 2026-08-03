@@ -1098,6 +1098,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     required Function(String) onLog,
     String? customInstruction,
     String? writingStyleMap,
+    String? financeText,
   }) async {
     String systemStyle = "";
     if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
@@ -1110,41 +1111,42 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     Current Logs: ${jsonEncode(reflections)}
     Reflection History (Context): $fullContext
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
+    ${financeText != null && financeText.isNotEmpty ? 'Today Finance Context: $financeText' : ''}
 
     Apply the following frameworks - do NOT name them in your output, just use them:
-    - Cognitive Behavioral Therapy (Beck; Burns, "Feeling Good"): when reflections show distorted thinking, name the distortion in the user's situation (all-or-nothing, mind-reading, catastrophizing, "should" statements, emotional reasoning, personalization, mental filter, overgeneralization). Offer a balanced thought - not a positive one.
-    - Emotional granularity (Susan David, "Emotional Agility"; Lisa Feldman Barrett, "How Emotions Are Made"): name specific emotions ("resentful", "deflated", "anxious about X"), not generic "bad" or "stressed".
-    - Self-compassion (Kristin Neff, "Self-Compassion"): when self-criticism appears, apply common humanity without dismissing the issue.
-    - Self-distancing (Ethan Kross, "Chatter"): for the day's hardest event, phrase the reframe from an observer's perspective - what the user would tell a close friend in the same spot - to give insight without re-triggering rumination.
-    - Deliberate practice (Ericsson, "Peak"): treat improvements as concrete capabilities the user is building, specific enough to act on.
-    - Stoic dichotomy of control (Epictetus; Pigliucci, "How to Be a Stoic"): when the user is upset about external events, distinguish what was vs was not in their control.
-    - Gratitude with specificity and cause (Emmons and McCullough; Seligman's Three Good Things): name the concrete thing AND why it happened / who caused it. Quality beats quantity; vary life domains to avoid gratitude fatigue.
-    - Expressed gratitude and capitalization (Lyubomirsky; Gable): gratitude told to the person, and good news shared with someone responsive, both beat keeping it private.
-    - Savoring (Bryant and Veroff): re-living the best moment of the day in sensory detail amplifies and extends it.
-    - Progress principle (Amabile and Kramer): visible progress in meaningful work - even tiny - is the strongest driver of inner work life. Surface today's most meaningful step forward.
-    - Implementation intentions (Gollwitzer): "When [cue], I will [action]" roughly doubles follow-through. Use it to bridge today's insight into tomorrow.
+    - Cognitive Behavioral Therapy (Beck; Burns, "Feeling Good"): when reflections show distorted thinking, name the distortion in the user's situation. Offer a balanced thought - not a positive one.
+    - Emotional granularity (Susan David, "Emotional Agility"; Lisa Feldman Barrett): name specific emotions.
+    - Gratitude with specificity and brevity: short, punchy, concrete items rather than long sentences.
+    - Financial awareness: provide small tactical feedback on financial choices logged today.
 
-    Tone: An honest, psychologically literate friend. Not a therapist, not a cheerleader. NEVER force a silver lining onto a hard event. Acknowledge difficulty in plain language. Insight is more useful than comfort. The user is a capable adult, not a patient.
-    ${customInstruction != null && customInstruction.isNotEmpty ? '\nUser Instruction: ' + customInstruction + '\n' : ''}
+    Tone: An honest, psychologically literate friend. Not a therapist, not a cheerleader. NEVER force a silver lining onto a hard event. Insight is more useful than comfort.
+
     Task:
-    1. "summary" (max 120 words): An honest read of today. Use 1-2 granular emotion words drawn from the logs. If a cognitive distortion is visible, name it in the user's own situation and offer a balanced reframe (balanced is not the same as positive), phrased with self-distancing when the event was hard. If the day was hard, say so plainly. Close with one observation about what was in vs not in their control today.
-    2. "improvements": 1-3 specific capabilities the user is building or could build (e.g. "tolerating uncertainty without seeking reassurance", not vague traits like "patience"). Each "insight" must be specific enough to act on tomorrow.
-    3. "grateful_people": EVERY person who did or said something concrete worth appreciating today - do NOT cap this at 3; list all who genuinely earned it (typically 1-8, but include more when the logs support it). "reason" must reference a concrete thing they did or said. "express" is one natural, ready-to-send sentence the user could actually say or text to that person tomorrow.
-    4. "grateful_today": 5 to 8 specific things to be grateful for today - fewer, deeper items beat a long shallow list. Draw from the logs — people, moments, resources, abilities, circumstances - and vary the domains. Each "text" must be concrete AND include the cause in the same sentence (not "health" but "the energy to finish the task despite fatigue - because I actually slept 7 hours"). Each has an "icon_type" (choose one: people, nature, health, learning, work, home, food, social, growth, mind, moment, general).
-    5. "savor_moment": the single best moment of the day, re-lived in 2-3 sentences of concrete sensory detail (what was seen, heard, felt). Written so re-reading it re-creates the feeling. If the day gave nothing, pick the least-bad moment honestly - do not invent.
-    6. "small_win": the most meaningful concrete progress made today, however small, and what it unlocks next. One sentence.
-    7. "tomorrow_intention": exactly one implementation intention that bridges today's main insight into tomorrow, in the strict form "When [specific cue or time], I will [specific observable action]".
+    1. "summary" (max 100 words): An honest read of today with 1-2 granular emotion words and a balanced reframe.
+    2. "quote_reflections": 2 to 4 items quoting important/key things the user said in today's logs, paired with a small AI review/comment. Each item: "user_quote" (the exact or key excerpt of what user said) and "ai_comment" (short, crisp AI review/insight).
+    3. "improvements": 1-3 specific capabilities the user is building or could build.
+    4. "grateful_people": EVERY person who earned appreciation today. "name", "relation", "reason", "express".
+    5. "grateful_today": 5 to 8 SHORT, CONCISE gratitude items (2 to 6 words each, small sized text style) — e.g. "Energizing morning walk", "Quiet 7 hours sleep". Each with "text" and "icon_type" (people/nature/health/learning/work/home/food/social/growth/mind/moment/general).
+    6. "savor_moment": single best moment of the day in 2-3 sensory sentences.
+    7. "small_win": today's most meaningful concrete progress step.
+    8. "tomorrow_intention": implementation intention "When [cue], I will [action]".
+    9. "suggested_activities": 2-3 fresh things/actions/experiments the user can try based on today's logs. Each: "activity", "reason".
+    10. "finance_briefing": summary of today's finance with "income", "expense", "net", and "ai_feedback" (1 short sentence of tactical AI feedback).
 
-    Output JSON: {
-      "summary": "string (max 120 words)",
+    Output JSON ONLY:
+    {
+      "summary": "string",
+      "quote_reflections": [ {"user_quote": "string", "ai_comment": "string"} ],
       "improvements": [ {"ability": "string", "insight": "string"} ],
       "grateful_people": [ {"name": "string", "relation": "string", "reason": "string", "express": "string"} ],
-      "grateful_today": [ {"text": "string", "icon_type": "string"} ],
-      "savor_moment": "string (2-3 sentences)",
-      "small_win": "string (1 sentence)",
-      "tomorrow_intention": "string (When..., I will...)"
+      "grateful_today": [ {"text": "string (2-6 words)", "icon_type": "string"} ],
+      "savor_moment": "string",
+      "small_win": "string",
+      "tomorrow_intention": "string",
+      "suggested_activities": [ {"activity": "string", "reason": "string"} ],
+      "finance_briefing": {"income": "string", "expense": "string", "net": "string", "ai_feedback": "string"}
     }
-    ENSURE VALID JSON. NO TRAILING COMMAS. grateful_today must have 5 to 8 items. grateful_people has NO maximum - include everyone who earned it.
+    ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
     
     return await makeAICall(
@@ -1175,7 +1177,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
       systemStyle = "\n\nAdhere to the following writing style map for your response. IMPORTANT: You must write in the absolute BEST version of this writing style, with all grammar, spelling, casing, capitalization, and punctuation corrected. Do NOT directly copy the user's typing style if it has typos, run-on sentences, lack of capitalization, or lazy texting shortcuts. Every sentence must use proper capitalization, standard punctuation, and perfect grammar while keeping the user's tone, vocabulary, and personality:\n$writingStyleMap\n";
     }
     final prompt = """
-    Generate a comprehensive 7-Day Review Report grounded in "Getting Things Done" (GTD) and "Atomic Habits" principles, along with evidence-based psychology.
+    Generate a comprehensive 7-Day Review Report grounded in GTD, Atomic Habits, and evidence-based psychology.
     $systemStyle
 
     Reflection Logs: $logsText
@@ -1183,23 +1185,24 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     Wellbeing Progress: $wellbeingStatsText
     ${financeText != null && financeText.isNotEmpty ? 'Finance: $financeText' : ''}
     ${agentProgressText != null && agentProgressText.isNotEmpty ? 'Agent Progress (Tasks): $agentProgressText' : ''}
-    ${weeklyBriefingContext != null && weeklyBriefingContext.isNotEmpty ? 'Weekly Context (Completed Tasks, Finance, Health, People): \n$weeklyBriefingContext' : ''}
+    ${weeklyBriefingContext != null && weeklyBriefingContext.isNotEmpty ? 'Weekly Context: \n$weeklyBriefingContext' : ''}
 
     Task:
-    1. "summary": Honest read of the week. Name 1-2 specific emotional themes. If the week was hard, say so plainly. Close with one actionable insight.
-    2. "wellbeing_analysis": Compare wellbeing to previous week. Name specific areas of growth or decline with evidence from logs.
-    3. "gtd_get_current": (GTD principle) Analyze the Agent Progress (Tasks) or logs. Identify 2-4 active or stalled projects/tasks and recommend ONE highly specific, immediate "Next Action" for each to prevent stalling.
-    4. "gtd_get_creative": (GTD principle) Based on the user's logs, suggest 1-2 new ideas, experiments, or "Someday/Maybe" items they might want to explore.
-    5. "atomic_friction": (Atomic Habits principle) Identify 1-2 areas where the user struggled or faced friction this week. Suggest ONE small, actionable environmental design or habit adjustment to make it easier next week.
-    6. "identity_votes": (Atomic Habits principle) Highlight 1-2 ways the user's actions this week successfully "voted" for the type of person they want to become (their desired identity).
-    7. "improved_abilities": 2-4 specific capabilities the user demonstrated or built this week. Score 1-10.
-    8. "grateful_people": EVERY person the user should appreciate this week - do NOT cap at 3; include all who genuinely earned it. Use real names. Concrete reasons.
-    9. "gratitude_highlights": 5 specific things from this week worth being grateful for (not generic), each including WHY it happened in the same sentence. Each with an icon_type (people/nature/health/learning/work/home/food/social/growth/mind/moment/general).
-    10. "after_action": (After-Action Review - debriefs improve performance ~25%) "intended" = what the user set out to do this week (from tasks/logs), "actual" = what actually happened, "lesson" = the ONE transferable lesson from the gap. Honest, no blame.
-    11. "energy_map": From evidence in the logs only: "energizers" = 1-3 specific activities/people/contexts that clearly gave energy this week; "drainers" = 1-3 that clearly drained it. Skip anything not evidenced.
-    12. "share_win": (Capitalization - sharing good news with a responsive person beats the event itself) "win" = the week's most share-worthy win, "person" = the named person to tell (from Known People/logs), "how" = a one-line natural opener the user could actually send.
+    1. "summary": Honest read of the week.
+    2. "wellbeing_analysis": Compare wellbeing to previous week.
+    3. "gtd_get_current": 2-4 active or stalled projects/tasks with one specific Next Action.
+    4. "gtd_get_creative": 1-2 new ideas or Someday/Maybe items.
+    5. "atomic_friction": 1-2 areas of friction and environmental/habit adjustments.
+    6. "identity_votes": 1-2 ways actions voted for desired identity.
+    7. "improved_abilities": 2-4 specific capabilities built, score 1-10.
+    8. "grateful_people": EVERY person to appreciate.
+    9. "gratitude_highlights": 5 specific concise gratitude highlights.
+    10. "after_action": "intended", "actual", "lesson".
+    11. "energy_map": "energizers", "drainers".
+    12. "share_win": "win", "person", "how".
+    13. "creative_story": A short (100-180 words) inspiring real story of a famous scientist, historical figure, writer, or artist whose struggles/journey mirrors what the user experienced this week, connecting their lesson directly to the user's journey. "title", "story", "takeaway".
 
-    Output JSON:
+    Output JSON ONLY:
     {
       "summary": "string",
       "wellbeing_analysis": "string",
@@ -1212,9 +1215,10 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
       "gratitude_highlights": [{"text": "string", "icon_type": "string"}],
       "after_action": {"intended": "string", "actual": "string", "lesson": "string"},
       "energy_map": {"energizers": ["string"], "drainers": ["string"]},
-      "share_win": {"win": "string", "person": "string", "how": "string"}
+      "share_win": {"win": "string", "person": "string", "how": "string"},
+      "creative_story": {"title": "string", "story": "string", "takeaway": "string"}
     }
-    ENSURE VALID JSON. NO TRAILING COMMAS. grateful_people has NO maximum.
+    ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
     return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
   }
@@ -1241,50 +1245,38 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
       systemStyle = "\n\nAdhere to the following writing style map for your response. IMPORTANT: You must write in the absolute BEST version of this writing style, with all grammar, spelling, casing, capitalization, and punctuation corrected. Do NOT directly copy the user's typing style if it has typos, run-on sentences, lack of capitalization, or lazy texting shortcuts. Every sentence must use proper capitalization, standard punctuation, and perfect grammar while keeping the user's tone, vocabulary, and personality:\n$writingStyleMap\n";
     }
     final prompt = """
-    Generate a MONTHLY BRIEFING for $monthLabel - a once-a-month deep review that does what daily and weekly reviews cannot: see trends, close the month's account honestly, and channel the new month's fresh-start energy into few, well-chosen commitments.
+    Generate a MONTHLY BRIEFING for $monthLabel.
     $systemStyle
 
     Reflection Logs (last ~30 days): $logsText
     Time Data (last ~30 days): $timeStatsText
-    Wellbeing Progress (this month vs previous month): $wellbeingStatsText
-    ${financeText != null && financeText.isNotEmpty ? 'Finance (month): $financeText' : ''}
-    ${healthText != null && healthText.isNotEmpty ? 'Health (month): $healthText' : ''}
+    Wellbeing Progress: $wellbeingStatsText
+    ${financeText != null && financeText.isNotEmpty ? 'Finance: $financeText' : ''}
+    ${healthText != null && healthText.isNotEmpty ? 'Health: $healthText' : ''}
     ${peopleContext != null && peopleContext.isNotEmpty ? 'Known People: $peopleContext' : ''}
-    ${weeklyReportsContext != null && weeklyReportsContext.isNotEmpty ? 'Weekly Report Summaries (this month):\n$weeklyReportsContext' : ''}
-    ${previousMonthlyContext != null && previousMonthlyContext.isNotEmpty ? 'Previous Monthly Briefing (context):\n$previousMonthlyContext' : ''}
-
-    Apply the following frameworks - do NOT name them in your output, just use them:
-    - Narrative identity (McAdams; Pennebaker's expressive writing): organizing a month into a coherent, HONEST story with turning points drives meaning-making. No forced redemption arcs.
-    - After-Action Review (Keiser and Payne meta-analysis, d≈0.79): intended vs actual vs why-the-gap vs adjustment. Blame-free, evidence-based.
-    - Emotional granularity over time (Barrett): name recurring emotional patterns across weeks that single days can't show ("dread clusters around Sunday planning").
-    - Progress principle (Amabile and Kramer): small wins compound; make the month's progress visible.
-    - Identity-based habits (James Clear): aggregate the month's "identity votes" into a trajectory - who the user was becoming this month, evidenced.
-    - Relationship maintenance and capitalization (Gable): relationships need deliberate upkeep on a monthly horizon; pair each key person with one concrete action.
-    - Wheel-of-life domain scan: rate life domains to expose imbalance the user stopped noticing.
-    - Best Possible Self (Carrillo meta-analysis, d≈0.33 optimism): a vivid, plausible one-month-out portrait grounded in this month's actual evidence.
-    - Fresh start effect (Dai, Milkman, Riis): a new month is a temporal landmark - close the old account, then commit forward.
-    - WOOP / mental contrasting (Oettingen): every forward goal = wish + outcome + obstacle + if-then plan. Never outcome alone.
-    - Subtraction (stop-doing): removing one commitment is often worth more than adding one.
-
-    Tone: An honest, psychologically literate friend writing a month-end letter. Not a therapist, not a cheerleader. Plain language about hard weeks. Insight over comfort. The user is a capable adult.
+    ${weeklyReportsContext != null && weeklyReportsContext.isNotEmpty ? 'Weekly Summaries:\n$weeklyReportsContext' : ''}
+    ${previousMonthlyContext != null && previousMonthlyContext.isNotEmpty ? 'Previous Monthly Context:\n$previousMonthlyContext' : ''}
 
     Task:
-    1. "narrative" (150-220 words): The month told as an honest story - where it started, the 1-2 turning points, where it ended. Use granular emotion words from the logs. If the month was rough, the story says so; meaning comes from coherence, not spin.
-    2. "emotional_climate": "dominant_emotions" = 2-4 granular emotions that defined the month; "trajectory" = one sentence on the direction (improving/declining/oscillating and around what); "patterns" = 2-3 recurring emotional patterns with concrete evidence from logs (pattern + evidence each).
-    3. "after_action_review": 2-4 entries covering the month's main intentions (from tasks, weekly reports, previous monthly WOOP goals if provided). Each: "intended", "actual", "gap_why" (honest cause, no blame), "adjustment" (one specific change).
-    4. "progress_review": 2-4 areas where real progress compounded this month, however small. Each: "area", "small_wins" (the concrete steps logged), "compound_effect" (what they add up to).
-    5. "identity_trajectory": One paragraph (60-100 words): based on the month's repeated actions, who was the user becoming? Name the identity the actions voted for, with 2-3 evidenced votes, and one identity the actions voted against.
-    6. "relationship_audit": EVERY person who mattered this month (no cap). Each: "name", "trend" (deepening/stable/strained/neglected + one-line evidence), "action" = one concrete maintenance or capitalization act for next month (a message to send, a meet to plan, a thank-you to deliver).
-    7. "wellbeing_deltas": the 2-4 biggest movements in the wellbeing data (up or down). Each: "area", "direction" (up/down/flat), "hypothesis" = most plausible cause from the logs.
-    8. "life_domains": rate each domain 1-10 for THIS month with one line of evidence: Work/Projects, Learning, Health/Body, Relationships, Finance, Play/Rest, Meaning/Purpose. Ratings must reflect the data, not kindness. Flag the most neglected domain.
-    9. "best_possible_self" (80-120 words): A vivid, second-person portrait of the user one month from now IF the top 2-3 adjustments stick. Concrete and plausible - built strictly from this month's evidence of what the user can do, not fantasy.
-    10. "next_month_woop": 1-3 goals maximum (fewer, better). Each: "wish" (specific, feasible in a month), "outcome" (the felt benefit, vivid), "obstacle" (the REAL inner/outer obstacle, from this month's evidence), "plan" ("If [obstacle], then I will [action]").
-    11. "gratitude_reminiscence": exactly 5 moments from this month worth re-living, each concrete with its cause in the sentence, each with "icon_type" (people/nature/health/learning/work/home/food/social/growth/mind/moment/general).
-    12. "letting_go": ONE commitment, habit, worry, or expectation to consciously drop next month, and the single sentence of why the evidence says it costs more than it gives.
+    1. "narrative": Honest month story (150-220 words).
+    2. "quote_reflections": 3-5 items quoting key user statements/turning points from the month paired with AI comments: `[ {"user_quote": "string", "ai_comment": "string"} ]`.
+    3. "emotional_climate": "dominant_emotions", "trajectory", "patterns".
+    4. "after_action_review": "intended", "actual", "gap_why", "adjustment".
+    5. "progress_review": "area", "small_wins", "compound_effect".
+    6. "identity_trajectory": Who the user became.
+    7. "relationship_audit": EVERY person who mattered. "name", "trend", "action".
+    8. "wellbeing_deltas": 2-4 movements in wellbeing.
+    9. "life_domains": rate domains 1-10 with evidence.
+    10. "best_possible_self": One-month-out portrait.
+    11. "next_month_woop": 1-3 goals.
+    12. "gratitude_reminiscence": exactly 5 moments.
+    13. "letting_go": ONE commitment to drop.
+    14. "creative_story": An inspiring real story of a scientist, historical thinker, or artist mirroring the user's month. "title", "story", "takeaway".
 
     Output JSON ONLY:
     {
       "narrative": "string",
+      "quote_reflections": [{"user_quote": "string", "ai_comment": "string"}],
       "emotional_climate": {"dominant_emotions": ["string"], "trajectory": "string", "patterns": [{"pattern": "string", "evidence": "string"}]},
       "after_action_review": [{"intended": "string", "actual": "string", "gap_why": "string", "adjustment": "string"}],
       "progress_review": [{"area": "string", "small_wins": "string", "compound_effect": "string"}],
@@ -1295,9 +1287,10 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
       "best_possible_self": "string",
       "next_month_woop": [{"wish": "string", "outcome": "string", "obstacle": "string", "plan": "string"}],
       "gratitude_reminiscence": [{"text": "string", "icon_type": "string"}],
-      "letting_go": "string"
+      "letting_go": "string",
+      "creative_story": {"title": "string", "story": "string", "takeaway": "string"}
     }
-    ENSURE VALID JSON. NO TRAILING COMMAS. relationship_audit has NO maximum. gratitude_reminiscence must have exactly 5 items. next_month_woop must have 1-3 items.
+    ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
     return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
   }
@@ -1339,6 +1332,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
     String? writingStyleMap,
+    String? knownPeopleText,
   }) async {
     String systemStyle = "";
     if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
@@ -1351,32 +1345,29 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     Context:
     Reflections (Last 7 days): $reflectionsList
     Sessions (Last 7 days): $sessionsList
-
-    Apply the following frameworks - do NOT name them in your output, just use them:
-    - Behavioral activation (Martell; Burns, "Feeling Good"): action precedes motivation. When momentum is low, prescribe a small concrete behavior, not a feeling-shift.
-    - Implementation intentions (Gollwitzer): the format "When [specific cue or time], I will [specific observable action]" raises follow-through dramatically. Use it for every directive.
-    - Mental contrasting / WOOP (Gabriele Oettingen, "Rethinking Positive Thinking"): pair the desired outcome with the most likely obstacle, then plan around it. Positive fantasy alone reduces follow-through.
-    - Identity-based habits (James Clear, "Atomic Habits"): frame at least one action as a vote for the kind of person the user is becoming.
-    - Self-Determination Theory (Deci and Ryan; Pink, "Drive"): when relevant, connect a task to autonomy, competence, or relatedness rather than external pressure.
-    - Anti-perfectionism (Stoeber; Burns): include at least one minimum-viable version of a goal so a bad day still produces a win.
-    - The Highlight / most important task (Knapp and Zeratsky, "Make Time"): naming ONE priority for the day improves completion and cuts choice overload.
-    - Anticipatory savoring (Bryant and Veroff): having one concrete thing to look forward to measurably lifts the day's mood. Find it in the data; if none exists, prescribe a small one.
-
-    Tone: Warm, honest, specific. NEVER force optimism or "find the good" in recent bad events - acknowledge difficulty plainly, then pivot to one concrete next action. The user is a capable adult, not a patient.
+    ${knownPeopleText != null && knownPeopleText.isNotEmpty ? 'Known Contacts/People: $knownPeopleText' : ''}
 
     Task:
-    1. "forecast" (60-100 words): Read the user's recent momentum honestly. Name one obstacle visible in the data (mental contrasting). If the last few days have been hard, say so directly, then prescribe one small behavioral start that breaks inertia today. Do not reframe a bad week as good; pivot to action.
-    2. "highlight": ONE sentence naming the single most leveraged task for today (drawn from sessions/reflections) and why it matters today specifically. This is the day's Highlight - one thing, not a list.
-    3. "obstacle_plan": the WOOP core. "obstacle" = the single most likely thing to derail today, inferred from recent data (a person, a time sink, an inner state like "post-lunch slump"). "if_then" = one sentence in the strict form "If [obstacle shows up], then I will [pre-decided response]".
-    4. "anticipate": one concrete thing today worth genuinely looking forward to, drawn from the data (a session the user enjoys, a person, a meal, a walk). If nothing exists, prescribe one small pleasurable action to plant into the day. One sentence.
-    5. "directives" (exactly 3): each must be a specific implementation intention in the form "When [specific cue or time], I will [specific observable action]." Avoid vague verbs like "focus", "be productive", "stay positive". At least one directive should be a minimum-viable version (anti-perfectionism) so the bar is reachable even on a bad day. At least one directive should connect to the user's identity or values when context allows.
+    1. "forecast" (40-80 words): Read the user's recent momentum honestly.
+    2. "yesterday_quote": A prominent exact or representative user quote/phrase from yesterday's reflections.
+    3. "ai_today_advice": Direct crisp AI recommendation/response on how to make today better based on that yesterday quote.
+    4. "motivational_quote": A famous inspirational quote from a scientist, philosopher, writer, or historical figure tailored for the day's momentum. Format: {"quote": "string", "author": "string"}.
+    5. "suggested_contacts": Pick 2-3 specific people from Known Contacts that the user should reach out to or check in with today. Format: [{"name": "string", "relation": "string", "type": "RECONNECT|FOLLOW UP|APPRECIATION|STAY IN TOUCH", "reason": "string"}].
+    6. "highlight": ONE sentence naming the single most leveraged task for today.
+    7. "obstacle_plan": "obstacle" and "if_then".
+    8. "anticipate": one concrete thing today worth genuinely looking forward to.
+    9. "directives" (exactly 3): specific implementation intentions.
 
     Output JSON ONLY:
     {
       "forecast": "string",
-      "highlight": "string (1 sentence)",
-      "obstacle_plan": {"obstacle": "string", "if_then": "string (If..., then I will...)"},
-      "anticipate": "string (1 sentence)",
+      "yesterday_quote": "string",
+      "ai_today_advice": "string",
+      "motivational_quote": {"quote": "string", "author": "string"},
+      "suggested_contacts": [{"name": "string", "relation": "string", "type": "string", "reason": "string"}],
+      "highlight": "string",
+      "obstacle_plan": {"obstacle": "string", "if_then": "string"},
+      "anticipate": "string",
       "directives": ["string", "string", "string"]
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.

@@ -8,19 +8,27 @@ import 'package:missions/src/widgets/ui/hud_components.dart';
 class JweDateSelector extends StatelessWidget {
   final String dateStr;
   final VoidCallback onTap;
+  final Color? accentColor;
 
-  const JweDateSelector({super.key, required this.dateStr, required this.onTap});
+  const JweDateSelector({
+    super.key,
+    required this.dateStr,
+    required this.onTap,
+    this.accentColor,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final accent = accentColor ?? JweTheme.accentCyan;
+
     return InkWell(
       onTap: onTap,
       child: HudPanel(
         clip: HudClip.br,
-        accent: JweTheme.accentCyan,
+        accent: accent,
         padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
         child: Row(children: [
-           HudReticle(size: 18, color: JweTheme.accentCyan),
+          HudReticle(size: 18, color: accent),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -30,7 +38,7 @@ class JweDateSelector extends StatelessWidget {
                 Text(
                   '// INSPECT DATE',
                   style: GoogleFonts.jetBrainsMono(
-                    color: JweTheme.accentCyan,
+                    color: accent,
                     fontSize: 9.5,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.6,
@@ -53,9 +61,9 @@ class JweDateSelector extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              border: Border.all(color: JweTheme.accentCyan.withValues(alpha: 0.40), width: 1),
+              border: Border.all(color: accent.withValues(alpha: 0.40), width: 1),
             ),
-            child: Icon(MdiIcons.calendarBlank, size: 14, color: JweTheme.accentCyan),
+            child: Icon(MdiIcons.calendarBlank, size: 14, color: accent),
           ),
         ]),
       ),
