@@ -40,6 +40,9 @@ class SavingsGoalsView extends StatelessWidget {
               final progress = g.targetAmount > 0 ? (g.currentAmount / g.targetAmount).clamp(0.0, 1.0) : 0.0;
               return GestureDetector(
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SavingsDetailScreen(goalId: g.id))),
+                onLongPress: () {
+                  showDialog(context: context, builder: (ctx) => AddSavingsGoalDialog(goalToEdit: g));
+                },
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(16),

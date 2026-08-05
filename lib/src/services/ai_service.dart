@@ -1105,33 +1105,35 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
       systemStyle = "\n\nAdhere to the following writing style map for your response. IMPORTANT: You must write in the absolute BEST version of this writing style, with all grammar, spelling, casing, capitalization, and punctuation corrected. Do NOT directly copy the user's typing style if it has typos, run-on sentences, lack of capitalization, or lazy texting shortcuts. Every sentence must use proper capitalization, standard punctuation, and perfect grammar while keeping the user's tone, vocabulary, and personality:\n$writingStyleMap\n";
     }
     final prompt = """
-    Generate an end-of-day Tactical Briefing grounded in evidence-based psychology.
+    Generate an end-of-day Tactical Briefing grounded in positive psychology, gratitude, and optimistic reinforcement.
     $systemStyle
 
-    Current Logs: ${jsonEncode(reflections)}
-    Reflection History (Context): $fullContext
+    Current Logs (TODAY'S LOGS — FOR QUOTING AND TODAY'S ANALYSIS): ${jsonEncode(reflections)}
+    Reflection History (BROADER WEEKLY CONTEXT — FOR CONTEXT ONLY, DO NOT QUOTE FROM THIS): $fullContext
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
     ${financeText != null && financeText.isNotEmpty ? 'Today Finance Context: $financeText' : ''}
+    ${customInstruction != null && customInstruction.isNotEmpty ? 'User Custom Instruction: $customInstruction' : ''}
 
-    Apply the following frameworks - do NOT name them in your output, just use them:
-    - Cognitive Behavioral Therapy (Beck; Burns, "Feeling Good"): when reflections show distorted thinking, name the distortion in the user's situation. Offer a balanced thought - not a positive one.
-    - Emotional granularity (Susan David, "Emotional Agility"; Lisa Feldman Barrett): name specific emotions.
+    Apply the following principles - do NOT name them in your output, just use them:
+    - Positive Psychology & Strengths-Based Reframing: focus on user strengths, achievements, and progress with an encouraging, optimistic reframe.
+    - Emotional granularity (Susan David, "Emotional Agility"; Lisa Feldman Barrett): name specific authentic positive and grounding emotions.
     - Gratitude with specificity and brevity: short, punchy, concrete items rather than long sentences.
-    - Financial awareness: provide small tactical feedback on financial choices logged today.
+    - Financial awareness: provide encouraging, constructive, and positive tactical feedback on financial choices logged today.
+    - QUOTING RULE: All user quotes ("user_quote") MUST be taken EXCLUSIVELY from today's Current Logs (text written on the same day). NEVER quote text from Reflection History or previous days, even though Reflection History is provided for broader weekly context.
 
-    Tone: An honest, psychologically literate friend. Not a therapist, not a cheerleader. NEVER force a silver lining onto a hard event. Insight is more useful than comfort.
+    Tone: Warm, highly optimistic, deeply supportive, appreciative, and empowering. ALWAYS celebrate wins, highlight the user's strengths, and appreciate good efforts. NEVER give negative, critical, or unsolicited corrective advice. NEVER point out flaws or cognitive distortions in a negative way.
 
     Task:
-    1. "summary" (max 100 words): An honest read of today with 1-2 granular emotion words and a balanced reframe.
-    2. "quote_reflections": 2 to 4 items quoting important/key things the user said in today's logs, paired with a small AI review/comment. Each item: "user_quote" (the exact or key excerpt of what user said) and "ai_comment" (short, crisp AI review/insight).
-    3. "improvements": 1-3 specific capabilities the user is building or could build.
+    1. "summary" (max 100 words): An uplifting, highly optimistic read of today celebrating wins and progress with 1-2 granular emotion words and an empowering positive reframe.
+    2. "quote_reflections": 2 to 4 items selecting the user's BEST, most positive, inspiring, or meaningful text/statements STRICTLY ONLY from today's Current Logs (same day text only), paired with warm AI appreciation and validation. Each item: "user_quote" (the exact or key excerpt of the user's good/positive text from today's Current Logs ONLY) and "ai_comment" (warm, appreciative, encouraging AI review/validation celebrating what the user wrote — DO NOT criticize, give negative advice, or point out flaws).
+    3. "improvements": 1-3 specific capabilities the user is building or strengthening, expressed with optimism and pride.
     4. "grateful_people": EVERY person who earned appreciation today. "name", "relation", "reason", "express".
     5. "grateful_today": 5 to 8 SHORT, CONCISE gratitude items (2 to 6 words each, small sized text style) — e.g. "Energizing morning walk", "Quiet 7 hours sleep". Each with "text" and "icon_type" (people/nature/health/learning/work/home/food/social/growth/mind/moment/general).
     6. "savor_moment": single best moment of the day in 2-3 sensory sentences.
     7. "small_win": today's most meaningful concrete progress step.
-    8. "tomorrow_intention": implementation intention "When [cue], I will [action]".
-    9. "suggested_activities": 2-3 fresh things/actions/experiments the user can try based on today's logs. Each: "activity", "reason".
-    10. "finance_briefing": summary of today's finance with "income", "expense", "net", and "ai_feedback" (1 short sentence of tactical AI feedback).
+    8. "tomorrow_intention": positive implementation intention "When [cue], I will [action]".
+    9. "suggested_activities": 2-3 fresh, exciting things/actions/experiments the user can try based on today's logs. Each: "activity", "reason".
+    10. "finance_briefing": summary of today's finance with "income", "expense", "net", and "ai_feedback" (1 short sentence of encouraging positive AI feedback).
 
     Output JSON ONLY:
     {
@@ -1177,7 +1179,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
       systemStyle = "\n\nAdhere to the following writing style map for your response. IMPORTANT: You must write in the absolute BEST version of this writing style, with all grammar, spelling, casing, capitalization, and punctuation corrected. Do NOT directly copy the user's typing style if it has typos, run-on sentences, lack of capitalization, or lazy texting shortcuts. Every sentence must use proper capitalization, standard punctuation, and perfect grammar while keeping the user's tone, vocabulary, and personality:\n$writingStyleMap\n";
     }
     final prompt = """
-    Generate a comprehensive 7-Day Review Report grounded in GTD, Atomic Habits, and evidence-based psychology.
+    Generate a comprehensive 7-Day Review Report grounded in GTD, Atomic Habits, positive psychology, and optimistic encouragement.
     $systemStyle
 
     Reflection Logs: $logsText
@@ -1187,12 +1189,14 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     ${agentProgressText != null && agentProgressText.isNotEmpty ? 'Agent Progress (Tasks): $agentProgressText' : ''}
     ${weeklyBriefingContext != null && weeklyBriefingContext.isNotEmpty ? 'Weekly Context: \n$weeklyBriefingContext' : ''}
 
+    Tone: Warm, highly optimistic, empowering, constructive, and deeply encouraging. Highlight growth, progress, and strengths. Celebrate every victory. NEVER give negative or critical feedback.
+
     Task:
-    1. "summary": Honest read of the week.
-    2. "wellbeing_analysis": Compare wellbeing to previous week.
+    1. "summary": Uplifting, optimistic read of the week celebrating growth, wins, and progress.
+    2. "wellbeing_analysis": Positive comparison of wellbeing progress compared to previous week.
     3. "gtd_get_current": 2-4 active or stalled projects/tasks with one specific Next Action.
-    4. "gtd_get_creative": 1-2 new ideas or Someday/Maybe items.
-    5. "atomic_friction": 1-2 areas of friction and environmental/habit adjustments.
+    4. "gtd_get_creative": 1-2 new exciting ideas or Someday/Maybe items.
+    5. "atomic_friction": 1-2 areas of friction and encouraging environmental/habit adjustments.
     6. "identity_votes": 1-2 ways actions voted for desired identity.
     7. "improved_abilities": 2-4 specific capabilities built, score 1-10.
     8. "grateful_people": EVERY person to appreciate.
@@ -1245,7 +1249,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
       systemStyle = "\n\nAdhere to the following writing style map for your response. IMPORTANT: You must write in the absolute BEST version of this writing style, with all grammar, spelling, casing, capitalization, and punctuation corrected. Do NOT directly copy the user's typing style if it has typos, run-on sentences, lack of capitalization, or lazy texting shortcuts. Every sentence must use proper capitalization, standard punctuation, and perfect grammar while keeping the user's tone, vocabulary, and personality:\n$writingStyleMap\n";
     }
     final prompt = """
-    Generate a MONTHLY BRIEFING for $monthLabel.
+    Generate a MONTHLY BRIEFING for $monthLabel grounded in positive psychology and optimistic encouragement.
     $systemStyle
 
     Reflection Logs (last ~30 days): $logsText
@@ -1257,9 +1261,11 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     ${weeklyReportsContext != null && weeklyReportsContext.isNotEmpty ? 'Weekly Summaries:\n$weeklyReportsContext' : ''}
     ${previousMonthlyContext != null && previousMonthlyContext.isNotEmpty ? 'Previous Monthly Context:\n$previousMonthlyContext' : ''}
 
+    Tone: Uplifting, highly optimistic, empowering, and deeply appreciative. Celebrate all accomplishments, growth, and positive turning points. NEVER give negative or critical advice.
+
     Task:
-    1. "narrative": Honest month story (150-220 words).
-    2. "quote_reflections": 3-5 items quoting key user statements/turning points from the month paired with AI comments: `[ {"user_quote": "string", "ai_comment": "string"} ]`.
+    1. "narrative": Inspiring, optimistic story of the month highlighting growth and milestones (150-220 words).
+    2. "quote_reflections": 3-5 items selecting the user's best, most positive, or inspiring statements from the month paired with warm AI appreciation and validation: `[ {"user_quote": "string", "ai_comment": "string"} ]` (DO NOT criticize, give negative advice, or point out flaws).
     3. "emotional_climate": "dominant_emotions", "trajectory", "patterns".
     4. "after_action_review": "intended", "actual", "gap_why", "adjustment".
     5. "progress_review": "area", "small_wins", "compound_effect".
@@ -1339,7 +1345,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
       systemStyle = "\n\nAdhere to the following writing style map for your response. IMPORTANT: You must write in the absolute BEST version of this writing style, with all grammar, spelling, casing, capitalization, and punctuation corrected. Do NOT directly copy the user's typing style if it has typos, run-on sentences, lack of capitalization, or lazy texting shortcuts. Every sentence must use proper capitalization, standard punctuation, and perfect grammar while keeping the user's tone, vocabulary, and personality:\n$writingStyleMap\n";
     }
     final prompt = """
-    Generate a 'System Start-Up Sequence' (a morning briefing) grounded in evidence-based psychology.
+    Generate a 'System Start-Up Sequence' (a morning briefing) grounded in positive psychology and optimistic encouragement.
     $systemStyle
 
     Context:
@@ -1347,11 +1353,13 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     Sessions (Last 7 days): $sessionsList
     ${knownPeopleText != null && knownPeopleText.isNotEmpty ? 'Known Contacts/People: $knownPeopleText' : ''}
 
+    Tone: Highly optimistic, energizing, empowering, deeply supportive, and appreciative. ALWAYS encourage the user and highlight potential. NEVER give negative, critical, or adversarial advice.
+
     Task:
-    1. "forecast" (40-80 words): Read the user's recent momentum honestly.
-    2. "yesterday_quote": A prominent exact or representative user quote/phrase from yesterday's reflections.
-    3. "ai_today_advice": Direct crisp AI recommendation/response on how to make today better based on that yesterday quote.
-    4. "motivational_quote": A famous inspirational quote from a scientist, philosopher, writer, or historical figure tailored for the day's momentum. Format: {"quote": "string", "author": "string"}.
+    1. "forecast" (40-80 words): An optimistic, energizing morning forecast celebrating recent momentum and setting an inspiring tone for the day.
+    2. "yesterday_quote": A prominent positive, inspiring, or representative good quote/phrase from yesterday's reflections.
+    3. "ai_today_advice": Warm, appreciative, and optimistic AI encouragement for today inspired by that yesterday quote — celebrating what the user wrote and boosting their momentum for today (DO NOT give negative or critical advice).
+    4. "motivational_quote": A famous inspirational quote from a scientist, philosopher, writer, or historical figure tailored for the day's positive momentum. Format: {"quote": "string", "author": "string"}.
     5. "suggested_contacts": Pick 2-3 specific people from Known Contacts that the user should reach out to or check in with today. Format: [{"name": "string", "relation": "string", "type": "RECONNECT|FOLLOW UP|APPRECIATION|STAY IN TOUCH", "reason": "string"}].
     6. "highlight": ONE sentence naming the single most leveraged task for today.
     7. "obstacle_plan": "obstacle" and "if_then".

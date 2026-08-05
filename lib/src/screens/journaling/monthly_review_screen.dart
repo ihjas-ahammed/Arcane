@@ -195,7 +195,7 @@ class MonthlyReviewScreen extends StatelessWidget {
 
             // ── Quoted Reflections & AI Reviews ────────
             if (quoteReflections.isNotEmpty) ...[
-              const HudSectionHead(label: 'QUOTED REFLECTIONS & AI REVIEW', code: 'QUT', accent: HudTone.cyan),
+              const HudSectionHead(label: 'QUOTED HIGHLIGHTS & AI APPRECIATION', code: 'QUT', accent: HudTone.cyan),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Column(

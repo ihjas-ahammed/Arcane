@@ -168,7 +168,7 @@ class TacticalBriefingCard extends StatelessWidget {
                 if (quoteReflections.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   HudSectionHead(
-                    label: 'QUOTED REFLECTIONS & AI REVIEW',
+                    label: 'QUOTED HIGHLIGHTS & AI APPRECIATION',
                     accent: HudTone.cyan,
                     padding: EdgeInsets.zero,
                   ),

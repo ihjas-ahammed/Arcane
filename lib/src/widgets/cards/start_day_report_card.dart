@@ -173,7 +173,7 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                       children: [
                         Container(width: 3, height: 10, color: JweTheme.accentAmber),
                         const SizedBox(width: 8),
-                        Text("YESTERDAY'S QUOTE VS TODAY'S AI ADVICE",
+                        Text("YESTERDAY'S HIGHLIGHT & TODAY'S AI INSPIRATION",
                             style: GoogleFonts.jetBrainsMono(
                               color: JweTheme.accentAmber,
                               fontSize: 9,
