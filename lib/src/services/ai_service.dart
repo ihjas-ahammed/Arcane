@@ -1099,6 +1099,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     String? customInstruction,
     String? writingStyleMap,
     String? financeText,
+    String? goalsText,
   }) async {
     String systemStyle = "";
     if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
@@ -1112,6 +1113,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     Reflection History (BROADER WEEKLY CONTEXT — FOR CONTEXT ONLY, DO NOT QUOTE FROM THIS): $fullContext
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
     ${financeText != null && financeText.isNotEmpty ? 'Today Finance Context: $financeText' : ''}
+    ${goalsText != null && goalsText.isNotEmpty ? 'Today Goals Context:\n$goalsText' : ''}
     ${customInstruction != null && customInstruction.isNotEmpty ? 'User Custom Instruction: $customInstruction' : ''}
 
     Apply the following principles - do NOT name them in your output, just use them:
@@ -1339,6 +1341,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     required Function(String) onLog,
     String? writingStyleMap,
     String? knownPeopleText,
+    String? goalsText,
   }) async {
     String systemStyle = "";
     if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
@@ -1352,6 +1355,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     Reflections (Last 7 days): $reflectionsList
     Sessions (Last 7 days): $sessionsList
     ${knownPeopleText != null && knownPeopleText.isNotEmpty ? 'Known Contacts/People: $knownPeopleText' : ''}
+    ${goalsText != null && goalsText.isNotEmpty ? 'Goals Context:\n$goalsText' : ''}
 
     Tone: Highly optimistic, energizing, empowering, deeply supportive, and appreciative. ALWAYS encourage the user and highlight potential. NEVER give negative, critical, or adversarial advice.
 

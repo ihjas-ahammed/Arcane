@@ -298,14 +298,17 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
               Expanded(
                 child: goals.isEmpty
                     ? _buildEmptyState(isLight, themeColor)
-                    : ListView.builder(
+                    : ReorderableListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                         itemCount: goals.length,
+                        onReorderItem: (oldIndex, newIndex) {
+                          appProvider.reorderGoalsForPeriod(_activeScope, _selectedDate, oldIndex, newIndex);
+                        },
                         itemBuilder: (ctx, i) {
                           final goal = goals[i];
                           final timeMins = _calculateLinkedTimeMinutes(appProvider, goal);
                           return Dismissible(
-                            key: ValueKey(goal.id),
+                            key: ValueKey('goal_${goal.id}'),
                             direction: DismissDirection.horizontal,
                             confirmDismiss: (direction) async {
                               if (direction == DismissDirection.startToEnd) {
@@ -618,42 +621,53 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
     final ratio = goal.getProgressRatio(dynamicTimeMinutes: timeMins);
     final isSubExpanded = _expandedSublists[goal.id] ?? false;
 
-    return GestureDetector(
-      onLongPress: () => _openCreateGoalDialog(context, goalToEdit: goal),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        child: CustomPaint(
-          painter: _TacticalCardPainter(
-            activeColor: themeColor,
-            isLight: isLight,
-            isDone: isDone,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header Row: Goal Title on left, Metric Badge on top right
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        goal.title,
-                        style: GoogleFonts.jetBrainsMono(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          decoration: isDone ? TextDecoration.lineThrough : null,
-                          color: isDone
-                              ? (isLight ? Colors.black45 : Colors.white54)
-                              : (isLight ? Colors.black87 : Colors.white),
-                        ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: CustomPaint(
+        painter: _TacticalCardPainter(
+          activeColor: themeColor,
+          isLight: isLight,
+          isDone: isDone,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Row: Goal Title on left, Edit Button & Metric Badge on top right
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      goal.title,
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        decoration: isDone ? TextDecoration.lineThrough : null,
+                        color: isDone
+                            ? (isLight ? Colors.black45 : Colors.white54)
+                            : (isLight ? Colors.black87 : Colors.white),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    _buildMetricBadge(goal.metricType, themeColor),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: () => _openCreateGoalDialog(context, goalToEdit: goal),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Icon(
+                        MdiIcons.squareEditOutline,
+                        size: 16,
+                        color: themeColor.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  _buildMetricBadge(goal.metricType, themeColor),
+                ],
+              ),
                 const SizedBox(height: 4),
 
                 // XP Badge, Recurring Tag & Linked Tasks
@@ -845,9 +859,8 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildSubchecklistWidget(
     BuildContext context,

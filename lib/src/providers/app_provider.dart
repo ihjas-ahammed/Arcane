@@ -12,6 +12,7 @@ import 'package:missions/src/utils/history_helper.dart';
 import 'package:missions/src/utils/constants.dart';
 import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/utils/global_toast.dart';
+import 'package:missions/src/utils/goal_briefing_helper.dart';
 import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/skill_models.dart';
@@ -923,6 +924,97 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     }
     updatePeopleList(currentList);
   }
+
+  /// Automatically updates person profile across main info, Tab 1 (The Manual - Last Contact Intel & Next Meet Plan), and Tab 2 (AI Dossier/Biodata)
+  void logInteractionForPerson({
+    required String name,
+    String? relation,
+    String? interactionSummary,
+    String? nextActionPlan,
+    DateTime? date,
+    String? occupation,
+    String? location,
+  }) {
+    final targetName = name.trim();
+    if (targetName.isEmpty) return;
+
+    final today = date ?? DateTime.now();
+    final dateStr = DateFormat('yyyy-MM-dd').format(today);
+
+    final currentPeople = List<PersonInfo>.from(chatbotMemory.people);
+    final existingIndex = currentPeople.indexWhere((p) => p.name.toLowerCase() == targetName.toLowerCase());
+
+    PersonInfo person;
+    if (existingIndex != -1) {
+      person = currentPeople[existingIndex];
+      if (relation != null && relation.trim().isNotEmpty && (person.relation.isEmpty || person.relation == 'Acquaintance')) {
+        person.relation = relation.trim();
+      }
+    } else {
+      person = PersonInfo(
+        id: const Uuid().v4(),
+        name: targetName,
+        relation: (relation != null && relation.trim().isNotEmpty) ? relation.trim() : 'Acquaintance',
+      );
+      currentPeople.add(person);
+    }
+
+    person.lastUpdated = DateTime.now();
+
+    // 1. Tab 1: THE MANUAL -> Last Contact Intel Chronicle (manualLastContactIntel)
+    if (interactionSummary != null && interactionSummary.trim().isNotEmpty) {
+      final summaryClean = interactionSummary.trim();
+      final intelEntry = "[$dateStr] $summaryClean";
+      final intelList = List<String>.from(person.manualLastContactIntel ?? []);
+
+      final alreadyLogged = intelList.any((e) => e.contains(dateStr) && e.contains(summaryClean));
+      if (!alreadyLogged) {
+        intelList.insert(0, intelEntry);
+        person.manualLastContactIntel = intelList;
+      }
+    }
+
+    // 2. Tab 1: THE MANUAL -> Next Meet/Collaboration Plan (manualNextMeetPlan)
+    if (nextActionPlan != null && nextActionPlan.trim().isNotEmpty) {
+      final actionClean = nextActionPlan.trim();
+      final planEntry = "[$dateStr] $actionClean";
+      if (person.manualNextMeetPlan == null || person.manualNextMeetPlan!.trim().isEmpty) {
+        person.manualNextMeetPlan = planEntry;
+      } else if (!person.manualNextMeetPlan!.contains(actionClean)) {
+        person.manualNextMeetPlan = "$planEntry\n${person.manualNextMeetPlan}";
+      }
+    }
+
+    // 3. Tab 2 & Dossier: Update Biodata & AI Dossier interaction history
+    if (occupation != null && occupation.trim().isNotEmpty && (person.manualOccupation == null || person.manualOccupation!.isEmpty)) {
+      person.manualOccupation = occupation.trim();
+    }
+    if (location != null && location.trim().isNotEmpty && (person.manualLocation == null || person.manualLocation!.isEmpty)) {
+      person.manualLocation = location.trim();
+    }
+
+    // Update AI Dossier details structure if available
+    if (interactionSummary != null && interactionSummary.trim().isNotEmpty) {
+      Map<String, dynamic> parsedDetails = {};
+      if (person.details != null && person.details!.isNotEmpty) {
+        try {
+          parsedDetails = jsonDecode(person.details!);
+        } catch (_) {}
+      }
+      final history = (parsedDetails['interaction_history'] as List?)?.map((e) => e is Map ? Map<String, dynamic>.from(e) : {'text': e.toString()}).toList() ?? [];
+      final existsInHistory = history.any((h) => (h['text']?.toString() ?? '').contains(interactionSummary.trim()));
+      if (!existsInHistory) {
+        history.insert(0, {
+          'highlight': DateFormat('MMM dd').format(today),
+          'text': interactionSummary.trim(),
+        });
+        parsedDetails['interaction_history'] = history;
+        person.details = jsonEncode(parsedDetails);
+      }
+    }
+
+    updatePersonInfo(person);
+  }
   
   // --- Someday List Actions ---
   void addSomedayItem(String title) {
@@ -1098,11 +1190,14 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     }
     final financeStr = 'Today Income: ₹${dayIncome.toStringAsFixed(0)}, Expense: ₹${dayExpense.toStringAsFixed(0)}, Net: ₹${(dayIncome - dayExpense).toStringAsFixed(0)}, Current Balance: ₹${financeActions.currentBalance.toStringAsFixed(0)}';
 
+    final goalsStr = GoalBriefingHelper.buildTacticalBriefingGoalsAIContext(this, targetDate);
+
     final result = await _aiService.generateDailySummary(
       reflections: logsFormatted, 
       previousBriefings: recentBriefings, 
       fullContext: allLogsContext,
       financeText: financeStr,
+      goalsText: goalsStr,
       modelCandidates: settings.heavyModels, 
       currentApiKeyIndex: apiKeyIndex, 
       customApiKeys: settings.customApiKeys,
@@ -1144,23 +1239,22 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
     if (result['grateful_people'] != null) {
       final extracted = result['grateful_people'] as List<dynamic>;
-      final currentPeople = List<PersonInfo>.from(chatbotMemory.people);
-      bool changed = false;
       for (var e in extracted) {
-        final map = e as Map<String, dynamic>;
-        final name = map['name'] as String? ?? '';
-        final relation = map['relation'] as String? ?? 'Acquaintance';
-        if (name.isEmpty) continue;
-
-        final existingIdx = currentPeople.indexWhere((p) => p.name.toLowerCase() == name.toLowerCase());
-        if (existingIdx == -1) {
-          currentPeople.add(PersonInfo(id: const Uuid().v4(), name: name, relation: relation));
-          changed = true;
+        if (e is Map) {
+          final name = e['name'] as String? ?? '';
+          final relation = e['relation'] as String? ?? 'Acquaintance';
+          final reason = e['reason'] as String? ?? '';
+          final express = e['express'] as String? ?? '';
+          if (name.isNotEmpty) {
+            logInteractionForPerson(
+              name: name,
+              relation: relation,
+              interactionSummary: reason,
+              nextActionPlan: express,
+              date: targetDate,
+            );
+          }
         }
-      }
-      if (changed) {
-        chatbotMemory.people = currentPeople;
-        markDirty('settings');
       }
     }
 
@@ -2160,6 +2254,82 @@ $assetsContext
         benefits: ["Source of energy"],
         warnings: ["Nutrition values are generic estimates"],
       );
+    }
+  }
+
+  /// Analyzes freeform food text (e.g., "2 eggs, toast for breakfast, chicken salad for lunch")
+  /// and automatically updates nutrition details in today's DailyHealthLog / Bio.
+  Future<void> logNutritionFromFreeText(String dateStr, String foodDescription) async {
+    final text = foodDescription.trim();
+    if (text.isEmpty) return;
+
+    try {
+      final prompt = """
+      You are an expert nutritionist AI. Analyze the following food intake log and identify all distinct meals or food items consumed:
+      "$text"
+
+      Extract each food item and estimate its nutritional breakdown per portion eaten.
+      Output MUST be a raw JSON array of objects with the following schema:
+      [
+        {
+          "name": "Food Item Name",
+          "calories": 250,
+          "protein": 15.0,
+          "carbs": 20.0,
+          "fat": 8.0,
+          "description": "Short summary of nutritional value"
+        }
+      ]
+
+      Do NOT include markdown block wrappers (like ```json ... ```). Output ONLY the raw JSON array string.
+      """;
+
+      final response = await _aiService.makeRawTextAICall(
+        prompt: prompt,
+        modelCandidates: settings.liteModels,
+        customApiKeys: settings.customApiKeys,
+        currentApiKeyIndex: apiKeyIndex,
+        onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
+        onLog: (log) => debugPrint("AI NUTRITION LOG: $log"),
+      );
+
+      final cleanJson = response.replaceFirst(RegExp(r'^```json\s*'), '').replaceFirst(RegExp(r'\s*```$'), '').trim();
+      final List<dynamic> parsedList = jsonDecode(cleanJson) as List<dynamic>;
+
+      for (var item in parsedList) {
+        if (item is Map<String, dynamic>) {
+          final foodItem = FoodItem(
+            id: const Uuid().v4(),
+            name: item['name'] as String? ?? 'Meal Log',
+            calories: (item['calories'] as num? ?? 150).toInt(),
+            protein: (item['protein'] as num? ?? 5.0).toDouble(),
+            carbs: (item['carbs'] as num? ?? 20.0).toDouble(),
+            fat: (item['fat'] as num? ?? 4.0).toDouble(),
+            description: item['description'] as String?,
+          );
+
+          addFoodItem(foodItem);
+          final mealLog = MealLog(
+            id: const Uuid().v4(),
+            foodItemId: foodItem.id,
+            timestamp: DateTime.now(),
+          );
+          addMealLog(dateStr, mealLog);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error parsing free text nutrition: $e. Creating fallback meal log.");
+      final foodItem = FoodItem(
+        id: const Uuid().v4(),
+        name: text.length > 30 ? '${text.substring(0, 30)}...' : text,
+        calories: 300,
+        protein: 15.0,
+        carbs: 35.0,
+        fat: 10.0,
+        description: text,
+      );
+      addFoodItem(foodItem);
+      addMealLog(dateStr, MealLog(id: const Uuid().v4(), foodItemId: foodItem.id, timestamp: DateTime.now()));
     }
   }
 }

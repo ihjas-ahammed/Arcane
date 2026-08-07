@@ -4,6 +4,7 @@ import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/services/ai_service.dart';
 import 'package:missions/src/utils/helpers.dart';
 import 'package:missions/src/utils/history_helper.dart';
+import 'package:missions/src/utils/goal_briefing_helper.dart';
 import 'package:intl/intl.dart';
 
 class ReportActions {
@@ -93,10 +94,14 @@ class ReportActions {
           .map((p) => "${p.name} (${p.relation})")
           .join(', ');
 
+      final goalsSnapshot = GoalBriefingHelper.buildWeeklyMonthlyGoalsSnapshot(_provider, now);
+      final goalsContext = GoalBriefingHelper.buildStartupGoalsAIContext(_provider, now);
+
       final aiResult = await _aiService.generateStartDayReport(
         reflectionsList: reflectionsStr,
         sessionsList: sessionsStrBuffer.toString(),
         knownPeopleText: peopleContext,
+        goalsText: goalsContext,
         modelCandidates: _provider.settings.heavyModels,
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
@@ -108,7 +113,29 @@ class ReportActions {
       final result = Map<String, dynamic>.from(aiResult);
       result['metrics'] = metrics;
       result['task_snapshot'] = taskSnapshot;
+      result['weekly_monthly_goals_snapshot'] = goalsSnapshot;
       result['snapshot_time'] = now.toIso8601String();
+
+      if (aiResult['suggested_contacts'] != null) {
+        final contacts = aiResult['suggested_contacts'] as List<dynamic>;
+        for (var c in contacts) {
+          if (c is Map) {
+            final name = c['name'] as String? ?? '';
+            final relation = c['relation'] as String? ?? 'Acquaintance';
+            final reason = c['reason'] as String? ?? '';
+            final type = c['type'] as String? ?? 'CONTACT';
+            if (name.isNotEmpty) {
+              _provider.logInteractionForPerson(
+                name: name,
+                relation: relation,
+                interactionSummary: "Startup Recommendation [$type]: $reason",
+                nextActionPlan: "[$type] $reason",
+                date: now,
+              );
+            }
+          }
+        }
+      }
 
       final today = getTodayDateString();
       _provider.saveStartDayReport(today, result);

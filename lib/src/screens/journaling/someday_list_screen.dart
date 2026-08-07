@@ -6,6 +6,7 @@ import 'package:missions/src/widgets/ui/jwe_panel.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/utils/global_toast.dart';
 
 class SomedayListScreen extends StatefulWidget {
   const SomedayListScreen({super.key});
@@ -124,7 +125,14 @@ class _SomedayListScreenState extends State<SomedayListScreen> {
                               color: JweTheme.accentRed,
                               child: const Icon(Icons.delete, color: Colors.white),
                             ),
-                            onDismissed: (_) => provider.removeSomedayItem(item.id),
+                            onDismissed: (_) {
+                              final deletedItem = item;
+                              provider.removeSomedayItem(item.id);
+                              showUndoSnackBar(
+                                message: 'Deleted "${deletedItem.title}"',
+                                onUndo: () => provider.addSomedayItem(deletedItem.title),
+                              );
+                            },
                             child: Container(
                               margin: const EdgeInsets.only(bottom: 8),
                               padding: const EdgeInsets.all(16),

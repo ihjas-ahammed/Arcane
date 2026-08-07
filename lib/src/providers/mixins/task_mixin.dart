@@ -5,6 +5,8 @@ import 'package:missions/src/models/project_models.dart';
 import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/utils/constants.dart';
 import 'package:missions/src/providers/mixins/sync_mixin.dart';
+import 'package:collection/collection.dart';
+import 'package:missions/src/utils/global_toast.dart';
 
 /// Manages Tasks, Projects, History Logic, and Goals
 mixin TaskMixin on ChangeNotifier {
@@ -150,17 +152,39 @@ mixin TaskMixin on ChangeNotifier {
     notifyListeners();
   }
 
-  void deleteGoal(String id) {
-    _goals = _goals.where((g) => g.id != id).toList();
+  void restoreGoal(GoalModel goal) {
+    final index = _goals.indexWhere((g) => g.id == goal.id);
+    if (index != -1) {
+      _goals[index] = goal;
+    } else {
+      _goals.add(goal);
+    }
     sync.markDirty('tasks');
     notifyListeners();
   }
 
-  void toggleGoalCheck(String id) {
+  void deleteGoal(String id, {bool silent = false}) {
+    final target = _goals.firstWhereOrNull((g) => g.id == id);
+    if (target == null) return;
+    final savedGoal = target.copyWith();
+    _goals = _goals.where((g) => g.id != id).toList();
+    sync.markDirty('tasks');
+    notifyListeners();
+
+    if (!silent) {
+      showUndoSnackBar(
+        message: 'Deleted goal "${savedGoal.title}"',
+        onUndo: () => restoreGoal(savedGoal),
+      );
+    }
+  }
+
+  void toggleGoalCheck(String id, {bool silent = false}) {
+    GoalModel? previousState;
     _goals = _goals.map((g) {
       if (g.id == id) {
+        previousState = g.copyWith();
         final nextState = !g.isCompleted;
-        // If subChecklist exists, toggle all or main state
         final updatedSubs = nextState && g.subChecklist.isNotEmpty
             ? g.subChecklist.map((s) => s.copyWith(isCompleted: true)).toList()
             : (!nextState && g.subChecklist.isNotEmpty
@@ -170,6 +194,31 @@ mixin TaskMixin on ChangeNotifier {
       }
       return g;
     }).toList();
+    sync.markDirty('tasks');
+    notifyListeners();
+
+    if (!silent && previousState != null) {
+      final isNowCompleted = !previousState!.isCompleted;
+      showUndoSnackBar(
+        message: isNowCompleted ? 'Completed "${previousState!.title}"' : 'Marked "${previousState!.title}" incomplete',
+        onUndo: () => restoreGoal(previousState!),
+      );
+    }
+  }
+
+  void reorderGoalsForPeriod(GoalScope scope, DateTime date, int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final periodKey = GoalModel.getPeriodKey(scope, date);
+    final periodGoals = _goals.where((g) => g.scope == scope && g.dateKey == periodKey).toList();
+    if (oldIndex < 0 || oldIndex >= periodGoals.length || newIndex < 0 || newIndex >= periodGoals.length) return;
+
+    final item = periodGoals.removeAt(oldIndex);
+    periodGoals.insert(newIndex, item);
+
+    final otherGoals = _goals.where((g) => !(g.scope == scope && g.dateKey == periodKey)).toList();
+    _goals = [...otherGoals, ...periodGoals];
     sync.markDirty('tasks');
     notifyListeners();
   }

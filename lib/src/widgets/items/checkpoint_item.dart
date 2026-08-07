@@ -8,6 +8,7 @@ import 'package:missions/src/widgets/ui/rhombus_checkbox.dart';
 import 'package:missions/src/widgets/ui/step_bars_row.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/utils/global_toast.dart';
 
 class CheckpointItem extends StatefulWidget {
   final String title;
@@ -210,7 +211,14 @@ class _CheckpointItemState extends State<CheckpointItem> {
           }
           return false;
         } else if (direction == DismissDirection.endToStart) {
-          if (!isInfo && widget.isActive) _handleToggle();
+          if (!isInfo && widget.isActive) {
+            final wasCompleted = _localCompleted;
+            _handleToggle();
+            showUndoSnackBar(
+              message: wasCompleted ? 'Objective marked incomplete' : 'Objective completed',
+              onUndo: () => _handleToggle(),
+            );
+          }
           return false;
         }
         return false;

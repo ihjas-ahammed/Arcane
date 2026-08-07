@@ -32,28 +32,19 @@ class JournalingActions {
         onLog: (msg) => debugPrint("[PeopleExtraction] $msg"),
       );
 
-      final currentPeople = List<PersonInfo>.from(_provider.chatbotMemory.people);
-
       for (var data in results) {
         final name = data['name'] as String?;
         final relation = data['relation'] as String?;
+        final details = data['details'] as String? ?? data['context'] as String?;
         if (name == null || name.isEmpty) continue;
 
-        final existingIndex = currentPeople.indexWhere((p) => p.name.toLowerCase() == name.toLowerCase());
-        if (existingIndex != -1) {
-          if (relation != null) {
-            currentPeople[existingIndex].relation = relation;
-          }
-        } else {
-          currentPeople.add(PersonInfo(
-            id: const Uuid().v4(),
-            name: name,
-            relation: relation ?? 'Acquaintance',
-          ));
-        }
+        _provider.logInteractionForPerson(
+          name: name,
+          relation: relation,
+          interactionSummary: details != null && details.isNotEmpty ? details : "Extracted from reflection logs",
+          date: DateTime.now(),
+        );
       }
-
-      _provider.chatbotMemory.people = currentPeople;
       _provider.markDirty('settings');
       _provider.scheduleRealtimeSync();
       // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member

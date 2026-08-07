@@ -29,19 +29,31 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
   late TextEditingController _emotionController;
   late TextEditingController _reasonController;
   late TextEditingController _actionController;
+  late TextEditingController _wholeWritingController;
+  late TextEditingController _foodDetailsController;
   late DateTime _selectedDateTime;
+  bool _isWholeWriting = false;
 
   @override
   void initState() {
     super.initState();
 
-    // If editing an existing log, always populate from the log
+    _wholeWritingController = TextEditingController();
+    _foodDetailsController = TextEditingController();
+
+    // If editing an existing log, populate from log
     if (widget.initialLog != null) {
       _triggerController = TextEditingController(text: widget.initialLog!.trigger);
       _emotionController = TextEditingController(text: widget.initialLog!.emotion);
       _reasonController = TextEditingController(text: widget.initialLog!.reason);
       _actionController = TextEditingController(text: widget.initialLog!.action);
       _selectedDateTime = widget.initialLog!.timestamp;
+
+      // If emotion, reason, and action are empty, open in Whole Writing mode
+      if (widget.initialLog!.emotion.isEmpty && widget.initialLog!.reason.isEmpty && widget.initialLog!.action.isEmpty) {
+        _isWholeWriting = true;
+        _wholeWritingController.text = widget.initialLog!.trigger;
+      }
       return;
     }
 
@@ -66,9 +78,6 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
   }
 
   ReflectionDraft? _getDraft() {
-    // Must be called after initState (use addPostFrameCallback if needed)
-    // Safe here because initState fires after the element tree is built for
-    // stateful widgets pushed via Navigator.
     try {
       return Provider.of<AppProvider>(context, listen: false).settings.reflectionDraft;
     } catch (_) {
@@ -77,6 +86,8 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
   }
 
   bool get _hasContent =>
+      _wholeWritingController.text.trim().isNotEmpty ||
+      _foodDetailsController.text.trim().isNotEmpty ||
       _triggerController.text.trim().isNotEmpty ||
       _emotionController.text.trim().isNotEmpty ||
       _reasonController.text.trim().isNotEmpty ||
@@ -87,7 +98,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     final provider = Provider.of<AppProvider>(context, listen: false);
     if (_hasContent) {
       provider.saveReflectionDraft(
-        trigger: _triggerController.text.trim(),
+        trigger: _isWholeWriting ? _wholeWritingController.text.trim() : _triggerController.text.trim(),
         emotion: _emotionController.text.trim(),
         reason: _reasonController.text.trim(),
         action: _actionController.text.trim(),
@@ -101,6 +112,8 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     _emotionController.dispose();
     _reasonController.dispose();
     _actionController.dispose();
+    _wholeWritingController.dispose();
+    _foodDetailsController.dispose();
     super.dispose();
   }
 
@@ -112,7 +125,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       lastDate: DateTime.now(),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme:   ColorScheme.dark(
+          colorScheme: ColorScheme.dark(
             primary: SpideyTheme.spideyCyan,
             onPrimary: JweTheme.onAccent,
             surface: SpideyTheme.bgPanel,
@@ -131,7 +144,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme:   ColorScheme.dark(
+          colorScheme: ColorScheme.dark(
             primary: SpideyTheme.spideyCyan,
             onPrimary: JweTheme.onAccent,
             surface: SpideyTheme.bgPanel,
@@ -149,20 +162,43 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
   }
 
   Future<void> _saveReflection({bool analyze = true}) async {
-    if (_triggerController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Situation cannot be empty.")));
+    final triggerText = _isWholeWriting
+        ? _wholeWritingController.text.trim()
+        : _triggerController.text.trim();
+
+    if (triggerText.isEmpty && _foodDetailsController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please write your reflection or food details before saving.")),
+      );
       return;
     }
 
     final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDateTime);
+
+    // If food details were entered, automatically analyze & log nutrition to bio
+    if (_foodDetailsController.text.trim().isNotEmpty) {
+      appProvider.logNutritionFromFreeText(dateStr, _foodDetailsController.text.trim());
+    }
+
+    // If only food details were entered (no reflection text), pop with notification
+    if (triggerText.isEmpty) {
+      appProvider.clearReflectionDraft();
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("Nutrition details logged to Bio & Health Dashboard!"),
+        duration: Duration(seconds: 2),
+      ));
+      return;
+    }
 
     if (widget.initialLog != null) {
       appProvider.updateReflectionLog(
         widget.initialLog!.id,
-        trigger: _triggerController.text.trim(),
-        emotion: _emotionController.text.trim(),
-        reason: _reasonController.text.trim(),
-        action: _actionController.text.trim(),
+        trigger: triggerText,
+        emotion: _isWholeWriting ? '' : _emotionController.text.trim(),
+        reason: _isWholeWriting ? '' : _reasonController.text.trim(),
+        action: _isWholeWriting ? '' : _actionController.text.trim(),
       );
       Navigator.pop(context);
       return;
@@ -170,10 +206,10 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
 
     if (!analyze) {
       appProvider.startReflectionAnalysis(
-        trigger: _triggerController.text.trim(),
-        emotion: _emotionController.text.trim(),
-        reason: _reasonController.text.trim(),
-        action: _actionController.text.trim(),
+        trigger: triggerText,
+        emotion: _isWholeWriting ? '' : _emotionController.text.trim(),
+        reason: _isWholeWriting ? '' : _reasonController.text.trim(),
+        action: _isWholeWriting ? '' : _actionController.text.trim(),
         timestamp: _selectedDateTime,
       );
       appProvider.clearReflectionDraft();
@@ -182,13 +218,12 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       return;
     }
 
-    // Fire-and-forget: kick off AI in the background; the root-level
-    // InsightWatcher will show the dialog when analysis completes.
+    // Fire-and-forget background AI analysis
     appProvider.startReflectionAnalysis(
-      trigger: _triggerController.text.trim(),
-      emotion: _emotionController.text.trim(),
-      reason: _reasonController.text.trim(),
-      action: _actionController.text.trim(),
+      trigger: triggerText,
+      emotion: _isWholeWriting ? '' : _emotionController.text.trim(),
+      reason: _isWholeWriting ? '' : _reasonController.text.trim(),
+      action: _isWholeWriting ? '' : _actionController.text.trim(),
       timestamp: _selectedDateTime,
     );
 
@@ -196,7 +231,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
 
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text("Reflection logged. Analyzing in background…"),
+      content: Text("Reflection & Nutrition logged. Processing in background…"),
       duration: Duration(seconds: 2),
     ));
   }
@@ -319,24 +354,106 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 14),
+
+                    // Mode Switcher (Guided Form vs Whole Writing)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setState(() => _isWholeWriting = false),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 9),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: !_isWholeWriting ? SpideyTheme.spideyCyan.withValues(alpha: 0.2) : SpideyTheme.bgPanel,
+                                border: Border.all(color: !_isWholeWriting ? SpideyTheme.spideyCyan : SpideyTheme.border),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: Text(
+                                "GUIDED FORM",
+                                style: GoogleFonts.rajdhani(
+                                  color: !_isWholeWriting ? SpideyTheme.spideyCyan : SpideyTheme.textGrey,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setState(() => _isWholeWriting = true),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 9),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: _isWholeWriting ? SpideyTheme.spideyCyan.withValues(alpha: 0.2) : SpideyTheme.bgPanel,
+                                border: Border.all(color: _isWholeWriting ? SpideyTheme.spideyCyan : SpideyTheme.border),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: Text(
+                                "WHOLE WRITING",
+                                style: GoogleFonts.rajdhani(
+                                  color: _isWholeWriting ? SpideyTheme.spideyCyan : SpideyTheme.textGrey,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 20),
 
+                    // Form Fields based on Mode
+                    if (_isWholeWriting) ...[
+                      _buildSectionHeader("FULL REFLECTION (Freeform Whole Writing)"),
+                      GrowingTextField(
+                        controller: _wholeWritingController,
+                        hint: "Write your reflection freely here without answering separate questions...",
+                        minLines: 5,
+                      ),
+                    ] else ...[
+                      _buildSectionHeader("SITUATION (What happened?)"),
+                      GrowingTextField(controller: _triggerController, hint: "Describe the event or situation...", minLines: 2),
 
+                      const SizedBox(height: 18),
+                      _buildSectionHeader("CAUSE (Why did it happen?)"),
+                      GrowingTextField(controller: _reasonController, hint: "Root cause, context, or triggers...", minLines: 2),
 
-                    _buildSectionHeader("SITUATION (What happened?)"),
-                    GrowingTextField(controller: _triggerController, hint: "Describe the event or situation...", minLines: 2),
+                      const SizedBox(height: 18),
+                      _buildSectionHeader("FEELING (How do you feel?)"),
+                      GrowingTextField(controller: _emotionController, hint: "Your emotions, physical sensations...", minLines: 2),
 
-                    const SizedBox(height: 18),
-                    _buildSectionHeader("CAUSE (Why did it happen?)"),
-                    GrowingTextField(controller: _reasonController, hint: "Root cause, context, or triggers...", minLines: 2),
+                      const SizedBox(height: 18),
+                      _buildSectionHeader("ACTION (What will you do?)"),
+                      GrowingTextField(controller: _actionController, hint: "Next steps, coping mechanism, or lesson learned...", minLines: 2),
+                    ],
 
-                    const SizedBox(height: 18),
-                    _buildSectionHeader("FEELING (How do you feel?)"),
-                    GrowingTextField(controller: _emotionController, hint: "Your emotions, physical sensations...", minLines: 2),
+                    const SizedBox(height: 24),
+                    Divider(color: SpideyTheme.border, height: 1),
+                    const SizedBox(height: 20),
 
-                    const SizedBox(height: 18),
-                    _buildSectionHeader("ACTION (What will you do?)"),
-                    GrowingTextField(controller: _actionController, hint: "Next steps, coping mechanism, or lesson learned...", minLines: 2),
+                    // Food / Nutrition Log Box in Both Modes
+                    Row(
+                      children: [
+                        Icon(MdiIcons.silverwareForkKnife, size: 14, color: JweTheme.accentAmber),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: _buildSectionHeader("NUTRITION / WHAT DID YOU EAT TODAY? (OPTIONAL)"),
+                        ),
+                      ],
+                    ),
+                    GrowingTextField(
+                      controller: _foodDetailsController,
+                      hint: "e.g., 2 eggs & avocado toast for breakfast, chicken salad for lunch, protein shake...",
+                      minLines: 2,
+                    ),
 
                     const SizedBox(height: 32),
 
@@ -408,13 +525,20 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       child: Row(
         children: [
           Container(width: 3, height: 12, color: SpideyTheme.spideyRed),
-            SizedBox(width: 8),
-          Text(title.toUpperCase(),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              title.toUpperCase(),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
               style: GoogleFonts.rajdhani(
-                  color: SpideyTheme.spideyCyan,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
-                  fontSize: 12)),
+                color: SpideyTheme.spideyCyan,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+                fontSize: 12,
+              ),
+            ),
+          ),
         ],
       ),
     );

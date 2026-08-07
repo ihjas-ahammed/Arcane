@@ -10,6 +10,7 @@ import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/widgets/atoms/valorant_timer_text.dart';
 import 'package:missions/src/widgets/screens/submission_detail_screen.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/src/utils/global_toast.dart';
 import 'package:provider/provider.dart';
 
 /// Operator HUD QueueRow — ported submission card. Preserves
@@ -101,11 +102,24 @@ class SubmissionCard extends StatelessWidget {
           if (direction == DismissDirection.startToEnd) {
             return await _showDeleteConfirm(context);
           } else if (direction == DismissDirection.endToStart) {
+            final wasCompleted = isCompleted;
+            final subId = current.id;
+            final mainId = parentTask.id;
             if (isCompleted) {
-              provider.taskActions.uncompleteSubtask(parentTask.id, current.id);
+              provider.taskActions.uncompleteSubtask(mainId, subId);
             } else {
-              provider.taskActions.completeSubtask(parentTask.id, current.id);
+              provider.taskActions.completeSubtask(mainId, subId);
             }
+            showUndoSnackBar(
+              message: wasCompleted ? 'Directive marked incomplete' : 'Directive completed',
+              onUndo: () {
+                if (wasCompleted) {
+                  provider.taskActions.completeSubtask(mainId, subId);
+                } else {
+                  provider.taskActions.uncompleteSubtask(mainId, subId);
+                }
+              },
+            );
             return false;
           }
           return false;
