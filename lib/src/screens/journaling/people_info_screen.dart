@@ -15,23 +15,7 @@ import 'package:uuid/uuid.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
 
 // Helper function to categorize relationships based on priority
-String getRelationCategory(String relation) {
-  final rel = relation.toLowerCase().trim();
-  if (rel.contains('spouse') || rel.contains('partner') || rel.contains('wife') || rel.contains('husband') ||
-      rel.contains('mother') || rel.contains('father') || rel.contains('parent') || rel.contains('sibling') ||
-      rel.contains('sister') || rel.contains('brother') || rel.contains('family') || rel.contains('son') ||
-      rel.contains('daughter') || rel.contains('girlfriend') || rel.contains('boyfriend')) {
-    return 'Family & Partner';
-  }
-  if (rel.contains('friend') || rel.contains('buddy') || rel.contains('mate') || rel.contains('bestie')) {
-    return 'Friends';
-  }
-  if (rel.contains('boss') || rel.contains('colleague') || rel.contains('mentor') || rel.contains('manager') ||
-      rel.contains('teacher') || rel.contains('coworker') || rel.contains('work') || rel.contains('client')) {
-    return 'Professional & Mentors';
-  }
-  return 'Acquaintances & Others';
-}
+String getRelationCategory(String relation) => PersonInfo.getRelationCategory(relation);
 
 class PeopleInfoScreen extends StatefulWidget {
   const PeopleInfoScreen({super.key});

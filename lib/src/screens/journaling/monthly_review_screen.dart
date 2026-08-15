@@ -7,6 +7,7 @@ import 'package:missions/src/widgets/ui/gratitude_intel_card.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/screens/journaling/person_detail_screen.dart';
+import 'package:missions/src/models/chatbot_models.dart';
 import 'package:collection/collection.dart';
 
 class MonthlyReviewScreen extends StatelessWidget {
@@ -722,9 +723,9 @@ class MonthlyReviewScreen extends StatelessWidget {
                     final pName = m['name']?.toString() ?? '';
                     final existingPerson = provider.chatbotMemory.people.firstWhereOrNull(
                         (e) => e.name.toLowerCase().trim() == pName.toLowerCase().trim());
-                    final category = existingPerson?.relation.trim().isNotEmpty == true
-                        ? existingPerson!.relation.trim().toUpperCase()
-                        : 'ALLIES & CONTACTS';
+                    final category = existingPerson != null
+                        ? PersonInfo.getRelationCategory(existingPerson.relation).toUpperCase()
+                        : 'ACQUAINTANCES & OTHERS';
                     grouped.putIfAbsent(category, () => []).add(m);
                   }
 

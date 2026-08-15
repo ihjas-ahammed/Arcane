@@ -25,6 +25,7 @@ import 'package:missions/src/theme/arc/arc_theme.dart';
 
 import 'package:missions/src/widgets/ui/desktop_floating_timer.dart';
 import 'package:missions/src/widgets/drawers/goals_bottom_drawer.dart';
+import 'package:missions/src/widgets/dialogs/whats_new_update_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -83,8 +84,30 @@ class _HomeScreenState extends State<HomeScreen> {
       // Honor any tab change requested before this screen mounted (cold start
       // from a home-screen widget tap).
       _onTabRequest();
+      _checkUpdateOnStartup();
     });
     WidgetActionRouter.instance.tabRequest.addListener(_onTabRequest);
+  }
+
+  Future<void> _checkUpdateOnStartup() async {
+    await Future.delayed(const Duration(seconds: 3));
+    if (!mounted) return;
+    try {
+      final update = await _appProvider.checkForAppUpdate();
+      if (!mounted) return;
+      if (update != null) {
+        final packageInfo = await _appProvider.updateService.getLocalPackageInfo();
+        if (!mounted) return;
+        WhatsNewUpdateDialog.show(
+          context,
+          update: update,
+          currentVersion: packageInfo.version,
+          updateService: _appProvider.updateService,
+        );
+      }
+    } catch (e) {
+      debugPrint('[HomeScreen] Startup update check error: $e');
+    }
   }
 
   void _onTabRequest() {

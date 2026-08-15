@@ -185,6 +185,31 @@ class PersonInfo {
     this.manualContact,
   });
 
+  /// Categorize any relationship string into standard default categories
+  static String getRelationCategory(String relation) {
+    final rel = relation.toLowerCase().trim();
+    if (rel.contains('spouse') || rel.contains('partner') || rel.contains('wife') || rel.contains('husband') ||
+        rel.contains('mother') || rel.contains('father') || rel.contains('parent') || rel.contains('sibling') ||
+        rel.contains('sister') || rel.contains('brother') || rel.contains('family') || rel.contains('son') ||
+        rel.contains('daughter') || rel.contains('girlfriend') || rel.contains('boyfriend') ||
+        rel.contains('mom') || rel.contains('dad') || rel.contains('cousin') || rel.contains('uncle') || rel.contains('aunt') ||
+        rel.contains('grandmother') || rel.contains('grandfather') || rel.contains('grandma') || rel.contains('grandpa')) {
+      return 'Family & Partner';
+    }
+    if (rel.contains('friend') || rel.contains('buddy') || rel.contains('mate') || rel.contains('bestie') || rel.contains('pal') || rel.contains('roommate')) {
+      return 'Friends';
+    }
+    if (rel.contains('boss') || rel.contains('colleague') || rel.contains('mentor') || rel.contains('manager') ||
+        rel.contains('teacher') || rel.contains('coworker') || rel.contains('work') || rel.contains('client') ||
+        rel.contains('advisor') || rel.contains('lead') || rel.contains('director') || rel.contains('prof') ||
+        rel.contains('professor') || rel.contains('doctor') || rel.contains('investor')) {
+      return 'Professional & Mentors';
+    }
+    return 'Acquaintances & Others';
+  }
+
+  String get defaultCategory => getRelationCategory(relation);
+
   factory PersonInfo.fromJson(Map<String, dynamic> json) {
     return PersonInfo(
       id: json['id'] as String? ?? const Uuid().v4(),

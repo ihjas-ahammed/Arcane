@@ -2,7 +2,7 @@ name: missions
 description: "A Flutter version of the Task Dominion application."
 publish_to: 'none'
 
-version: 2026.8.7+2026080701
+version: 2026.8.15+2126081501
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -55,6 +55,9 @@ dependencies:
   flutter_local_notifications: ^17.2.4
   timezone: ^0.9.0
   home_widget: ^0.7.0
+  package_info_plus: ^9.0.1
+  flutter_markdown: ^0.7.7+1
+  open_filex: ^4.7.0
 
 dev_dependencies:
   flutter_test:

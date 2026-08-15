@@ -164,9 +164,10 @@ mixin TaskMixin on ChangeNotifier {
   }
 
   void deleteGoal(String id, {bool silent = false}) {
-    final target = _goals.firstWhereOrNull((g) => g.id == id);
-    if (target == null) return;
-    final savedGoal = target.copyWith();
+    final index = _goals.indexWhere((g) => g.id == id);
+    if (index == -1) return;
+    final savedGoal = _goals[index].copyWith();
+    final savedGoals = List<GoalModel>.from(_goals);
     _goals = _goals.where((g) => g.id != id).toList();
     sync.markDirty('tasks');
     notifyListeners();
@@ -174,7 +175,11 @@ mixin TaskMixin on ChangeNotifier {
     if (!silent) {
       showUndoSnackBar(
         message: 'Deleted goal "${savedGoal.title}"',
-        onUndo: () => restoreGoal(savedGoal),
+        onUndo: () {
+          _goals = savedGoals;
+          sync.markDirty('tasks');
+          notifyListeners();
+        },
       );
     }
   }
@@ -288,7 +293,12 @@ mixin TaskMixin on ChangeNotifier {
     notifyListeners();
   }
 
-  void deleteGoalSubCheckItem(String goalId, String itemId) {
+  void deleteGoalSubCheckItem(String goalId, String itemId, {bool silent = false}) {
+    final targetGoal = _goals.firstWhereOrNull((g) => g.id == goalId);
+    if (targetGoal == null) return;
+    final deletedItem = targetGoal.subChecklist.firstWhereOrNull((item) => item.id == itemId);
+    final savedGoals = _goals.map((g) => g.copyWith()).toList();
+
     _goals = _goals.map((g) {
       if (g.id == goalId) {
         final updatedList = g.subChecklist.where((item) => item.id != itemId).toList();
@@ -298,6 +308,17 @@ mixin TaskMixin on ChangeNotifier {
     }).toList();
     sync.markDirty('tasks');
     notifyListeners();
+
+    if (!silent && deletedItem != null) {
+      showUndoSnackBar(
+        message: 'Deleted "${deletedItem.title}"',
+        onUndo: () {
+          _goals = savedGoals;
+          sync.markDirty('tasks');
+          notifyListeners();
+        },
+      );
+    }
   }
 
   MainTask? getSelectedTask() {

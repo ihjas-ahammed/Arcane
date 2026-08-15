@@ -1100,6 +1100,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     String? writingStyleMap,
     String? financeText,
     String? goalsText,
+    String? previousQuotesContext,
   }) async {
     String systemStyle = "";
     if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
@@ -1112,6 +1113,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     Current Logs (TODAY'S LOGS — FOR QUOTING AND TODAY'S ANALYSIS): ${jsonEncode(reflections)}
     Reflection History (BROADER WEEKLY CONTEXT — FOR CONTEXT ONLY, DO NOT QUOTE FROM THIS): $fullContext
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
+    ${previousQuotesContext != null && previousQuotesContext.isNotEmpty ? 'Previously Used Quotes & Reflections (STRICT EXCLUSION LIST - DO NOT REPEAT ANY OF THESE):\n$previousQuotesContext' : ''}
     ${financeText != null && financeText.isNotEmpty ? 'Today Finance Context: $financeText' : ''}
     ${goalsText != null && goalsText.isNotEmpty ? 'Today Goals Context:\n$goalsText' : ''}
     ${customInstruction != null && customInstruction.isNotEmpty ? 'User Custom Instruction: $customInstruction' : ''}
@@ -1121,7 +1123,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     - Emotional granularity (Susan David, "Emotional Agility"; Lisa Feldman Barrett): name specific authentic positive and grounding emotions.
     - Gratitude with specificity and brevity: short, punchy, concrete items rather than long sentences.
     - Financial awareness: provide encouraging, constructive, and positive tactical feedback on financial choices logged today.
-    - QUOTING RULE: All user quotes ("user_quote") MUST be taken EXCLUSIVELY from today's Current Logs (text written on the same day). NEVER quote text from Reflection History or previous days, even though Reflection History is provided for broader weekly context.
+    - QUOTING & UNIQUENESS MANDATE: All user quotes ("user_quote") MUST be taken EXCLUSIVELY from today's Current Logs (text written on the same day). NEVER quote text from Reflection History or previous days. Ensure that all quote reflections and AI insights are 100% unique, fresh, and never repeat past themes or phrased commentary.
 
     Tone: Warm, highly optimistic, deeply supportive, appreciative, and empowering. ALWAYS celebrate wins, highlight the user's strengths, and appreciate good efforts. NEVER give negative, critical, or unsolicited corrective advice. NEVER point out flaws or cognitive distortions in a negative way.
 
@@ -1175,6 +1177,8 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     String? agentProgressText,
     String? weeklyBriefingContext,
     String? writingStyleMap,
+    String? pastStoriesContext,
+    String? pastQuotesContext,
   }) async {
     String systemStyle = "";
     if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
@@ -1190,6 +1194,8 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     ${financeText != null && financeText.isNotEmpty ? 'Finance: $financeText' : ''}
     ${agentProgressText != null && agentProgressText.isNotEmpty ? 'Agent Progress (Tasks): $agentProgressText' : ''}
     ${weeklyBriefingContext != null && weeklyBriefingContext.isNotEmpty ? 'Weekly Context: \n$weeklyBriefingContext' : ''}
+    ${pastStoriesContext != null && pastStoriesContext.isNotEmpty ? 'Previously Featured Stories & Figures (STRICT EXCLUSION LIST - DO NOT REPEAT ANY OF THESE FIGURES OR THEMES):\n$pastStoriesContext' : ''}
+    ${pastQuotesContext != null && pastQuotesContext.isNotEmpty ? 'Previously Used Quotes Context:\n$pastQuotesContext' : ''}
 
     Tone: Warm, highly optimistic, empowering, constructive, and deeply encouraging. Highlight growth, progress, and strengths. Celebrate every victory. NEVER give negative or critical feedback.
 
@@ -1201,12 +1207,13 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     5. "atomic_friction": 1-2 areas of friction and encouraging environmental/habit adjustments.
     6. "identity_votes": 1-2 ways actions voted for desired identity.
     7. "improved_abilities": 2-4 specific capabilities built, score 1-10.
-    8. "grateful_people": EVERY person to appreciate.
+    8. "grateful_people": EVERY person to appreciate. Categorize by standard DEFAULT CATEGORY: "Family & Partner", "Friends", "Professional & Mentors", or "Acquaintances & Others". Format: [{"name": "string", "category": "Family & Partner | Friends | Professional & Mentors | Acquaintances & Others", "relation": "string", "reason": "string"}].
     9. "gratitude_highlights": 5 specific concise gratitude highlights.
     10. "after_action": "intended", "actual", "lesson".
     11. "energy_map": "energizers", "drainers".
     12. "share_win": "win", "person", "how".
-    13. "creative_story": A short (100-180 words) inspiring real story of a famous scientist, historical figure, writer, or artist whose struggles/journey mirrors what the user experienced this week, connecting their lesson directly to the user's journey. "title", "story", "takeaway".
+    13. "creative_story": A short (100-180 words) inspiring real story of a famous scientist, historical figure, writer, explorer, polymath, or artist whose struggles/journey mirrors what the user experienced this week, connecting their lesson directly to the user's journey.
+        CRITICAL UNIQUENESS MANDATE: The historical figure MUST BE ENTIRELY UNIQUE and NEVER chosen from the exclusion list above. Draw from diverse world history, scientific breakthroughs, artistic milestones, and human resilience across centuries and cultures (e.g. Richard Feynman, Ada Lovelace, Hypatia, Alexander von Humboldt, Rosalind Franklin, Johannes Kepler, Hokusai, Alan Turing, Ibn Battuta, Rachel Carson, Leonardo da Vinci, Srinivasa Ramanujan, Mary Shelley, Michael Faraday, etc.). "title", "story", "takeaway".
 
     Output JSON ONLY:
     {
@@ -1217,7 +1224,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
       "atomic_friction": [{"struggle": "string", "adjustment": "string"}],
       "identity_votes": [{"action": "string", "identity": "string"}],
       "improved_abilities": [{"name": "string", "reason": "string", "score": int}],
-      "grateful_people": [{"name": "string", "reason": "string"}],
+      "grateful_people": [{"name": "string", "category": "string", "relation": "string", "reason": "string"}],
       "gratitude_highlights": [{"text": "string", "icon_type": "string"}],
       "after_action": {"intended": "string", "actual": "string", "lesson": "string"},
       "energy_map": {"energizers": ["string"], "drainers": ["string"]},
@@ -1245,6 +1252,8 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     String? weeklyReportsContext,
     String? previousMonthlyContext,
     String? writingStyleMap,
+    String? pastStoriesContext,
+    String? pastQuotesContext,
   }) async {
     String systemStyle = "";
     if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
@@ -1262,12 +1271,14 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     ${peopleContext != null && peopleContext.isNotEmpty ? 'Known People: $peopleContext' : ''}
     ${weeklyReportsContext != null && weeklyReportsContext.isNotEmpty ? 'Weekly Summaries:\n$weeklyReportsContext' : ''}
     ${previousMonthlyContext != null && previousMonthlyContext.isNotEmpty ? 'Previous Monthly Context:\n$previousMonthlyContext' : ''}
+    ${pastStoriesContext != null && pastStoriesContext.isNotEmpty ? 'Previously Featured Stories & Figures (STRICT EXCLUSION LIST - DO NOT REPEAT ANY OF THESE FIGURES/THEMES):\n$pastStoriesContext' : ''}
+    ${pastQuotesContext != null && pastQuotesContext.isNotEmpty ? 'Previously Used Quotes (STRICT EXCLUSION LIST):\n$pastQuotesContext' : ''}
 
     Tone: Uplifting, highly optimistic, empowering, and deeply appreciative. Celebrate all accomplishments, growth, and positive turning points. NEVER give negative or critical advice.
 
     Task:
     1. "narrative": Inspiring, optimistic story of the month highlighting growth and milestones (150-220 words).
-    2. "quote_reflections": 3-5 items selecting the user's best, most positive, or inspiring statements from the month paired with warm AI appreciation and validation: `[ {"user_quote": "string", "ai_comment": "string"} ]` (DO NOT criticize, give negative advice, or point out flaws).
+    2. "quote_reflections": 3-5 items selecting the user's best, most positive, or inspiring statements from the month paired with warm AI appreciation and validation: `[ {"user_quote": "string", "ai_comment": "string"} ]` (DO NOT criticize, give negative advice, or point out flaws). Ensure quotes are distinct from past monthly reviews.
     3. "emotional_climate": "dominant_emotions", "trajectory", "patterns".
     4. "after_action_review": "intended", "actual", "gap_why", "adjustment".
     5. "progress_review": "area", "small_wins", "compound_effect".
@@ -1279,7 +1290,8 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     11. "next_month_woop": 1-3 goals.
     12. "gratitude_reminiscence": exactly 5 moments.
     13. "letting_go": ONE commitment to drop.
-    14. "creative_story": An inspiring real story of a scientist, historical thinker, or artist mirroring the user's month. "title", "story", "takeaway".
+    14. "creative_story": An inspiring real story of a scientist, historical thinker, explorer, or artist mirroring the user's month.
+        CRITICAL UNIQUENESS MANDATE: The "creative_story" MUST feature a profound real historical figure and narrative that has NEVER appeared in any previous monthly or weekly briefing. Pick a novel, deeply inspiring figure and journey from world history. "title", "story", "takeaway".
 
     Output JSON ONLY:
     {
@@ -1342,6 +1354,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     String? writingStyleMap,
     String? knownPeopleText,
     String? goalsText,
+    String? previousQuotesContext,
   }) async {
     String systemStyle = "";
     if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
@@ -1356,6 +1369,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     Sessions (Last 7 days): $sessionsList
     ${knownPeopleText != null && knownPeopleText.isNotEmpty ? 'Known Contacts/People: $knownPeopleText' : ''}
     ${goalsText != null && goalsText.isNotEmpty ? 'Goals Context:\n$goalsText' : ''}
+    ${previousQuotesContext != null && previousQuotesContext.isNotEmpty ? 'Previously Used Quotes & Authors (STRICT EXCLUSION LIST - NEVER REPEAT ANY OF THESE QUOTES OR AUTHORS):\n$previousQuotesContext' : ''}
 
     Tone: Highly optimistic, energizing, empowering, deeply supportive, and appreciative. ALWAYS encourage the user and highlight potential. NEVER give negative, critical, or adversarial advice.
 
@@ -1363,7 +1377,8 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     1. "forecast" (40-80 words): An optimistic, energizing morning forecast celebrating recent momentum and setting an inspiring tone for the day.
     2. "yesterday_quote": A prominent positive, inspiring, or representative good quote/phrase from yesterday's reflections.
     3. "ai_today_advice": Warm, appreciative, and optimistic AI encouragement for today inspired by that yesterday quote — celebrating what the user wrote and boosting their momentum for today (DO NOT give negative or critical advice).
-    4. "motivational_quote": A famous inspirational quote from a scientist, philosopher, writer, or historical figure tailored for the day's positive momentum. Format: {"quote": "string", "author": "string"}.
+    4. "motivational_quote": A famous, deeply inspiring quote from a scientist, philosopher, writer, polymath, inventor, or historical figure that has NEVER been featured in previous morning briefings.
+       CRITICAL UNIQUENESS MANDATE: Draw from thousands of years of human history across world cultures, scientific pioneers, polymaths, and literature (e.g. Richard Feynman, Hypatia, Leonardo da Vinci, Ada Lovelace, Alexander von Humboldt, Rosalind Franklin, Lao Tzu, Marcus Aurelius, Carl Sagan, Buckminster Fuller, Mary Oliver, Jane Goodall, etc.). Every single day must deliver a brand-new, never-before-seen quote and author. Format: {"quote": "string", "author": "string"}.
     5. "suggested_contacts": Pick 2-3 specific people from Known Contacts that the user should reach out to or check in with today. Format: [{"name": "string", "relation": "string", "type": "RECONNECT|FOLLOW UP|APPRECIATION|STAY IN TOUCH", "reason": "string"}].
     6. "highlight": ONE sentence naming the single most leveraged task for today.
     7. "obstacle_plan": "obstacle" and "if_then".

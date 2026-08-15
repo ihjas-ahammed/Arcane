@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
-import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/widgets/header_widget.dart';
@@ -36,6 +35,8 @@ class GoalsBottomDrawer extends StatefulWidget {
 }
 
 class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
+  final GlobalKey<ScaffoldMessengerState> _drawerMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
   GoalScope _activeScope = GoalScope.daily;
   late DateTime _selectedDate;
   final Map<String, bool> _expandedSublists = {};
@@ -44,6 +45,13 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
   void initState() {
     super.initState();
     _selectedDate = widget.initialDate ?? DateTime.now();
+    registerActiveScaffoldMessenger(_drawerMessengerKey);
+  }
+
+  @override
+  void dispose() {
+    unregisterActiveScaffoldMessenger(_drawerMessengerKey);
+    super.dispose();
   }
 
   /// Calculates spent time in minutes for linked tasks based on session time
@@ -142,21 +150,31 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
 
     final sheetBg = isLight ? const Color(0xFFF6F3EC) : const Color(0xFF0D0E14);
     final periodKeyStr = GoalModel.getPeriodKey(_activeScope, _selectedDate);
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final isKeyboardOpen = bottomInset > 0;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.90,
-      decoration: BoxDecoration(
-        color: sheetBg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        border: Border.all(color: themeColor.withValues(alpha: 0.5), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: themeColor.withValues(alpha: isLight ? 0.12 : 0.25),
-            blurRadius: 20,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
+    return ScaffoldMessenger(
+      key: _drawerMessengerKey,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: false,
+        body: Align(
+          alignment: Alignment.bottomCenter,
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.90,
+            padding: EdgeInsets.only(bottom: bottomInset),
+            decoration: BoxDecoration(
+              color: sheetBg,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              border: Border.all(color: themeColor.withValues(alpha: 0.5), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: themeColor.withValues(alpha: isLight ? 0.12 : 0.25),
+                  blurRadius: 20,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         child: BackdropFilter(
@@ -313,11 +331,6 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                             confirmDismiss: (direction) async {
                               if (direction == DismissDirection.startToEnd) {
                                 appProvider.toggleGoalCheck(goal.id);
-                                if (!goal.isCompleted) {
-                                  showGlobalToast('⚡ Goal Completed! +${goal.xpReward} XP');
-                                } else {
-                                  showGlobalToast('Goal marked incomplete');
-                                }
                                 return false;
                               }
                               return true;
@@ -325,7 +338,6 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                             onDismissed: (direction) {
                               if (direction == DismissDirection.endToStart) {
                                 appProvider.deleteGoal(goal.id);
-                                showGlobalToast('Goal deleted');
                               }
                             },
                             background: Container(
@@ -333,7 +345,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                               padding: const EdgeInsets.only(left: 16),
                               alignment: Alignment.centerLeft,
                               decoration: BoxDecoration(
-                                color: AppTheme.fhAccentGreen.withValues(alpha: 0.85),
+                                color: themeColor.darken(0.15).withValues(alpha: 0.85),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
@@ -384,45 +396,51 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                       ),
               ),
 
-              // Bottom Primary Action Button
-              Padding(
-                padding: EdgeInsets.only(
-                  left: 16,
-                  right: 16,
-                  top: 8,
-                  bottom: MediaQuery.of(context).padding.bottom + 10,
-                ),
-                child: ElevatedButton(
-                  onPressed: () => _openCreateGoalDialog(context),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 46),
-                    backgroundColor: themeColor,
-                    foregroundColor: Colors.black,
-                    elevation: 4,
-                    shadowColor: themeColor.withValues(alpha: 0.4),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+              // Bottom Primary Action Button (hidden when keyboard is open to maximize list space)
+              if (!isKeyboardOpen)
+                Padding(
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    top: 8,
+                    bottom: MediaQuery.of(context).padding.bottom + 10,
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () => _openCreateGoalDialog(context),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 46),
+                      backgroundColor: themeColor,
+                      foregroundColor: Colors.black,
+                      elevation: 4,
+                      shadowColor: themeColor.withValues(alpha: 0.4),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.add, size: 18, color: Colors.black),
+                        const SizedBox(width: 8),
+                        Text(
+                          'INITIALIZE NEW ${_activeScope.name.toUpperCase()} GOAL',
+                          style: GoogleFonts.orbitron(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.add, size: 18, color: Colors.black),
-                      const SizedBox(width: 8),
-                      Text(
-                        'INITIALIZE NEW ${_activeScope.name.toUpperCase()} GOAL',
-                        style: GoogleFonts.orbitron(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+                )
+              else
+                const SizedBox(height: 10),
             ],
+          ),
+        ),
+      ),
           ),
         ),
       ),
@@ -727,7 +745,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                     size: const Size(double.infinity, 6),
                     painter: _TacticalProgressBarPainter(
                       progress: ratio,
-                      activeColor: isDone ? AppTheme.fhAccentGreen : themeColor,
+                      activeColor: isDone ? themeColor.darken(0.15) : themeColor,
                       isLight: isLight,
                     ),
                   ),
@@ -760,7 +778,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                         style: GoogleFonts.orbitron(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: isDone ? AppTheme.fhAccentGreen : themeColor,
+                          color: isDone ? themeColor.darken(0.15) : themeColor,
                         ),
                       ),
                     ),
@@ -790,7 +808,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                           size: const Size(double.infinity, 7),
                           painter: _TacticalProgressBarPainter(
                             progress: ratio,
-                            activeColor: isDone ? AppTheme.fhAccentGreen : themeColor,
+                            activeColor: isDone ? themeColor.darken(0.15) : themeColor,
                             isLight: isLight,
                           ),
                         ),
@@ -820,7 +838,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                               style: GoogleFonts.orbitron(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.bold,
-                                color: isDone ? AppTheme.fhAccentGreen : themeColor,
+                                color: isDone ? themeColor.darken(0.15) : themeColor,
                               ),
                             ),
                           ],
@@ -842,7 +860,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                         size: const Size(double.infinity, 7),
                         painter: _TacticalProgressBarPainter(
                           progress: ratio,
-                          activeColor: isDone ? AppTheme.fhAccentGreen : themeColor,
+                          activeColor: isDone ? themeColor.darken(0.15) : themeColor,
                           isLight: isLight,
                         ),
                       ),
@@ -879,7 +897,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
         color: isLight ? Colors.black.withValues(alpha: 0.03) : const Color(0xFF0F1018),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: themeColor.withValues(alpha: 0.2),
+          color: (goal.isCompleted ? themeColor.darken(0.15) : themeColor).withValues(alpha: 0.25),
           width: 1,
         ),
       ),
@@ -954,7 +972,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                                   ? MdiIcons.checkboxMarkedCircleOutline
                                   : MdiIcons.checkboxBlankCircleOutline,
                               size: 15,
-                              color: item.isCompleted ? AppTheme.fhAccentGreen : themeColor,
+                              color: item.isCompleted ? themeColor.darken(0.15) : themeColor,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -1060,9 +1078,37 @@ class _AddSubCheckItemRow extends StatefulWidget {
 
 class _AddSubCheckItemRowState extends State<_AddSubCheckItemRow> {
   final _subController = TextEditingController();
+  final _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    if (_focusNode.hasFocus) {
+      _scrollToVisible();
+    }
+  }
+
+  void _scrollToVisible() {
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted && _focusNode.hasFocus) {
+        Scrollable.ensureVisible(
+          context,
+          alignment: 0.5,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
     _subController.dispose();
     super.dispose();
   }
@@ -1072,6 +1118,7 @@ class _AddSubCheckItemRowState extends State<_AddSubCheckItemRow> {
     if (text.isNotEmpty) {
       provider.addGoalSubCheckItem(widget.goalId, text);
       _subController.clear();
+      _scrollToVisible();
     }
   }
 
@@ -1084,6 +1131,9 @@ class _AddSubCheckItemRowState extends State<_AddSubCheckItemRow> {
         Expanded(
           child: TextField(
             controller: _subController,
+            focusNode: _focusNode,
+            scrollPadding: const EdgeInsets.only(bottom: 120),
+            onTap: _scrollToVisible,
             onSubmitted: (_) => _submit(provider),
             style: GoogleFonts.jetBrainsMono(
               fontSize: 10.5,
@@ -1212,16 +1262,16 @@ class _TacticalCardPainter extends CustomPainter {
     final H = size.height;
     final chamfer = 12.0;
 
-    final cardColor = isDone ? AppTheme.fhAccentGreen : activeColor;
+    final cardColor = isDone ? activeColor.darken(0.15) : activeColor;
 
     final bgPaint = Paint()
       ..color = isLight ? const Color(0xFFEDE9DF) : const Color(0xFF11121A)
       ..style = PaintingStyle.fill;
 
     final borderPaint = Paint()
-      ..color = cardColor.withValues(alpha: isDone ? 0.8 : 0.45)
+      ..color = cardColor.withValues(alpha: isDone ? 0.85 : 0.45)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
+      ..strokeWidth = isDone ? 1.4 : 1.2;
 
     final path = Path()
       ..moveTo(chamfer, 0)
@@ -1442,9 +1492,23 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
                       color: themeColor,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => Navigator.of(context).pop(),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.goalToEdit != null)
+                        IconButton(
+                          icon: Icon(MdiIcons.deleteOutline, size: 20, color: JweTheme.accentRed),
+                          tooltip: 'Delete Goal',
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            appProvider.deleteGoal(widget.goalToEdit!.id);
+                          },
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1703,6 +1767,7 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
                     Expanded(
                       child: TextField(
                         controller: _newSubController,
+                        scrollPadding: const EdgeInsets.only(bottom: 120),
                         style: GoogleFonts.jetBrainsMono(fontSize: 11, color: isLight ? Colors.black87 : Colors.white),
                         decoration: InputDecoration(
                           hintText: 'Type sub-task & press Add...',
@@ -1973,5 +2038,12 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
     }
 
     return nodes;
+  }
+}
+
+extension _GoalColorDarkenX on Color {
+  Color darken([double amount = 0.15]) {
+    final hsl = HSLColor.fromColor(this);
+    return hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0)).toColor();
   }
 }

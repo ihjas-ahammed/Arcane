@@ -96,12 +96,15 @@ class ReportActions {
 
       final goalsSnapshot = GoalBriefingHelper.buildWeeklyMonthlyGoalsSnapshot(_provider, now);
       final goalsContext = GoalBriefingHelper.buildStartupGoalsAIContext(_provider, now);
+      final pastQuotes = _provider.getPreviouslyUsedQuotes().take(20).toList();
+      final pastQuotesStr = pastQuotes.isNotEmpty ? pastQuotes.join("\n") : null;
 
       final aiResult = await _aiService.generateStartDayReport(
         reflectionsList: reflectionsStr,
         sessionsList: sessionsStrBuffer.toString(),
         knownPeopleText: peopleContext,
         goalsText: goalsContext,
+        previousQuotesContext: pastQuotesStr,
         modelCandidates: _provider.settings.heavyModels,
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,
@@ -309,6 +312,11 @@ class ReportActions {
         }
       }
 
+      final pastStories = _provider.getPreviouslyUsedStories();
+      final pastStoriesStr = pastStories.isNotEmpty ? pastStories.join("\n") : null;
+      final pastQuotes = _provider.getPreviouslyUsedQuotes().take(20).toList();
+      final pastQuotesStr = pastQuotes.isNotEmpty ? pastQuotes.join("\n") : null;
+
       final result = await _aiService.generateMonthlyReport(
         monthLabel: monthLabel,
         logsText: logsStr.isEmpty ? 'No reflections logged this month.' : logsStr,
@@ -319,6 +327,8 @@ class ReportActions {
         peopleContext: peopleContext,
         weeklyReportsContext: weeklyContext,
         previousMonthlyContext: previousMonthlyContext,
+        pastStoriesContext: pastStoriesStr,
+        pastQuotesContext: pastQuotesStr,
         modelCandidates: _provider.settings.heavyModels,
         currentApiKeyIndex: _provider.apiKeyIndex,
         customApiKeys: _provider.settings.customApiKeys,

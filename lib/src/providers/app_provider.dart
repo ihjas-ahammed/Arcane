@@ -20,6 +20,8 @@ import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/models/finance_models.dart';
 import 'package:missions/src/models/project_models.dart';
 import 'package:missions/src/models/health_models.dart';
+import 'package:missions/src/models/update_model.dart';
+import 'package:missions/src/services/update_service.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
 import 'package:uuid/uuid.dart';
@@ -82,6 +84,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   late final ScheduleActions _scheduleActions;
   late final FinanceActions _financeActions;
   late final JournalingActions _journalingActions;
+  final UpdateService _updateService = UpdateService();
 
   TaskActions get taskActions => _taskActions;
   AIGenerationActions get aiGenerationActions => _aiGenerationActions;
@@ -90,6 +93,28 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   ScheduleActions get scheduleActions => _scheduleActions;
   FinanceActions get financeActions => _financeActions;
   JournalingActions get journalingActions => _journalingActions;
+  UpdateService get updateService => _updateService;
+
+  UpdateModel? _availableUpdate;
+  UpdateModel? get availableUpdate => _availableUpdate;
+  bool _isCheckingUpdate = false;
+  bool get isCheckingUpdate => _isCheckingUpdate;
+
+  Future<UpdateModel?> checkForAppUpdate({bool forceCheck = false}) async {
+    _isCheckingUpdate = true;
+    notifyListeners();
+    try {
+      final update = await _updateService.checkForUpdate(forceCheck: forceCheck);
+      _availableUpdate = update;
+      return update;
+    } catch (e) {
+      debugPrint("[AppProvider.checkForAppUpdate] Error: $e");
+      return null;
+    } finally {
+      _isCheckingUpdate = false;
+      notifyListeners();
+    }
+  }
 
   AppProvider() {
     _taskActions = TaskActions(this);
@@ -1162,6 +1187,59 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     return null;
   }
 
+  /// Collects all previously used motivational quotes, authors, and reflection quotes
+  /// across daily data and reports to prevent repeats.
+  List<String> getPreviouslyUsedQuotes() {
+    final quotes = <String>{};
+    for (final dayData in completedByDay.values) {
+      if (dayData is Map) {
+        final startDay = dayData['startDayReport'];
+        if (startDay is Map && startDay['motivational_quote'] != null) {
+          final q = startDay['motivational_quote'];
+          if (q is Map) {
+            final text = q['quote']?.toString().trim() ?? '';
+            final author = q['author']?.toString().trim() ?? '';
+            if (author.isNotEmpty || text.isNotEmpty) {
+              quotes.add('"$text" — $author');
+            }
+          }
+        }
+        final briefing = dayData['aiBriefing'] ?? dayData['briefing'];
+        if (briefing is Map && briefing['quote_reflections'] is List) {
+          for (final qr in briefing['quote_reflections']) {
+            if (qr is Map && qr['user_quote'] != null) {
+              final uq = qr['user_quote'].toString().trim();
+              if (uq.isNotEmpty) quotes.add('"$uq"');
+            }
+          }
+        }
+      }
+    }
+    return quotes.where((q) => q.isNotEmpty).toList();
+  }
+
+  /// Collects all previously used creative stories and historical figures across reports to prevent repeats.
+  List<String> getPreviouslyUsedStories() {
+    final stories = <String>{};
+    for (final dayData in completedByDay.values) {
+      if (dayData is Map) {
+        final weekly = dayData['weeklyReport'];
+        if (weekly is Map && weekly['creative_story'] is Map) {
+          final s = weekly['creative_story'];
+          final title = s['title']?.toString().trim() ?? '';
+          if (title.isNotEmpty) stories.add(title);
+        }
+        final monthly = dayData['monthlyReport'];
+        if (monthly is Map && monthly['creative_story'] is Map) {
+          final s = monthly['creative_story'];
+          final title = s['title']?.toString().trim() ?? '';
+          if (title.isNotEmpty) stories.add(title);
+        }
+      }
+    }
+    return stories.where((s) => s.isNotEmpty).toList();
+  }
+
   Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { 
     final logsFormatted = logs.map((l) => {'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason, 'action': l.action}).toList();
     final recentBriefings = <String>[];
@@ -1173,6 +1251,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     }
     
     final allLogsContext = reflectionLogs.reversed.take(50).map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+    final pastQuotes = getPreviouslyUsedQuotes().take(15).toList();
+    final pastQuotesStr = pastQuotes.isNotEmpty ? pastQuotes.join("\n") : null;
     
     // Finance context for target date
     final targetDate = DateTime.tryParse(date) ?? DateTime.now();
@@ -1196,6 +1276,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       reflections: logsFormatted, 
       previousBriefings: recentBriefings, 
       fullContext: allLogsContext,
+      previousQuotesContext: pastQuotesStr,
       financeText: financeStr,
       goalsText: goalsStr,
       modelCandidates: settings.heavyModels, 

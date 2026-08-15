@@ -8,11 +8,30 @@ import 'package:missions/src/theme/app_theme.dart';
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
+GlobalKey<ScaffoldMessengerState>? _activeScaffoldMessengerKey;
+
+/// Registers an active drawer/dialog ScaffoldMessenger so snackbars are rendered
+/// above modals/bottom sheets instead of underneath them.
+void registerActiveScaffoldMessenger(GlobalKey<ScaffoldMessengerState> key) {
+  _activeScaffoldMessengerKey = key;
+}
+
+/// Unregisters the active drawer/dialog ScaffoldMessenger.
+void unregisterActiveScaffoldMessenger(GlobalKey<ScaffoldMessengerState> key) {
+  if (_activeScaffoldMessengerKey == key) {
+    _activeScaffoldMessengerKey = null;
+  }
+}
+
+/// Returns the currently active ScaffoldMessenger, prioritizing open modal/drawer messengers.
+ScaffoldMessengerState? get currentScaffoldMessenger =>
+    _activeScaffoldMessengerKey?.currentState ?? rootScaffoldMessengerKey.currentState;
+
 /// Show a short snackbar-style toast. No-op when no UI is mounted (e.g. the
 /// action fired while the app was killed) — the notification body still
 /// reflects what happened.
 void showGlobalToast(String message) {
-  final messenger = rootScaffoldMessengerKey.currentState;
+  final messenger = currentScaffoldMessenger;
   if (messenger == null) return;
   messenger
     ..clearSnackBars()
@@ -39,7 +58,7 @@ void showUndoSnackBar({
   required String message,
   required VoidCallback onUndo,
 }) {
-  final messenger = rootScaffoldMessengerKey.currentState;
+  final messenger = currentScaffoldMessenger;
   if (messenger == null) return;
   messenger
     ..clearSnackBars()

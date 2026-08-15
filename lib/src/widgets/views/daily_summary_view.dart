@@ -289,6 +289,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       final agentContext = _buildAgentProgressContext(provider);
       final weeklyContext = _buildWeeklyBriefingContext(provider);
 
+      final pastStories = provider.getPreviouslyUsedStories();
+      final pastStoriesStr = pastStories.isNotEmpty ? pastStories.join("\n") : null;
+      final pastQuotes = provider.getPreviouslyUsedQuotes().take(20).toList();
+      final pastQuotesStr = pastQuotes.isNotEmpty ? pastQuotes.join("\n") : null;
+
       final result = await aiService.generateWeeklyReport(
         logsText: data['logs'] as String,
         timeStatsText: data['times'] as String,
@@ -296,6 +301,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         financeText: financeContext,
         agentProgressText: agentContext,
         weeklyBriefingContext: weeklyContext,
+        pastStoriesContext: pastStoriesStr,
+        pastQuotesContext: pastQuotesStr,
         modelCandidates: provider.settings.liteModels,
         currentApiKeyIndex: provider.apiKeyIndex,
         customApiKeys: provider.settings.customApiKeys,

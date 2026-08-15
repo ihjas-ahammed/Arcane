@@ -9,6 +9,7 @@ import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/task_models.dart';
+import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
 import 'package:missions/src/screens/journaling/person_detail_screen.dart';
 
@@ -448,9 +449,20 @@ class WeeklyReviewScreen extends StatelessWidget {
                       ),
                       ...List.generate(gratefulPeople.length, (i) {
                         final pMap = gratefulPeople[i] as Map<String, dynamic>;
+                        final pName = pMap['name']?.toString() ?? 'Unknown';
+                        final pReason = pMap['reason']?.toString() ?? '';
+                        final existingPerson = provider.chatbotMemory.people.where(
+                            (e) => e.name.toLowerCase().trim() == pName.toLowerCase().trim()).firstOrNull;
+                        final category = pMap['category']?.toString() ??
+                            (existingPerson != null
+                                ? PersonInfo.getRelationCategory(existingPerson.relation)
+                                : PersonInfo.getRelationCategory(pMap['relation']?.toString() ?? ''));
+                        final relation = pMap['relation']?.toString() ?? existingPerson?.relation;
                         return _GratefulPersonCard(
-                          name: pMap['name']?.toString() ?? 'Unknown',
-                          reason: pMap['reason']?.toString() ?? '',
+                          name: pName,
+                          reason: pReason,
+                          category: category,
+                          relation: relation,
                         );
                       }),
                     ],
@@ -836,11 +848,22 @@ class _EnergyColumn extends StatelessWidget {
 class _GratefulPersonCard extends StatelessWidget {
   final String name;
   final String reason;
+  final String? category;
+  final String? relation;
 
-  const _GratefulPersonCard({required this.name, required this.reason});
+  const _GratefulPersonCard({
+    required this.name,
+    required this.reason,
+    this.category,
+    this.relation,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final cat = (category != null && category!.isNotEmpty)
+        ? category!
+        : (relation != null && relation!.isNotEmpty ? PersonInfo.getRelationCategory(relation!) : 'Allies');
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -853,18 +876,52 @@ class _GratefulPersonCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            name,
-            style: GoogleFonts.saira(
-              color: JweTheme.accentAmber,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: GoogleFonts.saira(
+                    color: JweTheme.accentAmber,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: JweTheme.accentAmber.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: JweTheme.accentAmber.withOpacity(0.4), width: 0.8),
+                ),
+                child: Text(
+                  cat.toUpperCase(),
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.accentAmber,
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            ],
           ),
+          if (relation != null && relation!.trim().isNotEmpty && relation!.toLowerCase() != 'acquaintance') ...[
+            const SizedBox(height: 2),
+            Text(
+              relation!.toUpperCase(),
+              style: GoogleFonts.jetBrainsMono(
+                color: JweTheme.textMuted,
+                fontSize: 9,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ],
           const SizedBox(height: 4),
           Text(
             reason,
-            style:  TextStyle(color: JweTheme.textMid, fontSize: 12, height: 1.4),
+            style: TextStyle(color: JweTheme.textMid, fontSize: 12, height: 1.4),
           ),
         ],
       ),
@@ -1005,13 +1062,29 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
     final avgWater = totalWater / 7;
     final avgSleep = totalSleepMins / 7 / 60;
 
-    // Gather people (active/known) grouped by relation/classification
+    // Gather people (active/known) grouped by standard DEFAULT category
     final people = provider.chatbotMemory.people;
-    final groupedPeople = <String, List<dynamic>>{};
+    const defaultCategories = [
+      'FAMILY & PARTNER',
+      'FRIENDS',
+      'PROFESSIONAL & MENTORS',
+      'ACQUAINTANCES & OTHERS',
+    ];
+    final groupedPeople = <String, List<PersonInfo>>{};
     for (final p in people) {
-      final relationCategory = p.relation.trim().isNotEmpty ? p.relation.trim().toUpperCase() : 'OTHER';
+      final relationCategory = PersonInfo.getRelationCategory(p.relation).toUpperCase();
       groupedPeople.putIfAbsent(relationCategory, () => []).add(p);
     }
+
+    final sortedCategories = groupedPeople.keys.toList()
+      ..sort((a, b) {
+        final idxA = defaultCategories.indexOf(a);
+        final idxB = defaultCategories.indexOf(b);
+        if (idxA != -1 && idxB != -1) return idxA.compareTo(idxB);
+        if (idxA != -1) return -1;
+        if (idxB != -1) return 1;
+        return a.compareTo(b);
+      });
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1125,9 +1198,8 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
             child: Builder(
               builder: (context) {
                 return Column(
-                  children: groupedPeople.entries.map((entry) {
-                    final category = entry.key;
-                    final members = entry.value;
+                  children: sortedCategories.map((category) {
+                    final members = groupedPeople[category] ?? [];
                     return Theme(
                       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                       child: ExpansionTile(
@@ -1159,13 +1231,27 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
                                   Icon(MdiIcons.accountOutline, size: 14, color: JweTheme.accentTeal),
                                   const SizedBox(width: 10),
                                   Expanded(
-                                    child: Text(
-                                      p.name.toUpperCase(),
-                                      style: GoogleFonts.saira(
-                                        color: JweTheme.textWhite,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 12,
-                                      ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          p.name.toUpperCase(),
+                                          style: GoogleFonts.saira(
+                                            color: JweTheme.textWhite,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        if (p.relation.trim().isNotEmpty && p.relation.toLowerCase() != 'acquaintance')
+                                          Text(
+                                            p.relation.toUpperCase(),
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: JweTheme.textMuted,
+                                              fontSize: 9,
+                                              letterSpacing: 0.8,
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   ),
                                   Icon(MdiIcons.chevronRight, size: 14, color: JweTheme.accentCyan),
