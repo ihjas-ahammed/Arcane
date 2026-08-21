@@ -12,7 +12,7 @@ void main() {
 
   group('day plan duplicate handling', () {
     test('removeFromDayPlan consumes one occurrence and keeps checkpoints', () {
-      final provider = AppProvider();
+      final provider = AppProvider.forTest();
       const date = '2026-07-11';
       provider.taskActions.updateDayPlan(date, [
         'task1|subA',
@@ -30,7 +30,7 @@ void main() {
     });
 
     test('removeFromDayPlan is a no-op when the id is not planned', () {
-      final provider = AppProvider();
+      final provider = AppProvider.forTest();
       const date = '2026-07-11';
       provider.taskActions.updateDayPlan(date, ['task1|subA']);
 
@@ -40,7 +40,7 @@ void main() {
     });
 
     test('phoenix survives while a duplicate occurrence remains', () {
-      final provider = AppProvider();
+      final provider = AppProvider.forTest();
       const date = '2026-07-11';
       provider.taskActions.updateDayPlan(date, ['task1|subA', 'task1|subA']);
       provider.taskActions.setPhoenix(date, 'task1|subA');

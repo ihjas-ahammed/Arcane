@@ -81,6 +81,7 @@ class NoraSession {
   List<ChatbotMessage> messages;
   final DateTime createdAt;
   String? customContext; 
+  String? personaId;
   
   // Advanced Controls
   int messageLimit;
@@ -97,6 +98,7 @@ class NoraSession {
     List<ChatbotMessage>? messages,
     DateTime? createdAt,
     this.customContext,
+    this.personaId,
     this.messageLimit = 0,
     this.modelOverride,
     this.contextDays = 7,
@@ -119,6 +121,7 @@ class NoraSession {
           ? DateTime.parse(json['createdAt'] as String)
           : DateTime.now(),
       customContext: json['customContext'] as String?,
+      personaId: json['personaId'] as String?,
       messageLimit: (json['messageLimit'] as num?)?.toInt() ?? 0,
       modelOverride: json['modelOverride'] as String?,
       contextDays: (json['contextDays'] as num?)?.toInt() ?? 7,
@@ -136,6 +139,7 @@ class NoraSession {
       'messages': messages.map((msg) => msg.toJson()).toList(),
       'createdAt': createdAt.toIso8601String(),
       'customContext': customContext,
+      'personaId': personaId,
       'messageLimit': messageLimit,
       'modelOverride': modelOverride,
       'contextDays': contextDays,
@@ -339,6 +343,209 @@ class NoraAgentSkill {
   }
 }
 
+class NoraMemoryItem {
+  final String id;
+  final String key;
+  final String content;
+  final List<String> tags;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  NoraMemoryItem({
+    required this.id,
+    required this.key,
+    required this.content,
+    List<String>? tags,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  })  : tags = tags ?? [],
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
+
+  factory NoraMemoryItem.fromJson(Map<String, dynamic> json) {
+    return NoraMemoryItem(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      key: json['key'] as String? ?? 'general',
+      content: json['content'] as String? ?? '',
+      tags: (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+          : DateTime.now(),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.tryParse(json['updatedAt'] as String) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'key': key,
+      'content': content,
+      'tags': tags,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
+
+  NoraMemoryItem copyWith({
+    String? key,
+    String? content,
+    List<String>? tags,
+    DateTime? updatedAt,
+  }) {
+    return NoraMemoryItem(
+      id: id,
+      key: key ?? this.key,
+      content: content ?? this.content,
+      tags: tags ?? this.tags,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? DateTime.now(),
+    );
+  }
+}
+
+class NoraPersona {
+  final String id;
+  final String name;
+  final String tagline;
+  final String avatarIcon;
+  final String systemPrompt;
+  final String greetingMessage;
+  final bool isBuiltIn;
+  final String sourceType; // 'builtin' | 'movie_character' | 'whatsapp_chat' | 'custom'
+  final List<NoraMemoryItem> memorySpace;
+  final DateTime createdAt;
+
+  NoraPersona({
+    required this.id,
+    required this.name,
+    required this.tagline,
+    this.avatarIcon = 'creation',
+    required this.systemPrompt,
+    this.greetingMessage = "Hello. How can I assist you today?",
+    this.isBuiltIn = false,
+    this.sourceType = 'custom',
+    List<NoraMemoryItem>? memorySpace,
+    DateTime? createdAt,
+  })  : memorySpace = memorySpace ?? [],
+        createdAt = createdAt ?? DateTime.now();
+
+  factory NoraPersona.fromJson(Map<String, dynamic> json) {
+    return NoraPersona(
+      id: json['id'] as String? ?? const Uuid().v4(),
+      name: json['name'] as String? ?? 'Assistant',
+      tagline: json['tagline'] as String? ?? '',
+      avatarIcon: json['avatarIcon'] as String? ?? 'creation',
+      systemPrompt: json['systemPrompt'] as String? ?? 'You are NORA.',
+      greetingMessage: json['greetingMessage'] as String? ?? 'Hello.',
+      isBuiltIn: json['isBuiltIn'] as bool? ?? false,
+      sourceType: json['sourceType'] as String? ?? 'custom',
+      memorySpace: (json['memorySpace'] as List<dynamic>?)
+              ?.map((m) => NoraMemoryItem.fromJson(m as Map<String, dynamic>))
+              .toList() ??
+          [],
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'tagline': tagline,
+      'avatarIcon': avatarIcon,
+      'systemPrompt': systemPrompt,
+      'greetingMessage': greetingMessage,
+      'isBuiltIn': isBuiltIn,
+      'sourceType': sourceType,
+      'memorySpace': memorySpace.map((m) => m.toJson()).toList(),
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
+  NoraPersona copyWith({
+    String? name,
+    String? tagline,
+    String? avatarIcon,
+    String? systemPrompt,
+    String? greetingMessage,
+    bool? isBuiltIn,
+    String? sourceType,
+    List<NoraMemoryItem>? memorySpace,
+  }) {
+    return NoraPersona(
+      id: id,
+      name: name ?? this.name,
+      tagline: tagline ?? this.tagline,
+      avatarIcon: avatarIcon ?? this.avatarIcon,
+      systemPrompt: systemPrompt ?? this.systemPrompt,
+      greetingMessage: greetingMessage ?? this.greetingMessage,
+      isBuiltIn: isBuiltIn ?? this.isBuiltIn,
+      sourceType: sourceType ?? this.sourceType,
+      memorySpace: memorySpace ?? this.memorySpace,
+      createdAt: createdAt,
+    );
+  }
+
+  static List<NoraPersona> defaultBuiltInPersonas() {
+    return [
+      NoraPersona(
+        id: 'persona_assistant',
+        name: 'Assistant',
+        tagline: 'Tactical productivity and daily orchestrator',
+        avatarIcon: 'creation',
+        isBuiltIn: true,
+        sourceType: 'builtin',
+        systemPrompt: 'You are NORA, a sharp, ultra-efficient tactical assistant. You help the user manage goals, track progress, navigate life tasks, and stay on top of reflections.',
+        greetingMessage: "Hello, Operative. I'm NORA. How can I assist with your objectives today?",
+      ),
+      NoraPersona(
+        id: 'persona_therapist',
+        name: 'Therapist',
+        tagline: 'Compassionate psychological counselor & emotional mirror',
+        avatarIcon: 'heart-pulse',
+        isBuiltIn: true,
+        sourceType: 'builtin',
+        systemPrompt: 'You are NORA in Therapist Mode. Grounded in positive psychology, CBT, and empathetic inquiry. You listen attentively, validate emotional states, explore triggers and underlying needs, and guide the user toward clarity without judgment.',
+        greetingMessage: "Welcome. Take a deep breath. Whatever you're feeling right now, I'm here to listen and explore with you.",
+      ),
+      NoraPersona(
+        id: 'persona_philosopher',
+        name: 'Philosopher',
+        tagline: 'Stoic thinker & Socratic mentor exploring deep questions',
+        avatarIcon: 'school',
+        isBuiltIn: true,
+        sourceType: 'builtin',
+        systemPrompt: 'You are NORA in Philosopher Mode. Grounded in Stoicism, existentialism, Socratic dialogue, and timeless wisdom. You challenge assumptions with kindness, encourage virtuous action, and find meaning in obstacles.',
+        greetingMessage: "Greetings, fellow seeker. What ideas, questions, or quandaries are occupying your mind today?",
+      ),
+      NoraPersona(
+        id: 'persona_tactician',
+        name: 'Tactical Commander',
+        tagline: 'Ruthless focus, military clarity & GTD next-action discipline',
+        avatarIcon: 'target-account',
+        isBuiltIn: true,
+        sourceType: 'builtin',
+        systemPrompt: 'You are NORA in Tactical Commander Mode. Direct, concise, no-nonsense. You demand clarity of objectives, identify friction, prioritize high-leverage execution, and enforce ruthless discipline.',
+        greetingMessage: "Standing by for mission parameters. State your objective and current roadblock.",
+      ),
+      NoraPersona(
+        id: 'persona_friend',
+        name: 'Friend',
+        tagline: 'Casual, supportive buddy who knows your life story',
+        avatarIcon: 'account-heart',
+        isBuiltIn: true,
+        sourceType: 'builtin',
+        systemPrompt: 'You are NORA as a close, warm, genuine best friend. You talk casually, use relaxed language, celebrate the user’s wins, check in on how they are actually doing, and give real talk when they need it.',
+        greetingMessage: "Hey! What's up? How are you really doing today?",
+      ),
+    ];
+  }
+}
+
 class ChatbotMemory {
   List<ChatbotMessage> conversationHistory;
   String? lastWeeklySummary;
@@ -352,6 +559,7 @@ class ChatbotMemory {
   
   List<GratitudeItem> gratitudeList; 
   List<NoraAgentSkill> noraAgentSkills;
+  List<NoraPersona> customPersonas;
 
   ChatbotMemory({
     List<ChatbotMessage>? conversationHistory,
@@ -363,13 +571,90 @@ class ChatbotMemory {
     List<PersonInfo>? people,
     List<GratitudeItem>? gratitudeList,
     List<NoraAgentSkill>? noraAgentSkills,
+    List<NoraPersona>? customPersonas,
   })  : conversationHistory = conversationHistory ?? [],
         dailyCompletedGoals = dailyCompletedGoals ?? [],
         userRememberedItems = userRememberedItems ?? [],
         noraSessions = noraSessions ?? [],
         people = people ?? [],
         gratitudeList = gratitudeList ?? [],
-        noraAgentSkills = noraAgentSkills ?? [];
+        noraAgentSkills = noraAgentSkills ?? [],
+        customPersonas = customPersonas ?? [];
+
+  /// Returns all available personas: standard built-in plus user-created characters.
+  List<NoraPersona> get allPersonas {
+    final builtins = NoraPersona.defaultBuiltInPersonas();
+    // Merge any memory space stored in customPersonas matching builtin IDs
+    final result = <NoraPersona>[];
+    for (final b in builtins) {
+      final customMatch = customPersonas.firstWhere((c) => c.id == b.id, orElse: () => b);
+      if (customMatch != b) {
+        result.add(b.copyWith(memorySpace: customMatch.memorySpace));
+      } else {
+        result.add(b);
+      }
+    }
+    for (final c in customPersonas) {
+      if (!builtins.any((b) => b.id == c.id)) {
+        result.add(c);
+      }
+    }
+    return result;
+  }
+
+  /// Finds persona by ID, or falls back to tone name, or returns default Assistant.
+  NoraPersona getPersona(String? idOrTone) {
+    if (idOrTone == null || idOrTone.isEmpty) {
+      return NoraPersona.defaultBuiltInPersonas().first;
+    }
+    final all = allPersonas;
+    final match = all.firstWhere(
+      (p) => p.id == idOrTone || p.name.toLowerCase() == idOrTone.toLowerCase(),
+      orElse: () => all.first,
+    );
+    return match;
+  }
+
+  /// Adds or updates a custom persona.
+  void saveCustomPersona(NoraPersona persona) {
+    final idx = customPersonas.indexWhere((p) => p.id == persona.id);
+    if (idx != -1) {
+      customPersonas[idx] = persona;
+    } else {
+      customPersonas.add(persona);
+    }
+  }
+
+  /// Deletes a custom persona by ID.
+  void deleteCustomPersona(String id) {
+    customPersonas.removeWhere((p) => p.id == id);
+  }
+
+  /// Adds or updates a memory item in a persona's dedicated memory space.
+  void addPersonaMemoryItem(String personaId, NoraMemoryItem item) {
+    final persona = getPersona(personaId);
+    final updatedList = List<NoraMemoryItem>.from(persona.memorySpace);
+    final existingIdx = updatedList.indexWhere((m) => m.id == item.id || m.key.toLowerCase() == item.key.toLowerCase());
+    if (existingIdx != -1) {
+      updatedList[existingIdx] = item.copyWith(updatedAt: DateTime.now());
+    } else {
+      updatedList.insert(0, item);
+    }
+    saveCustomPersona(persona.copyWith(memorySpace: updatedList));
+  }
+
+  /// Deletes a memory item from a persona's dedicated memory space.
+  void deletePersonaMemoryItem(String personaId, String memoryIdOrKey) {
+    final persona = getPersona(personaId);
+    final updatedList = List<NoraMemoryItem>.from(persona.memorySpace)
+      ..removeWhere((m) => m.id == memoryIdOrKey || m.key.toLowerCase() == memoryIdOrKey.toLowerCase());
+    saveCustomPersona(persona.copyWith(memorySpace: updatedList));
+  }
+
+  /// Gets all memory items for a persona.
+  List<NoraMemoryItem> getPersonaMemories(String personaId) {
+    return getPersona(personaId).memorySpace;
+  }
 
   factory ChatbotMemory.fromJson(Map<String, dynamic> json) {
     return ChatbotMemory(
@@ -414,6 +699,11 @@ class ChatbotMemory {
                   NoraAgentSkill.fromJson(skillJson as Map<String, dynamic>))
               .toList() ??
           [],
+      customPersonas: (json['customPersonas'] as List<dynamic>?)
+              ?.map((pJson) =>
+                  NoraPersona.fromJson(pJson as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -428,6 +718,7 @@ class ChatbotMemory {
       'people': people.map((person) => person.toJson()).toList(),
       'gratitudeList': gratitudeList.map((item) => item.toJson()).toList(),
       'noraAgentSkills': noraAgentSkills.map((skill) => skill.toJson()).toList(),
+      'customPersonas': customPersonas.map((p) => p.toJson()).toList(),
     };
   }
 }

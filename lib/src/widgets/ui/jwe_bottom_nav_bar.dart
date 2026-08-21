@@ -14,6 +14,7 @@ class JweBottomNavBar extends StatelessWidget {
   final Function(int) onItemTapped;
   final Color activeColor;
   final VoidCallback? onGoalsTapped;
+  final VoidCallback? onGoalsLongPressed;
   final VoidCallback? onNoraTapped;
 
   const JweBottomNavBar({
@@ -22,6 +23,7 @@ class JweBottomNavBar extends StatelessWidget {
     required this.onItemTapped,
     required this.activeColor,
     this.onGoalsTapped,
+    this.onGoalsLongPressed,
     this.onNoraTapped,
   });
 
@@ -107,6 +109,7 @@ class JweBottomNavBar extends StatelessWidget {
   Widget _buildNoraCircle(BuildContext context) {
     return GestureDetector(
       onTap: _handleGoalsTap,
+      onLongPress: onGoalsLongPressed,
       child: Container(
         width: 44,
         height: 44,

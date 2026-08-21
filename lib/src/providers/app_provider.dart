@@ -22,6 +22,7 @@ import 'package:missions/src/models/project_models.dart';
 import 'package:missions/src/models/health_models.dart';
 import 'package:missions/src/models/update_model.dart';
 import 'package:missions/src/services/update_service.dart';
+import 'package:missions/src/services/nora_agent_engine.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
 import 'package:uuid/uuid.dart';
@@ -99,6 +100,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   UpdateModel? get availableUpdate => _availableUpdate;
   bool _isCheckingUpdate = false;
   bool get isCheckingUpdate => _isCheckingUpdate;
+
+  List<Map<String, dynamic>> _cachedWeeklyReports = [];
+  List<Map<String, dynamic>> _cachedMonthlyReports = [];
 
   Future<UpdateModel?> checkForAppUpdate({bool forceCheck = false}) async {
     _isCheckingUpdate = true;
@@ -637,7 +641,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
   Future<void> fetchDailyReportsFromCloud() async {
     if (currentUser == null) return;
-    final recentDaily = await _cloudStorage.fetchRecentDailyData(currentUser!.uid, 14); 
+    final recentDaily = await _cloudStorage.fetchRecentDailyData(currentUser!.uid, 60); 
     if (recentDaily.isNotEmpty) {
       final newHistory = Map<String, dynamic>.from(completedByDay);
       recentDaily.forEach((date, data) {
@@ -664,6 +668,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     setSettings(AppSettings());
     setMainTasks(initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList());
     setCompletedByDay({});
+    _cachedWeeklyReports = [];
+    _cachedMonthlyReports = [];
     setActiveTimers({});
     setReflectionLogs([]);
     setTransactions([]);
@@ -1114,23 +1120,59 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     return buffer.toString();
   }
 
-  Future<List<Map<String, dynamic>>> getArchivedWeeklyReports() async {
-    if (currentUser == null) return[];
-    return await _cloudStorage.fetchWeeklyReports(currentUser!.uid);
+  Future<List<Map<String, dynamic>>> getArchivedWeeklyReports({bool forceRefresh = false}) async {
+    if (currentUser == null) return _cachedWeeklyReports;
+    if (_cachedWeeklyReports.isNotEmpty && !forceRefresh) {
+      return _cachedWeeklyReports;
+    }
+    final reports = await _cloudStorage.fetchWeeklyReports(currentUser!.uid);
+    _cachedWeeklyReports = reports;
+    return reports;
   }
 
   Future<void> saveWeeklyReport(String date, Map<String, dynamic> data) async {
+    final existingIdx = _cachedWeeklyReports.indexWhere((r) => r['id'] == date);
+    final entry = {'id': date, 'report': data, 'updatedAt': DateTime.now().toIso8601String()};
+    if (existingIdx >= 0) {
+      _cachedWeeklyReports[existingIdx] = entry;
+    } else {
+      _cachedWeeklyReports.insert(0, entry);
+    }
+    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    dayData['weeklyReport'] = data;
+    newCompletedByDay[date] = dayData;
+    setCompletedByDay(newCompletedByDay);
+
     if (currentUser != null) {
       await _cloudStorage.saveWeeklyReport(currentUser!.uid, date, data);
     }
   }
 
-  Future<List<Map<String, dynamic>>> getArchivedMonthlyReports() async {
-    if (currentUser == null) return[];
-    return await _cloudStorage.fetchMonthlyReports(currentUser!.uid);
+  Future<List<Map<String, dynamic>>> getArchivedMonthlyReports({bool forceRefresh = false}) async {
+    if (currentUser == null) return _cachedMonthlyReports;
+    if (_cachedMonthlyReports.isNotEmpty && !forceRefresh) {
+      return _cachedMonthlyReports;
+    }
+    final reports = await _cloudStorage.fetchMonthlyReports(currentUser!.uid);
+    _cachedMonthlyReports = reports;
+    return reports;
   }
 
   Future<void> saveMonthlyReport(String date, Map<String, dynamic> data) async {
+    final existingIdx = _cachedMonthlyReports.indexWhere((r) => r['id'] == date);
+    final entry = {'id': date, 'report': data, 'updatedAt': DateTime.now().toIso8601String()};
+    if (existingIdx >= 0) {
+      _cachedMonthlyReports[existingIdx] = entry;
+    } else {
+      _cachedMonthlyReports.insert(0, entry);
+    }
+    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    dayData['monthlyReport'] = data;
+    newCompletedByDay[date] = dayData;
+    setCompletedByDay(newCompletedByDay);
+
     if (currentUser != null) {
       await _cloudStorage.saveMonthlyReport(currentUser!.uid, date, data);
     }
@@ -1187,6 +1229,43 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     return null;
   }
 
+  /// Collects all unique author/thinker/philosopher names featured in startup motivational quotes.
+  List<String> getPreviouslyUsedQuoteAuthors() {
+    final authors = <String>[];
+    final seenNormalized = <String>{};
+
+    void addAuthor(String? raw) {
+      if (raw == null) return;
+      var clean = raw.trim();
+      clean = clean.replaceAll(RegExp(r'''^[\s\-_—–"“”']+|[\s\-_—–"“”']+$'''), '').trim();
+      if (clean.isEmpty) return;
+      final norm = clean.toLowerCase();
+      if (!seenNormalized.contains(norm)) {
+        seenNormalized.add(norm);
+        authors.add(clean);
+      }
+    }
+
+    for (final dayData in completedByDay.values) {
+      if (dayData is Map) {
+        final startDay = dayData['startDayReport'];
+        if (startDay is Map && startDay['motivational_quote'] != null) {
+          final q = startDay['motivational_quote'];
+          if (q is Map) {
+            addAuthor(q['author']?.toString());
+          } else if (q is String) {
+            if (q.contains(' — ')) {
+              addAuthor(q.split(' — ').last);
+            } else if (q.contains(' - ')) {
+              addAuthor(q.split(' - ').last);
+            }
+          }
+        }
+      }
+    }
+    return authors;
+  }
+
   /// Collects all previously used motivational quotes, authors, and reflection quotes
   /// across daily data and reports to prevent repeats.
   List<String> getPreviouslyUsedQuotes() {
@@ -1199,9 +1278,13 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
           if (q is Map) {
             final text = q['quote']?.toString().trim() ?? '';
             final author = q['author']?.toString().trim() ?? '';
-            if (author.isNotEmpty || text.isNotEmpty) {
+            if (author.isNotEmpty && text.isNotEmpty) {
               quotes.add('"$text" — $author');
+            } else if (text.isNotEmpty) {
+              quotes.add('"$text"');
             }
+          } else if (q is String && q.trim().isNotEmpty) {
+            quotes.add(q.trim());
           }
         }
         final briefing = dayData['aiBriefing'] ?? dayData['briefing'];
@@ -1221,23 +1304,68 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   /// Collects all previously used creative stories and historical figures across reports to prevent repeats.
   List<String> getPreviouslyUsedStories() {
     final stories = <String>{};
-    for (final dayData in completedByDay.values) {
-      if (dayData is Map) {
-        final weekly = dayData['weeklyReport'];
-        if (weekly is Map && weekly['creative_story'] is Map) {
-          final s = weekly['creative_story'];
-          final title = s['title']?.toString().trim() ?? '';
-          if (title.isNotEmpty) stories.add(title);
+    final seen = <String>{};
+
+    void addStory(dynamic s) {
+      if (s == null) return;
+      if (s is Map) {
+        final title = s['title']?.toString().trim() ?? '';
+        final takeaway = s['takeaway']?.toString().trim() ?? '';
+        if (title.isNotEmpty) {
+          final formatted = takeaway.isNotEmpty ? '$title (Lesson: $takeaway)' : title;
+          final norm = title.toLowerCase();
+          if (!seen.contains(norm)) {
+            seen.add(norm);
+            stories.add(formatted);
+          }
         }
-        final monthly = dayData['monthlyReport'];
-        if (monthly is Map && monthly['creative_story'] is Map) {
-          final s = monthly['creative_story'];
-          final title = s['title']?.toString().trim() ?? '';
-          if (title.isNotEmpty) stories.add(title);
+      } else if (s is String && s.trim().isNotEmpty) {
+        final norm = s.trim().toLowerCase();
+        if (!seen.contains(norm)) {
+          seen.add(norm);
+          stories.add(s.trim());
         }
       }
     }
+
+    // Check cached weekly reports
+    for (final doc in _cachedWeeklyReports) {
+      final rep = doc['report'] ?? doc;
+      if (rep is Map) addStory(rep['creative_story']);
+    }
+
+    // Check cached monthly reports
+    for (final doc in _cachedMonthlyReports) {
+      final rep = doc['report'] ?? doc;
+      if (rep is Map) addStory(rep['creative_story']);
+    }
+
+    // Check completedByDay
+    for (final dayData in completedByDay.values) {
+      if (dayData is Map) {
+        final weekly = dayData['weeklyReport'];
+        if (weekly is Map) addStory(weekly['creative_story']);
+        final monthly = dayData['monthlyReport'];
+        if (monthly is Map) addStory(monthly['creative_story']);
+      }
+    }
+
     return stories.where((s) => s.isNotEmpty).toList();
+  }
+
+  /// Async version that ensures archived weekly and monthly reports are fetched from cloud before collecting.
+  Future<List<String>> fetchPreviouslyUsedStories() async {
+    try {
+      if (currentUser != null && (_cachedWeeklyReports.isEmpty || _cachedMonthlyReports.isEmpty)) {
+        await Future.wait([
+          getArchivedWeeklyReports(),
+          getArchivedMonthlyReports(),
+        ]);
+      }
+    } catch (e) {
+      debugPrint('[AppProvider.fetchPreviouslyUsedStories] Failed fetching archived reports: $e');
+    }
+    return getPreviouslyUsedStories();
   }
 
   Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { 
@@ -1751,17 +1879,117 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     return chatbotMemory.noraSessions.firstWhereOrNull((s) => s.id == chatbotMemory.activeNoraSessionId);
   }
 
+  List<NoraPersona> get noraPersonas => chatbotMemory.allPersonas;
+
+  NoraPersona getActiveNoraPersona([NoraSession? session]) {
+    final s = session ?? activeNoraSession;
+    if (s?.personaId != null) {
+      return chatbotMemory.getPersona(s!.personaId);
+    }
+    return chatbotMemory.getPersona(s?.tone);
+  }
+
+  void saveCustomPersona(NoraPersona persona) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.saveCustomPersona(persona);
+    setChatbotMemory(newMemory);
+    markDirty('settings');
+    notifyListeners();
+  }
+
+  void deleteCustomPersona(String id) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.deleteCustomPersona(id);
+    setChatbotMemory(newMemory);
+    markDirty('settings');
+    notifyListeners();
+  }
+
+  void addPersonaMemoryItem(String personaId, NoraMemoryItem item) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.addPersonaMemoryItem(personaId, item);
+    setChatbotMemory(newMemory);
+    markDirty('settings');
+    notifyListeners();
+  }
+
+  void deletePersonaMemoryItem(String personaId, String memoryIdOrKey) {
+    final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
+    newMemory.deletePersonaMemoryItem(personaId, memoryIdOrKey);
+    setChatbotMemory(newMemory);
+    markDirty('settings');
+    notifyListeners();
+  }
+
+  List<NoraMemoryItem> getPersonaMemories(String personaId) {
+    return chatbotMemory.getPersonaMemories(personaId);
+  }
+
+  Future<NoraPersona> generateCharacterFromInput({
+    required String inputSource,
+    required String sourceType,
+  }) async {
+    final result = await _aiService.generateCharacterSheet(
+      inputSource: inputSource,
+      sourceType: sourceType,
+      modelCandidates: settings.heavyModels,
+      currentApiKeyIndex: apiKeyIndex,
+      customApiKeys: settings.customApiKeys,
+      onNewApiKeyIndex: (i) => setApiKeyIndex(i),
+      onLog: (m) => debugPrint("[CharacterGen] $m"),
+    );
+
+    final name = result['name']?.toString() ?? 'Custom Character';
+    final tagline = result['tagline']?.toString() ?? '';
+    final avatarIcon = result['avatarIcon']?.toString() ?? 'creation';
+    final systemPrompt = result['systemPrompt']?.toString() ?? 'You are a custom AI character.';
+    final greetingMessage = result['greetingMessage']?.toString() ?? 'Hello.';
+    final initialMemories = <NoraMemoryItem>[];
+
+    if (result['initialMemories'] is List) {
+      for (final im in result['initialMemories']) {
+        if (im is Map) {
+          initialMemories.add(NoraMemoryItem(
+            id: const Uuid().v4(),
+            key: im['key']?.toString() ?? 'initial',
+            content: im['content']?.toString() ?? '',
+            tags: (im['tags'] as List?)?.map((e) => e.toString()).toList() ?? [],
+          ));
+        }
+      }
+    }
+
+    final persona = NoraPersona(
+      id: "persona_${const Uuid().v4().substring(0, 8)}",
+      name: name,
+      tagline: tagline,
+      avatarIcon: avatarIcon,
+      systemPrompt: systemPrompt,
+      greetingMessage: greetingMessage,
+      isBuiltIn: false,
+      sourceType: sourceType,
+      memorySpace: initialMemories,
+    );
+
+    saveCustomPersona(persona);
+    return persona;
+  }
+
   void createNoraSession({
     required String title, 
     required String tone, 
     required DateTime startDate, 
     required DateTime endDate, 
     String? customContext,
+    String? personaId,
     int? messageLimit,
     String? modelOverride,
     int? contextDays,
     String? systemPromptOverride,
   }) {
+    final persona = chatbotMemory.getPersona(personaId ?? tone);
+    final initialGreeting = persona.greetingMessage;
+
     final newSession = NoraSession(
       id: const Uuid().v4(), 
       title: title, 
@@ -1769,15 +1997,26 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       startDate: startDate, 
       endDate: endDate, 
       customContext: customContext,
+      personaId: persona.id,
       messageLimit: messageLimit ?? 0,
       modelOverride: modelOverride,
       contextDays: contextDays ?? 7,
       systemPromptOverride: systemPromptOverride,
+      messages: [
+        ChatbotMessage(
+          id: const Uuid().v4(),
+          text: initialGreeting,
+          sender: MessageSender.bot,
+          timestamp: DateTime.now(),
+        ),
+      ],
     );
     final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
     newMemory.noraSessions.add(newSession);
     newMemory.activeNoraSessionId = newSession.id;
     setChatbotMemory(newMemory);
+    markDirty('settings');
+    notifyListeners();
   }
   
   void updateNoraSessionConfig({
@@ -1795,6 +2034,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       if (contextDays != null) newMemory.noraSessions[index].contextDays = contextDays;
       newMemory.noraSessions[index].systemPromptOverride = systemPromptOverride; // allow nulling
       setChatbotMemory(newMemory);
+      markDirty('settings');
+      notifyListeners();
     }
   }
 
@@ -1802,6 +2043,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     final newMemory = ChatbotMemory.fromJson(chatbotMemory.toJson());
     newMemory.activeNoraSessionId = sessionId;
     setChatbotMemory(newMemory);
+    markDirty('settings');
+    notifyListeners();
   }
 
   void deleteNoraSession(String sessionId) {
@@ -1811,95 +2054,38 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       newMemory.activeNoraSessionId = newMemory.noraSessions.isNotEmpty ? newMemory.noraSessions.last.id : null;
     }
     setChatbotMemory(newMemory);
+    markDirty('settings');
+    notifyListeners();
   }
 
   Future<void> sendNoraMessage(String text) async {
     final session = activeNoraSession;
     if (session == null) return;
 
-    final userMsg = ChatbotMessage(id: const Uuid().v4(), text: text, sender: MessageSender.user, timestamp: DateTime.now());
+    final userMsg = ChatbotMessage(
+      id: const Uuid().v4(),
+      text: text,
+      sender: MessageSender.user,
+      timestamp: DateTime.now(),
+    );
     session.messages.add(userMsg);
-    markDirty('settings'); 
+    markDirty('settings');
+    notifyListeners();
 
-    // Gather Context bounded by session config
-    DateTime start = session.startDate;
-    DateTime end = session.endDate.add(const Duration(days: 1)); // Include end day fully
-    
-    // If contextDays is configured, override the date range to just look back X days from now
-    if (session.contextDays > 0) {
-       start = DateTime.now().subtract(Duration(days: session.contextDays));
-       end = DateTime.now();
-    }
-
-    final String tasksContext = mainTasks.map((t) {
-      final subtasksStr = t.subTasks.map((s) {
-        final subsubtasksStr = s.subSubTasks.map((ss) {
-          final substepsStr = ss.substeps.map((substep) =>
-            "      - Sub-Step: ${substep.name} (ID: ${substep.id}, completed: ${substep.completed})\n"
-          ).join();
-          return "    - Sub-Subtask: ${ss.name} (ID: ${ss.id}, completed: ${ss.completed}, why: ${ss.why}, what: ${ss.what})\n$substepsStr";
-        }).join();
-        return "  - Subtask: ${s.name} (ID: ${s.id}, completed: ${s.completed}, why: ${s.why}, what: ${s.what}, assets/resources: ${s.resources})\n$subsubtasksStr";
-      }).join();
-      return "- Main Task: ${t.name} (ID: ${t.id}, theme: ${t.theme}, colorHex: ${t.colorHex}, description: ${t.description})\n$subtasksStr";
-    }).join();
-
-    final String reflectionsContext = reflectionLogs
-      .where((l) => l.timestamp.isAfter(start) && l.timestamp.isBefore(end))
-      .map((l) => 
-        "- Reflection [Date: ${DateFormat('yyyy-MM-dd').format(l.timestamp)}] (ID: ${l.id}): trigger: '${l.trigger}', emotion: '${l.emotion}', reason: '${l.reason}', action: '${l.action}'"
-      ).join("\n");
-
-    final String peopleContext = chatbotMemory.people.map((p) => 
-      "- Person: ${p.name} (relation: ${p.relation}, details: ${p.details}, age: ${p.manualAge}, notes: ${p.manualNotes})"
-    ).join("\n");
-
-    final String assetsContext = chatbotMemory.gratitudeList.map((a) => 
-      "- Asset/Gratitude: ${a.name} (type: ${a.type}, why: ${a.why}, what: ${a.what})"
-    ).join("\n");
-
-    final String skillsContext = chatbotMemory.noraAgentSkills.map((s) => 
-      "- Dynamic Skill '${s.name}': ${s.description}. Instructions: ${s.instructions}"
-    ).join("\n");
-
-    String systemPrompt = session.systemPromptOverride ?? settings.customChatbotPrompt ?? "You are NORA.";
-
-    final fullContext = """
-SYSTEM INSTRUCTION: $systemPrompt
-Persona tone: ${session.tone}
-
-CURRENT DATE/TIME: ${DateTime.now().toIso8601String()}
-
-NORA ACTIVE DYNAMIC SKILLS:
-$skillsContext
-
-APP DATABASE CONTEXT:
-=== TASKS HIERARCHY ===
-$tasksContext
-
-=== REFLECTIONS ===
-$reflectionsContext
-
-=== KNOWN PEOPLE ===
-$peopleContext
-
-=== ASSETS / GRATITUDE ===
-$assetsContext
-""";
-    
     final modelCandidates = session.modelOverride != null
         ? [session.modelOverride!]
         : [...settings.liveModels, ...settings.liteModels];
-    
+
     try {
-      final responseMap = await _aiService.queryNoraAgent(
-        query: text, 
-        logsContext: fullContext, 
-        modelCandidates: modelCandidates, 
-        currentApiKeyIndex: apiKeyIndex, 
-        customApiKeys: settings.customApiKeys, 
-        onNewApiKeyIndex: (i) => setApiKeyIndex(i), 
-        onLog: (m) {},
+      final engine = NoraAgentEngine(provider: this, aiService: _aiService);
+      final responseMap = await engine.executeAgentLoop(
+        session: session,
+        userQuery: text,
+        modelCandidates: modelCandidates,
+        currentApiKeyIndex: apiKeyIndex,
+        customApiKeys: settings.customApiKeys,
+        onNewApiKeyIndex: (i) => setApiKeyIndex(i),
+        onLog: (m) => debugPrint(m),
       );
 
       final List<dynamic> messages = responseMap['messages'] as List<dynamic>? ?? [];
@@ -1912,14 +2098,24 @@ $assetsContext
       for (var resp in messages) {
         final respStr = resp.toString();
         // Dynamic typing delay
-        await Future.delayed(Duration(milliseconds: 500 + (respStr.length * 10).clamp(0, 2000)));
-        final botMsg = ChatbotMessage(id: const Uuid().v4(), text: respStr, sender: MessageSender.bot, timestamp: DateTime.now());
+        await Future.delayed(Duration(milliseconds: 350 + (respStr.length * 8).clamp(0, 1500)));
+        final botMsg = ChatbotMessage(
+          id: const Uuid().v4(),
+          text: respStr,
+          sender: MessageSender.bot,
+          timestamp: DateTime.now(),
+        );
         session.messages.add(botMsg);
         markDirty('settings');
         notifyListeners();
       }
-    } catch(e) {
-      final errorMsg = ChatbotMessage(id: const Uuid().v4(), text: "Error: $e", sender: MessageSender.bot, timestamp: DateTime.now());
+    } catch (e) {
+      final errorMsg = ChatbotMessage(
+        id: const Uuid().v4(),
+        text: "Error: $e",
+        sender: MessageSender.bot,
+        timestamp: DateTime.now(),
+      );
       session.messages.add(errorMsg);
       markDirty('settings');
       notifyListeners();

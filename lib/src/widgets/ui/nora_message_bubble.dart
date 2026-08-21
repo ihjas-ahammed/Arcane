@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -48,7 +50,7 @@ class NoraMessageBubble extends StatelessWidget {
           Flexible(
             child: Container(
               constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.75),
+                  maxWidth: MediaQuery.of(context).size.width * 0.78),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                   color: bubbleColor,
@@ -59,22 +61,59 @@ class NoraMessageBubble extends StatelessWidget {
                     bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(18),
                   ),
                   border: Border.all(
-                      color: bubbleColor.withOpacity(0.5), width: 0.5)),
+                      color: bubbleColor.withValues(alpha: 0.5), width: 0.5)),
               child: Column(
                 crossAxisAlignment: crossAxisAlignment,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    message.text,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                        color: textColor, fontSize: 13.5, height: 1.4),
-                  ),
+                  if (isTyping)
+                    Text(
+                      message.text,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                          color: textColor, fontSize: 13.5, height: 1.4),
+                    )
+                  else
+                    MarkdownBody(
+                      data: message.text,
+                      selectable: true,
+                      styleSheet: MarkdownStyleSheet(
+                        p: theme.textTheme.bodyMedium?.copyWith(
+                          color: textColor,
+                          fontSize: 13.5,
+                          height: 1.4,
+                        ),
+                        h1: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold),
+                        h2: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold),
+                        h3: TextStyle(color: textColor, fontSize: 14.5, fontWeight: FontWeight.bold),
+                        code: GoogleFonts.jetBrainsMono(
+                          fontSize: 11.5,
+                          color: isUser ? textColor : AppTheme.fhAccentPurple,
+                          backgroundColor: isUser ? Colors.black12 : AppTheme.fhBgDark,
+                        ),
+                        codeblockPadding: const EdgeInsets.all(8),
+                        codeblockDecoration: BoxDecoration(
+                          color: isUser ? Colors.black26 : AppTheme.fhBgDark,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: (isUser ? textColor : AppTheme.fhAccentPurple).withValues(alpha: 0.2)),
+                        ),
+                        listBullet: TextStyle(color: textColor, fontSize: 13.5),
+                        strong: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                        em: TextStyle(color: textColor, fontStyle: FontStyle.italic),
+                        blockquoteDecoration: BoxDecoration(
+                          border: Border(left: BorderSide(color: isUser ? textColor : AppTheme.fhAccentPurple, width: 3)),
+                        ),
+                        blockquote: TextStyle(color: textColor.withValues(alpha: 0.85), fontStyle: FontStyle.italic),
+                        tableBody: TextStyle(color: textColor, fontSize: 12),
+                        tableHead: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 12),
+                        tableBorder: TableBorder.all(color: textColor.withValues(alpha: 0.2), width: 0.5),
+                      ),
+                    ),
                   if (!isTyping) ...[
                     const SizedBox(height: 4),
                     Text(
                       DateFormat('HH:mm').format(message.timestamp.toLocal()),
                       style: theme.textTheme.labelSmall?.copyWith(
-                          color: textColor.withOpacity(0.7), fontSize: 9),
+                          color: textColor.withValues(alpha: 0.7), fontSize: 9),
                     ),
                   ]
                 ],

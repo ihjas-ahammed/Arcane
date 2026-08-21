@@ -20,7 +20,6 @@ import 'package:missions/src/widgets/ui/task_progress_snapshot_view.dart';
 import 'package:missions/src/widgets/analytics/jwe_date_selector.dart';
 import 'package:missions/src/widgets/analytics/jwe_reflection_progress.dart';
 import 'package:missions/src/widgets/analytics/jwe_quick_access_grid.dart';
-import 'package:missions/src/widgets/dialogs/pin_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -53,23 +52,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     }
   }
 
-  Future<void> _checkPinAndNavigate(BuildContext context, Widget screen) async {
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    
-    if (provider.settings.journalPin == null || provider.settings.journalPin!.isEmpty) {
-      final newPin = await PinDialog.show(context: context, isSetupMode: true);
-      if (newPin != null && newPin is String) {
-        provider.setJournalPin(newPin);
-        if (context.mounted) {
-           Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
-        }
-      }
-    } else {
-      final success = await PinDialog.show(context: context, isSetupMode: false, expectedPin: provider.settings.journalPin);
-      if (success == true && context.mounted) {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
-      }
-    }
+  void _navigateToScreen(BuildContext context, Widget screen) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
 
   Future<void> _pickDate(BuildContext context) async {
@@ -289,10 +273,10 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       final agentContext = _buildAgentProgressContext(provider);
       final weeklyContext = _buildWeeklyBriefingContext(provider);
 
-      final pastStories = provider.getPreviouslyUsedStories();
-      final pastStoriesStr = pastStories.isNotEmpty ? pastStories.join("\n") : null;
-      final pastQuotes = provider.getPreviouslyUsedQuotes().take(20).toList();
-      final pastQuotesStr = pastQuotes.isNotEmpty ? pastQuotes.join("\n") : null;
+      final pastStories = await provider.fetchPreviouslyUsedStories();
+      final pastStoriesStr = pastStories.isNotEmpty ? pastStories.map((s) => "- $s").join("\n") : null;
+      final pastQuotes = provider.getPreviouslyUsedQuotes();
+      final pastQuotesStr = pastQuotes.isNotEmpty ? pastQuotes.take(30).map((q) => "- $q").join("\n") : null;
 
       final result = await aiService.generateWeeklyReport(
         logsText: data['logs'] as String,
@@ -674,8 +658,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
               child: JweQuickAccessGrid(
-                onArchive: () => _checkPinAndNavigate(context, const ReflectionsArchiveScreen()),
-                onAdvanced: () => _checkPinAndNavigate(context, const AdvancedToolsScreen()),
+                onArchive: () => _navigateToScreen(context, const ReflectionsArchiveScreen()),
+                onAdvanced: () => _navigateToScreen(context, const AdvancedToolsScreen()),
               ),
             ),
           ],

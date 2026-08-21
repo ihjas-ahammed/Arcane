@@ -96,14 +96,17 @@ class ReportActions {
 
       final goalsSnapshot = GoalBriefingHelper.buildWeeklyMonthlyGoalsSnapshot(_provider, now);
       final goalsContext = GoalBriefingHelper.buildStartupGoalsAIContext(_provider, now);
-      final pastQuotes = _provider.getPreviouslyUsedQuotes().take(20).toList();
-      final pastQuotesStr = pastQuotes.isNotEmpty ? pastQuotes.join("\n") : null;
+      final pastAuthors = _provider.getPreviouslyUsedQuoteAuthors();
+      final pastAuthorsStr = pastAuthors.isNotEmpty ? pastAuthors.map((a) => "- $a").join("\n") : null;
+      final pastQuotes = _provider.getPreviouslyUsedQuotes();
+      final pastQuotesStr = pastQuotes.isNotEmpty ? pastQuotes.map((q) => "- $q").join("\n") : null;
 
       final aiResult = await _aiService.generateStartDayReport(
         reflectionsList: reflectionsStr,
         sessionsList: sessionsStrBuffer.toString(),
         knownPeopleText: peopleContext,
         goalsText: goalsContext,
+        previousAuthorsContext: pastAuthorsStr,
         previousQuotesContext: pastQuotesStr,
         modelCandidates: _provider.settings.heavyModels,
         currentApiKeyIndex: _provider.apiKeyIndex,
@@ -312,10 +315,10 @@ class ReportActions {
         }
       }
 
-      final pastStories = _provider.getPreviouslyUsedStories();
-      final pastStoriesStr = pastStories.isNotEmpty ? pastStories.join("\n") : null;
-      final pastQuotes = _provider.getPreviouslyUsedQuotes().take(20).toList();
-      final pastQuotesStr = pastQuotes.isNotEmpty ? pastQuotes.join("\n") : null;
+      final pastStories = await _provider.fetchPreviouslyUsedStories();
+      final pastStoriesStr = pastStories.isNotEmpty ? pastStories.map((s) => "- $s").join("\n") : null;
+      final pastQuotes = _provider.getPreviouslyUsedQuotes();
+      final pastQuotesStr = pastQuotes.isNotEmpty ? pastQuotes.take(30).map((q) => "- $q").join("\n") : null;
 
       final result = await _aiService.generateMonthlyReport(
         monthLabel: monthLabel,

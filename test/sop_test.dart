@@ -66,7 +66,7 @@ void main() {
     });
 
     test('AppProvider SOP CRUD operations', () {
-      final provider = AppProvider();
+      final provider = AppProvider.forTest();
       final now = DateTime.now();
 
       final sop1 = SopModel(
@@ -106,7 +106,7 @@ void main() {
     });
 
     test('AppProvider active SOP running session workflow', () {
-      final provider = AppProvider();
+      final provider = AppProvider.forTest();
       final now = DateTime.now();
 
       final sop = SopModel(

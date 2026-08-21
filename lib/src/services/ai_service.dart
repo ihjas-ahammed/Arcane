@@ -538,64 +538,15 @@ class AIService {
     }
   }
 
-  Future<Map<String, dynamic>> queryNoraAgent({
-    required String query,
-    required String logsContext,
+  /// Executes a single turn in the Nora Agent Inbuilt Reasoning & Tool Loop
+  Future<Map<String, dynamic>> queryNoraAgentTurn({
+    required String prompt,
     required List<String> modelCandidates,
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final prompt = """
-$logsContext
-
-USER QUERY: "$query"
-
-RULES:
-1. You are NORA, an agent assistant. You must address the user's query and optionally perform actions (edits/additions/retrievals) on their tasks, reflections, people info, gratitude/assets, progress points, or custom database paths.
-2. Your response MUST be a single, valid JSON object containing:
-   - "messages": a JSON array of strings (minimum 1, maximum 4). These are short, casual, lower-case, lazy-texting-style messages (use abbreviations like 'yk', 'tbh', 'idk', no markdown) that you speak to the user in chat.
-   - "actions": a JSON array of action objects. If no action is requested or needed, this must be an empty array [].
-3. The supported action object schemas in "actions" are:
-   - Check/Uncheck task:
-     {"type": "check_task", "taskId": "main-task-id", "subtaskId": "subtask-id", "subSubtaskId": "subsubtask-id (optional)", "completed": true/false}
-   - Add task:
-     {"type": "add_task", "taskType": "main"|"sub"|"subsub", "name": "task name", "description": "task description (optional)", "mainTaskId": "main-task-id (if sub/subsub)", "subtaskId": "subtask-id (if subsub)", "why": "why (optional)", "what": "what (optional)", "theme": "theme (optional)", "colorHex": "colorHex (optional)"}
-   - Add data point to progress graph:
-     {"type": "add_progress_point", "mainTaskId": "...", "subTaskId": "...", "progress": 0.0 to 1.0, "spentSeconds": integer}
-   - Edit/Add person info:
-     {"type": "edit_person", "name": "person name", "relation": "relation (optional)", "details": "details (optional)", "age": integer (optional), "gender": "gender (optional)", "notes": "notes (optional)"}
-   - Edit/Add reflection log:
-     {"type": "edit_reflection", "id": "reflection-id (or 'new')", "trigger": "...", "emotion": "...", "reason": "...", "action": "..."}
-   - Add a new custom ability/skill to Nora:
-     {"type": "add_nora_skill", "name": "skill name", "description": "what it does", "instructions": "rules/instructions for Nora on when and how to perform this skill"}
-   - Arbitrary/Custom database edit (e.g. changing dynamic values or keys based on new skills/abilities):
-     {"type": "custom_db_edit", "path": "dot-separated-path (e.g., 'settings.adaptWritingStyle' or 'mainTasks.0.name')", "value": any_value}
-
-Examples of valid JSON responses:
-{
-  "messages": ["on it, checked that task for you", "anything else?"],
-  "actions": [
-    {"type": "check_task", "taskId": "t1", "subtaskId": "st1", "completed": true}
-  ]
-}
-OR
-{
-  "messages": ["sure! added a skill to your chatbot memory", "now i can double all task names if you ask me to."],
-  "actions": [
-    {"type": "add_nora_skill", "name": "double_names", "description": "doubles all main task names", "instructions": "when asked to double names, output custom_db_edit action for each mainTask path like mainTasks.i.name"}
-  ]
-}
-OR
-{
-  "messages": ["hey, looking at june 13th reflection:", "you felt happy due to completion", "i can change the trigger if you want"],
-  "actions": []
-}
-
-Output ONLY the JSON object. Do not include markdown code block syntax (like ```json).
-""";
-
     try {
       return await _executeWithModelAndKeyRotation(
         currentApiKeyIndex: currentApiKeyIndex,
@@ -620,15 +571,80 @@ Output ONLY the JSON object. Do not include markdown code block syntax (like ```
           return _parseNoraResponse(raw);
         },
       );
-    } catch(e) {
+    } catch (e) {
       if (e.toString().contains("OFFLINE_MOCK_DATA")) {
         return {
-          "messages": ["offline mock response: connect api key."],
+          "messages": ["Offline mock response: connect API key to chat with agent."],
           "actions": []
         };
       }
       rethrow;
     }
+  }
+
+  /// Generates a comprehensive Character Sheet using the Pro Model
+  Future<Map<String, dynamic>> generateCharacterSheet({
+    required String inputSource,
+    required String sourceType, // 'movie_character' | 'whatsapp_chat' | 'custom'
+    required List<String> modelCandidates,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+  }) async {
+    String sourceInstruction = "";
+    if (sourceType == 'movie_character') {
+      sourceInstruction = "The input describes a famous fictional, cinematic, TV, book, or historical character ($inputSource). Deeply research and capture their distinct mannerisms, iconic phrasing, emotional baseline, worldview, quirks, and psychological depth.";
+    } else if (sourceType == 'whatsapp_chat') {
+      sourceInstruction = "The input contains exported WhatsApp chat logs / conversation text. Analyze the text to extract the participant's exact conversational DNA: texting quirks, slang, sentence length, emoji frequency, humor style, empathy level, and worldview.";
+    } else {
+      sourceInstruction = "The input describes a custom persona requested by the user. Build a rich, multi-dimensional character sheet around these specifications.";
+    }
+
+    final prompt = """
+You are an expert character psychologist and AI persona architect.
+$sourceInstruction
+
+INPUT SOURCE DATA:
+\"\"\"
+$inputSource
+\"\"\"
+
+TASK:
+Create a complete, ultra-authentic Character Sheet for an AI agent companion.
+1. "name": Character name (concise, clear).
+2. "tagline": A witty, memorable 1-line bio or iconic quote (e.g. "Lawyer with 99.9% win rate & zero patience for excuses").
+3. "avatarIcon": Suitable icon descriptor (e.g. "creation", "shield", "robot", "brain", "lightning-bolt", "crown", "briefcase", "incognito", "heart-pulse", "school", "target-account", "account-heart").
+4. "systemPrompt": A comprehensive, high-fidelity system prompt that instructs the AI agent:
+   - Exactly how to speak: sentence structure, vocabulary, slang, quirks, humor, sarcasm, punctuation, catchphrases.
+   - Core worldview & psychology: how they view struggle, goals, discipline, emotions, human nature.
+   - Interaction rules: how they talk to the user, how they motivate or critique them, how they respond when the user is lazy or triumphant.
+   - STRICT RULE: Stay 100% in character at all times. Never say "As an AI".
+5. "greetingMessage": An iconic, memorable first message greeting the user in character.
+6. "initialMemories": 1 to 3 initial core facts, relationship premises, or observations that this character begins with in their personal Memory Space. Format: [{"key": "string", "content": "string", "tags": ["string"]}].
+
+OUTPUT JSON ONLY:
+{
+  "name": "string",
+  "tagline": "string",
+  "avatarIcon": "string",
+  "systemPrompt": "string",
+  "greetingMessage": "string",
+  "initialMemories": [
+    {"key": "string", "content": "string", "tags": ["string"]}
+  ]
+}
+ENSURE VALID JSON. NO MARKDOWN FENCES.
+""";
+
+    return await makeAICall(
+      prompt: prompt,
+      modelCandidates: modelCandidates,
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+    );
   }
 
   Future<List<String>> autoAssignAssetsToTask({
@@ -1194,7 +1210,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     ${financeText != null && financeText.isNotEmpty ? 'Finance: $financeText' : ''}
     ${agentProgressText != null && agentProgressText.isNotEmpty ? 'Agent Progress (Tasks): $agentProgressText' : ''}
     ${weeklyBriefingContext != null && weeklyBriefingContext.isNotEmpty ? 'Weekly Context: \n$weeklyBriefingContext' : ''}
-    ${pastStoriesContext != null && pastStoriesContext.isNotEmpty ? 'Previously Featured Stories & Figures (STRICT EXCLUSION LIST - DO NOT REPEAT ANY OF THESE FIGURES OR THEMES):\n$pastStoriesContext' : ''}
+    ${pastStoriesContext != null && pastStoriesContext.isNotEmpty ? 'PREVIOUSLY FEATURED STORIES & HISTORICAL FIGURES (STRICT EXCLUSION LIST - NEVER REPEAT ANY OF THESE FIGURES, STORIES, OR THEMES):\n$pastStoriesContext' : ''}
     ${pastQuotesContext != null && pastQuotesContext.isNotEmpty ? 'Previously Used Quotes Context:\n$pastQuotesContext' : ''}
 
     Tone: Warm, highly optimistic, empowering, constructive, and deeply encouraging. Highlight growth, progress, and strengths. Celebrate every victory. NEVER give negative or critical feedback.
@@ -1213,7 +1229,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     11. "energy_map": "energizers", "drainers".
     12. "share_win": "win", "person", "how".
     13. "creative_story": A short (100-180 words) inspiring real story of a famous scientist, historical figure, writer, explorer, polymath, or artist whose struggles/journey mirrors what the user experienced this week, connecting their lesson directly to the user's journey.
-        CRITICAL UNIQUENESS MANDATE: The historical figure MUST BE ENTIRELY UNIQUE and NEVER chosen from the exclusion list above. Draw from diverse world history, scientific breakthroughs, artistic milestones, and human resilience across centuries and cultures (e.g. Richard Feynman, Ada Lovelace, Hypatia, Alexander von Humboldt, Rosalind Franklin, Johannes Kepler, Hokusai, Alan Turing, Ibn Battuta, Rachel Carson, Leonardo da Vinci, Srinivasa Ramanujan, Mary Shelley, Michael Faraday, etc.). "title", "story", "takeaway".
+        CRITICAL UNIQUENESS MANDATE: The historical figure and story MUST BE ENTIRELY UNIQUE and NEVER chosen from the exclusion list above. If a figure or story appeared in the exclusion list, YOU ARE STRICTLY FORBIDDEN from choosing that figure again. Pick a new, deeply inspiring historical figure from world history, scientific breakthroughs, artistic milestones, and human resilience across centuries and cultures (e.g. Hypatia, Alexander von Humboldt, Rosalind Franklin, Johannes Kepler, Hokusai, Alan Turing, Ibn Battuta, Rachel Carson, Leonardo da Vinci, Srinivasa Ramanujan, Mary Shelley, Michael Faraday, Marie Curie, Blaise Pascal, Lise Meitner, Ibn al-Haytham, Ernest Shackleton, Frida Kahlo, etc. - unless already in the exclusion list). "title", "story", "takeaway".
 
     Output JSON ONLY:
     {
@@ -1271,7 +1287,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     ${peopleContext != null && peopleContext.isNotEmpty ? 'Known People: $peopleContext' : ''}
     ${weeklyReportsContext != null && weeklyReportsContext.isNotEmpty ? 'Weekly Summaries:\n$weeklyReportsContext' : ''}
     ${previousMonthlyContext != null && previousMonthlyContext.isNotEmpty ? 'Previous Monthly Context:\n$previousMonthlyContext' : ''}
-    ${pastStoriesContext != null && pastStoriesContext.isNotEmpty ? 'Previously Featured Stories & Figures (STRICT EXCLUSION LIST - DO NOT REPEAT ANY OF THESE FIGURES/THEMES):\n$pastStoriesContext' : ''}
+    ${pastStoriesContext != null && pastStoriesContext.isNotEmpty ? 'PREVIOUSLY FEATURED STORIES & HISTORICAL FIGURES (STRICT EXCLUSION LIST - NEVER REPEAT ANY OF THESE FIGURES OR THEMES):\n$pastStoriesContext' : ''}
     ${pastQuotesContext != null && pastQuotesContext.isNotEmpty ? 'Previously Used Quotes (STRICT EXCLUSION LIST):\n$pastQuotesContext' : ''}
 
     Tone: Uplifting, highly optimistic, empowering, and deeply appreciative. Celebrate all accomplishments, growth, and positive turning points. NEVER give negative or critical advice.
@@ -1291,7 +1307,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     12. "gratitude_reminiscence": exactly 5 moments.
     13. "letting_go": ONE commitment to drop.
     14. "creative_story": An inspiring real story of a scientist, historical thinker, explorer, or artist mirroring the user's month.
-        CRITICAL UNIQUENESS MANDATE: The "creative_story" MUST feature a profound real historical figure and narrative that has NEVER appeared in any previous monthly or weekly briefing. Pick a novel, deeply inspiring figure and journey from world history. "title", "story", "takeaway".
+        CRITICAL UNIQUENESS MANDATE: The "creative_story" MUST feature a profound real historical figure and narrative that has NEVER appeared in any previous monthly or weekly briefing (strictly avoid the exclusion list above). Pick a novel, deeply inspiring figure and journey from world history. "title", "story", "takeaway".
 
     Output JSON ONLY:
     {
@@ -1355,6 +1371,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     String? knownPeopleText,
     String? goalsText,
     String? previousQuotesContext,
+    String? previousAuthorsContext,
   }) async {
     String systemStyle = "";
     if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
@@ -1369,7 +1386,8 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     Sessions (Last 7 days): $sessionsList
     ${knownPeopleText != null && knownPeopleText.isNotEmpty ? 'Known Contacts/People: $knownPeopleText' : ''}
     ${goalsText != null && goalsText.isNotEmpty ? 'Goals Context:\n$goalsText' : ''}
-    ${previousQuotesContext != null && previousQuotesContext.isNotEmpty ? 'Previously Used Quotes & Authors (STRICT EXCLUSION LIST - NEVER REPEAT ANY OF THESE QUOTES OR AUTHORS):\n$previousQuotesContext' : ''}
+    ${previousAuthorsContext != null && previousAuthorsContext.isNotEmpty ? 'PREVIOUSLY FEATURED AUTHORS & THINKERS (STRICT EXCLUSION LIST - NEVER REPEAT QUOTES FROM ANY OF THESE AUTHORS):\n$previousAuthorsContext' : ''}
+    ${previousQuotesContext != null && previousQuotesContext.isNotEmpty ? 'PREVIOUSLY USED QUOTES (STRICT EXCLUSION LIST - NEVER REPEAT ANY OF THESE QUOTES):\n$previousQuotesContext' : ''}
 
     Tone: Highly optimistic, energizing, empowering, deeply supportive, and appreciative. ALWAYS encourage the user and highlight potential. NEVER give negative, critical, or adversarial advice.
 
@@ -1378,7 +1396,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     2. "yesterday_quote": A prominent positive, inspiring, or representative good quote/phrase from yesterday's reflections.
     3. "ai_today_advice": Warm, appreciative, and optimistic AI encouragement for today inspired by that yesterday quote — celebrating what the user wrote and boosting their momentum for today (DO NOT give negative or critical advice).
     4. "motivational_quote": A famous, deeply inspiring quote from a scientist, philosopher, writer, polymath, inventor, or historical figure that has NEVER been featured in previous morning briefings.
-       CRITICAL UNIQUENESS MANDATE: Draw from thousands of years of human history across world cultures, scientific pioneers, polymaths, and literature (e.g. Richard Feynman, Hypatia, Leonardo da Vinci, Ada Lovelace, Alexander von Humboldt, Rosalind Franklin, Lao Tzu, Marcus Aurelius, Carl Sagan, Buckminster Fuller, Mary Oliver, Jane Goodall, etc.). Every single day must deliver a brand-new, never-before-seen quote and author. Format: {"quote": "string", "author": "string"}.
+       CRITICAL EXCLUSION & UNIQUENESS MANDATE: You MUST NOT select a quote from ANY person, author, scientist, or thinker listed in the exclusion list above (e.g. if Marcus Aurelius, Richard Feynman, Carl Sagan, Seneca, Steve Jobs, or Leonardo da Vinci are in the list, DO NOT use any quotes by them). You MUST pick a completely fresh, never-used person and quote. Draw widely from world history, scientific pioneers, literature, and philosophy (e.g. Hypatia, Alexander von Humboldt, Rosalind Franklin, Lao Tzu, Buckminster Fuller, Mary Oliver, Jane Goodall, Hokusai, Alan Turing, Ibn Battuta, Rachel Carson, Srinivasa Ramanujan, Mary Shelley, Michael Faraday, Marie Curie, Blaise Pascal, Ada Lovelace, Ralph Waldo Emerson, Johannes Kepler, Lise Meitner, etc. - unless already in the exclusion list). Output format: {"quote": "string", "author": "string"}.
     5. "suggested_contacts": Pick 2-3 specific people from Known Contacts that the user should reach out to or check in with today. Format: [{"name": "string", "relation": "string", "type": "RECONNECT|FOLLOW UP|APPRECIATION|STAY IN TOUCH", "reason": "string"}].
     6. "highlight": ONE sentence naming the single most leveraged task for today.
     7. "obstacle_plan": "obstacle" and "if_then".

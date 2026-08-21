@@ -19,7 +19,6 @@ import 'package:missions/src/screens/finance/finance_dashboard_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
-import 'package:missions/src/widgets/dialogs/pin_dialog.dart';
 import 'package:missions/src/screens/nora_ai_screen.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
 
@@ -85,6 +84,11 @@ class _HomeScreenState extends State<HomeScreen> {
       // from a home-screen widget tap).
       _onTabRequest();
       _checkUpdateOnStartup();
+
+      // Auto open goals window on app startup
+      if (mounted) {
+        GoalsBottomDrawer.show(context);
+      }
     });
     WidgetActionRouter.instance.tabRequest.addListener(_onTabRequest);
   }
@@ -130,23 +134,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _checkPinAndNavigate(BuildContext context, Widget screen) async {
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    
-    if (provider.settings.journalPin == null || provider.settings.journalPin!.isEmpty) {
-      final newPin = await PinDialog.show(context: context, isSetupMode: true);
-      if (!mounted) return;
-      if (newPin != null && newPin is String) {
-        provider.setJournalPin(newPin);
-        Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
-      }
-    } else {
-      final success = await PinDialog.show(context: context, isSetupMode: false, expectedPin: provider.settings.journalPin);
-      if (!mounted) return;
-      if (success == true) {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
-      }
-    }
+  void _checkPinAndNavigate(BuildContext context, Widget screen) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
 
   static final _desktopNavItems = <_DesktopNavItem>[
@@ -343,6 +332,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     background: ArcSurfaces.ink(0.07),
                     padding: EdgeInsets.zero,
                     onTap: () => GoalsBottomDrawer.show(context),
+                    onLongPress: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NoraAiScreen())),
                     child: Center(
                       child: Icon(
                         MdiIcons.target,
@@ -361,6 +351,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 activeColor: currentTaskColor,
                 onItemTapped: _onItemTapped,
                 onGoalsTapped: () => GoalsBottomDrawer.show(context),
+                onGoalsLongPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NoraAiScreen())),
               ),
       ),
     );

@@ -4,6 +4,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/widgets/drawers/goals_bottom_drawer.dart';
+import 'package:missions/src/screens/nora_ai_screen.dart';
 
 /// Operator HUD classified-access tiles.
 class JweQuickAccessGrid extends StatelessWidget {
@@ -21,22 +22,22 @@ class JweQuickAccessGrid extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       const HudSectionHead(
         label: 'CLASSIFIED ACCESS',
-        code: 'PIN-LOCKED',
+        code: 'OPERATOR',
         accent: HudTone.amber,
         padding: EdgeInsets.fromLTRB(0, 0, 0, 10),
       ),
       _Tile(
-        title: 'REFLECTION ARCHIVE',
-        sub: 'Filter, multi-select, export',
+        title: 'ARCHIVED INTEL & REFLECTIONS',
+        sub: 'Field notes · triggers · logs',
         icon: MdiIcons.archiveOutline,
-        accent: JweTheme.accentCyan,
-        tone: HudTone.cyan,
+        accent: JweTheme.accentAmber,
+        tone: HudTone.amber,
         code: 'A-01',
         onTap: onArchive,
       ),
       const SizedBox(height: 6),
       _Tile(
-        title: 'ADVANCED TOOLS',
+        title: 'TACTICAL LAB & SIMULATIONS',
         sub: 'Therapy · simulate · prompts',
         icon: MdiIcons.hexagonMultipleOutline,
         accent: JweTheme.accentTeal,
@@ -53,6 +54,7 @@ class JweQuickAccessGrid extends StatelessWidget {
         tone: HudTone.amber,
         code: 'A-03',
         onTap: () => GoalsBottomDrawer.show(context),
+        onLongPress: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NoraAiScreen())),
       ),
     ]);
   }
@@ -66,6 +68,7 @@ class _Tile extends StatelessWidget {
   final HudTone tone;
   final String code;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   const _Tile({
     required this.title,
@@ -75,12 +78,14 @@ class _Tile extends StatelessWidget {
     required this.tone,
     required this.code,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: HudPanel(
         clip: HudClip.br,
         accent: accent,

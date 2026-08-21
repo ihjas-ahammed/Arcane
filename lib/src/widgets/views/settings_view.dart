@@ -12,7 +12,6 @@ import 'package:missions/src/screens/settings/data_recovery_screen.dart';
 import 'package:missions/src/screens/schedule/scheduled_reminders_screen.dart';
 import 'package:missions/src/widgets/settings/ai_providers_manager.dart';
 import 'package:missions/src/widgets/settings/model_configuration_widget.dart';
-import 'package:missions/src/widgets/dialogs/pin_dialog.dart';
 import 'package:missions/src/widgets/dialogs/whats_new_update_dialog.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:missions/src/screens/onboarding/app_tour_screen.dart';
@@ -214,25 +213,6 @@ class _SettingsViewState extends State<SettingsView> {
     }
   }
 
-  Future<void> _handleChangePin(AppProvider provider) async {
-    // If PIN exists, require old PIN first to change
-    if (provider.settings.journalPin != null) {
-      final auth = await PinDialog.show(context: context, isSetupMode: false, expectedPin: provider.settings.journalPin);
-      if (auth != true) return;
-    }
-    
-    if (!mounted) return;
-    
-    // Set New PIN
-    final newPin = await PinDialog.show(context: context, isSetupMode: true);
-    if (newPin != null && newPin is String) {
-      provider.setJournalPin(newPin);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Security PIN Updated.")));
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
@@ -360,18 +340,7 @@ class _SettingsViewState extends State<SettingsView> {
               icon: MdiIcons.shieldLockOutline,
               title: 'Security, Privacy & Theme',
               children: [
-                OutlinedButton.icon(
-                  icon: Icon(MdiIcons.dialpad, size: 18),
-                  label: Text(appProvider.settings.journalPin == null ? "SET SECURITY PIN" : "CHANGE SECURITY PIN"),
-                  onPressed: () => _handleChangePin(appProvider),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 44),
-                    foregroundColor: AppTheme.fhAccentPurple,
-                    side: BorderSide(color: AppTheme.fhAccentPurple.withOpacity(0.5))
-                  ),
-                ),
-                const SizedBox(height: 16),
-                  Text("Nora AI Context Access", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
+                Text("Nora AI Context Access", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextSecondary)),
                 SwitchListTile.adaptive(
                   title: const Text('Access Session Logs', style: TextStyle(fontSize: 14)),
                   value: appProvider.settings.noraAccessSessions,

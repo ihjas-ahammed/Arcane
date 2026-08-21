@@ -166,6 +166,7 @@ class HudPanel extends StatelessWidget {
   final bool allBrackets;
   final Color? background;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final double? width;
   final double? height;
 
@@ -180,6 +181,7 @@ class HudPanel extends StatelessWidget {
     this.allBrackets = false,
     this.background,
     this.onTap,
+    this.onLongPress,
     this.width,
     this.height,
   });
@@ -206,9 +208,10 @@ class HudPanel extends StatelessWidget {
 
     final wrapped = Container(margin: margin, child: content);
 
-    if (onTap == null) return wrapped;
+    if (onTap == null && onLongPress == null) return wrapped;
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: wrapped,
     );
   }

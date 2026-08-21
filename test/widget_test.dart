@@ -26,7 +26,7 @@ void main() {
     // Wrap with ChangeNotifierProvider for AppProvider
     await tester.pumpWidget(
       ChangeNotifierProvider(
-        create: (context) => AppProvider(), // Provide a AppProvider instance
+        create: (context) => AppProvider.forTest(), // Provide a AppProvider instance
         child: const MyApp(),
       ),
     );

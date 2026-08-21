@@ -11,6 +11,8 @@ import 'package:intl/intl.dart';
 import 'package:missions/src/widgets/valorant/valorant_button.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
+import 'package:missions/src/widgets/dialogs/create_character_dialog.dart';
+import 'package:missions/src/widgets/dialogs/nora_memory_space_sheet.dart';
 
 class NoraAiScreen extends StatefulWidget {
   const NoraAiScreen({super.key});
@@ -75,7 +77,8 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
 
   void _showNewSessionDialog(AppProvider provider) {
     String title = "Session ${DateFormat('MM-dd').format(DateTime.now())}";
-    String tone = "Assistant";
+    final personas = provider.noraPersonas;
+    String selectedPersonaId = personas.isNotEmpty ? personas.first.id : "persona_assistant";
     DateTime startDate = DateTime.now().subtract(const Duration(days: 30));
     DateTime endDate = DateTime.now();
 
@@ -83,9 +86,35 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setStateDialog) {
+          final currentPersona = personas.firstWhere(
+            (p) => p.id == selectedPersonaId,
+            orElse: () => personas.first,
+          );
+
           return AlertDialog(
             backgroundColor: AppTheme.fhBgMedium,
-            title:   Text("INITIALIZE NORA LINK", style: TextStyle(color: AppTheme.fhAccentPurple, fontFamily: AppTheme.fontDisplay)),
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "INITIALIZE NORA LINK",
+                  style: TextStyle(color: AppTheme.fhAccentPurple, fontFamily: AppTheme.fontDisplay, fontSize: 16),
+                ),
+                TextButton.icon(
+                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                  icon: Icon(MdiIcons.creation, size: 14, color: AppTheme.fhAccentPurple),
+                  label: Text("Summon Persona", style: TextStyle(color: AppTheme.fhAccentPurple, fontSize: 11)),
+                  onPressed: () async {
+                    final newPersona = await CreateCharacterDialog.show(context, provider);
+                    if (newPersona != null) {
+                      setStateDialog(() {
+                        selectedPersonaId = newPersona.id;
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -97,20 +126,52 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    initialValue: tone,
-                    decoration: const InputDecoration(labelText: "Persona Tone"),
+                    value: selectedPersonaId,
+                    decoration: const InputDecoration(labelText: "Active Persona / Character Mode"),
                     dropdownColor: AppTheme.fhBgDark,
-                    items: const [
-                      DropdownMenuItem(value: "Assistant", child: Text("Assistant")),
-                      DropdownMenuItem(value: "Therapist", child: Text("Therapist")),
-                      DropdownMenuItem(value: "Philosopher", child: Text("Philosopher")),
-                      DropdownMenuItem(value: "Tactical Commander", child: Text("Tactician")),
-                      DropdownMenuItem(value: "Friend", child: Text("Friend")),
-                    ],
-                    onChanged: (val) => setStateDialog(() => tone = val!),
+                    items: provider.noraPersonas.map((p) {
+                      return DropdownMenuItem(
+                        value: p.id,
+                        child: Row(
+                          children: [
+                            Icon(
+                              p.isBuiltIn ? MdiIcons.robotOutline : MdiIcons.movieOpenOutline,
+                              size: 16,
+                              color: AppTheme.fhAccentPurple,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(p.name, style: const TextStyle(fontSize: 13)),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (val) => setStateDialog(() => selectedPersonaId = val!),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.fhBgDark,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(MdiIcons.informationOutline, size: 14, color: AppTheme.fhTextSecondary),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            currentPersona.tagline.isNotEmpty ? currentPersona.tagline : currentPersona.systemPrompt,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 16),
-                    Text("DATA CONTEXT RANGE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text("DATA CONTEXT RANGE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -152,14 +213,21 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                 label: "ESTABLISH",
                 color: AppTheme.fhAccentPurple,
                 onPressed: () {
-                  provider.createNoraSession(title: title, tone: tone, startDate: startDate, endDate: endDate);
+                  final p = provider.chatbotMemory.getPersona(selectedPersonaId);
+                  provider.createNoraSession(
+                    title: title,
+                    tone: p.name,
+                    personaId: p.id,
+                    startDate: startDate,
+                    endDate: endDate,
+                  );
                   Navigator.pop(ctx);
                 },
               )
             ],
           );
-        }
-      )
+        },
+      ),
     );
   }
 
@@ -440,20 +508,31 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
     final memory = appProvider.chatbotMemory;
     final activeSession = appProvider.activeNoraSession;
 
+    final activePersona = appProvider.getActiveNoraPersona(activeSession);
+
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppTheme.fhBgDeepDark,
       appBar: AppBar(
-        title:   Text("NORA ASSISTANT", style: TextStyle(color: AppTheme.fhAccentPurple, letterSpacing: 2.0, fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay)),
+        title: Text(
+          activeSession != null ? activePersona.name.toUpperCase() : "NORA ASSISTANT",
+          style: TextStyle(color: AppTheme.fhAccentPurple, letterSpacing: 2.0, fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay),
+        ),
         centerTitle: true,
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
         actions: [
-          if (activeSession != null)
+          if (activeSession != null) ...[
+            IconButton(
+              icon: Icon(MdiIcons.brain, color: AppTheme.fhAccentPurple),
+              tooltip: "${activePersona.name}'s Memory Space",
+              onPressed: () => NoraMemorySpaceSheet.show(context, appProvider, activePersona.id),
+            ),
             IconButton(
               icon: Icon(MdiIcons.tuneVariant, color: AppTheme.fhAccentPurple),
               tooltip: "Session Parameters",
               onPressed: () => _showControlsPanel(appProvider),
             ),
+          ],
           IconButton(
             icon: Icon(MdiIcons.menu, color: AppTheme.fhTextSecondary),
             onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
@@ -478,7 +557,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: ValorantButton(
                 label: "NEW LINK",
                 icon: Icons.add,
@@ -489,24 +568,48 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                 },
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.fhAccentPurple,
+                  side: BorderSide(color: AppTheme.fhAccentPurple.withOpacity(0.5)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                icon: Icon(MdiIcons.creation, size: 16),
+                label: const Text("SUMMON PERSONA (PRO)", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                onPressed: () {
+                  Navigator.pop(context);
+                  CreateCharacterDialog.show(context, appProvider);
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
             Expanded(
               child: ListView.builder(
                 itemCount: memory.noraSessions.length,
                 itemBuilder: (context, index) {
                   if (index >= memory.noraSessions.length) return const SizedBox.shrink();
                   final session = memory.noraSessions[index];
+                  final sessionPersona = appProvider.getActiveNoraPersona(session);
                   final isSelected = session.id == memory.activeNoraSessionId;
                   return ListTile(
                     selected: isSelected,
                     selectedTileColor: AppTheme.fhAccentPurple.withOpacity(0.1),
+                    leading: Icon(
+                      sessionPersona.isBuiltIn ? MdiIcons.robotOutline : MdiIcons.movieOpenOutline,
+                      color: isSelected ? AppTheme.fhAccentPurple : AppTheme.fhTextSecondary,
+                      size: 20,
+                    ),
                     title: Text(session.title, style: TextStyle(color: isSelected ? AppTheme.fhAccentPurple : AppTheme.fhTextPrimary, fontWeight: FontWeight.bold)),
-                    subtitle: Text("${session.tone} • ${DateFormat('MM/dd').format(session.startDate)}", style: const TextStyle(fontSize: 10)),
+                    subtitle: Text("${sessionPersona.name} • ${DateFormat('MM/dd').format(session.startDate)}", style: const TextStyle(fontSize: 10)),
                     onTap: () {
                       appProvider.switchNoraSession(session.id);
                       Navigator.pop(context);
                     },
                     trailing: IconButton(
-                      icon:   Icon(Icons.delete_outline, size: 16, color: AppTheme.fhAccentRed),
+                      icon: Icon(Icons.delete_outline, size: 16, color: AppTheme.fhAccentRed),
                       onPressed: () => appProvider.deleteNoraSession(session.id),
                     ),
                   );
@@ -543,10 +646,38 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                     color: AppTheme.fhBgDark,
                     child: Row(
                       children: [
-                        Icon(MdiIcons.circleSmall, color: AppTheme.fhAccentPurple),
-                        Text("TONE: ${activeSession.tone.toUpperCase()}", style:   TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                        Icon(activePersona.isBuiltIn ? MdiIcons.robotOutline : MdiIcons.movieOpenOutline, color: AppTheme.fhAccentPurple, size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          activePersona.name.toUpperCase(),
+                          style: TextStyle(color: AppTheme.fhTextPrimary, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
+                        ),
+                        const SizedBox(width: 8),
+                        InkWell(
+                          onTap: () => NoraMemorySpaceSheet.show(context, appProvider, activePersona.id),
+                          borderRadius: BorderRadius.circular(4),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.fhAccentPurple.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AppTheme.fhAccentPurple.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(MdiIcons.brain, size: 11, color: AppTheme.fhAccentPurple),
+                                const SizedBox(width: 4),
+                                Text(
+                                  "${activePersona.memorySpace.length} MEM",
+                                  style: TextStyle(color: AppTheme.fhAccentPurple, fontSize: 9, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                         const Spacer(),
-                        Text("${DateFormat('MM/dd/yy').format(activeSession.startDate)} - ${DateFormat('MM/dd/yy').format(activeSession.endDate)}", style:   TextStyle(color: AppTheme.fhTextDisabled, fontSize: 10)),
+                        Text("${DateFormat('MM/dd/yy').format(activeSession.startDate)} - ${DateFormat('MM/dd/yy').format(activeSession.endDate)}", style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 10)),
                       ],
                     ),
                   ),
