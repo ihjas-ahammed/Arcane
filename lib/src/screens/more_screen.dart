@@ -6,6 +6,8 @@ import 'package:missions/src/screens/journaling/quick_therapy_screen.dart';
 import 'package:missions/src/screens/journaling/gratitude_list_screen.dart';
 import 'package:missions/src/screens/journaling/someday_list_screen.dart';
 import 'package:missions/src/screens/settings/habit_control_screen.dart';
+import 'package:missions/src/screens/settings/homescreen_widgets_preview_screen.dart';
+import 'package:missions/src/screens/settings/bus_network_editor_screen.dart';
 import 'package:missions/src/screens/settings/sop_list_screen.dart';
 import 'package:missions/src/widgets/views/settings_view.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -117,6 +119,30 @@ class MoreScreen extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                       builder: (context) => const HabitControlScreen()));
+            }),
+
+            _buildMenuTile(context,
+                icon: MdiIcons.widgetsOutline,
+                title: "Widgets Studio",
+                subtitle: "Preview, customize & sync Android home-screen widgets",
+                colorOverride: JweTheme.accentTeal,
+                onTap: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const HomescreenWidgetsPreviewScreen()));
+            }),
+
+            _buildMenuTile(context,
+                icon: MdiIcons.busStopCovered,
+                title: "Transit Network & Sub-Stops",
+                subtitle: "Manage routes, sub-stops, distances & timetables",
+                colorOverride: JweTheme.accentCyan,
+                onTap: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const BusNetworkEditorScreen()));
             }),
 
             _buildMenuTile(context,

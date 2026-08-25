@@ -23,6 +23,7 @@ class HomeWidgetService {
   static const String _providerRunning = 'me.ihjas.missions.widgets.RunningTaskWidget';
   static const String _providerFinance = 'me.ihjas.missions.widgets.FinanceWidget';
   static const String _providerJournal = 'me.ihjas.missions.widgets.JournalWidget';
+  static const String _providerBus = 'me.ihjas.missions.widgets.BusWidget';
 
   bool get _supported => !kIsWeb && Platform.isAndroid;
 
@@ -149,6 +150,30 @@ class HomeWidgetService {
       'arcane.journal.night': night,
     });
     await _refresh(_providerJournal);
+  }
+
+  Future<void> publishBus({
+    required String origin,
+    required String destination,
+    required String nextTime,
+    String nextSubStop = '',
+    bool isOnBus = false,
+    int speedKmh = 0,
+    int minutesRemaining = -1,
+  }) async {
+    if (!_supported) return;
+
+    await _setAll({
+      'arcane.bus.origin': origin,
+      'arcane.bus.destination': destination,
+      'arcane.bus.nextTime': nextTime,
+      'arcane.bus.nextSubStop': nextSubStop,
+      'arcane.bus.isOnBus': isOnBus,
+      'arcane.bus.speedKmh': speedKmh,
+      'arcane.bus.minutesRemaining': minutesRemaining,
+      'arcane.bus.updatedAtMs': DateTime.now().millisecondsSinceEpoch,
+    });
+    await _refresh(_providerBus);
   }
 
   Future<void> _setAll(Map<String, Object> values) async {

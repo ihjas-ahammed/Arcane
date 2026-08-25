@@ -1,8 +1,11 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
 
+import 'package:intl/intl.dart';
+import 'package:missions/src/models/bus_models.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/services/bus_location_service.dart';
 import 'package:missions/src/services/home_widget_service.dart';
 import 'package:missions/src/utils/day_budget_helper.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
@@ -21,6 +24,7 @@ class HomeWidgetPublisher {
   String? _lastTaskKey;
   String? _lastFinanceKey;
   String? _lastJournalKey;
+  String? _lastBusKey;
 
   void dispose() {
     _provider.removeListener(_onProviderChanged);
@@ -32,6 +36,7 @@ class HomeWidgetPublisher {
     await _publishTask(force: true);
     await _publishFinance(force: true);
     await _publishJournal(force: true);
+    await _publishBus(force: true);
   }
 
   void _onProviderChanged() {
@@ -42,6 +47,8 @@ class HomeWidgetPublisher {
     _publishFinance();
     // ignore: discarded_futures
     _publishJournal();
+    // ignore: discarded_futures
+    _publishBus();
   }
 
   // ── Task ───────────────────────────────────────────────────────────────
@@ -336,6 +343,90 @@ class HomeWidgetPublisher {
       );
     } catch (e) {
       debugPrint('[HomeWidget] publish journal: $e');
+    }
+  }
+
+  // ── Bus ────────────────────────────────────────────────────────────────
+  Future<void> _publishBus({bool force = false}) async {
+    try {
+      final live = BusLocationService.instance.currentState;
+      final routes = DefaultBusNetwork.getRoutes();
+      final stops = DefaultBusNetwork.stops;
+
+      String origin = 'S.S College';
+      String destination = 'EDAVANNAPPARA';
+
+      if (live.activeRoute != null) {
+        origin = live.activeRoute!.originId;
+        destination = live.activeRoute!.destinationId;
+        final origStop = stops.firstWhereOrNull((s) => s.id == origin);
+        final destStop = stops.firstWhereOrNull((s) => s.id == destination);
+        if (origStop != null) origin = origStop.name;
+        if (destStop != null) destination = destStop.name;
+      }
+
+      // Find departures for this route
+      List<String> departures = const [];
+      final activeR = routes.firstWhereOrNull(
+        (r) => r.originId.toLowerCase() == origin.toLowerCase() || r.name.toLowerCase().contains(origin.toLowerCase()),
+      );
+      if (activeR != null) {
+        departures = activeR.departures;
+      } else if (routes.isNotEmpty) {
+        departures = routes.first.departures;
+      }
+
+      // Calculate next bus
+      final now = DateTime.now();
+      final currentMinutes = now.hour * 60 + now.minute;
+      String nextTime = '08:15 AM';
+      int smallestDiff = 99999;
+
+      for (final t in departures) {
+        try {
+          final parsed = DateFormat("hh:mm a").parse(t);
+          final busMin = parsed.hour * 60 + parsed.minute;
+          final diff = busMin - currentMinutes;
+          if (diff >= 0 && diff < smallestDiff) {
+            smallestDiff = diff;
+            nextTime = t;
+          }
+        } catch (_) {}
+      }
+
+      if (smallestDiff == 99999 && departures.isNotEmpty) {
+        nextTime = departures.first;
+        try {
+          final parsed = DateFormat("hh:mm a").parse(nextTime);
+          final busMin = parsed.hour * 60 + parsed.minute;
+          smallestDiff = (busMin + 24 * 60) - currentMinutes;
+        } catch (_) {}
+      }
+
+      final key = [
+        origin,
+        destination,
+        nextTime,
+        live.isOnBus,
+        live.nextSubStop?.name ?? '',
+        live.speedKmh.round(),
+        smallestDiff,
+      ].join('|');
+
+      if (!force && key == _lastBusKey) return;
+      _lastBusKey = key;
+
+      await HomeWidgetService.instance.publishBus(
+        origin: origin,
+        destination: destination,
+        nextTime: nextTime,
+        nextSubStop: live.nextSubStop?.name ?? '',
+        isOnBus: live.isOnBus,
+        speedKmh: live.speedKmh.round(),
+        minutesRemaining: smallestDiff < 9999 ? smallestDiff : -1,
+      );
+    } catch (e) {
+      debugPrint('[HomeWidget] publish bus: $e');
     }
   }
 }

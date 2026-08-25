@@ -798,3 +798,167 @@ class JournalHomeWidget extends StatelessWidget {
     );
   }
 }
+
+class BusHomeWidget extends StatelessWidget {
+  final String origin;
+  final String destination;
+  final String nextTime;
+  final String nextSubStop;
+  final bool isOnBus;
+  final int speedKmh;
+  final int minutesRemaining;
+
+  const BusHomeWidget({
+    super.key,
+    required this.origin,
+    required this.destination,
+    required this.nextTime,
+    this.nextSubStop = '',
+    this.isOnBus = false,
+    this.speedKmh = 0,
+    this.minutesRemaining = -1,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 400,
+        height: 200,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.fhBgDark,
+          border: Border.all(
+            color: isOnBus ? AppTheme.fhAccentGreen : AppTheme.fhAccentGold,
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Row
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: isOnBus ? AppTheme.fhAccentGreen : AppTheme.fhAccentGold,
+                    shape: BoxShape.rectangle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isOnBus ? "TRANSIT // ON BUS" : "BUS RADAR // STANDBY",
+                  style: TextStyle(
+                    color: isOnBus ? AppTheme.fhAccentGreen : AppTheme.fhAccentGold,
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  isOnBus && speedKmh > 0 ? "$speedKmh KM/H" : "GPS READY",
+                  style: TextStyle(
+                    color: AppTheme.fhTextDisabled,
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "${origin.toUpperCase()} → ${destination.toUpperCase()}",
+              style: TextStyle(
+                color: AppTheme.fhTextSecondary,
+                fontSize: 13,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const Spacer(),
+            Text(
+              isOnBus && minutesRemaining >= 0
+                  ? "ETA ~${minutesRemaining}M TO $destination"
+                  : (minutesRemaining >= 0 ? "$nextTime (${minutesRemaining}m)" : nextTime),
+              style: const TextStyle(
+                color: AppTheme.fhLightTextPrimary,
+                fontSize: 26,
+                fontFamily: AppTheme.fontDisplay,
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+            ),
+            if (nextSubStop.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                isOnBus ? "NEXT STOP: ${nextSubStop.toUpperCase()}" : "VIA: ${nextSubStop.toUpperCase()}",
+                style: TextStyle(
+                  color: AppTheme.fhAccentTeal,
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+            const Spacer(),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 32,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppTheme.fhAccentGold, width: 1.5),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      "⇄ SWAP",
+                      style: TextStyle(
+                        color: AppTheme.fhAccentGold,
+                        fontFamily: AppTheme.fontDisplay,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppTheme.fhAccentGold,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      "TIMETABLE",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontFamily: AppTheme.fontDisplay,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

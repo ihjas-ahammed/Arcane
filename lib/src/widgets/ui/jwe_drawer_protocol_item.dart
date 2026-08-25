@@ -75,7 +75,9 @@ class JweDrawerProtocolItem extends StatelessWidget {
         accent: color,
         allBrackets: isSelected,
         padding: const EdgeInsets.all(12),
-        background: isSelected ? color.withValues(alpha: 0.08) : JweTheme.panel,
+        background: isSelected
+            ? color.withValues(alpha: JweTheme.isLight ? 0.12 : 0.08)
+            : JweTheme.panel,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             HudHexTag(code: _hexCode(task.id), color: color),
@@ -86,7 +88,7 @@ class JweDrawerProtocolItem extends StatelessWidget {
                   'A-${_hexCode(task.id)}',
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 9,
-                    color: isSelected ? color : color.withValues(alpha: 0.5),
+                    color: isSelected ? color : (JweTheme.isLight ? color : color.withValues(alpha: 0.5)),
                     letterSpacing: 1.4,
                     fontWeight: FontWeight.w600,
                   ),
@@ -99,13 +101,13 @@ class JweDrawerProtocolItem extends StatelessWidget {
                   style: GoogleFonts.saira(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: isSelected ? JweTheme.textWhite : JweTheme.textMid,
+                    color: isSelected ? JweTheme.textWhite : (JweTheme.isLight ? JweTheme.textWhite : JweTheme.textMid),
                     letterSpacing: 0.4,
                   ),
                 ),
               ]),
             ),
-            Icon(icon, size: 18, color: isSelected ? color : color.withValues(alpha: 0.4)),
+            Icon(icon, size: 18, color: isSelected ? color : (JweTheme.isLight ? color.withValues(alpha: 0.75) : color.withValues(alpha: 0.4))),
           ]),
           const SizedBox(height: 10),
           FittedBox(
@@ -122,7 +124,10 @@ class JweDrawerProtocolItem extends StatelessWidget {
               Text(
                 'TODAY',
                 style: GoogleFonts.jetBrainsMono(
-                  fontSize: 9, color: color.withValues(alpha: 0.4), letterSpacing: 1.2, fontWeight: FontWeight.w600,
+                  fontSize: 9,
+                  color: JweTheme.isLight ? JweTheme.textMuted : color.withValues(alpha: 0.4),
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(width: 12),
@@ -141,7 +146,10 @@ class JweDrawerProtocolItem extends StatelessWidget {
               Text(
                 'VS ${_compact(yesterdaySec)} YDAY',
                 style: GoogleFonts.jetBrainsMono(
-                  fontSize: 9, color: color.withValues(alpha: 0.4), letterSpacing: 1.2, fontWeight: FontWeight.w600,
+                  fontSize: 9,
+                  color: JweTheme.isLight ? JweTheme.textMuted : color.withValues(alpha: 0.4),
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ]),

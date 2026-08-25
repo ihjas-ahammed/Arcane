@@ -53,7 +53,7 @@ class _AnimatedHudBarState extends State<AnimatedHudBar> with SingleTickerProvid
         return Container(
           height: 6,
           decoration: BoxDecoration(
-            color: ArcStrokes.hairline,
+            color: JweTheme.isLight ? const Color(0xFFDDD7CC) : ArcStrokes.hairline,
             borderRadius: BorderRadius.circular(2),
           ),
           child: Stack(
@@ -368,8 +368,11 @@ class TaskHeaderCard extends StatelessWidget {
                       width: 56,
                       height: 56,
                       decoration: BoxDecoration(
-                        color: isRunning ? JweTheme.accentAmber.withValues(alpha: 0.15) : Colors.transparent,
-                        border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.3)),
+                        color: isRunning
+                            ? JweTheme.accentAmber.withValues(alpha: 0.15)
+                            : (JweTheme.isLight ? JweTheme.bgDeep : Colors.transparent),
+                        border: Border.all(
+                            color: JweTheme.accentAmber.withValues(alpha: JweTheme.isLight ? 0.5 : 0.3)),
                         borderRadius: BorderRadius.circular(4.0),
                       ),
                       child: Column(
@@ -412,8 +415,9 @@ class TaskHeaderCard extends StatelessWidget {
                 margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: JweTheme.accentAmber.withValues(alpha: 0.08),
-                  border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.35)),
+                  color: JweTheme.accentAmber.withValues(alpha: JweTheme.isLight ? 0.12 : 0.08),
+                  border: Border.all(
+                      color: JweTheme.accentAmber.withValues(alpha: JweTheme.isLight ? 0.45 : 0.35)),
                   borderRadius: BorderRadius.circular(4.0),
                 ),
                 child: Row(

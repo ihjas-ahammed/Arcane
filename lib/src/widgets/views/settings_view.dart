@@ -15,6 +15,8 @@ import 'package:missions/src/widgets/settings/model_configuration_widget.dart';
 import 'package:missions/src/widgets/dialogs/whats_new_update_dialog.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:missions/src/screens/onboarding/app_tour_screen.dart';
+import 'package:missions/src/screens/settings/homescreen_widgets_preview_screen.dart';
+import 'package:missions/src/screens/settings/bus_network_editor_screen.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -627,6 +629,64 @@ class _SettingsViewState extends State<SettingsView> {
                     minimumSize: const Size(double.infinity, 44),
                     foregroundColor: AppTheme.fhAccentTeal,
                     side: BorderSide(color: AppTheme.fhAccentTeal.withOpacity(0.5))
+                  ),
+                ),
+              ]),
+
+          // 8.5 ANDROID HOMESCREEN WIDGETS STUDIO
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.widgetsOutline,
+              title: 'Homescreen Widgets Studio',
+              children: [
+                Text(
+                  'Preview and calibrate all native Android home-screen widgets (Bus Radar, Active Task, Finance Liquid, and Journal Cadence).',
+                  style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  icon: Icon(MdiIcons.eyeOutline, size: 18),
+                  label: const Text('OPEN WIDGETS PREVIEW & TEST STUDIO'),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const HomescreenWidgetsPreviewScreen(),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 44),
+                    backgroundColor: AppTheme.fhAccentGold,
+                    foregroundColor: Colors.black,
+                  ),
+                ),
+              ]),
+
+          // 8.6 TRANSIT DATA & SUB-STOPS EDITOR
+          _buildSettingsSection(appProvider, theme,
+              icon: MdiIcons.busStopCovered,
+              title: 'Transit Network & Sub-Stops Data',
+              children: [
+                Text(
+                  'Manually edit routes, add intermediate sub-stops, reorder stop sequences, calibrate distances, and manage bus departure timetables.',
+                  style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  icon: Icon(MdiIcons.mapMarkerPath, size: 18),
+                  label: const Text('OPEN TRANSIT DATA EDITOR'),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const BusNetworkEditorScreen(),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 44),
+                    backgroundColor: AppTheme.fhAccentTealFixed,
+                    foregroundColor: AppTheme.fhBgDark,
                   ),
                 ),
               ]),

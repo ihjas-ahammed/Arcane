@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/screens/bus_schedule_screen.dart';
 import 'package:missions/src/screens/journaling/quick_therapy_screen.dart';
 import 'package:missions/src/screens/reflections_archive_screen.dart';
 import 'package:missions/src/widgets/dialogs/add_transaction_dialog.dart';
@@ -137,6 +138,16 @@ class WidgetActionRouter {
         break;
       case 'journal_archive':
         _push((_) => const ReflectionsArchiveScreen());
+        break;
+
+      case 'bus_open':
+        _push((_) => const BusScheduleScreen());
+        break;
+      case 'bus_swap':
+      case 'bus_locate':
+        if (!silent) {
+          _push((_) => const BusScheduleScreen());
+        }
         break;
 
       default:

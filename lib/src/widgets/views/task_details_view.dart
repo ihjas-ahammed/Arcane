@@ -343,7 +343,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                         ],
                       ),
                       IconButton(
-                        icon: Icon(MdiIcons.plus, color: AppTheme.fhAccentTeal),
+                        icon: Icon(MdiIcons.plus, color: currentTask.taskColor),
                         onPressed: () => _showAddActionPlanDialog(context, appProvider, currentTask),
                         tooltip: "New Contract",
                       )
@@ -357,8 +357,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                     padding: const EdgeInsets.all(24.0),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.2)),
-                      color: AppTheme.fhBgDark.withValues(alpha: 0.3)
+                      border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: JweTheme.isLight ? 0.6 : 0.2)),
+                      color: AppTheme.fhBgDark,
                     ),
                     child: Column(
                       children: [

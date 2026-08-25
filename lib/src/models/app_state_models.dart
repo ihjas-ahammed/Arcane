@@ -231,8 +231,10 @@ class AppSettings {
   // Someday / Maybe List
   List<SomedayItem> somedayList;
 
-  // Bus Schedules
+  // Bus Schedules & Network
   Map<String, Map<String, List<String>>>? customBusSchedules;
+  List<Map<String, dynamic>>? customBusRoutesJson;
+  List<Map<String, dynamic>>? customBusStopsJson;
 
   // Onboarding
   bool hasCompletedTour;
@@ -309,6 +311,8 @@ class AppSettings {
     this.somedayList = const [],
     this.hasCompletedTour = false,
     this.customBusSchedules,
+    this.customBusRoutesJson,
+    this.customBusStopsJson,
     this.reflectionDraft,
     this.reflectionReminderEnabled = false,
     this.reflectionReminderHour = 20,
@@ -442,6 +446,12 @@ class AppSettings {
               ))
             )
           : null,
+      customBusRoutesJson: (json['customBusRoutesJson'] as List<dynamic>?)
+          ?.map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
+      customBusStopsJson: (json['customBusStopsJson'] as List<dynamic>?)
+          ?.map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
       adaptWritingStyle: json['adaptWritingStyle'] as bool? ?? false,
       writingStyleMap: json['writingStyleMap'] as String?,
       storyCharacter: json['storyCharacter'] as String? ?? 'Ayan',
@@ -493,6 +503,8 @@ class AppSettings {
       'energyNotificationTimes': energyNotificationTimes,
       'scheduledReminders': scheduledReminders.map((e) => e.toJson()).toList(),
       'customBusSchedules': customBusSchedules,
+      'customBusRoutesJson': customBusRoutesJson,
+      'customBusStopsJson': customBusStopsJson,
       'adaptWritingStyle': adaptWritingStyle,
       'writingStyleMap': writingStyleMap,
       'storyCharacter': storyCharacter,

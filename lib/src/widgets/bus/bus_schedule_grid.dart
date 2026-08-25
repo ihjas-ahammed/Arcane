@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 
 class BusScheduleGrid extends StatelessWidget {
@@ -49,49 +50,56 @@ class BusScheduleGrid extends StatelessWidget {
             decoration: BoxDecoration(
               color: isNext
                   ? JweTheme.accentAmber
-                  : (isPassed
-                      ? Colors.transparent
-                      : JweTheme.panel),
+                  : (isPassed ? Colors.transparent : JweTheme.panel),
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                  color: isNext
-                      ? JweTheme.accentAmber
-                      : (isPassed
-                          ? JweTheme.textMuted.withOpacity(0.2)
-                          : JweTheme.border)),
+                color: isNext
+                    ? JweTheme.accentAmber
+                    : (isPassed
+                        ? JweTheme.textMuted.withValues(alpha: 0.25)
+                        : JweTheme.border),
+                width: isNext ? 1.5 : 1.0,
+              ),
+              boxShadow: isNext
+                  ? [
+                      BoxShadow(
+                        color: JweTheme.accentAmber.withValues(alpha: 0.3),
+                        blurRadius: 6,
+                      ),
+                    ]
+                  : null,
             ),
             child: Stack(
               children: [
                 Center(
                   child: Text(
                     time,
-                    style: TextStyle(
+                    style: GoogleFonts.jetBrainsMono(
                       color: isNext
                           ? JweTheme.onAccent
                           : (isPassed
-                              ? JweTheme.textMuted.withOpacity(0.5)
+                              ? JweTheme.textMuted.withValues(alpha: 0.5)
                               : JweTheme.textWhite),
-                      fontFamily: 'RobotoMono',
-                      fontWeight: isNext
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                      fontSize: 12,
+                      fontWeight: isNext ? FontWeight.bold : FontWeight.w500,
+                      fontSize: 11.5,
                       decoration: isPassed && !isEditMode
                           ? TextDecoration.lineThrough
                           : null,
+                      decorationColor: JweTheme.textMuted.withValues(alpha: 0.6),
                     ),
                   ),
                 ),
                 if (isEditMode)
                   Positioned(
-                    top: -8,
-                    right: -8,
+                    top: -6,
+                    right: -6,
                     child: IconButton(
-                      icon:  Icon(Icons.close, color: JweTheme.accentRed, size: 14),
+                      icon: Icon(Icons.close, color: JweTheme.accentRed, size: 14),
                       onPressed: () => onRemove(time),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
-                  )
+                  ),
               ],
             ),
           ),

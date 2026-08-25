@@ -10,7 +10,7 @@ class ArcStrokes {
   static Color get soft => JweTheme.lineSoft;
 
   /// Steel border used across the dossier screens (was 0xFF1F2F40).
-  static Color get steel => _l ? const Color(0xFFDDD6CA) : const Color(0xFF1F2F40);
+  static Color get steel => _l ? const Color(0xFFD4CDC0) : const Color(0xFF1F2F40);
 
   /// Neutral 10% hairline for tracks, idle bars, dividers
   /// (was 0x1AA8B3C7 in dark).

@@ -1,6 +1,7 @@
 // lib/src/models/task_models.dart
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 
 class TaskSession {
   String id;
@@ -149,9 +150,11 @@ class MainTask {
 
   Color get taskColor {
     try {
-      return Color(int.parse("0x$colorHex"));
+      final c = Color(int.parse("0x$colorHex"));
+      return JweTheme.isLight ? JweTheme.calibrate(c) : c;
     } catch (e) {
-      return AppTheme.fhAccentTealFixed;
+      final fallback = AppTheme.fhAccentTealFixed;
+      return JweTheme.isLight ? JweTheme.calibrate(fallback) : fallback;
     }
   }
 }

@@ -217,12 +217,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final bool isLargeScreen = screenWidth > 900;
 
     final appProvider = context.watch<AppProvider>();
-    final Color currentTaskColor =
-        appProvider.getSelectedTask()?.taskColor ?? JweTheme.accentCyan;
-
     final themeMode = appProvider.settings.themeMode;
     final isSystemDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     final bool isLightTheme = themeMode == 'light' || (themeMode == 'system' && !isSystemDark);
+
+    // Sync JweTheme brightness
+    JweTheme.isLight = isLightTheme;
+
+    final Color currentTaskColor =
+        appProvider.getSelectedTask()?.taskColor ?? JweTheme.accentCyan;
 
     // Sync JweTheme and AppTheme accent colors dynamically
     JweTheme.accentAmber = currentTaskColor;

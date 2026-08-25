@@ -19,31 +19,31 @@ class ArcSurfaces {
 
   // ── Deep navy panel family (person/people dossier screens) ─
   /// Deepest inset panel (was 0xFF07121C / 0xFF061019 / 0xFF06101A).
-  static Color get deepPanel => _l ? const Color(0xFFF7F4EE) : const Color(0xFF07121C);
+  static Color get deepPanel => _l ? const Color(0xFFF3EFE7) : const Color(0xFF07121C);
 
   /// Raised/selected variant (was 0xFF0D1E2F / 0xFF0E2133 / 0xFF0F2136).
-  static Color get deepPanelRaised => _l ? const Color(0xFFE9E4DB) : const Color(0xFF0D1E2F);
+  static Color get deepPanelRaised => _l ? const Color(0xFFDFD9CE) : const Color(0xFF0D1E2F);
 
   // ── Warm ember panels (habit/streak containers) ────────────
   /// Was 0xFF140C08 — near-black warm brown.
-  static Color get emberPanelDeep => _l ? const Color(0xFFF6EBDC) : const Color(0xFF140C08);
+  static Color get emberPanelDeep => _l ? const Color(0xFFF2E6D5) : const Color(0xFF140C08);
 
   /// Was 0xFF261811 — glowing orange container base.
-  static Color get emberPanel => _l ? const Color(0xFFF1E2CD) : const Color(0xFF261811);
+  static Color get emberPanel => _l ? const Color(0xFFECDBC4) : const Color(0xFF261811);
 
   // ── Nora (violet AI room) backdrop ──────────────────────────
-  static Color get noraDeep => _l ? const Color(0xFFEFECE7) : const Color(0xFF0F0C1B);
-  static Color get noraDeeper => _l ? const Color(0xFFE4DFD6) : const Color(0xFF0A0812);
+  static Color get noraDeep => _l ? const Color(0xFFE9E4DC) : const Color(0xFF0F0C1B);
+  static Color get noraDeeper => _l ? const Color(0xFFDDD7CC) : const Color(0xFF0A0812);
 
   // ── Inputs & code fields ────────────────────────────────────
   /// Filled input background sitting on a panel.
-  static Color get inputFill => _l ? const Color(0xFFF1EDE5) : Colors.black.withValues(alpha: 0.3);
+  static Color get inputFill => _l ? const Color(0xFFE8E2D7) : Colors.black.withValues(alpha: 0.3);
 
   /// Monospace/JSON editor background.
-  static Color get codeField => _l ? const Color(0xFFF1EEE7) : Colors.black;
+  static Color get codeField => _l ? const Color(0xFFE8E3D9) : Colors.black;
 
   /// Disabled chip/button fill (was 0xFF444444).
-  static Color get disabledFill => _l ? const Color(0xFFD8D2C8) : const Color(0xFF444444);
+  static Color get disabledFill => _l ? const Color(0xFFD0C9BD) : const Color(0xFF444444);
 
   // ── Overlays ────────────────────────────────────────────────
   /// "Ink" overlay: subtle structure drawn over surfaces.
@@ -57,5 +57,5 @@ class ArcSurfaces {
       Colors.black.withValues(alpha: _l ? alpha * 0.7 : alpha);
 
   /// Glassmorphic bar fill (bottom nav).
-  static Color get glass => _l ? const Color(0xB3FCFBF8) : const Color(0x8008101C);
+  static Color get glass => _l ? const Color(0xD9FAF8F5) : const Color(0x8008101C);
 }

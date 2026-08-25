@@ -410,7 +410,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 46),
                       backgroundColor: themeColor,
-                      foregroundColor: Colors.black,
+                      foregroundColor: isLight ? Colors.white : Colors.black,
                       elevation: 4,
                       shadowColor: themeColor.withValues(alpha: 0.4),
                       shape: RoundedRectangleBorder(
@@ -420,7 +420,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.add, size: 18, color: Colors.black),
+                        Icon(Icons.add, size: 18, color: isLight ? Colors.white : Colors.black),
                         const SizedBox(width: 8),
                         Text(
                           'INITIALIZE NEW ${_activeScope.name.toUpperCase()} GOAL',
@@ -428,7 +428,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.0,
-                            color: Colors.black,
+                            color: isLight ? Colors.white : Colors.black,
                           ),
                         ),
                       ],
@@ -1168,7 +1168,7 @@ class _AddSubCheckItemRowState extends State<_AddSubCheckItemRow> {
               style: GoogleFonts.orbitron(
                 fontSize: 9.5,
                 fontWeight: FontWeight.bold,
-                color: Colors.black,
+                color: widget.isLight ? Colors.white : Colors.black,
               ),
             ),
           ),
@@ -1560,7 +1560,7 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             color: selected
-                                ? Colors.black
+                                ? (isLight ? Colors.white : Colors.black)
                                 : (isLight ? const Color(0xFF475569) : Colors.white60),
                           ),
                         ),
@@ -1605,7 +1605,7 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
                             color: selected
-                                ? Colors.black
+                                ? (isLight ? Colors.white : Colors.black)
                                 : (isLight ? const Color(0xFF475569) : Colors.white60),
                           ),
                         ),
@@ -1882,7 +1882,7 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 46),
                   backgroundColor: themeColor,
-                  foregroundColor: Colors.black,
+                  foregroundColor: isLight ? Colors.white : Colors.black,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 child: Text(

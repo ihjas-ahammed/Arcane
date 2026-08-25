@@ -18,7 +18,7 @@ class AppTheme {
   // Accents
   static Color get fhAccentRed => isLightTheme ? const Color(0xFFBE123C) : const Color(0xFFFF5470); // Alert
   static Color get fhAccentTeal => isLightTheme ? const Color(0xFF0F766E) : const Color(0xFF5FE1D8); // Cyan secondary
-  static Color get fhAccentTealFixed => const Color(0xFF5FE1D8);
+  static Color get fhAccentTealFixed => isLightTheme ? const Color(0xFF0F766E) : const Color(0xFF5FE1D8);
 
   static Color _fhAccentGold = const Color(0xFF00AEFF); // Sky blue primary
   static Color get fhAccentGold => JweTheme.isLight ? JweTheme.accentAmber : _fhAccentGold;
@@ -31,15 +31,15 @@ class AppTheme {
   static Color get fhAccentOrange => JweTheme.isLight ? JweTheme.accentAmber : _fhAccentOrange;
   static set fhAccentOrange(Color val) => _fhAccentOrange = val;
 
-  // Light Theme Colors (Operator HUD Tactical Light — warm paper system)
-  static const Color fhLightBgDeepDark = Color(0xFFF5F2EC);
-  static const Color fhLightBgDark = Color(0xFFFCFBF8);
-  static const Color fhLightBgMedium = Color(0xFFF7F4EE);
-  static const Color fhLightBorderColor = Color(0xFFDDD6CA);
+  // Light Theme Colors (Operator HUD Tactical Light — warm paper/stone system)
+  static const Color fhLightBgDeepDark = Color(0xFFEDE8E0);
+  static const Color fhLightBgDark = Color(0xFFFAF8F5);
+  static const Color fhLightBgMedium = Color(0xFFF3EFE7);
+  static const Color fhLightBorderColor = Color(0xFFD4CDC0);
 
   static const Color fhLightTextPrimary = Color(0xFF211D18);
   static const Color fhLightTextSecondary = Color(0xFF4A443C);
-  static const Color fhLightTextDisabled = Color(0xFF837B70);
+  static const Color fhLightTextDisabled = Color(0xFF7A7266);
 
   static const String fontDisplay = 'RobotoCondensed';
   static const String fontBody = 'OpenSans';
