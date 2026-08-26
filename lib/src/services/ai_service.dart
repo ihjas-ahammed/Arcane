@@ -1148,7 +1148,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     2. "quote_reflections": 2 to 4 items selecting the user's BEST, most positive, inspiring, or meaningful text/statements STRICTLY ONLY from today's Current Logs (same day text only), paired with warm AI appreciation and validation. Each item: "user_quote" (the exact or key excerpt of the user's good/positive text from today's Current Logs ONLY) and "ai_comment" (warm, appreciative, encouraging AI review/validation celebrating what the user wrote — DO NOT criticize, give negative advice, or point out flaws).
     3. "improvements": 1-3 specific capabilities the user is building or strengthening, expressed with optimism and pride.
     4. "grateful_people": EVERY person who earned appreciation today. "name", "relation", "reason", "express".
-    5. "grateful_today": 5 to 8 SHORT, CONCISE gratitude items (2 to 6 words each, small sized text style) — e.g. "Energizing morning walk", "Quiet 7 hours sleep". Each with "text" and "icon_type" (people/nature/health/learning/work/home/food/social/growth/mind/moment/general).
+    5. "grateful_today": At least 10 to 15 (min. 10) SHORT, CONCISE, and specific gratitude items (2 to 7 words each) covering small wins, nature, bodily comfort, food, tools, moments, people, learning, mind, and environment. Each with "text" and "icon_type" (people/nature/health/learning/work/home/food/social/growth/mind/moment/general).
     6. "savor_moment": single best moment of the day in 2-3 sensory sentences.
     7. "small_win": today's most meaningful concrete progress step.
     8. "tomorrow_intention": positive implementation intention "When [cue], I will [action]".
@@ -1161,7 +1161,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
       "quote_reflections": [ {"user_quote": "string", "ai_comment": "string"} ],
       "improvements": [ {"ability": "string", "insight": "string"} ],
       "grateful_people": [ {"name": "string", "relation": "string", "reason": "string", "express": "string"} ],
-      "grateful_today": [ {"text": "string (2-6 words)", "icon_type": "string"} ],
+      "grateful_today": [ {"text": "string (2-7 words)", "icon_type": "string"} ],
       "savor_moment": "string",
       "small_win": "string",
       "tomorrow_intention": "string",
@@ -1190,6 +1190,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
     String? financeText,
+    String? healthText,
     String? agentProgressText,
     String? weeklyBriefingContext,
     String? writingStyleMap,
@@ -1208,6 +1209,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     Time Data: $timeStatsText
     Wellbeing Progress: $wellbeingStatsText
     ${financeText != null && financeText.isNotEmpty ? 'Finance: $financeText' : ''}
+    ${healthText != null && healthText.isNotEmpty ? 'Health & Vitality (Last 7 Days): $healthText' : ''}
     ${agentProgressText != null && agentProgressText.isNotEmpty ? 'Agent Progress (Tasks): $agentProgressText' : ''}
     ${weeklyBriefingContext != null && weeklyBriefingContext.isNotEmpty ? 'Weekly Context: \n$weeklyBriefingContext' : ''}
     ${pastStoriesContext != null && pastStoriesContext.isNotEmpty ? 'PREVIOUSLY FEATURED STORIES & HISTORICAL FIGURES (STRICT EXCLUSION LIST - NEVER REPEAT ANY OF THESE FIGURES, STORIES, OR THEMES):\n$pastStoriesContext' : ''}
@@ -1218,29 +1220,47 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     Task:
     1. "summary": Uplifting, optimistic read of the week celebrating growth, wins, and progress.
     2. "wellbeing_analysis": Positive comparison of wellbeing progress compared to previous week.
-    3. "gtd_get_current": 2-4 active or stalled projects/tasks with one specific Next Action.
-    4. "gtd_get_creative": 1-2 new exciting ideas or Someday/Maybe items.
-    5. "atomic_friction": 1-2 areas of friction and encouraging environmental/habit adjustments.
-    6. "identity_votes": 1-2 ways actions voted for desired identity.
-    7. "improved_abilities": 2-4 specific capabilities built, score 1-10.
-    8. "grateful_people": EVERY person to appreciate. Categorize by standard DEFAULT CATEGORY: "Family & Partner", "Friends", "Professional & Mentors", or "Acquaintances & Others". Format: [{"name": "string", "category": "Family & Partner | Friends | Professional & Mentors | Acquaintances & Others", "relation": "string", "reason": "string"}].
-    9. "gratitude_highlights": 5 specific concise gratitude highlights.
-    10. "after_action": "intended", "actual", "lesson".
-    11. "energy_map": "energizers", "drainers".
-    12. "share_win": "win", "person", "how".
-    13. "creative_story": A short (100-180 words) inspiring real story of a famous scientist, historical figure, writer, explorer, polymath, or artist whose struggles/journey mirrors what the user experienced this week, connecting their lesson directly to the user's journey.
+    3. "health_analysis": Comprehensive, uplifting 7-day health & vitality analysis evaluating sleep patterns, hydration, workouts, and movement habits with empowering coaching encouragement and recovery advice.
+    4. "health_intel": {"sleep_insight": "string", "activity_insight": "string", "recovery_score": "string (e.g. 92% or Optimal)", "vitality_quote": "string", "actionable_tip": "string"}.
+    5. "gtd_get_current": 2-4 active or stalled projects/tasks with one specific Next Action.
+    6. "gtd_get_creative": 1-2 new exciting ideas or Someday/Maybe items.
+    7. "atomic_friction": 1-2 areas of friction and encouraging environmental/habit adjustments.
+    8. "identity_votes": 1-2 ways actions voted for desired identity.
+    9. "improved_abilities": 2-4 specific capabilities built, score 1-10.
+    10. "grateful_people": EVERY person to appreciate. Categorize by standard DEFAULT CATEGORY: "Family & Partner", "Friends", "Professional & Mentors", or "Acquaintances & Others". Format: [{"name": "string", "category": "Family & Partner | Friends | Professional & Mentors | Acquaintances & Others", "relation": "string", "reason": "string"}].
+    11. "gratitude_by_day": Comprehensive list dividing the entire week's gratitude by each of the 7 days (from start to end of the week). For each day, provide: "date" (e.g. "YYYY-MM-DD"), "day_name" (e.g. "Monday"), and "items": 5 to 10+ specific gratitude notes for that day covering moments, health, people, tools, wins, nature, bodily comfort, food, and growth (each with "text" and "icon_type").
+    12. "gratitude_highlights": 6 to 10 specific concise gratitude highlights from across the entire week.
+    13. "after_action": "intended", "actual", "lesson".
+    14. "energy_map": "energizers", "drainers".
+    15. "share_win": "win", "person", "how".
+    16. "creative_story": A short (100-180 words) inspiring real story of a famous scientist, historical figure, writer, explorer, polymath, or artist whose struggles/journey mirrors what the user experienced this week, connecting their lesson directly to the user's journey.
         CRITICAL UNIQUENESS MANDATE: The historical figure and story MUST BE ENTIRELY UNIQUE and NEVER chosen from the exclusion list above. If a figure or story appeared in the exclusion list, YOU ARE STRICTLY FORBIDDEN from choosing that figure again. Pick a new, deeply inspiring historical figure from world history, scientific breakthroughs, artistic milestones, and human resilience across centuries and cultures (e.g. Hypatia, Alexander von Humboldt, Rosalind Franklin, Johannes Kepler, Hokusai, Alan Turing, Ibn Battuta, Rachel Carson, Leonardo da Vinci, Srinivasa Ramanujan, Mary Shelley, Michael Faraday, Marie Curie, Blaise Pascal, Lise Meitner, Ibn al-Haytham, Ernest Shackleton, Frida Kahlo, etc. - unless already in the exclusion list). "title", "story", "takeaway".
 
     Output JSON ONLY:
     {
       "summary": "string",
       "wellbeing_analysis": "string",
+      "health_analysis": "string",
+      "health_intel": {
+        "sleep_insight": "string",
+        "activity_insight": "string",
+        "recovery_score": "string",
+        "vitality_quote": "string",
+        "actionable_tip": "string"
+      },
       "gtd_get_current": [{"task": "string", "next_action": "string"}],
       "gtd_get_creative": [{"idea": "string", "reason": "string"}],
       "atomic_friction": [{"struggle": "string", "adjustment": "string"}],
       "identity_votes": [{"action": "string", "identity": "string"}],
       "improved_abilities": [{"name": "string", "reason": "string", "score": int}],
       "grateful_people": [{"name": "string", "category": "string", "relation": "string", "reason": "string"}],
+      "gratitude_by_day": [
+        {
+          "date": "string",
+          "day_name": "string",
+          "items": [{"text": "string", "icon_type": "string"}]
+        }
+      ],
       "gratitude_highlights": [{"text": "string", "icon_type": "string"}],
       "after_action": {"intended": "string", "actual": "string", "lesson": "string"},
       "energy_map": {"energizers": ["string"], "drainers": ["string"]},

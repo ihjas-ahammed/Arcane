@@ -107,6 +107,8 @@ class ArchivedReportsScreen extends StatelessWidget {
                   subtitle: Text(displayDate, style:   TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
                   trailing: Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary),
                   onTap: () {
+                    final reportDateStr = reportData['report_date'] as String? ?? doc['id'] as String?;
+                    final reportDate = reportDateStr != null ? DateTime.tryParse(reportDateStr) : null;
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -114,10 +116,12 @@ class ArchivedReportsScreen extends StatelessWidget {
                             ? MonthlyReviewScreen(
                                 reportData: reportData,
                                 provider: provider,
+                                targetDate: reportDate,
                               )
                             : WeeklyReviewScreen(
                                 reportData: reportData,
                                 provider: provider,
+                                targetDate: reportDate,
                               ),
                       ),
                     );

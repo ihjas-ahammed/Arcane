@@ -125,12 +125,14 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     }
   }
 
-  String _buildFinanceWeekContext(AppProvider provider) {
-    final now = DateTime.now();
+  String _buildFinanceWeekContext(AppProvider provider, [DateTime? targetDate]) {
+    final now = targetDate != null
+        ? DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59, 59, 999)
+        : DateTime.now();
     final weekAgo = now.subtract(const Duration(days: 7));
     double weekIncome = 0, weekExpense = 0;
     for (final t in provider.transactions) {
-      if (t.timestamp.isAfter(weekAgo)) {
+      if (t.timestamp.isAfter(weekAgo) && t.timestamp.isBefore(now)) {
         if (t.isIncome) {
           weekIncome += t.amount;
         } else {
@@ -142,8 +144,39 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     return 'Week Income: ₹${weekIncome.toStringAsFixed(0)}, Expense: ₹${weekExpense.toStringAsFixed(0)}, Net: ₹${(weekIncome - weekExpense).toStringAsFixed(0)}, Balance: ₹${balance.toStringAsFixed(0)}';
   }
 
-  String _buildAgentProgressContext(AppProvider provider) {
-    final now = DateTime.now();
+  String _buildHealthWeekContext(AppProvider provider, [DateTime? targetDate]) {
+    final now = targetDate != null
+        ? DateTime(targetDate.year, targetDate.month, targetDate.day)
+        : DateTime.now();
+    double totalWater = 0;
+    double totalSleepMins = 0;
+    double totalWalkKm = 0;
+    double totalWorkoutMins = 0;
+    int loggedDays = 0;
+    for (int i = 0; i < 7; i++) {
+      final d = now.subtract(Duration(days: i));
+      final dStr = DateFormat('yyyy-MM-dd').format(d);
+      final log = provider.getDailyHealthLog(dStr);
+      final sleep = log.sleepLogs.fold<int>(0, (sum, s) => sum + s.durationMinutes);
+      final walk = log.activityLogs.fold<double>(0, (sum, a) => sum + a.walkDistanceKm);
+      final workout = log.activityLogs.fold<int>(0, (sum, a) => sum + a.workoutMinutes);
+      if (log.waterGlasses > 0 || sleep > 0 || walk > 0 || workout > 0) loggedDays++;
+      totalWater += log.waterGlasses;
+      totalSleepMins += sleep;
+      totalWalkKm += walk;
+      totalWorkoutMins += workout;
+    }
+    return 'Average Sleep: ${(totalSleepMins / 7 / 60).toStringAsFixed(1)} hours/day, '
+        'Average Water: ${(totalWater / 7).toStringAsFixed(1)} glasses/day, '
+        'Total Walks: ${totalWalkKm.toStringAsFixed(1)} km, '
+        'Total Workouts: ${(totalWorkoutMins / 60).toStringAsFixed(1)} hours '
+        '($loggedDays/7 days tracked)';
+  }
+
+  String _buildAgentProgressContext(AppProvider provider, [DateTime? targetDate]) {
+    final now = targetDate != null
+        ? DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59, 59, 999)
+        : DateTime.now();
     final weekAgo = now.subtract(const Duration(days: 7));
     final buf = StringBuffer();
     for (final task in provider.mainTasks.where((t) => !t.isDeleted && t.isActive).take(4)) {
@@ -153,7 +186,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       for (final sub in activeSubs) {
         if (sub.completed) completedSubs++;
         for (final sess in sub.sessions) {
-          if (sess.startTime.isAfter(weekAgo)) weekSec += sess.durationSeconds;
+          if (sess.startTime.isAfter(weekAgo) && sess.startTime.isBefore(now)) weekSec += sess.durationSeconds;
         }
       }
       buf.writeln('${task.name}: ${(weekSec / 3600).toStringAsFixed(1)}h this week, $completedSubs/${activeSubs.length} subtasks done');
@@ -161,8 +194,10 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     return buf.toString();
   }
 
-  String _buildWeeklyBriefingContext(AppProvider provider) {
-    final now = DateTime.now();
+  String _buildWeeklyBriefingContext(AppProvider provider, [DateTime? targetDate]) {
+    final now = targetDate != null
+        ? DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59, 59, 999)
+        : DateTime.now();
     final weekAgo = now.subtract(const Duration(days: 7));
     final buf = StringBuffer();
 
@@ -175,7 +210,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         if (sub.completed && sub.completedDate != null) {
           try {
             final compDate = DateTime.parse(sub.completedDate!);
-            if (compDate.isAfter(weekAgo)) {
+            if (compDate.isAfter(weekAgo) && compDate.isBefore(now)) {
               if (!taskHeaderWritten) {
                 buf.writeln('[Mission: ${task.name}]');
                 taskHeaderWritten = true;
@@ -190,7 +225,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             if (cp.completed && cp.completionTimestamp != null) {
               try {
                 final compDate = DateTime.parse(cp.completionTimestamp!);
-                if (compDate.isAfter(weekAgo)) {
+                if (compDate.isAfter(weekAgo) && compDate.isBefore(now)) {
                   if (!taskHeaderWritten) {
                     buf.writeln('[Mission: ${task.name}]');
                     taskHeaderWritten = true;
@@ -215,7 +250,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     buf.writeln('=== FINANCE BRIEF (LAST 7 DAYS) ===');
     double weekIncome = 0, weekExpense = 0;
     for (final t in provider.transactions) {
-      if (t.timestamp.isAfter(weekAgo)) {
+      if (t.timestamp.isAfter(weekAgo) && t.timestamp.isBefore(now)) {
         if (t.isIncome) {
           weekIncome += t.amount;
         } else {
@@ -250,7 +285,27 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     buf.writeln('- Total Workout Time: ${(totalWorkoutMins / 60).toStringAsFixed(1)} hours');
     buf.writeln('');
 
-    // 4. Interaction Brief (People)
+    // 4. Daily Gratitude & Reflections Breakdown
+    buf.writeln('=== DAILY GRATITUDE LOGS (DIVIDED BY DAY FOR LAST 7 DAYS) ===');
+    final dailyGratBreakdown = provider.getWeeklyGratitudeBreakdown(now);
+    for (final dayInfo in dailyGratBreakdown) {
+      final dStr = dayInfo['date'] as String;
+      final dLabel = dayInfo['label'] as String;
+      final items = (dayInfo['items'] as List<dynamic>?) ?? [];
+      buf.writeln('[$dLabel - $dStr]');
+      if (items.isNotEmpty) {
+        for (final item in items) {
+          if (item is Map) {
+            buf.writeln('  • (${item['icon_type'] ?? 'general'}) ${item['text']}');
+          }
+        }
+      } else {
+        buf.writeln('  • (No daily briefing saved, extract from reflections/activities for this day)');
+      }
+    }
+    buf.writeln('');
+
+    // 5. Interaction Brief (People)
     buf.writeln('=== INTERACTION BRIEF (PEOPLE) ===');
     final people = provider.chatbotMemory.people;
     if (people.isNotEmpty) {
@@ -266,12 +321,18 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   Future<void> _generateWeeklyReport(AppProvider provider) async {
     setState(() => _isGeneratingWeeklyReport = true);
     try {
-      final data = provider.getLast7DaysData();
-      final wellbeingDiff = provider.getWeeklyWellbeingComparison();
+      final targetDate = _selectedDate != null
+          ? DateTime.tryParse(_selectedDate!) ?? DateTime.now()
+          : DateTime.now();
+      final selectedDateStr = _selectedDate ?? DateFormat('yyyy-MM-dd').format(targetDate);
+
+      final data = provider.getLast7DaysData(targetDate);
+      final wellbeingDiff = provider.getWeeklyWellbeingComparison(targetDate);
       final aiService = provider.aiService;
-      final financeContext = _buildFinanceWeekContext(provider);
-      final agentContext = _buildAgentProgressContext(provider);
-      final weeklyContext = _buildWeeklyBriefingContext(provider);
+      final financeContext = _buildFinanceWeekContext(provider, targetDate);
+      final healthContext = _buildHealthWeekContext(provider, targetDate);
+      final agentContext = _buildAgentProgressContext(provider, targetDate);
+      final weeklyContext = _buildWeeklyBriefingContext(provider, targetDate);
 
       final pastStories = await provider.fetchPreviouslyUsedStories();
       final pastStoriesStr = pastStories.isNotEmpty ? pastStories.map((s) => "- $s").join("\n") : null;
@@ -283,6 +344,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         timeStatsText: data['times'] as String,
         wellbeingStatsText: wellbeingDiff,
         financeText: financeContext,
+        healthText: healthContext,
         agentProgressText: agentContext,
         weeklyBriefingContext: weeklyContext,
         pastStoriesContext: pastStoriesStr,
@@ -295,6 +357,9 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         writingStyleMap: provider.settings.adaptWritingStyle ? provider.settings.writingStyleMap : null,
       );
 
+      result['report_date'] = selectedDateStr;
+      result['generated_at'] = targetDate.toIso8601String();
+
       if (mounted) {
         Navigator.push(
           context,
@@ -302,13 +367,17 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             builder: (ctx) => WeeklyReviewScreen(
               reportData: result,
               provider: provider,
+              targetDate: targetDate,
               onArchive: () async {
-                final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-                final weekAgo = DateTime.now().subtract(const Duration(days: 7));
+                final weekAgo = targetDate.subtract(const Duration(days: 7));
                 double weekIncome = 0, weekExpense = 0;
                 for (final t in provider.transactions) {
-                  if (t.timestamp.isAfter(weekAgo)) {
-                    if (t.isIncome) weekIncome += t.amount; else weekExpense += t.amount;
+                  if (t.timestamp.isAfter(weekAgo) && t.timestamp.isBefore(targetDate.add(const Duration(days: 1)))) {
+                    if (t.isIncome) {
+                      weekIncome += t.amount;
+                    } else {
+                      weekExpense += t.amount;
+                    }
                   }
                 }
                 result['saved_finance'] = {
@@ -317,9 +386,9 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                   'net': weekIncome - weekExpense,
                   'balance': provider.financeActions.currentBalance,
                 };
-                await provider.saveWeeklyReport(dateStr, result);
+                await provider.saveWeeklyReport(selectedDateStr, result);
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Weekly Review Saved to Archive!")));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Weekly Review ($selectedDateStr) Saved to Archive!")));
                 }
               },
             ),
@@ -338,7 +407,12 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   Future<void> _generateMonthlyReport(AppProvider provider) async {
     setState(() => _isGeneratingMonthlyReport = true);
     try {
-      final result = await provider.reportActions.generateMonthlyReport();
+      final targetDate = _selectedDate != null
+          ? DateTime.tryParse(_selectedDate!) ?? DateTime.now()
+          : DateTime.now();
+      final selectedDateStr = _selectedDate ?? DateFormat('yyyy-MM-dd').format(targetDate);
+
+      final result = await provider.reportActions.generateMonthlyReport(targetDate);
 
       if (mounted) {
         Navigator.push(
@@ -347,11 +421,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             builder: (ctx) => MonthlyReviewScreen(
               reportData: result,
               provider: provider,
+              targetDate: targetDate,
               onArchive: () async {
-                final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-                await provider.saveMonthlyReport(dateStr, result);
+                await provider.saveMonthlyReport(selectedDateStr, result);
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Monthly Briefing Saved to Archive!")));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Monthly Briefing ($selectedDateStr) Saved to Archive!")));
                 }
               },
             ),

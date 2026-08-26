@@ -6,8 +6,8 @@ class HistoryHelper {
   /// 
   /// Iterates through all tasks and subtasks to collect sessions within the timeframe.
   /// Returns a string suitable for AI context.
-  static String getSessionHistoryString(List<MainTask> tasks, int days) {
-    final now = DateTime.now();
+  static String getSessionHistoryString(List<MainTask> tasks, int days, [DateTime? referenceDate]) {
+    final now = referenceDate ?? DateTime.now();
     final cutoff = now.subtract(Duration(days: days));
     final buffer = StringBuffer();
 

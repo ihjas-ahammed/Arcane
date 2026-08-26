@@ -14,12 +14,14 @@ class MonthlyReviewScreen extends StatelessWidget {
   final Map<String, dynamic> reportData;
   final AppProvider provider;
   final VoidCallback? onArchive;
+  final DateTime? targetDate;
 
   const MonthlyReviewScreen({
     super.key,
     required this.reportData,
     required this.provider,
     this.onArchive,
+    this.targetDate,
   });
 
   @override
@@ -736,7 +738,7 @@ class MonthlyReviewScreen extends StatelessWidget {
                       return Theme(
                         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                         child: ExpansionTile(
-                          initiallyExpanded: true,
+                          initiallyExpanded: false,
                           tilePadding: EdgeInsets.zero,
                           title: Text(
                             '$category (${members.length})',

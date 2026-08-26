@@ -46,6 +46,7 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
   int _receivedBytes = 0;
   int _totalBytes = 0;
   File? _cachedFile;
+  int? _cachedFileSize;
   String? _errorMessage;
 
   @override
@@ -55,23 +56,43 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
   }
 
   Future<void> _checkCache() async {
-    final cached = await widget.updateService.getCachedApk(widget.update.apkFilename);
+    final cached = await widget.updateService.getCachedApk(widget.update);
+    int? size;
+    if (cached != null) {
+      try {
+        size = await cached.length();
+      } catch (_) {}
+    }
     if (mounted) {
       setState(() {
         _cachedFile = cached;
+        _cachedFileSize = size;
       });
     }
   }
 
-  Future<void> _startDownloadAndInstall() async {
-    if (_cachedFile != null) {
-      final success = await widget.updateService.installApk(_cachedFile!.path);
-      if (!success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please grant package installation permission to install the update.')),
-        );
+  Future<void> _startDownloadAndInstall({bool forceRedownload = false}) async {
+    if (!forceRedownload && _cachedFile != null) {
+      final exists = await _cachedFile!.exists();
+      if (exists && await _cachedFile!.length() > 1024 * 1024) {
+        final success = await widget.updateService.installApk(_cachedFile!.path);
+        if (!success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please grant package installation permission to install the update.')),
+          );
+        }
+        return;
       }
-      return;
+    }
+
+    if (_cachedFile != null) {
+      try {
+        await _cachedFile!.delete();
+      } catch (_) {}
+      setState(() {
+        _cachedFile = null;
+        _cachedFileSize = null;
+      });
     }
 
     setState(() {
@@ -84,8 +105,7 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
 
     try {
       final file = await widget.updateService.downloadApk(
-        widget.update.apkUrl,
-        widget.update.apkFilename,
+        widget.update,
         onProgress: (progress, received, total) {
           if (mounted) {
             setState(() {
@@ -97,9 +117,15 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
         },
       );
 
+      int? fileSize;
+      try {
+        fileSize = await file.length();
+      } catch (_) {}
+
       if (mounted) {
         setState(() {
           _cachedFile = file;
+          _cachedFileSize = fileSize;
           _isDownloading = false;
         });
 
@@ -107,7 +133,7 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
         final success = await widget.updateService.installApk(file.path);
         if (!success && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Update downloaded! Please confirm install.')),
+            const SnackBar(content: Text('Update downloaded to cache! Please confirm install.')),
           );
         }
       }
@@ -209,19 +235,41 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
               // ── Cached Status Pill (if APK cached) ─────────────
               if (_cachedFile != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   color: JweTheme.accentTeal.withValues(alpha: 0.15),
                   child: Row(
                     children: [
-                      Icon(MdiIcons.checkCircleOutline, size: 14, color: JweTheme.accentTeal),
+                      Icon(MdiIcons.checkCircleOutline, size: 16, color: JweTheme.accentTeal),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'APK CACHED & READY FOR INSTALLATION',
+                          'APK v${widget.update.versionName} CACHED (${_cachedFileSize != null ? _formatBytes(_cachedFileSize!) : 'READY'})',
                           style: GoogleFonts.jetBrainsMono(
                             fontSize: 9.5,
                             fontWeight: FontWeight.bold,
                             color: JweTheme.accentTeal,
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: _isDownloading ? null : () => _startDownloadAndInstall(forceRedownload: true),
+                        borderRadius: BorderRadius.circular(4),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(MdiIcons.refresh, size: 12, color: JweTheme.accentTeal),
+                              const SizedBox(width: 4),
+                              Text(
+                                'REDOWNLOAD',
+                                style: GoogleFonts.jetBrainsMono(
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: JweTheme.accentTeal,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -354,8 +402,29 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
                       ),
                     ),
                     const Spacer(),
+                    if (_cachedFile != null) ...[
+                      OutlinedButton.icon(
+                        onPressed: _isDownloading ? null : () => _startDownloadAndInstall(forceRedownload: true),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: accentColor,
+                          side: BorderSide(color: accentColor.withValues(alpha: 0.6)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: Icon(MdiIcons.refresh, size: 15, color: accentColor),
+                        label: Text(
+                          'REDOWNLOAD',
+                          style: GoogleFonts.orbitron(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     ElevatedButton.icon(
-                      onPressed: _isDownloading ? null : _startDownloadAndInstall,
+                      onPressed: _isDownloading ? null : () => _startDownloadAndInstall(),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _cachedFile != null ? JweTheme.accentTeal : accentColor,
                         foregroundColor: Colors.black,

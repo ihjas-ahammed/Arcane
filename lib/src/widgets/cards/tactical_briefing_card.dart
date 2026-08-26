@@ -659,7 +659,7 @@ class TacticalBriefingCard extends StatelessWidget {
                 if (gratefulToday.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   HudSectionHead(
-                    label: 'GRATITUDE INTEL (CONCISE)',
+                    label: 'GRATITUDE INTEL (${gratefulToday.length} NOTES)',
                     accent: HudTone.teal,
                     padding: EdgeInsets.zero,
                   ),
@@ -667,12 +667,32 @@ class TacticalBriefingCard extends StatelessWidget {
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: List.generate(gratefulToday.length.clamp(0, 10), (i) {
-                      final item = gratefulToday[i] as Map<String, dynamic>;
+                    children: List.generate(gratefulToday.length, (i) {
+                      final rawItem = gratefulToday[i];
+                      final item = rawItem is Map<String, dynamic>
+                          ? rawItem
+                          : (rawItem is Map ? Map<String, dynamic>.from(rawItem) : {'text': rawItem.toString()});
                       final text = (item['text'] as String?)?.isNotEmpty == true
                           ? item['text'] as String
                           : (item['name'] ?? item['why'] ?? item['reason'] ?? '').toString();
                       if (text.isEmpty) return const SizedBox.shrink();
+                      final iconType = item['icon_type']?.toString().toLowerCase() ?? 'general';
+                      IconData getIcon(String type) {
+                        switch (type) {
+                          case 'people': return MdiIcons.accountGroup;
+                          case 'nature': return MdiIcons.leaf;
+                          case 'health': return MdiIcons.heartPulse;
+                          case 'learning': return MdiIcons.bookOpenVariant;
+                          case 'work': return MdiIcons.briefcaseOutline;
+                          case 'home': return MdiIcons.homeOutline;
+                          case 'food': return MdiIcons.foodApple;
+                          case 'social': return MdiIcons.messageTextOutline;
+                          case 'growth': return MdiIcons.trendingUp;
+                          case 'mind': return MdiIcons.brain;
+                          case 'moment': return MdiIcons.clockOutline;
+                          default: return MdiIcons.heartOutline;
+                        }
+                      }
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
@@ -683,7 +703,7 @@ class TacticalBriefingCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(MdiIcons.heartOutline, size: 13, color: JweTheme.accentTeal),
+                            Icon(getIcon(iconType), size: 13, color: JweTheme.accentTeal),
                             const SizedBox(width: 6),
                             Text(
                               text,

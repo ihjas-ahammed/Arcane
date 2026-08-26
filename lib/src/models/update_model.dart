@@ -50,6 +50,11 @@ class UpdateModel {
     );
   }
 
+  String get versionedApkFilename {
+    final cleanVersion = versionName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    return 'Arcane_v${cleanVersion}_b$versionCode.apk';
+  }
+
   UpdateModel copyWith({String? changelogMarkdown}) {
     return UpdateModel(
       versionCode: versionCode,

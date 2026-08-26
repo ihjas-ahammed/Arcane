@@ -17,19 +17,33 @@ class WeeklyReviewScreen extends StatelessWidget {
   final Map<String, dynamic> reportData;
   final AppProvider provider;
   final VoidCallback? onArchive;
+  final DateTime? targetDate;
 
   const WeeklyReviewScreen({
     super.key,
     required this.reportData,
     required this.provider,
     this.onArchive,
+    this.targetDate,
   });
+
+  DateTime get _effectiveDate =>
+      targetDate ??
+      (reportData['report_date'] != null ? DateTime.tryParse(reportData['report_date']!) : null) ??
+      (reportData['generated_at'] != null ? DateTime.tryParse(reportData['generated_at']!) : null) ??
+      DateTime.now();
 
   @override
   Widget build(BuildContext context) {
+    final effDate = _effectiveDate;
+    final weekStart = effDate.subtract(const Duration(days: 7));
+    final weekRangeLabel = '${DateFormat('MMM d').format(weekStart)} – ${DateFormat('MMM d, yyyy').format(effDate)}';
+
     // Extracting data gracefully, handling legacy formats where needed.
     final summary = reportData['summary'] as String? ?? 'No summary available.';
     final wellbeingAnalysis = reportData['wellbeing_analysis'] as String? ?? '';
+    final healthAnalysis = reportData['health_analysis'] as String? ?? '';
+    final healthIntel = reportData['health_intel'] as Map<String, dynamic>?;
     
     // New GTD and Atomic Habits fields
     final gtdCurrent = reportData['gtd_get_current'] as List<dynamic>? ?? [];
@@ -40,7 +54,17 @@ class WeeklyReviewScreen extends StatelessWidget {
     // Existing fields
     final abilities = reportData['improved_abilities'] as List<dynamic>? ?? [];
     final gratefulPeople = reportData['grateful_people'] as List<dynamic>? ?? [];
+    final rawGratitudeByDay = (reportData['gratitude_by_day'] as List<dynamic>?)
+        ?? provider.getWeeklyGratitudeBreakdown(effDate);
     final gratitudeHighlights = reportData['gratitude_highlights'] as List<dynamic>? ?? [];
+
+    // Convert raw gratitude by day to structured map list
+    final List<Map<String, dynamic>> dailyGratitudes = [];
+    for (final d in rawGratitudeByDay) {
+      if (d is Map) {
+        dailyGratitudes.add(Map<String, dynamic>.from(d));
+      }
+    }
 
     // After-action review, energy map, capitalization (share a win)
     final afterAction = reportData['after_action'] as Map<String, dynamic>?;
@@ -113,7 +137,7 @@ class WeeklyReviewScreen extends StatelessWidget {
                         ).animate().fadeIn(delay: 120.ms).slideX(begin: -0.05, end: 0),
                         const SizedBox(height: 6),
                         Text(
-                          'TACTICAL ANALYSIS & ALIGNMENT',
+                          weekRangeLabel.toUpperCase(),
                           style: GoogleFonts.jetBrainsMono(
                             color: JweTheme.accentAmber.withOpacity(0.8),
                             fontSize: 10,
@@ -221,7 +245,52 @@ class WeeklyReviewScreen extends StatelessWidget {
               ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.05, end: 0),
             ),
 
-            // ── Weekly Metrics & Dossiers Section ──
+            // ── Health & Vitality Debrief Section ────────────────
+            const HudSectionHead(label: 'HEALTH & VITALITY DEBRIEF', code: 'HLT', accent: HudTone.teal),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: HudPanel(
+                background: JweTheme.bgBase.withOpacity(0.5),
+                allBrackets: false,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (healthAnalysis.isNotEmpty) ...[
+                      _TextBlock(
+                        text: healthAnalysis,
+                        accent: JweTheme.accentTeal,
+                        icon: MdiIcons.heartPulse,
+                        label: 'VITALITY & RECOVERY TRAJECTORY',
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (healthIntel != null) ...[
+                      _HealthIntelView(healthIntel: healthIntel),
+                      const SizedBox(height: 16),
+                    ],
+                    _buildHealthTelemetrySummary(provider, effDate),
+                  ],
+                ),
+              ).animate().fadeIn(delay: 320.ms).slideY(begin: 0.05, end: 0),
+            ),
+
+            // ── Gratitude Intelligence (Divided by Days) ──────────
+            const HudSectionHead(label: 'GRATITUDE INTELLIGENCE', code: 'GRT', accent: HudTone.cyan),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: HudPanel(
+                background: JweTheme.bgBase.withOpacity(0.5),
+                allBrackets: false,
+                padding: const EdgeInsets.all(16),
+                child: _WeeklyGratitudeDividedByDaysWidget(
+                  dailyGratitudes: dailyGratitudes,
+                  highlights: gratitudeHighlights,
+                ),
+              ).animate().fadeIn(delay: 340.ms).slideY(begin: 0.05, end: 0),
+            ),
+
+            // ── Weekly Metrics & Operations Dossiers Section ──
             const HudSectionHead(label: 'WEEKLY METRICS & DOSSIERS', code: 'MTR', accent: HudTone.teal),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -229,8 +298,8 @@ class WeeklyReviewScreen extends StatelessWidget {
                 background: JweTheme.bgBase.withOpacity(0.5),
                 allBrackets: false,
                 padding: const EdgeInsets.all(16),
-                child: _buildRawWeeklyMetrics(provider),
-              ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.05, end: 0),
+                child: _buildRawWeeklyMetrics(provider, effDate),
+              ).animate().fadeIn(delay: 360.ms).slideY(begin: 0.05, end: 0),
             ),
 
             // ── GTD Protocol ──────────────────────
@@ -416,9 +485,9 @@ class WeeklyReviewScreen extends StatelessWidget {
               ),
             ],
 
-            // ── Capabilities & Intel ──────────────────────
-            if (abilities.isNotEmpty || gratitudeHighlights.isNotEmpty || gratefulPeople.isNotEmpty) ...[
-              const HudSectionHead(label: 'CAPABILITIES & INTEL', code: 'CAP', accent: HudTone.teal),
+            // ── Capabilities & Allies ──────────────────────
+            if (abilities.isNotEmpty || gratefulPeople.isNotEmpty) ...[
+              const HudSectionHead(label: 'CAPABILITIES & ALLIES', code: 'CAP', accent: HudTone.teal),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Column(
@@ -463,27 +532,6 @@ class WeeklyReviewScreen extends StatelessWidget {
                           reason: pReason,
                           category: category,
                           relation: relation,
-                        );
-                      }),
-                    ],
-                    if (gratitudeHighlights.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _SectionLabel(title: 'GRATITUDE HIGHLIGHTS', icon: MdiIcons.heartOutline, color: JweTheme.accentCyan),
-                      ),
-                      ...List.generate(gratitudeHighlights.length.clamp(0, 5), (i) {
-                        final item = gratitudeHighlights[i] as Map<String, dynamic>;
-                        final text = item['text'] as String? ?? '';
-                        final iconType = item['icon_type'] as String? ?? 'general';
-                        if (text.isEmpty) return const SizedBox.shrink();
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: GratitudeIntelCard(
-                            text: text,
-                            iconType: iconType,
-                            index: i + 1,
-                          ),
                         );
                       }),
                     ],
@@ -930,8 +978,102 @@ class _GratefulPersonCard extends StatelessWidget {
 }
 
 extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
-  Widget _buildRawWeeklyMetrics(AppProvider provider) {
-    final now = DateTime.now();
+  Widget _buildHealthTelemetrySummary(AppProvider provider, DateTime effDate) {
+    double totalWater = 0;
+    double totalSleepMins = 0;
+    double totalWalkKm = 0;
+    double totalWorkoutMins = 0;
+    int loggedDays = 0;
+    for (int i = 0; i < 7; i++) {
+      final dStr = DateFormat('yyyy-MM-dd').format(effDate.subtract(Duration(days: i)));
+      final log = provider.getDailyHealthLog(dStr);
+      final sleep = log.sleepLogs.fold<int>(0, (sum, s) => sum + s.durationMinutes);
+      final walk = log.activityLogs.fold<double>(0, (sum, a) => sum + a.walkDistanceKm);
+      final workout = log.activityLogs.fold<int>(0, (sum, a) => sum + a.workoutMinutes);
+      if (log.waterGlasses > 0 || sleep > 0 || walk > 0 || workout > 0) loggedDays++;
+      totalWater += log.waterGlasses;
+      totalSleepMins += sleep;
+      totalWalkKm += walk;
+      totalWorkoutMins += workout;
+    }
+    final avgWater = totalWater / 7;
+    final avgSleep = totalSleepMins / 7 / 60;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: JweTheme.bgBase.withOpacity(0.4),
+        border: Border.all(color: JweTheme.lineSoft),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _SectionLabel(title: '7-DAY HEALTH TELEMETRY', icon: MdiIcons.chartBellCurveCumulative, color: JweTheme.accentTeal),
+              Text(
+                '$loggedDays/7 DAYS LOGGED',
+                style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8.5, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _HealthMetricTile(
+                  label: 'SLEEP AVG',
+                  value: '${avgSleep.toStringAsFixed(1)} H',
+                  sub: avgSleep >= 7 ? 'OPTIMAL' : 'RECHARGE',
+                  icon: MdiIcons.bedClock,
+                  color: JweTheme.accentCyan,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _HealthMetricTile(
+                  label: 'WATER AVG',
+                  value: '${avgWater.toStringAsFixed(1)} GL',
+                  sub: avgWater >= 8 ? 'HYDRATED' : 'HYDRATE',
+                  icon: MdiIcons.cupWater,
+                  color: JweTheme.accentTeal,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _HealthMetricTile(
+                  label: 'WALKS TOTAL',
+                  value: '${totalWalkKm.toStringAsFixed(1)} KM',
+                  sub: 'DISTANCE',
+                  icon: MdiIcons.walk,
+                  color: JweTheme.accentAmber,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _HealthMetricTile(
+                  label: 'WORKOUTS',
+                  value: '${(totalWorkoutMins / 60).toStringAsFixed(1)} H',
+                  sub: 'TOTAL ACTIVE',
+                  icon: MdiIcons.dumbbell,
+                  color: JweTheme.accentRed,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRawWeeklyMetrics(AppProvider provider, [DateTime? targetDate]) {
+    final now = targetDate ?? _effectiveDate;
     final weekAgo = now.subtract(const Duration(days: 7));
 
     // Gather infinitely nested completed tasks & checkpoints tree
@@ -941,7 +1083,7 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
       if (cp.completed && cp.completionTimestamp != null) {
         try {
           final compDate = DateTime.parse(cp.completionTimestamp!);
-          if (compDate.isAfter(weekAgo)) {
+          if (compDate.isAfter(weekAgo) && compDate.isBefore(now)) {
             selfCompleted = true;
             compDateStr = DateFormat('yyyy-MM-dd').format(compDate);
           }
@@ -977,7 +1119,7 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
       if (sub.completed && sub.completedDate != null) {
         try {
           final compDate = DateTime.parse(sub.completedDate!);
-          if (compDate.isAfter(weekAgo)) {
+          if (compDate.isAfter(weekAgo) && compDate.isBefore(now)) {
             selfCompleted = true;
             compDateStr = sub.completedDate;
           }
@@ -1036,7 +1178,7 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
       balance = (savedFinance['balance'] as num?)?.toDouble() ?? 0;
     } else {
       for (final t in provider.transactions) {
-        if (t.timestamp.isAfter(weekAgo)) {
+        if (t.timestamp.isAfter(weekAgo) && t.timestamp.isBefore(now)) {
           if (t.isIncome) {
             weekIncome += t.amount;
           } else {
@@ -1122,7 +1264,7 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
                         _buildBriefMetricRow('OUTFLOW', '₹${weekExpense.toStringAsFixed(0)}', JweTheme.accentRed),
                         const SizedBox(height: 8),
                         _buildBriefMetricRow('NET INFLOW', '₹${(weekIncome - weekExpense).toStringAsFixed(0)}', (weekIncome - weekExpense) >= 0 ? JweTheme.accentTeal : JweTheme.accentRed),
-                         Divider(color: JweTheme.lineSoft, height: 16),
+                        Divider(color: JweTheme.lineSoft, height: 16),
                         _buildBriefMetricRow('BALANCE', '₹${balance.toStringAsFixed(0)}', JweTheme.textWhite),
                       ],
                     ),
@@ -1169,104 +1311,11 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
         const SizedBox(height: 24),
 
         // ── 3. INTERACTION BRIEF (CLASSIFIED DROPDOWN) ──
-        _SectionLabel(
-          title: 'SOCIAL DOSSIER & ENCOUNTERS',
-          icon: MdiIcons.accountMultipleOutline,
-          color: JweTheme.accentCyan,
+        _WeeklyPeopleLogWidget(
+          sortedCategories: sortedCategories,
+          groupedPeople: groupedPeople,
+          provider: provider,
         ),
-        const SizedBox(height: 12),
-        if (people.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: JweTheme.bgBase.withOpacity(0.3),
-              border: Border.all(color: JweTheme.lineSoft),
-            ),
-            child: Text(
-              'NO REGISTERED CONTACTS LOGGED IN SYSTEM.',
-              style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 11),
-              textAlign: TextAlign.center,
-            ),
-          )
-        else
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: JweTheme.bgBase.withOpacity(0.4),
-              border: Border.all(color: JweTheme.lineSoft),
-            ),
-            child: Builder(
-              builder: (context) {
-                return Column(
-                  children: sortedCategories.map((category) {
-                    final members = groupedPeople[category] ?? [];
-                    return Theme(
-                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                      child: ExpansionTile(
-                        initiallyExpanded: true,
-                        tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-                        title: Text(
-                          '$category (${members.length})',
-                          style: GoogleFonts.jetBrainsMono(
-                            color: JweTheme.accentCyan,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                        children: members.map((p) {
-                          return InkWell(
-                            onTap: () {
-                              final matches = provider.chatbotMemory.people.where(
-                                  (e) => e.name.toLowerCase().trim() == p.name.toLowerCase().trim());
-                              final existing = matches.isNotEmpty ? matches.first : null;
-                              if (existing != null) {
-                                Navigator.push(context, MaterialPageRoute(builder: (_) => PersonDetailScreen(personId: existing.id)));
-                              }
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                              child: Row(
-                                children: [
-                                  Icon(MdiIcons.accountOutline, size: 14, color: JweTheme.accentTeal),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          p.name.toUpperCase(),
-                                          style: GoogleFonts.saira(
-                                            color: JweTheme.textWhite,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        if (p.relation.trim().isNotEmpty && p.relation.toLowerCase() != 'acquaintance')
-                                          Text(
-                                            p.relation.toUpperCase(),
-                                            style: GoogleFonts.jetBrainsMono(
-                                              color: JweTheme.textMuted,
-                                              fontSize: 9,
-                                              letterSpacing: 0.8,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  Icon(MdiIcons.chevronRight, size: 14, color: JweTheme.accentCyan),
-                                ],
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    );
-                  }).toList(),
-                );
-              },
-            ),
-          ),
       ],
     );
   }
@@ -1743,6 +1792,805 @@ class _NestedCompletedNodeWidgetState extends State<_NestedCompletedNodeWidget> 
                     depth: widget.depth + 1,
                     expandAllTrigger: widget.expandAllTrigger,
                     expandAllValue: widget.expandAllValue,
+                  );
+                }).toList(),
+              ),
+            ),
+            crossFadeState: _isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HealthMetricTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final String sub;
+  final IconData icon;
+  final Color color;
+
+  const _HealthMetricTile({
+    required this.label,
+    required this.value,
+    required this.sub,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.06),
+        border: Border.all(color: color.withOpacity(0.25)),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 12, color: color),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: GoogleFonts.jetBrainsMono(
+                  color: JweTheme.textMuted,
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                value,
+                style: GoogleFonts.chakraPetch(
+                  color: JweTheme.textWhite,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                sub,
+                style: GoogleFonts.jetBrainsMono(
+                  color: color,
+                  fontSize: 7.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HealthIntelView extends StatelessWidget {
+  final Map<String, dynamic> healthIntel;
+
+  const _HealthIntelView({required this.healthIntel});
+
+  @override
+  Widget build(BuildContext context) {
+    final sleepInsight = healthIntel['sleep_insight']?.toString() ?? '';
+    final activityInsight = healthIntel['activity_insight']?.toString() ?? '';
+    final recoveryScore = healthIntel['recovery_score']?.toString() ?? '';
+    final vitalityQuote = healthIntel['vitality_quote']?.toString() ?? '';
+    final tip = healthIntel['actionable_tip']?.toString() ?? '';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: JweTheme.accentTeal.withOpacity(0.06),
+        border: Border(left: BorderSide(color: JweTheme.accentTeal, width: 3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (recoveryScore.isNotEmpty) ...[
+            Row(
+              children: [
+                Icon(MdiIcons.shieldCheckOutline, size: 14, color: JweTheme.accentTeal),
+                const SizedBox(width: 6),
+                Text(
+                  'RECOVERY INDEX: $recoveryScore'.toUpperCase(),
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.accentTeal,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (sleepInsight.isNotEmpty) ...[
+            _HealthInsightRow(icon: MdiIcons.bedClock, label: 'SLEEP & RECOVERY', text: sleepInsight),
+            const SizedBox(height: 6),
+          ],
+          if (activityInsight.isNotEmpty) ...[
+            _HealthInsightRow(icon: MdiIcons.runFast, label: 'MOVEMENT & VITALITY', text: activityInsight),
+            const SizedBox(height: 6),
+          ],
+          if (tip.isNotEmpty) ...[
+            _HealthInsightRow(icon: MdiIcons.lightbulbOnOutline, label: 'ACTIONABLE TIP', text: tip, isAccent: true),
+            const SizedBox(height: 6),
+          ],
+          if (vitalityQuote.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                '"$vitalityQuote"',
+                style: TextStyle(
+                  color: JweTheme.textMid,
+                  fontSize: 11.5,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HealthInsightRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String text;
+  final bool isAccent;
+
+  const _HealthInsightRow({
+    required this.icon,
+    required this.label,
+    required this.text,
+    this.isAccent = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isAccent ? JweTheme.accentAmber : JweTheme.accentTeal;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 13, color: color),
+        const SizedBox(width: 6),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: '$label: ',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: color,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                TextSpan(
+                  text: text,
+                  style: TextStyle(
+                    color: JweTheme.textWhite,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WeeklyGratitudeDividedByDaysWidget extends StatefulWidget {
+  final List<Map<String, dynamic>> dailyGratitudes;
+  final List<dynamic> highlights;
+
+  const _WeeklyGratitudeDividedByDaysWidget({
+    required this.dailyGratitudes,
+    required this.highlights,
+  });
+
+  @override
+  State<_WeeklyGratitudeDividedByDaysWidget> createState() => _WeeklyGratitudeDividedByDaysWidgetState();
+}
+
+class _WeeklyGratitudeDividedByDaysWidgetState extends State<_WeeklyGratitudeDividedByDaysWidget> {
+  int _expandAllTrigger = 0;
+  bool _expandAllValue = true;
+
+  void _toggleAll(bool expand) {
+    setState(() {
+      _expandAllTrigger++;
+      _expandAllValue = expand;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalNotes = widget.dailyGratitudes.fold<int>(0, (sum, day) => sum + ((day['items'] as List?)?.length ?? 0));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionLabel(
+                    title: 'DAILY GRATITUDE BREAKDOWN',
+                    icon: MdiIcons.heartPulse,
+                    color: JweTheme.accentCyan,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${widget.dailyGratitudes.length} DAYS • $totalNotes GRATITUDE NOTES',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.textMuted,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                InkWell(
+                  onTap: () => _toggleAll(true),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(MdiIcons.expandAll, size: 14, color: JweTheme.accentCyan),
+                        const SizedBox(width: 2),
+                        Text(
+                          'EXPAND ALL',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.accentCyan,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: () => _toggleAll(false),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(MdiIcons.collapseAll, size: 14, color: JweTheme.accentCyan),
+                        const SizedBox(width: 2),
+                        Text(
+                          'COLLAPSE ALL',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.accentCyan,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...widget.dailyGratitudes.map((dayData) {
+          return _GratitudeDayTile(
+            dayData: dayData,
+            expandTrigger: _expandAllTrigger,
+            expandValue: _expandAllValue,
+          );
+        }),
+        if (widget.highlights.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _SectionLabel(
+            title: 'WEEKLY HIGHLIGHTS',
+            icon: MdiIcons.starFourPointsOutline,
+            color: JweTheme.accentAmber,
+          ),
+          const SizedBox(height: 10),
+          ...List.generate(widget.highlights.length, (i) {
+            final raw = widget.highlights[i];
+            final map = raw is Map<String, dynamic>
+                ? raw
+                : (raw is Map ? Map<String, dynamic>.from(raw) : {'text': raw.toString()});
+            final text = map['text']?.toString() ?? '';
+            final iconType = map['icon_type']?.toString() ?? 'general';
+            if (text.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: GratitudeIntelCard(
+                text: text,
+                iconType: iconType,
+                index: i + 1,
+              ),
+            );
+          }),
+        ],
+      ],
+    );
+  }
+}
+
+class _GratitudeDayTile extends StatefulWidget {
+  final Map<String, dynamic> dayData;
+  final int expandTrigger;
+  final bool expandValue;
+
+  const _GratitudeDayTile({
+    required this.dayData,
+    required this.expandTrigger,
+    required this.expandValue,
+  });
+
+  @override
+  State<_GratitudeDayTile> createState() => _GratitudeDayTileState();
+}
+
+class _GratitudeDayTileState extends State<_GratitudeDayTile> {
+  late bool _isExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = true;
+  }
+
+  @override
+  void didUpdateWidget(covariant _GratitudeDayTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.expandTrigger != oldWidget.expandTrigger) {
+      _isExpanded = widget.expandValue;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dayName = widget.dayData['day_name']?.toString() ?? '';
+    final dateStr = widget.dayData['date']?.toString() ?? '';
+    final label = widget.dayData['label']?.toString() ?? (dayName.isNotEmpty ? '$dayName ($dateStr)' : dateStr);
+    final rawItems = widget.dayData['items'] as List<dynamic>? ?? [];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: JweTheme.bgBase.withOpacity(0.45),
+        border: Border(
+          left: BorderSide(
+            color: rawItems.isNotEmpty ? JweTheme.accentCyan : JweTheme.textMuted.withOpacity(0.4),
+            width: 2.5,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              child: Row(
+                children: [
+                  Icon(
+                    MdiIcons.calendarTodayOutline,
+                    size: 14,
+                    color: rawItems.isNotEmpty ? JweTheme.accentCyan : JweTheme.textMuted,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Text(
+                          label.toUpperCase(),
+                          style: GoogleFonts.saira(
+                            color: JweTheme.textWhite,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: JweTheme.accentCyan.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            '${rawItems.length} NOTE${rawItems.length == 1 ? '' : 'S'}',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: JweTheme.accentCyan,
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    _isExpanded ? MdiIcons.chevronUp : MdiIcons.chevronDown,
+                    color: JweTheme.textMuted,
+                    size: 16,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+              child: rawItems.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                      child: Text(
+                        'No reflections or gratitude notes recorded on this day.',
+                        style: TextStyle(color: JweTheme.textMuted, fontSize: 11, fontStyle: FontStyle.italic),
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: rawItems.map((item) {
+                        final map = item is Map<String, dynamic>
+                            ? item
+                            : (item is Map ? Map<String, dynamic>.from(item) : {'text': item.toString()});
+                        final text = map['text']?.toString() ?? '';
+                        final iconType = map['icon_type']?.toString() ?? 'general';
+                        if (text.isEmpty) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: GratitudeIntelCard(
+                            text: text,
+                            iconType: iconType,
+                            index: 0,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+            ),
+            crossFadeState: _isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WeeklyPeopleLogWidget extends StatefulWidget {
+  final List<String> sortedCategories;
+  final Map<String, List<PersonInfo>> groupedPeople;
+  final AppProvider provider;
+
+  const _WeeklyPeopleLogWidget({
+    required this.sortedCategories,
+    required this.groupedPeople,
+    required this.provider,
+  });
+
+  @override
+  State<_WeeklyPeopleLogWidget> createState() => _WeeklyPeopleLogWidgetState();
+}
+
+class _WeeklyPeopleLogWidgetState extends State<_WeeklyPeopleLogWidget> {
+  bool _isExpanded = false;
+  int _categoryToggleTrigger = 0;
+  bool _categoryToggleValue = false;
+
+  void _toggleAllCategories(bool expand) {
+    setState(() {
+      _isExpanded = true;
+      _categoryToggleTrigger++;
+      _categoryToggleValue = expand;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalContacts = widget.groupedPeople.values.fold<int>(0, (sum, l) => sum + l.length);
+    if (totalContacts == 0) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: JweTheme.bgBase.withOpacity(0.3),
+          border: Border.all(color: JweTheme.lineSoft),
+        ),
+        child: Text(
+          'NO REGISTERED CONTACTS LOGGED IN SYSTEM.',
+          style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 11),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: JweTheme.bgBase.withOpacity(0.4),
+        border: Border.all(
+          color: _isExpanded ? JweTheme.accentCyan.withOpacity(0.6) : JweTheme.lineSoft,
+          width: _isExpanded ? 1.5 : 1.0,
+        ),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: JweTheme.accentCyan,
+                      borderRadius: BorderRadius.circular(2),
+                      boxShadow: [
+                        BoxShadow(color: JweTheme.accentCyan.withOpacity(0.5), blurRadius: 6),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'SOCIAL DOSSIER & ENCOUNTERS',
+                          style: GoogleFonts.saira(
+                            color: JweTheme.textWhite,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '$totalContacts CONTACT${totalContacts > 1 ? 'S' : ''} ACROSS ${widget.sortedCategories.length} CATEGORIES',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.accentCyan,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_isExpanded) ...[
+                    InkWell(
+                      onTap: () => _toggleAllCategories(true),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                        child: Text(
+                          'EXPAND ALL',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.accentTeal,
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    InkWell(
+                      onTap: () => _toggleAllCategories(false),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                        child: Text(
+                          'COLLAPSE ALL',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.accentTeal,
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  Icon(
+                    _isExpanded ? MdiIcons.chevronUp : MdiIcons.chevronDown,
+                    color: _isExpanded ? JweTheme.accentCyan : JweTheme.textMuted,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: JweTheme.accentCyan.withOpacity(0.2))),
+                color: JweTheme.accentCyan.withOpacity(0.03),
+              ),
+              child: Column(
+                children: widget.sortedCategories.map((category) {
+                  final members = widget.groupedPeople[category] ?? [];
+                  return _PeopleCategoryTile(
+                    category: category,
+                    members: members,
+                    provider: widget.provider,
+                    toggleTrigger: _categoryToggleTrigger,
+                    toggleValue: _categoryToggleValue,
+                  );
+                }).toList(),
+              ),
+            ),
+            crossFadeState: _isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 250),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PeopleCategoryTile extends StatefulWidget {
+  final String category;
+  final List<PersonInfo> members;
+  final AppProvider provider;
+  final int toggleTrigger;
+  final bool toggleValue;
+
+  const _PeopleCategoryTile({
+    required this.category,
+    required this.members,
+    required this.provider,
+    required this.toggleTrigger,
+    required this.toggleValue,
+  });
+
+  @override
+  State<_PeopleCategoryTile> createState() => _PeopleCategoryTileState();
+}
+
+class _PeopleCategoryTileState extends State<_PeopleCategoryTile> {
+  late bool _isExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = false;
+  }
+
+  @override
+  void didUpdateWidget(covariant _PeopleCategoryTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.toggleTrigger != oldWidget.toggleTrigger) {
+      _isExpanded = widget.toggleValue;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        color: JweTheme.bgBase.withOpacity(0.3),
+        border: Border(
+          left: BorderSide(color: JweTheme.accentCyan.withOpacity(0.6), width: 2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(MdiIcons.accountGroupOutline, size: 14, color: JweTheme.accentCyan),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${widget.category} (${widget.members.length})',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.accentCyan,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _isExpanded ? MdiIcons.chevronUp : MdiIcons.chevronDown,
+                    size: 16,
+                    color: JweTheme.textMuted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
+              child: Column(
+                children: widget.members.map((p) {
+                  return InkWell(
+                    onTap: () {
+                      final matches = widget.provider.chatbotMemory.people.where(
+                          (e) => e.name.toLowerCase().trim() == p.name.toLowerCase().trim());
+                      final existing = matches.isNotEmpty ? matches.first : null;
+                      if (existing != null) {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => PersonDetailScreen(personId: existing.id)));
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+                      child: Row(
+                        children: [
+                          Icon(MdiIcons.accountOutline, size: 13, color: JweTheme.accentTeal),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  p.name.toUpperCase(),
+                                  style: GoogleFonts.saira(
+                                    color: JweTheme.textWhite,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 11.5,
+                                  ),
+                                ),
+                                if (p.relation.trim().isNotEmpty && p.relation.toLowerCase() != 'acquaintance')
+                                  Text(
+                                    p.relation.toUpperCase(),
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: JweTheme.textMuted,
+                                      fontSize: 8.5,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Icon(MdiIcons.chevronRight, size: 13, color: JweTheme.accentCyan),
+                        ],
+                      ),
+                    ),
                   );
                 }).toList(),
               ),

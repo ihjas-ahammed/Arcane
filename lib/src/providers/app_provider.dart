@@ -1074,17 +1074,23 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   }
 
   // --- Reports Logic ---
-  Map<String, dynamic> getLast7DaysData() { 
-    final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7); 
+  Map<String, dynamic> getLast7DaysData([DateTime? targetDate]) { 
+    final now = targetDate != null
+        ? DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59, 59, 999)
+        : DateTime.now();
+    final cutoff = now.subtract(const Duration(days: 7));
+    final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7, now); 
     final recentReflections = reflectionLogs
-        .where((l) => l.timestamp.isAfter(DateTime.now().subtract(const Duration(days: 7))))
+        .where((l) => l.timestamp.isAfter(cutoff) && l.timestamp.isBefore(now))
         .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
         .join("\n");
     return {'logs': recentReflections, 'times': historyStr, 'sessions': historyStr};
   }
   
-  String getWeeklyWellbeingComparison() {
-    final now = DateTime.now();
+  String getWeeklyWellbeingComparison([DateTime? targetDate]) {
+    final now = targetDate != null
+        ? DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59, 59, 999)
+        : DateTime.now();
     final last7 = now.subtract(const Duration(days: 7));
     final prev7 = now.subtract(const Duration(days: 14));
     
@@ -1092,7 +1098,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     Map<String, int> prevXp = {};
     
     for (var log in reflectionLogs) {
-      if (log.timestamp.isAfter(last7)) {
+      if (log.timestamp.isAfter(last7) && log.timestamp.isBefore(now)) {
         log.xpGained.forEach((k, v) {
           final normalized = WellbeingTheme.normalizeSkillName(k);
           if (normalized != null) {
@@ -1118,6 +1124,49 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       }
     }
     return buffer.toString();
+  }
+
+  /// Collects daily gratitude notes from saved tactical briefings & reflections across the 7 days ending at [targetDate].
+  List<Map<String, dynamic>> getWeeklyGratitudeBreakdown([DateTime? targetDate]) {
+    final now = targetDate != null
+        ? DateTime(targetDate.year, targetDate.month, targetDate.day)
+        : DateTime.now();
+    final List<Map<String, dynamic>> days = [];
+
+    for (int i = 6; i >= 0; i--) {
+      final day = now.subtract(Duration(days: i));
+      final dStr = DateFormat('yyyy-MM-dd').format(day);
+      final dayName = DateFormat('EEEE').format(day);
+      final displayLabel = DateFormat('EEE, MMM d').format(day);
+
+      final briefing = getTacticalBriefing(dStr);
+      final List<Map<String, dynamic>> items = [];
+
+      if (briefing != null) {
+        final rawGrat = (briefing['grateful_today'] as List<dynamic>?)
+            ?? (briefing['grateful_assets'] as List<dynamic>?)
+            ?? [];
+        for (final item in rawGrat) {
+          if (item is Map) {
+            final text = item['text']?.toString() ?? '';
+            final iconType = item['icon_type']?.toString() ?? 'general';
+            if (text.isNotEmpty) {
+              items.add({'text': text, 'icon_type': iconType});
+            }
+          } else if (item is String && item.isNotEmpty) {
+            items.add({'text': item, 'icon_type': 'general'});
+          }
+        }
+      }
+
+      days.add({
+        'date': dStr,
+        'day_name': dayName,
+        'label': displayLabel,
+        'items': items,
+      });
+    }
+    return days;
   }
 
   Future<List<Map<String, dynamic>>> getArchivedWeeklyReports({bool forceRefresh = false}) async {

@@ -284,12 +284,14 @@ class ReportActions {
 
   /// Generates the monthly briefing from ~30 days of app data plus the
   /// month's archived weekly reports, saves it, and returns it for display.
-  Future<Map<String, dynamic>> generateMonthlyReport() async {
-    final now = DateTime.now();
+  Future<Map<String, dynamic>> generateMonthlyReport([DateTime? targetDate]) async {
+    final now = targetDate != null
+        ? DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59, 59, 999)
+        : DateTime.now();
     final monthAgo = now.subtract(const Duration(days: 30));
 
     final recentLogs = _provider.reflectionLogs
-        .where((l) => l.timestamp.isAfter(monthAgo))
+        .where((l) => l.timestamp.isAfter(monthAgo) && l.timestamp.isBefore(now))
         .toList();
     final logsStr = recentLogs
         .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}: ${l.reason}")
@@ -310,7 +312,7 @@ class ReportActions {
       // Save static finance snapshot
       double monthIncome = 0, monthExpense = 0;
       for (final t in _provider.transactions) {
-        if (t.timestamp.isAfter(monthAgo)) {
+        if (t.timestamp.isAfter(monthAgo) && t.timestamp.isBefore(now)) {
           if (t.isIncome) monthIncome += t.amount; else monthExpense += t.amount;
         }
       }
@@ -323,7 +325,7 @@ class ReportActions {
       final result = await _aiService.generateMonthlyReport(
         monthLabel: monthLabel,
         logsText: logsStr.isEmpty ? 'No reflections logged this month.' : logsStr,
-        timeStatsText: HistoryHelper.getSessionHistoryString(_provider.mainTasks, 30),
+        timeStatsText: HistoryHelper.getSessionHistoryString(_provider.mainTasks, 30, now),
         wellbeingStatsText: _buildMonthlyWellbeingComparison(now),
         financeText: _buildMonthlyFinanceContext(now),
         healthText: _buildMonthlyHealthContext(now),
@@ -344,6 +346,7 @@ class ReportActions {
 
       final data = Map<String, dynamic>.from(result);
       data['month_label'] = monthLabel;
+      data['report_date'] = DateFormat('yyyy-MM-dd').format(now);
       data['generated_at'] = now.toIso8601String();
       data['saved_finance'] = {
         'income': monthIncome,

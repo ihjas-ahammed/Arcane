@@ -25,8 +25,8 @@ class UpdateService {
       return PackageInfo(
         appName: 'Arcane',
         packageName: 'me.ihjas.missions',
-        version: '2026.8.21',
-        buildNumber: '2126082101',
+        version: '2026.8.26',
+        buildNumber: '2126082601',
       );
     }
   }
@@ -92,6 +92,8 @@ class UpdateService {
       final updateModel = UpdateModel.fromJson(metadataJson, changelogMarkdown: changelogMarkdown);
 
       if (remoteVersionCode > localBuildNumber || forceCheck) {
+        // Proactively clean older versions from cache
+        await clearOldApks(updateModel.versionedApkFilename);
         return updateModel;
       }
       return null;
@@ -105,28 +107,47 @@ class UpdateService {
     Directory baseDir;
     try {
       if (Platform.isAndroid) {
-        baseDir = (await getExternalStorageDirectory()) ?? (await getApplicationDocumentsDirectory());
+        // Prefer external cache directory which is accessible to system package installer
+        final extCacheDirs = await getExternalCacheDirectories();
+        if (extCacheDirs != null && extCacheDirs.isNotEmpty) {
+          baseDir = extCacheDirs.first;
+        } else {
+          baseDir = (await getExternalStorageDirectory()) ?? (await getApplicationCacheDirectory());
+        }
       } else {
-        baseDir = await getApplicationDocumentsDirectory();
+        baseDir = await getApplicationCacheDirectory();
       }
     } catch (_) {
-      baseDir = await getTemporaryDirectory();
+      try {
+        baseDir = await getTemporaryDirectory();
+      } catch (_) {
+        baseDir = await getApplicationDocumentsDirectory();
+      }
     }
 
-    final updateDir = Directory('${baseDir.path}/updates');
+    final updateDir = Directory('${baseDir.path}/apk_cache');
     if (!await updateDir.exists()) {
       await updateDir.create(recursive: true);
     }
     return updateDir;
   }
 
-  /// Checks if the APK is already cached locally
-  Future<File?> getCachedApk(String apkFilename) async {
+  /// Checks if a valid APK for this specific update is already cached locally
+  Future<File?> getCachedApk(UpdateModel update) async {
     try {
       final dir = await _getUpdateDir();
-      final file = File('${dir.path}/$apkFilename');
-      if (await file.exists() && await file.length() > 500000) {
-        return file;
+      final filename = update.versionedApkFilename;
+      final file = File('${dir.path}/$filename');
+      if (await file.exists()) {
+        final length = await file.length();
+        if (length > 1024 * 1024) {
+          return file;
+        } else {
+          // Corrupt or truncated file, remove it
+          try {
+            await file.delete();
+          } catch (_) {}
+        }
       }
     } catch (e) {
       debugPrint('[UpdateService] Error checking cached APK: $e');
@@ -135,16 +156,21 @@ class UpdateService {
   }
 
   /// Removes outdated APK files to reclaim storage
-  Future<void> clearOldApks(String currentApkFilename) async {
+  Future<void> clearOldApks([String? currentApkFilename]) async {
     try {
       final dir = await _getUpdateDir();
       if (await dir.exists()) {
         final entities = dir.listSync();
         for (final entity in entities) {
-          if (entity is File && !entity.path.endsWith(currentApkFilename)) {
-            try {
-              entity.deleteSync();
-            } catch (_) {}
+          if (entity is File) {
+            final name = entity.path.split(Platform.pathSeparator).last;
+            if (name.endsWith('.apk') || name.endsWith('.apk.download') || name.endsWith('.download')) {
+              if (currentApkFilename == null || name != currentApkFilename) {
+                try {
+                  entity.deleteSync();
+                } catch (_) {}
+              }
+            }
           }
         }
       }
@@ -155,21 +181,28 @@ class UpdateService {
 
   /// Downloads the APK with real-time stream progress
   Future<File> downloadApk(
-    String url,
-    String filename, {
+    UpdateModel update, {
     required void Function(double progress, int receivedBytes, int totalBytes) onProgress,
   }) async {
     final dir = await _getUpdateDir();
+    final filename = update.versionedApkFilename;
     final targetFile = File('${dir.path}/$filename');
     final tempFile = File('${dir.path}/$filename.download');
 
     if (await tempFile.exists()) {
-      await tempFile.delete();
+      try {
+        await tempFile.delete();
+      } catch (_) {}
+    }
+
+    final downloadUrl = update.apkUrl;
+    if (downloadUrl.isEmpty) {
+      throw Exception('Update download URL is empty in update metadata');
     }
 
     final client = http.Client();
     try {
-      final request = http.Request('GET', Uri.parse(url));
+      final request = http.Request('GET', Uri.parse(downloadUrl));
       request.headers['Cache-Control'] = 'no-cache';
       final response = await client.send(request);
 
@@ -192,11 +225,18 @@ class UpdateService {
       await sink.flush();
       await sink.close();
 
+      if (await tempFile.length() < 1024 * 1024) {
+        throw Exception('Downloaded APK is corrupt or too small (< 1MB)');
+      }
+
       if (await targetFile.exists()) {
-        await targetFile.delete();
+        try {
+          await targetFile.delete();
+        } catch (_) {}
       }
       await tempFile.rename(targetFile.path);
 
+      // Clean all older cached APKs from previous versions
       await clearOldApks(filename);
 
       return targetFile;
