@@ -235,6 +235,8 @@ class AppSettings {
   Map<String, Map<String, List<String>>>? customBusSchedules;
   List<Map<String, dynamic>>? customBusRoutesJson;
   List<Map<String, dynamic>>? customBusStopsJson;
+  String? lastSelectedBusOrigin;
+  String? lastSelectedBusDestination;
 
   // Onboarding
   bool hasCompletedTour;
@@ -313,6 +315,8 @@ class AppSettings {
     this.customBusSchedules,
     this.customBusRoutesJson,
     this.customBusStopsJson,
+    this.lastSelectedBusOrigin,
+    this.lastSelectedBusDestination,
     this.reflectionDraft,
     this.reflectionReminderEnabled = false,
     this.reflectionReminderHour = 20,
@@ -452,6 +456,8 @@ class AppSettings {
       customBusStopsJson: (json['customBusStopsJson'] as List<dynamic>?)
           ?.map((e) => Map<String, dynamic>.from(e as Map))
           .toList(),
+      lastSelectedBusOrigin: json['lastSelectedBusOrigin'] as String?,
+      lastSelectedBusDestination: json['lastSelectedBusDestination'] as String?,
       adaptWritingStyle: json['adaptWritingStyle'] as bool? ?? false,
       writingStyleMap: json['writingStyleMap'] as String?,
       storyCharacter: json['storyCharacter'] as String? ?? 'Ayan',
@@ -505,6 +511,8 @@ class AppSettings {
       'customBusSchedules': customBusSchedules,
       'customBusRoutesJson': customBusRoutesJson,
       'customBusStopsJson': customBusStopsJson,
+      'lastSelectedBusOrigin': lastSelectedBusOrigin,
+      'lastSelectedBusDestination': lastSelectedBusDestination,
       'adaptWritingStyle': adaptWritingStyle,
       'writingStyleMap': writingStyleMap,
       'storyCharacter': storyCharacter,

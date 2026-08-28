@@ -260,8 +260,8 @@
     "semantic_hash": ""
   },
   "lib/src/models/app_state_models.dart": {
-    "mtime": 1787875991.2607315,
-    "ast_hash": "ee1fad086ac7be3e4c3389ff7bca5f10",
+    "mtime": 1787880061.2715008,
+    "ast_hash": "25eac90deafbfbde84b8103a55002eaa",
     "semantic_hash": ""
   },
   "lib/src/models/finance_models.dart": {
@@ -390,8 +390,8 @@
     "semantic_hash": ""
   },
   "lib/src/screens/bus_schedule_screen.dart": {
-    "mtime": 1787875991.2697315,
-    "ast_hash": "d7c4af8435d959de84ab08f5293bfb58",
+    "mtime": 1787880129.434532,
+    "ast_hash": "4e473ae322a83f09b44be274c98a1a5b",
     "semantic_hash": ""
   },
   "lib/src/screens/login_screen.dart": {
@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "lib/src/widgets/bus/bus_next_card.dart": {
-    "mtime": 1787875991.295732,
-    "ast_hash": "3989f27b9a4a2db5bacb42ad7e723b9b",
+    "mtime": 1787880096.8971245,
+    "ast_hash": "9c723bb8eecfc5a3f059df62434f77f6",
     "semantic_hash": ""
   },
   "lib/src/widgets/bus/bus_schedule_grid.dart": {
@@ -1405,8 +1405,8 @@
     "semantic_hash": ""
   },
   "pubspec.yaml": {
-    "mtime": 1787875991.3157325,
-    "ast_hash": "a4e117837f293cec8f0a5d5370f55122",
+    "mtime": 1787880345.6743498,
+    "ast_hash": "fa1e9e8b97f51aef7ad83f8efeaea042",
     "semantic_hash": ""
   },
   "targets.md": {
@@ -1925,8 +1925,8 @@
     "semantic_hash": ""
   },
   "builds/update_info.json": {
-    "mtime": 1787875991.1197286,
-    "ast_hash": "cb3912d20d3626aa97cbf9267bfab0b1",
+    "mtime": 1787880351.3825254,
+    "ast_hash": "65beb66154eb7c2ccad89b6fb5efdf76",
     "semantic_hash": ""
   },
   "lib/src/models/update_model.dart": {
@@ -1935,8 +1935,8 @@
     "semantic_hash": ""
   },
   "lib/src/services/update_service.dart": {
-    "mtime": 1787875991.287732,
-    "ast_hash": "5b8295fd7f755f49cbd27b71e9e895e1",
+    "mtime": 1787880348.6104403,
+    "ast_hash": "30a33ae6edbfd94d1ce24df22c0a9358",
     "semantic_hash": ""
   },
   "lib/src/widgets/dialogs/whats_new_update_dialog.dart": {
@@ -1945,13 +1945,13 @@
     "semantic_hash": ""
   },
   "builds/CHANGELOG.md": {
-    "mtime": 1787875984.7816005,
-    "ast_hash": "b0420bb50e31330ebc6adb37a4a5fa32",
+    "mtime": 1787879162.906916,
+    "ast_hash": "cfb13bfa9b286f4faed2df72663e70de",
     "semantic_hash": ""
   },
   "builds/latest.md": {
-    "mtime": 1787875984.782768,
-    "ast_hash": "bc3e0a2d0c15634bd66e7f407e09dae9",
+    "mtime": 1787880354.6706262,
+    "ast_hash": "5c4eb9f4ada72aa1db556660ff8f4c9b",
     "semantic_hash": ""
   },
   "android/app/src/main/kotlin/me/ihjas/missions/widgets/BusWidget.kt": {
@@ -1960,23 +1960,23 @@
     "semantic_hash": ""
   },
   "builds/latest.json": {
-    "mtime": 1787875984.782768,
-    "ast_hash": "cb3912d20d3626aa97cbf9267bfab0b1",
+    "mtime": 1787879149.5789776,
+    "ast_hash": "f37d4a8a3c89a02af2d6db27e5a03ee1",
     "semantic_hash": ""
   },
   "lib/src/models/bus_models.dart": {
-    "mtime": 1787875991.2607315,
-    "ast_hash": "bf0f55573d1138cf2df5b2ab58f21f04",
+    "mtime": 1787880090.3038309,
+    "ast_hash": "6b4baf947013c517ed294571454b7d0d",
     "semantic_hash": ""
   },
   "lib/src/screens/settings/bus_network_editor_screen.dart": {
-    "mtime": 1787875991.2827318,
-    "ast_hash": "c0a5d61d3c2043ef2cd7f0a0b4884618",
+    "mtime": 1787880151.9894674,
+    "ast_hash": "c2e20a1215f9365a2d4706558ca87720",
     "semantic_hash": ""
   },
   "lib/src/screens/settings/homescreen_widgets_preview_screen.dart": {
-    "mtime": 1787875991.2827318,
-    "ast_hash": "a916a85b91c87da51142af8e943d4c99",
+    "mtime": 1787880135.679794,
+    "ast_hash": "56288ff74bafadc0d5fa9f88291e4d35",
     "semantic_hash": ""
   },
   "lib/src/services/bus_location_service.dart": {
@@ -1990,8 +1990,8 @@
     "semantic_hash": ""
   },
   "lib/src/widgets/bus/bus_route_timeline.dart": {
-    "mtime": 1787875991.297732,
-    "ast_hash": "1853a70a3e7daa328876d55091bf7e1d",
+    "mtime": 1787880109.2106655,
+    "ast_hash": "15e5d31e8428e3286ba189b305deea39",
     "semantic_hash": ""
   },
   "lib/src/widgets/dialogs/create_character_dialog.dart": {
@@ -2062,6 +2062,11 @@
   "lib/src/widgets/skills/tactical_hud_widgets.dart": {
     "mtime": 1787878806.6660652,
     "ast_hash": "fd03e5bb7e9319fb3d70c23573ff5cbd",
+    "semantic_hash": ""
+  },
+  "test/bus_transit_system_test.dart": {
+    "mtime": 1787880159.9297893,
+    "ast_hash": "5e62e62be6bc97db690003201bd0afcb",
     "semantic_hash": ""
   }
 }

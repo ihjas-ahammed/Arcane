@@ -18,9 +18,9 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
 
   // 1. Bus Widget Test State
   String _busOrigin = "S.S College";
-  String _busDest = "EDAVANNAPPARA";
+  String _busDest = "Edavannappara";
   String _busNextTime = "08:15 AM";
-  String _busSubStop = "CHEEKKODE";
+  String _busSubStop = "Cheekkode";
   bool _busIsOnBus = true;
   int _busSpeedKmh = 32;
   int _busMinsRemaining = 14;

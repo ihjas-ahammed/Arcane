@@ -88,6 +88,43 @@ class _BusNetworkEditorScreenState extends State<BusNetworkEditorScreen> with Si
       }
       scheduleMap[originName]![destName] = r.departures;
     }
+
+    // Auto addition of two-way bidirectional data and derived routes
+    DefaultBusNetwork.calculateAndFillDerivedSchedules(scheduleMap);
+
+    // Sync back into _routes
+    for (final orig in scheduleMap.keys) {
+      for (final dst in scheduleMap[orig]!.keys) {
+        final deps = scheduleMap[orig]![dst]!;
+        final idx = _routes.indexWhere((r) {
+          final rOrig = _stops.where((s) => s.id == r.originId).firstOrNull?.name ?? r.originId;
+          final rDst = _stops.where((s) => s.id == r.destinationId).firstOrNull?.name ?? r.destinationId;
+          return rOrig.toUpperCase() == orig.toUpperCase() && rDst.toUpperCase() == dst.toUpperCase();
+        });
+
+        if (idx >= 0) {
+          _routes[idx] = _routes[idx].copyWith(departures: deps);
+        } else {
+          final origStop = _stops.where((s) => s.name.toUpperCase() == orig.toUpperCase()).firstOrNull;
+          final dstStop = _stops.where((s) => s.name.toUpperCase() == dst.toUpperCase()).firstOrNull;
+          _routes.add(
+            BusRoute(
+              id: 'route_${orig.toLowerCase()}_to_${dst.toLowerCase()}',
+              originId: origStop?.id ?? orig,
+              destinationId: dstStop?.id ?? dst,
+              name: '$orig → $dst',
+              distanceKm: 12.0,
+              baseDurationMinutes: 25,
+              subStops: const [],
+              departures: deps,
+            ),
+          );
+        }
+      }
+    }
+
+    newSettings.customBusStopsJson = _stops.map((s) => s.toJson()).toList();
+    newSettings.customBusRoutesJson = _routes.map((r) => r.toJson()).toList();
     newSettings.customBusSchedules = scheduleMap;
 
     provider.setSettings(newSettings);
@@ -101,12 +138,11 @@ class _BusNetworkEditorScreenState extends State<BusNetworkEditorScreen> with Si
       final originName = _stops.where((s) => s.id == firstRoute.originId).firstOrNull?.name ?? firstRoute.originId;
       final destName = _stops.where((s) => s.id == firstRoute.destinationId).firstOrNull?.name ?? firstRoute.destinationId;
       final nextTime = firstRoute.departures.firstOrNull ?? '08:15 AM';
-      final nextSub = firstRoute.subStops.firstOrNull?.name ?? '';
       HomeWidgetService.instance.publishBus(
         origin: originName,
         destination: destName,
         nextTime: nextTime,
-        nextSubStop: nextSub,
+        nextSubStop: '',
         isOnBus: false,
         speedKmh: 0,
         minutesRemaining: firstRoute.baseDurationMinutes,
@@ -452,10 +488,7 @@ class _BusNetworkEditorScreenState extends State<BusNetworkEditorScreen> with Si
                   name: '$origName → $dstName',
                   distanceKm: dist,
                   baseDurationMinutes: dur,
-                  subStops: [
-                    BusSubStop(name: origName, latitude: 11.2325, longitude: 75.9961, distanceFromOriginKm: 0.0, timeOffsetMinutes: 0),
-                    BusSubStop(name: dstName, latitude: 11.2185, longitude: 75.9628, distanceFromOriginKm: dist, timeOffsetMinutes: dur),
-                  ],
+                  subStops: const [],
                   departures: [],
                 );
 
@@ -623,11 +656,12 @@ class _BusNetworkEditorScreenState extends State<BusNetworkEditorScreen> with Si
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentAmber, foregroundColor: Colors.black),
             onPressed: () {
-              final name = nameCtrl.text.trim();
-              if (name.isEmpty) return;
+              final rawName = nameCtrl.text.trim();
+              if (rawName.isEmpty) return;
+              final name = DefaultBusNetwork.formatPlaceName(rawName);
               final code = codeCtrl.text.trim().isNotEmpty
                   ? codeCtrl.text.trim().toUpperCase()
-                  : name.substring(0, math.min(3, name.length)).toUpperCase();
+                  : name.replaceAll(RegExp(r'[^a-zA-Z]'), '').substring(0, math.min(3, name.length)).toUpperCase();
               final lat = double.tryParse(latCtrl.text) ?? 11.2325;
               final lng = double.tryParse(lngCtrl.text) ?? 75.9961;
 

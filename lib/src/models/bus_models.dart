@@ -46,15 +46,19 @@ class BusStop {
         'isMajor': isMajor,
       };
 
-  factory BusStop.fromJson(Map<String, dynamic> json) => BusStop(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        shortCode: json['shortCode'] as String? ??
-            (json['name'] as String).substring(0, math.min(3, (json['name'] as String).length)).toUpperCase(),
-        latitude: (json['latitude'] as num?)?.toDouble() ?? 11.2325,
-        longitude: (json['longitude'] as num?)?.toDouble() ?? 75.9961,
-        isMajor: json['isMajor'] as bool? ?? true,
-      );
+  factory BusStop.fromJson(Map<String, dynamic> json) {
+    final rawName = json['name'] as String? ?? 'Station';
+    final formattedName = DefaultBusNetwork.formatPlaceName(rawName);
+    return BusStop(
+      id: json['id'] as String? ?? 'stop_${formattedName.toLowerCase().replaceAll(' ', '_')}',
+      name: formattedName,
+      shortCode: json['shortCode'] as String? ??
+          (formattedName.length >= 3 ? formattedName.substring(0, 3).toUpperCase() : formattedName.toUpperCase()),
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 11.2325,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 75.9961,
+      isMajor: json['isMajor'] as bool? ?? true,
+    );
+  }
 
   /// Calculate Haversine distance in kilometers to another lat/lng.
   double distanceTo(double lat, double lng) {
@@ -116,7 +120,7 @@ class BusSubStop {
       };
 
   factory BusSubStop.fromJson(Map<String, dynamic> json) => BusSubStop(
-        name: json['name'] as String? ?? '',
+        name: DefaultBusNetwork.formatPlaceName(json['name'] as String? ?? ''),
         latitude: (json['latitude'] as num?)?.toDouble() ?? 11.2325,
         longitude: (json['longitude'] as num?)?.toDouble() ?? 75.9961,
         distanceFromOriginKm: (json['distanceFromOriginKm'] as num?)?.toDouble() ?? 0.0,
@@ -179,24 +183,33 @@ class BusRoute {
         'departures': departures,
       };
 
-  factory BusRoute.fromJson(Map<String, dynamic> json) => BusRoute(
-        id: json['id'] as String? ?? 'route_${DateTime.now().millisecondsSinceEpoch}',
-        originId: json['originId'] as String? ?? 'ss_college',
-        destinationId: json['destinationId'] as String? ?? 'edavannappara',
-        name: json['name'] as String? ?? '',
-        distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 10.0,
-        baseDurationMinutes: json['baseDurationMinutes'] as int? ?? 25,
-        subStops: (json['subStops'] as List<dynamic>?)
-                ?.map((e) => BusSubStop.fromJson(Map<String, dynamic>.from(e as Map)))
-                .toList() ??
-            const [],
-        departures: (json['departures'] as List<dynamic>?)
-                ?.map((e) => e.toString())
-                .toList() ??
-            const [],
-      );
+  factory BusRoute.fromJson(Map<String, dynamic> json) {
+    final rawName = json['name'] as String? ?? '';
+    final origId = json['originId'] as String? ?? 'ss_college';
+    final destId = json['destinationId'] as String? ?? 'edavannappara';
+    final formattedName = rawName.contains('→')
+        ? rawName.split('→').map((p) => DefaultBusNetwork.formatPlaceName(p)).join(' → ')
+        : DefaultBusNetwork.formatPlaceName(rawName);
 
-  /// Computes the estimated arrival time for a specific sub-stop given a bus departure time.
+    return BusRoute(
+      id: json['id'] as String? ?? 'route_${DateTime.now().millisecondsSinceEpoch}',
+      originId: origId,
+      destinationId: destId,
+      name: formattedName.isNotEmpty ? formattedName : '${DefaultBusNetwork.formatPlaceName(origId)} → ${DefaultBusNetwork.formatPlaceName(destId)}',
+      distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 10.0,
+      baseDurationMinutes: json['baseDurationMinutes'] as int? ?? 25,
+      subStops: (json['subStops'] as List<dynamic>?)
+              ?.map((e) => BusSubStop.fromJson(Map<String, dynamic>.from(e as Map)))
+              .toList() ??
+          const [],
+      departures: (json['departures'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+    );
+  }
+
+  /// Computes estimated arrival time for a specific sub-stop given a bus departure time.
   String predictSubStopArrivalTime(String departureTimeStr, BusSubStop subStop, {double? customSpeedKmh}) {
     try {
       final now = DateTime.now();
@@ -217,12 +230,39 @@ class BusRoute {
   }
 }
 
-/// Original pristine bus network data & defaults
+/// Original pristine bus network data & defaults with clean Capitalized names
 class DefaultBusNetwork {
+  /// Formats place/station strings to clean Capitalized / Title case
+  static String formatPlaceName(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty) return trimmed;
+    final lower = trimmed.toLowerCase();
+    if (lower == 's.s college' || lower == 's.s. college' || lower == 'ss college') {
+      return 'S.S College';
+    }
+    if (lower == 'edavannappara') {
+      return 'Edavannappara';
+    }
+    if (lower == 'areekode') {
+      return 'Areekode';
+    }
+
+    return trimmed.split(' ').map((word) {
+      if (word.isEmpty) return word;
+      if (word.contains('.')) {
+        return word
+            .split('.')
+            .map((p) => p.isEmpty ? '' : p[0].toUpperCase() + p.substring(1).toLowerCase())
+            .join('.');
+      }
+      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    }).join(' ');
+  }
+
   static const List<BusStop> stops = [
     BusStop(id: 'ss_college', name: 'S.S College', shortCode: 'SSC', latitude: 11.2325, longitude: 75.9961),
-    BusStop(id: 'edavannappara', name: 'EDAVANNAPPARA', shortCode: 'EDV', latitude: 11.2185, longitude: 75.9628),
-    BusStop(id: 'areekode', name: 'AREEKODE', shortCode: 'ARK', latitude: 11.2384, longitude: 76.0494),
+    BusStop(id: 'edavannappara', name: 'Edavannappara', shortCode: 'EDV', latitude: 11.2185, longitude: 75.9628),
+    BusStop(id: 'areekode', name: 'Areekode', shortCode: 'ARK', latitude: 11.2384, longitude: 76.0494),
   ];
 
   static const List<String> departuresSscToEdv = [
@@ -261,100 +301,179 @@ class DefaultBusNetwork {
     "05:30 PM", "05:45 PM", "06:00 PM", "06:15 PM", "06:30 PM"
   ];
 
+  /// Pristine default map with Capitalized keys
+  static Map<String, Map<String, List<String>>> getDefaultScheduleMap() {
+    final map = {
+      "S.S College": {
+        "Edavannappara": List<String>.from(departuresSscToEdv),
+        "Areekode": List<String>.from(departuresSscToArk),
+      },
+      "Edavannappara": {
+        "S.S College": List<String>.from(departuresEdvToSsc),
+        "Areekode": <String>[],
+      },
+      "Areekode": {
+        "S.S College": <String>[],
+        "Edavannappara": <String>[],
+      },
+    };
+    calculateAndFillDerivedSchedules(map);
+    return map;
+  }
+
+  /// Calculates derived routes and ensures two-way bidirectional data consistency.
+  static void calculateAndFillDerivedSchedules(Map<String, Map<String, List<String>>> schedules) {
+    // Normalizes map keys to Title Case while preserving case-insensitive lookups
+    String? findKey(String target) {
+      final tLow = target.toLowerCase().trim();
+      for (final k in schedules.keys) {
+        if (k.toLowerCase().trim() == tLow) return k;
+      }
+      return null;
+    }
+
+    final sscKey = findKey("S.S College") ?? "S.S College";
+    final edvKey = findKey("Edavannappara") ?? "Edavannappara";
+    final arkKey = findKey("Areekode") ?? "Areekode";
+
+    // 1. Edavannappara -> Areekode derived from Edavannappara -> S.S College
+    if (schedules[edvKey] != null &&
+        schedules[edvKey]![sscKey] != null &&
+        schedules[edvKey]![sscKey]!.isNotEmpty) {
+      if (schedules[edvKey]![arkKey] == null || schedules[edvKey]![arkKey]!.isEmpty) {
+        schedules[edvKey]![arkKey] = schedules[edvKey]![sscKey]!
+            .map((t) => addMinutesToTime(t, 0))
+            .toList();
+      }
+    }
+
+    // 2. Areekode -> S.S College and Areekode -> Edavannappara derived from S.S College -> Edavannappara (-2 min)
+    if (schedules[sscKey] != null &&
+        schedules[sscKey]![edvKey] != null &&
+        schedules[sscKey]![edvKey]!.isNotEmpty) {
+      if (schedules[arkKey] == null) schedules[arkKey] = {};
+
+      if (schedules[arkKey]![sscKey] == null || schedules[arkKey]![sscKey]!.isEmpty) {
+        schedules[arkKey]![sscKey] = schedules[sscKey]![edvKey]!
+            .map((t) => addMinutesToTime(t, -2))
+            .toList();
+      }
+
+      if (schedules[arkKey]![edvKey] == null || schedules[arkKey]![edvKey]!.isEmpty) {
+        schedules[arkKey]![edvKey] = schedules[sscKey]![edvKey]!
+            .map((t) => addMinutesToTime(t, -2))
+            .toList();
+      }
+    }
+
+    // 3. General Auto-Addition of Two-Way (Bidirectional) Data for custom places & routes
+    final allOrigins = List<String>.from(schedules.keys);
+    for (final orig in allOrigins) {
+      final destMap = schedules[orig];
+      if (destMap == null) continue;
+
+      for (final dest in List<String>.from(destMap.keys)) {
+        final forwardList = destMap[dest];
+        if (forwardList == null || forwardList.isEmpty) continue;
+
+        // Ensure reverse schedule structure exists
+        if (!schedules.containsKey(dest)) {
+          schedules[dest] = {};
+        }
+
+        // If reverse route has no departures, auto-populate two-way return times with reasonable transit spacing
+        if (schedules[dest]![orig] == null || schedules[dest]![orig]!.isEmpty) {
+          schedules[dest]![orig] = forwardList.map((t) => addMinutesToTime(t, 30)).toList();
+        }
+      }
+    }
+  }
+
+  static String addMinutesToTime(String timeStr, int minutesToAdd) {
+    try {
+      DateTime parsed = DateFormat("hh:mm a").parse(timeStr);
+      DateTime newTime = parsed.add(Duration(minutes: minutesToAdd));
+      return DateFormat("hh:mm a").format(newTime);
+    } catch (_) {
+      return timeStr;
+    }
+  }
+
+  /// Clean routes with NO pre-added intermediate sub-stops (only the places we have)
   static List<BusRoute> getRoutes() {
+    final scheduleMap = getDefaultScheduleMap();
+
     return [
-      // 1. S.S College -> EDAVANNAPPARA
-      const BusRoute(
+      // 1. S.S College -> Edavannappara
+      BusRoute(
         id: 'ssc_to_edv',
         originId: 'ss_college',
         destinationId: 'edavannappara',
         name: 'S.S College → Edavannappara',
         distanceKm: 13.5,
         baseDurationMinutes: 28,
-        subStops: [
-          BusSubStop(name: 'S.S College', latitude: 11.2325, longitude: 75.9961, distanceFromOriginKm: 0.0, timeOffsetMinutes: 0),
-          BusSubStop(name: 'Poovathikkal', latitude: 11.2340, longitude: 76.0120, distanceFromOriginKm: 1.5, timeOffsetMinutes: 3),
-          BusSubStop(name: 'Kizhuparamba', latitude: 11.2480, longitude: 76.0120, distanceFromOriginKm: 3.5, timeOffsetMinutes: 7),
-          BusSubStop(name: 'Kuniyil', latitude: 11.2295, longitude: 76.0020, distanceFromOriginKm: 5.5, timeOffsetMinutes: 11),
-          BusSubStop(name: 'Cheekkode', latitude: 11.2110, longitude: 75.9930, distanceFromOriginKm: 8.0, timeOffsetMinutes: 16),
-          BusSubStop(name: 'Mundumuzhi', latitude: 11.2150, longitude: 75.9750, distanceFromOriginKm: 10.5, timeOffsetMinutes: 21),
-          BusSubStop(name: 'Edavannappara', latitude: 11.2185, longitude: 75.9628, distanceFromOriginKm: 13.5, timeOffsetMinutes: 28),
-        ],
-        departures: departuresSscToEdv,
+        subStops: const [],
+        departures: scheduleMap["S.S College"]?["Edavannappara"] ?? departuresSscToEdv,
       ),
 
-      // 2. EDAVANNAPPARA -> S.S College
-      const BusRoute(
+      // 2. Edavannappara -> S.S College
+      BusRoute(
         id: 'edv_to_ssc',
         originId: 'edavannappara',
         destinationId: 'ss_college',
         name: 'Edavannappara → S.S College',
         distanceKm: 13.5,
         baseDurationMinutes: 28,
-        subStops: [
-          BusSubStop(name: 'Edavannappara', latitude: 11.2185, longitude: 75.9628, distanceFromOriginKm: 0.0, timeOffsetMinutes: 0),
-          BusSubStop(name: 'Mundumuzhi', latitude: 11.2150, longitude: 75.9750, distanceFromOriginKm: 3.0, timeOffsetMinutes: 6),
-          BusSubStop(name: 'Cheekkode', latitude: 11.2110, longitude: 75.9930, distanceFromOriginKm: 5.5, timeOffsetMinutes: 11),
-          BusSubStop(name: 'Kuniyil', latitude: 11.2295, longitude: 76.0020, distanceFromOriginKm: 8.0, timeOffsetMinutes: 16),
-          BusSubStop(name: 'Kizhuparamba', latitude: 11.2480, longitude: 76.0120, distanceFromOriginKm: 10.0, timeOffsetMinutes: 20),
-          BusSubStop(name: 'Poovathikkal', latitude: 11.2340, longitude: 76.0120, distanceFromOriginKm: 12.0, timeOffsetMinutes: 24),
-          BusSubStop(name: 'S.S College', latitude: 11.2325, longitude: 75.9961, distanceFromOriginKm: 13.5, timeOffsetMinutes: 28),
-        ],
-        departures: departuresEdvToSsc,
+        subStops: const [],
+        departures: scheduleMap["Edavannappara"]?["S.S College"] ?? departuresEdvToSsc,
       ),
 
-      // 3. S.S College -> AREEKODE
-      const BusRoute(
+      // 3. S.S College -> Areekode
+      BusRoute(
         id: 'ssc_to_ark',
         originId: 'ss_college',
         destinationId: 'areekode',
         name: 'S.S College → Areekode',
         distanceKm: 8.5,
         baseDurationMinutes: 18,
-        subStops: [
-          BusSubStop(name: 'S.S College', latitude: 11.2325, longitude: 75.9961, distanceFromOriginKm: 0.0, timeOffsetMinutes: 0),
-          BusSubStop(name: 'Poovathikkal', latitude: 11.2340, longitude: 76.0120, distanceFromOriginKm: 1.5, timeOffsetMinutes: 3),
-          BusSubStop(name: 'Valillapuzha', latitude: 11.2360, longitude: 76.0280, distanceFromOriginKm: 3.5, timeOffsetMinutes: 7),
-          BusSubStop(name: 'Ugrapuram', latitude: 11.2370, longitude: 76.0390, distanceFromOriginKm: 5.5, timeOffsetMinutes: 11),
-          BusSubStop(name: 'Areekode', latitude: 11.2384, longitude: 76.0494, distanceFromOriginKm: 8.5, timeOffsetMinutes: 18),
-        ],
-        departures: departuresSscToArk,
+        subStops: const [],
+        departures: scheduleMap["S.S College"]?["Areekode"] ?? departuresSscToArk,
       ),
 
-      // 4. EDAVANNAPPARA -> AREEKODE (Derived from EDV -> SSC)
-      const BusRoute(
+      // 4. Edavannappara -> Areekode
+      BusRoute(
         id: 'edv_to_ark',
         originId: 'edavannappara',
         destinationId: 'areekode',
         name: 'Edavannappara → Areekode',
         distanceKm: 18.0,
         baseDurationMinutes: 35,
-        subStops: [],
-        departures: departuresEdvToSsc,
+        subStops: const [],
+        departures: scheduleMap["Edavannappara"]?["Areekode"] ?? departuresEdvToSsc,
       ),
 
-      // 5. AREEKODE -> S.S College (Derived from SSC -> EDV)
-      const BusRoute(
+      // 5. Areekode -> S.S College
+      BusRoute(
         id: 'ark_to_ssc',
         originId: 'areekode',
         destinationId: 'ss_college',
         name: 'Areekode → S.S College',
         distanceKm: 8.5,
         baseDurationMinutes: 18,
-        subStops: [],
-        departures: departuresSscToEdv,
+        subStops: const [],
+        departures: scheduleMap["Areekode"]?["S.S College"] ?? departuresSscToEdv,
       ),
 
-      // 6. AREEKODE -> EDAVANNAPPARA (Derived from SSC -> EDV)
-      const BusRoute(
+      // 6. Areekode -> Edavannappara
+      BusRoute(
         id: 'ark_to_edv',
         originId: 'areekode',
         destinationId: 'edavannappara',
         name: 'Areekode → Edavannappara',
         distanceKm: 18.0,
         baseDurationMinutes: 35,
-        subStops: [],
-        departures: departuresSscToEdv,
+        subStops: const [],
+        departures: scheduleMap["Areekode"]?["Edavannappara"] ?? departuresSscToEdv,
       ),
     ];
   }

@@ -10,10 +10,10 @@ import 'package:missions/src/models/bus_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/screens/settings/homescreen_widgets_preview_screen.dart';
 import 'package:missions/src/screens/settings/bus_network_editor_screen.dart';
-import 'package:missions/src/services/bus_location_service.dart';
 import 'package:missions/src/services/home_widget_service.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/bus/bus_next_card.dart';
+import 'package:missions/src/widgets/bus/bus_route_timeline.dart';
 import 'package:missions/src/widgets/bus/bus_schedule_grid.dart';
 
 class BusScheduleScreen extends StatefulWidget {
@@ -29,83 +29,19 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
   late Timer _clockTimer;
   bool _isEditMode = false;
   bool _isLoading = true;
-  bool _autoGpsEnabled = true;
   String _filterMode = "ALL"; // "ALL" or "UPCOMING"
 
   List<BusStop> _allStops = List.from(DefaultBusNetwork.stops);
   List<BusRoute> _allRoutes = DefaultBusNetwork.getRoutes();
-  StreamSubscription<BusTransitLiveState>? _liveSub;
-  BusTransitLiveState _liveState = const BusTransitLiveState();
 
   @override
   void initState() {
     super.initState();
     _origin = _allStops.first.name;
-    _destination = _allStops[1].name;
+    _destination = _allStops.length > 1 ? _allStops[1].name : _allStops.first.name;
     _loadSchedules();
     _updateTime();
     _clockTimer = Timer.periodic(const Duration(seconds: 15), (_) => _updateTime());
-
-    _initGps();
-  }
-
-  void _initGps() {
-    final locService = BusLocationService.instance;
-    _liveSub?.cancel();
-    _liveSub = locService.stateStream.listen((state) {
-      if (mounted) {
-        setState(() => _liveState = state);
-      }
-    });
-
-    locService.startTracking(
-      stops: _allStops,
-      activeRoute: _getActiveRoute(),
-    );
-
-    if (_autoGpsEnabled) {
-      _autoLocateOrigin(silent: true);
-    }
-  }
-
-  Future<void> _autoLocateOrigin({bool silent = false}) async {
-    final pos = await BusLocationService.instance.getCurrentPosition();
-    if (pos != null && mounted) {
-      final nearest = BusLocationService.instance.resolveAutoOrigin(_allStops, pos);
-      if (nearest != null) {
-        setState(() {
-          _origin = nearest.name;
-          final bestDest = BusLocationService.instance.resolveAutoDestination(
-            nearest,
-            _allStops,
-            _allRoutes,
-          );
-          if (bestDest != null && bestDest.name != _origin) {
-            _destination = bestDest.name;
-          }
-        });
-        BusLocationService.instance.updateContext(
-          stops: _allStops,
-          activeRoute: _getActiveRoute(),
-        );
-        _syncWidget();
-        if (!silent) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Auto-detected nearest stop: ${nearest.name}'),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-    } else if (!silent && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_liveState.locationStatusMessage ?? 'GPS position not available. You can pick stops manually.'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
   }
 
   BusRoute? _getActiveRoute() {
@@ -123,8 +59,8 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
   }
 
   BusRoute _buildFallbackDerivedRoute(String origin, String dest) {
-    final origStop = _allStops.where((s) => s.name.toUpperCase() == origin.toUpperCase()).firstOrNull;
-    final destStop = _allStops.where((s) => s.name.toUpperCase() == dest.toUpperCase()).firstOrNull;
+    final origStop = _allStops.where((s) => s.name.toLowerCase() == origin.toLowerCase()).firstOrNull;
+    final destStop = _allStops.where((s) => s.name.toLowerCase() == dest.toLowerCase()).firstOrNull;
 
     double distKm = 12.0;
     if (origStop != null && destStop != null) {
@@ -132,47 +68,16 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
     }
     final durationMins = (distKm / 28.0 * 60).round().clamp(10, 120);
 
-    final List<BusSubStop> subStops = [
-      BusSubStop(
-        name: origin,
-        latitude: origStop?.latitude ?? 11.23,
-        longitude: origStop?.longitude ?? 76.0,
-        distanceFromOriginKm: 0.0,
-        timeOffsetMinutes: 0,
-      ),
-      BusSubStop(
-        name: '$origin Sub-Stop 1',
-        latitude: (origStop?.latitude ?? 11.23) * 0.7 + (destStop?.latitude ?? 11.21) * 0.3,
-        longitude: (origStop?.longitude ?? 76.0) * 0.7 + (destStop?.longitude ?? 75.96) * 0.3,
-        distanceFromOriginKm: double.parse((distKm * 0.35).toStringAsFixed(1)),
-        timeOffsetMinutes: (durationMins * 0.35).round(),
-      ),
-      BusSubStop(
-        name: '$origin Sub-Stop 2',
-        latitude: (origStop?.latitude ?? 11.23) * 0.3 + (destStop?.latitude ?? 11.21) * 0.7,
-        longitude: (origStop?.longitude ?? 76.0) * 0.3 + (destStop?.longitude ?? 75.96) * 0.7,
-        distanceFromOriginKm: double.parse((distKm * 0.70).toStringAsFixed(1)),
-        timeOffsetMinutes: (durationMins * 0.70).round(),
-      ),
-      BusSubStop(
-        name: dest,
-        latitude: destStop?.latitude ?? 11.2185,
-        longitude: destStop?.longitude ?? 75.9628,
-        distanceFromOriginKm: distKm,
-        timeOffsetMinutes: durationMins,
-      ),
-    ];
-
     final departures = _getDeparturesForRoute(origin, dest);
 
     return BusRoute(
-      id: '${origin}_to_$dest',
+      id: 'fallback_${origin.toLowerCase()}_to_${dest.toLowerCase()}',
       originId: origin,
       destinationId: dest,
-      name: '$origin → $dest',
+      name: '${DefaultBusNetwork.formatPlaceName(origin)} → ${DefaultBusNetwork.formatPlaceName(dest)}',
       distanceKm: distKm,
       baseDurationMinutes: durationMins,
-      subStops: subStops,
+      subStops: const [],
       departures: departures,
     );
   }
@@ -184,6 +89,17 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
     for (final r in _allRoutes) {
       if (r.name.toLowerCase().contains(normOrigin) && r.name.toLowerCase().contains(normDest)) {
         if (r.departures.isNotEmpty) return r.departures;
+      }
+    }
+
+    final scheduleMap = DefaultBusNetwork.getDefaultScheduleMap();
+    for (final k in scheduleMap.keys) {
+      if (k.toLowerCase().trim() == normOrigin) {
+        for (final k2 in scheduleMap[k]!.keys) {
+          if (k2.toLowerCase().trim() == normDest && scheduleMap[k]![k2]!.isNotEmpty) {
+            return scheduleMap[k]![k2]!;
+          }
+        }
       }
     }
 
@@ -200,7 +116,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       final provider = Provider.of<AppProvider>(context, listen: false);
       final settings = provider.settings;
 
-      // 1. Load Custom Stops or Defaults
+      // 1. Load Custom Stops or Defaults (Title Case normalized)
       if (settings.customBusStopsJson != null && settings.customBusStopsJson!.isNotEmpty) {
         _allStops = settings.customBusStopsJson!.map((e) => BusStop.fromJson(e)).toList();
       } else {
@@ -209,36 +125,71 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
 
       // 2. Load Custom Routes or Defaults
       if (settings.customBusRoutesJson != null && settings.customBusRoutesJson!.isNotEmpty) {
-        _allRoutes = settings.customBusRoutesJson!.map((e) => BusRoute.fromJson(e)).toList();
+        _allRoutes = settings.customBusRoutesJson!.map((e) {
+          final r = BusRoute.fromJson(e);
+          return r.copyWith(subStops: const []);
+        }).toList();
       } else {
         _allRoutes = DefaultBusNetwork.getRoutes();
       }
 
-      // 3. Merge custom timetable departures if defined
-      if (settings.customBusSchedules != null) {
-        for (int i = 0; i < _allRoutes.length; i++) {
-          final r = _allRoutes[i];
-          final origName = _allStops.where((s) => s.id == r.originId).firstOrNull?.name ?? r.originId;
-          final dstName = _allStops.where((s) => s.id == r.destinationId).firstOrNull?.name ?? r.destinationId;
-          if (settings.customBusSchedules![origName] != null &&
-              settings.customBusSchedules![origName]![dstName] != null) {
-            _allRoutes[i] = r.copyWith(departures: settings.customBusSchedules![origName]![dstName]!);
-          }
+      // 3. Build/merge timetable departures
+      final Map<String, Map<String, List<String>>> scheduleMap = {};
+      if (settings.customBusSchedules != null && settings.customBusSchedules!.isNotEmpty) {
+        settings.customBusSchedules!.forEach((k, v) {
+          final formattedK = DefaultBusNetwork.formatPlaceName(k);
+          scheduleMap[formattedK] = {};
+          v.forEach((k2, v2) {
+            scheduleMap[formattedK]![DefaultBusNetwork.formatPlaceName(k2)] = List<String>.from(v2);
+          });
+        });
+      } else {
+        final defaultMap = DefaultBusNetwork.getDefaultScheduleMap();
+        defaultMap.forEach((k, v) {
+          scheduleMap[k] = Map<String, List<String>>.from(v);
+        });
+      }
+
+      // Run two-way auto derivation
+      DefaultBusNetwork.calculateAndFillDerivedSchedules(scheduleMap);
+
+      // Sync scheduleMap into _allRoutes
+      for (int i = 0; i < _allRoutes.length; i++) {
+        final r = _allRoutes[i];
+        final origName = _allStops.where((s) => s.id == r.originId).firstOrNull?.name ?? r.originId;
+        final dstName = _allStops.where((s) => s.id == r.destinationId).firstOrNull?.name ?? r.destinationId;
+        if (scheduleMap[origName] != null && scheduleMap[origName]![dstName] != null) {
+          _allRoutes[i] = r.copyWith(departures: scheduleMap[origName]![dstName]!, subStops: const []);
         }
       }
 
-      // Verify origin and destination exist in stops list
-      if (!_allStops.any((s) => s.name == _origin) && _allStops.isNotEmpty) {
+      // Restore user's focused origin/destination if saved in settings
+      if (settings.lastSelectedBusOrigin != null &&
+          _allStops.any((s) => s.name.toLowerCase() == settings.lastSelectedBusOrigin!.toLowerCase())) {
+        _origin = _allStops.firstWhere((s) => s.name.toLowerCase() == settings.lastSelectedBusOrigin!.toLowerCase()).name;
+      } else if (_allStops.isNotEmpty) {
         _origin = _allStops.first.name;
       }
-      if (!_allStops.any((s) => s.name == _destination) && _allStops.length > 1) {
+
+      if (settings.lastSelectedBusDestination != null &&
+          _allStops.any((s) => s.name.toLowerCase() == settings.lastSelectedBusDestination!.toLowerCase())) {
+        _destination = _allStops.firstWhere((s) => s.name.toLowerCase() == settings.lastSelectedBusDestination!.toLowerCase()).name;
+      } else if (_allStops.length > 1) {
         _destination = _allStops[1].name;
       }
 
-      BusLocationService.instance.updateContext(
-        stops: _allStops,
-        activeRoute: _getActiveRoute(),
-      );
+      // If initial DB was empty, save defaults and focus to DB now
+      if (settings.customBusSchedules == null || settings.customBusSchedules!.isEmpty) {
+        final newSettings = AppSettings.fromJson(settings.toJson());
+        newSettings.customBusSchedules = scheduleMap;
+        newSettings.customBusStopsJson = _allStops.map((s) => s.toJson()).toList();
+        newSettings.customBusRoutesJson = _allRoutes.map((r) => r.toJson()).toList();
+        newSettings.lastSelectedBusOrigin = _origin;
+        newSettings.lastSelectedBusDestination = _destination;
+        provider.setSettings(newSettings);
+      }
+
+      _syncWidget();
     } catch (e) {
       debugPrint("Error loading schedules: $e");
     } finally {
@@ -251,19 +202,58 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       final provider = Provider.of<AppProvider>(context, listen: false);
       final newSettings = AppSettings.fromJson(provider.settings.toJson());
 
-      newSettings.customBusStopsJson = _allStops.map((s) => s.toJson()).toList();
-      newSettings.customBusRoutesJson = _allRoutes.map((r) => r.toJson()).toList();
-
+      // 1. Build scheduleMap from _allRoutes
       final Map<String, Map<String, List<String>>> customMap = {};
       for (final r in _allRoutes) {
         final origName = _allStops.where((s) => s.id == r.originId).firstOrNull?.name ?? r.originId;
         final dstName = _allStops.where((s) => s.id == r.destinationId).firstOrNull?.name ?? r.destinationId;
-        if (!customMap.containsKey(origName)) {
-          customMap[origName] = {};
+        final formOrig = DefaultBusNetwork.formatPlaceName(origName);
+        final formDst = DefaultBusNetwork.formatPlaceName(dstName);
+        if (!customMap.containsKey(formOrig)) {
+          customMap[formOrig] = {};
         }
-        customMap[origName]![dstName] = r.departures;
+        customMap[formOrig]![formDst] = r.departures;
       }
+
+      // 2. Auto addition of two-way bidirectional data and derived routes
+      DefaultBusNetwork.calculateAndFillDerivedSchedules(customMap);
+
+      // 3. Update all routes with derived two-way departures
+      for (final orig in customMap.keys) {
+        for (final dst in customMap[orig]!.keys) {
+          final deps = customMap[orig]![dst]!;
+          final idx = _allRoutes.indexWhere((r) {
+            final rOrig = _allStops.where((s) => s.id == r.originId).firstOrNull?.name ?? r.originId;
+            final rDst = _allStops.where((s) => s.id == r.destinationId).firstOrNull?.name ?? r.destinationId;
+            return rOrig.toLowerCase() == orig.toLowerCase() && rDst.toLowerCase() == dst.toLowerCase();
+          });
+
+          if (idx >= 0) {
+            _allRoutes[idx] = _allRoutes[idx].copyWith(departures: deps, subStops: const []);
+          } else {
+            // Auto create route if missing
+            _allRoutes.add(
+              BusRoute(
+                id: 'route_${orig.toLowerCase().replaceAll(' ', '_')}_to_${dst.toLowerCase().replaceAll(' ', '_')}',
+                originId: orig,
+                destinationId: dst,
+                name: '$orig → $dst',
+                distanceKm: 12.0,
+                baseDurationMinutes: 25,
+                subStops: const [],
+                departures: deps,
+              ),
+            );
+          }
+        }
+      }
+
+      newSettings.customBusStopsJson = _allStops.map((s) => s.toJson()).toList();
+      newSettings.customBusRoutesJson = _allRoutes.map((r) => r.toJson()).toList();
       newSettings.customBusSchedules = customMap;
+      newSettings.lastSelectedBusOrigin = _origin;
+      newSettings.lastSelectedBusDestination = _destination;
+
       provider.setSettings(newSettings);
 
       _syncWidget();
@@ -273,16 +263,26 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
     }
   }
 
+  void _persistFocus() {
+    try {
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      final newSettings = AppSettings.fromJson(provider.settings.toJson());
+      newSettings.lastSelectedBusOrigin = _origin;
+      newSettings.lastSelectedBusDestination = _destination;
+      provider.setSettings(newSettings);
+    } catch (_) {}
+  }
+
   void _syncWidget() {
     final nextBus = _findNextBus();
     HomeWidgetService.instance.publishBus(
-      origin: _origin,
-      destination: _destination,
+      origin: DefaultBusNetwork.formatPlaceName(_origin),
+      destination: DefaultBusNetwork.formatPlaceName(_destination),
       nextTime: nextBus?['time'] ?? '08:15 AM',
-      nextSubStop: _liveState.nextSubStop?.name ?? '',
-      isOnBus: _liveState.isOnBus,
-      speedKmh: _liveState.speedKmh.round(),
-      minutesRemaining: _liveState.predictedMinutesToDestination ?? nextBus?['minutes'] ?? -1,
+      nextSubStop: '',
+      isOnBus: false,
+      speedKmh: 0,
+      minutesRemaining: nextBus?['minutes'] ?? -1,
     );
   }
 
@@ -296,7 +296,6 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
   @override
   void dispose() {
     _clockTimer.cancel();
-    _liveSub?.cancel();
     super.dispose();
   }
 
@@ -356,27 +355,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       _origin = _destination;
       _destination = temp;
     });
-    BusLocationService.instance.updateContext(
-      stops: _allStops,
-      activeRoute: _getActiveRoute(),
-    );
-    _syncWidget();
-  }
-
-  void _startManualCommute(DateTime start, DateTime finish) {
-    final activeRoute = _getActiveRoute();
-    if (activeRoute != null) {
-      BusLocationService.instance.startManualCommute(
-        route: activeRoute,
-        startTime: start,
-        expectedFinishTime: finish,
-      );
-      _syncWidget();
-    }
-  }
-
-  void _stopManualCommute() {
-    BusLocationService.instance.stopManualCommute();
+    _persistFocus();
     _syncWidget();
   }
 
@@ -419,15 +398,19 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
 
         final idx = _allRoutes.indexWhere((r) => r.id == route.id);
         if (idx >= 0) {
-          _allRoutes[idx] = BusRoute(
-            id: route.id,
-            originId: route.originId,
-            destinationId: route.destinationId,
-            name: route.name,
-            distanceKm: route.distanceKm,
-            baseDurationMinutes: route.baseDurationMinutes,
-            subStops: route.subStops,
-            departures: currentDeps,
+          _allRoutes[idx] = route.copyWith(departures: currentDeps, subStops: const []);
+        } else {
+          _allRoutes.add(
+            BusRoute(
+              id: route.id,
+              originId: route.originId,
+              destinationId: route.destinationId,
+              name: route.name,
+              distanceKm: route.distanceKm,
+              baseDurationMinutes: route.baseDurationMinutes,
+              subStops: const [],
+              departures: currentDeps,
+            ),
           );
         }
         await _saveSchedules();
@@ -443,31 +426,317 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
 
       final idx = _allRoutes.indexWhere((r) => r.id == route.id);
       if (idx >= 0) {
-        _allRoutes[idx] = BusRoute(
-          id: route.id,
-          originId: route.originId,
-          destinationId: route.destinationId,
-          name: route.name,
-          distanceKm: route.distanceKm,
-          baseDurationMinutes: route.baseDurationMinutes,
-          subStops: route.subStops,
-          departures: currentDeps,
-        );
+        _allRoutes[idx] = route.copyWith(departures: currentDeps, subStops: const []);
       }
       _saveSchedules();
     }
   }
 
-  void _openSettingsDialog() {
+  /// Bulk Raw Transmission Editor for editing all departures as text
+  void _showRawTransmissionEditor() {
+    final activeRoute = _getActiveRoute();
+    final departures = List<String>.from(activeRoute?.departures ?? _getDeparturesForRoute(_origin, _destination));
+    final controller = TextEditingController(text: departures.join(", "));
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: JweTheme.panel,
+        title: Text(
+          "EDIT TRANSMISSION DATA",
+          style: GoogleFonts.chakraPetch(
+            color: JweTheme.accentAmber,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+            fontSize: 16,
+          ),
+        ),
+        content: SizedBox(
+          width: 480,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "ROUTE: ${DefaultBusNetwork.formatPlaceName(_origin)} → ${DefaultBusNetwork.formatPlaceName(_destination)}",
+                style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Paste or edit departure times separated by commas or newlines (e.g. 08:00 AM, 08:15 AM, 01:30 PM). Updating synchronizes two-way return data and broadcasts to widget.",
+                style: GoogleFonts.rajdhani(color: JweTheme.textMuted, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                maxLines: 8,
+                style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 12),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: JweTheme.bgBase,
+                  border: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                  hintText: "06:30 AM, 07:15 AM, 08:00 AM...",
+                  hintStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text("CANCEL", style: GoogleFonts.rajdhani(color: JweTheme.textMuted, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: JweTheme.accentAmber,
+              foregroundColor: JweTheme.onAccent,
+            ),
+            onPressed: () async {
+              final raw = controller.text;
+              final parsedList = <String>[];
+
+              final tokens = raw.split(RegExp(r'[, \n\r]+'));
+              for (final token in tokens) {
+                final cleaned = token.trim();
+                if (cleaned.isEmpty) continue;
+                try {
+                  final dt = DateFormat("hh:mm a").parse(cleaned);
+                  parsedList.add(DateFormat("hh:mm a").format(dt));
+                } catch (_) {
+                  try {
+                    final dt = DateFormat("HH:mm").parse(cleaned);
+                    parsedList.add(DateFormat("hh:mm a").format(dt));
+                  } catch (_) {}
+                }
+              }
+
+              if (parsedList.isNotEmpty) {
+                parsedList.sort((a, b) => _timeToMinutes(a).compareTo(_timeToMinutes(b)));
+                final distinctList = parsedList.toSet().toList();
+
+                final route = _getActiveRoute();
+                if (route != null) {
+                  final idx = _allRoutes.indexWhere((r) => r.id == route.id);
+                  if (idx >= 0) {
+                    _allRoutes[idx] = route.copyWith(departures: distinctList, subStops: const []);
+                  } else {
+                    _allRoutes.add(
+                      BusRoute(
+                        id: route.id,
+                        originId: route.originId,
+                        destinationId: route.destinationId,
+                        name: route.name,
+                        distanceKm: route.distanceKm,
+                        baseDurationMinutes: route.baseDurationMinutes,
+                        subStops: const [],
+                        departures: distinctList,
+                      ),
+                    );
+                  }
+                  Navigator.pop(ctx);
+                  await _saveSchedules();
+                } else {
+                  Navigator.pop(ctx);
+                }
+              } else {
+                Navigator.pop(ctx);
+              }
+            },
+            child: Text("SAVE & BROADCAST", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Add new transit place / station
+  Future<void> _showAddLocationDialog({String? initialName}) async {
+    final nameCtrl = TextEditingController(text: initialName ?? "");
+    final codeCtrl = TextEditingController();
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: JweTheme.panel,
+        title: Text(
+          "NEW TRANSIT PLACE",
+          style: GoogleFonts.chakraPetch(
+            color: JweTheme.accentAmber,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+            fontSize: 16,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Enter the name of the place or station to add to your transit network.",
+              style: GoogleFonts.rajdhani(color: JweTheme.textMuted, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameCtrl,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 13),
+              decoration: InputDecoration(
+                labelText: "PLACE / STATION NAME",
+                labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
+                hintText: "e.g. Manjeri, Calicut, Kondotty",
+                hintStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted.withValues(alpha: 0.5), fontSize: 11),
+                filled: true,
+                fillColor: JweTheme.bgBase,
+                border: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber, width: 1.5)),
+              ),
+              onChanged: (val) {
+                if (codeCtrl.text.isEmpty || codeCtrl.text.length <= 3) {
+                  final cleaned = val.replaceAll(RegExp(r'[^a-zA-Z]'), '').toUpperCase();
+                  if (cleaned.isNotEmpty) {
+                    codeCtrl.text = cleaned.substring(0, cleaned.length.clamp(1, 3));
+                  }
+                }
+              },
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: codeCtrl,
+              textCapitalization: TextCapitalization.characters,
+              maxLength: 4,
+              style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 13),
+              decoration: InputDecoration(
+                labelText: "SHORT CODE (2-4 LETTERS)",
+                labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
+                hintText: "e.g. MJR, CLT, KDT",
+                hintStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted.withValues(alpha: 0.5), fontSize: 11),
+                filled: true,
+                fillColor: JweTheme.bgBase,
+                border: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber, width: 1.5)),
+                counterText: "",
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text("CANCEL", style: GoogleFonts.rajdhani(color: JweTheme.textMuted, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: JweTheme.accentAmber,
+              foregroundColor: JweTheme.onAccent,
+            ),
+            onPressed: () {
+              final rawName = nameCtrl.text.trim();
+              if (rawName.isEmpty) return;
+              final formattedName = DefaultBusNetwork.formatPlaceName(rawName);
+              var code = codeCtrl.text.trim().toUpperCase();
+              if (code.isEmpty) {
+                final cleaned = formattedName.replaceAll(RegExp(r'[^a-zA-Z]'), '');
+                code = cleaned.substring(0, cleaned.length.clamp(1, 3)).toUpperCase();
+              }
+              Navigator.pop(ctx, {"name": formattedName, "code": code});
+            },
+            child: Text("ADD PLACE", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result["name"] != null && result["name"]!.isNotEmpty) {
+      final name = DefaultBusNetwork.formatPlaceName(result["name"]!);
+      final code = result["code"] ?? (name.length >= 3 ? name.substring(0, 3).toUpperCase() : name.toUpperCase());
+
+      if (!_allStops.any((s) => s.name.toLowerCase() == name.toLowerCase())) {
+        final newStop = BusStop(
+          id: 'stop_${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}_${DateTime.now().millisecondsSinceEpoch % 10000}',
+          name: name,
+          shortCode: code,
+          latitude: 11.23,
+          longitude: 76.0,
+        );
+
+        setState(() {
+          _allStops.add(newStop);
+          _destination = newStop.name;
+        });
+
+        // Ensure routes exist connecting new stop to all other stops
+        for (final existingStop in _allStops) {
+          if (existingStop.id == newStop.id) continue;
+
+          // Route A -> New
+          final hasForward = _allRoutes.any((r) =>
+              (r.originId.toLowerCase() == existingStop.id.toLowerCase() || r.originId.toLowerCase() == existingStop.name.toLowerCase()) &&
+              (r.destinationId.toLowerCase() == newStop.id.toLowerCase() || r.destinationId.toLowerCase() == newStop.name.toLowerCase()));
+          if (!hasForward) {
+            _allRoutes.add(
+              BusRoute(
+                id: 'route_${existingStop.id}_to_${newStop.id}',
+                originId: existingStop.name,
+                destinationId: newStop.name,
+                name: '${existingStop.name} → ${newStop.name}',
+                distanceKm: 12.0,
+                baseDurationMinutes: 25,
+                subStops: const [],
+                departures: const [],
+              ),
+            );
+          }
+
+          // Route New -> A
+          final hasReverse = _allRoutes.any((r) =>
+              (r.originId.toLowerCase() == newStop.id.toLowerCase() || r.originId.toLowerCase() == newStop.name.toLowerCase()) &&
+              (r.destinationId.toLowerCase() == existingStop.id.toLowerCase() || r.destinationId.toLowerCase() == existingStop.name.toLowerCase()));
+          if (!hasReverse) {
+            _allRoutes.add(
+              BusRoute(
+                id: 'route_${newStop.id}_to_${existingStop.id}',
+                originId: newStop.name,
+                destinationId: existingStop.name,
+                name: '${newStop.name} → ${existingStop.name}',
+                distanceKm: 12.0,
+                baseDurationMinutes: 25,
+                subStops: const [],
+                departures: const [],
+              ),
+            );
+          }
+        }
+
+        _persistFocus();
+        await _saveSchedules();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Added new place: $name ($code)'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  /// Manage / Edit / Delete an existing place
+  Future<void> _showManageStopDialog(BusStop stop) async {
+    final isCore = ['ss_college', 'edavannappara', 'areekode'].contains(stop.id.toLowerCase());
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: JweTheme.bgBase,
+      backgroundColor: JweTheme.panel,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: const EdgeInsets.all(20),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -476,40 +745,187 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'BUS RADAR SETTINGS',
+                    'MANAGE PLACE: ${stop.name}',
                     style: GoogleFonts.rajdhani(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
-                      color: JweTheme.textWhite,
+                      color: JweTheme.accentAmber,
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close, color: JweTheme.textMuted),
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const Divider(height: 20),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(MdiIcons.pencilOutline, color: JweTheme.accentCyan),
+                title: Text('Edit Place Details', style: GoogleFonts.jetBrainsMono(fontSize: 12, color: JweTheme.textWhite)),
+                subtitle: Text('Modify name and short code', style: GoogleFonts.jetBrainsMono(fontSize: 10, color: JweTheme.textMuted)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showAddLocationDialog(initialName: stop.name);
+                },
+              ),
+              if (!isCore)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(MdiIcons.trashCanOutline, color: JweTheme.accentRed),
+                  title: Text('Delete Place', style: GoogleFonts.jetBrainsMono(fontSize: 12, color: JweTheme.accentRed)),
+                  subtitle: Text('Removes ${stop.name} from transit network', style: GoogleFonts.jetBrainsMono(fontSize: 10, color: JweTheme.textMuted)),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    setState(() {
+                      _allStops.removeWhere((s) => s.id == stop.id);
+                      _allRoutes.removeWhere((r) =>
+                          r.originId.toLowerCase() == stop.id.toLowerCase() ||
+                          r.destinationId.toLowerCase() == stop.id.toLowerCase() ||
+                          r.name.toLowerCase().contains(stop.name.toLowerCase()));
+                      if (_origin.toLowerCase() == stop.name.toLowerCase() && _allStops.isNotEmpty) {
+                        _origin = _allStops.first.name;
+                      }
+                      if (_destination.toLowerCase() == stop.name.toLowerCase() && _allStops.length > 1) {
+                        _destination = _allStops[1].name;
+                      }
+                    });
+                    _persistFocus();
+                    await _saveSchedules();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Removed place: ${stop.name}')),
+                      );
+                    }
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Reset to pristine factory defaults
+  Future<void> _resetToDefaults() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: JweTheme.panel,
+        title: Text("RESTORE DEFAULT TIMETABLES", style: GoogleFonts.chakraPetch(color: JweTheme.accentAmber, fontWeight: FontWeight.bold)),
+        content: Text("Reset bus schedule to pristine default timetables for S.S College, Edavannappara, and Areekode? This will overwrite custom edits.", style: GoogleFonts.rajdhani(color: JweTheme.textWhite)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text("CANCEL", style: GoogleFonts.rajdhani(color: JweTheme.textMuted))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentRed, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text("RESET & FEED DB", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      final newSettings = AppSettings.fromJson(provider.settings.toJson());
+
+      _allStops = List.from(DefaultBusNetwork.stops);
+      _allRoutes = DefaultBusNetwork.getRoutes();
+
+      final defaultMap = DefaultBusNetwork.getDefaultScheduleMap();
+      newSettings.customBusSchedules = defaultMap;
+      newSettings.customBusStopsJson = _allStops.map((s) => s.toJson()).toList();
+      newSettings.customBusRoutesJson = _allRoutes.map((r) => r.toJson()).toList();
+
+      _origin = _allStops.first.name;
+      _destination = _allStops.length > 1 ? _allStops[1].name : _allStops.first.name;
+      newSettings.lastSelectedBusOrigin = _origin;
+      newSettings.lastSelectedBusDestination = _destination;
+
+      provider.setSettings(newSettings);
+
+      _syncWidget();
+      setState(() {});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Pristine default bus schedules restored and fed to DB.")),
+      );
+    }
+  }
+
+  void _showTransitSettingsSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: JweTheme.panel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'TRANSIT TELEMETRY CONFIG',
+                    style: GoogleFonts.rajdhani(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
+                      color: JweTheme.accentAmber,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              SwitchListTile(
+              const Divider(height: 20),
+              ListTile(
                 contentPadding: EdgeInsets.zero,
+                leading: Icon(MdiIcons.mapMarkerPlus, color: JweTheme.accentAmber),
                 title: Text(
-                  'Auto-detect starting point with GPS',
+                  'Add New Place / Station',
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 12,
-                    color: JweTheme.textWhite,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.bold,
+                    color: JweTheme.accentAmber,
                   ),
                 ),
                 subtitle: Text(
-                  'Automatically sets nearest bus stop on launch',
+                  'Add custom cities, towns, colleges, or stops',
                   style: GoogleFonts.jetBrainsMono(fontSize: 10, color: JweTheme.textMuted),
                 ),
-                value: _autoGpsEnabled,
-                activeTrackColor: JweTheme.accentAmber,
-                onChanged: (val) {
-                  setModalState(() => _autoGpsEnabled = val);
-                  setState(() => _autoGpsEnabled = val);
+                onTap: () {
+                  Navigator.pop(context);
+                  _showAddLocationDialog();
+                },
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(MdiIcons.codeBrackets, color: JweTheme.accentAmber),
+                title: Text(
+                  'Raw Transmission Data (Bulk Edit)',
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: JweTheme.accentAmber,
+                  ),
+                ),
+                subtitle: Text(
+                  'Edit raw comma-separated timetable for active route',
+                  style: GoogleFonts.jetBrainsMono(fontSize: 10, color: JweTheme.textMuted),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showRawTransmissionEditor();
                 },
               ),
               const SizedBox(height: 8),
@@ -517,7 +933,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(MdiIcons.busStopCovered, color: JweTheme.accentCyan),
                 title: Text(
-                  'Edit Transit Network & Sub-Stops',
+                  'Edit Transit Network',
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -525,7 +941,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                   ),
                 ),
                 subtitle: Text(
-                  'Manage routes, intermediate sub-stops, distances & timetables',
+                  'Manage routes, stops, distances & two-way timetables',
                   style: GoogleFonts.jetBrainsMono(fontSize: 10, color: JweTheme.textMuted),
                 ),
                 onTap: () async {
@@ -565,234 +981,172 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
               const SizedBox(height: 8),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(MdiIcons.crosshairsGps, color: JweTheme.accentCyan),
+                leading: Icon(MdiIcons.restore, color: JweTheme.accentRed),
                 title: Text(
-                  'Refresh GPS Location Now',
+                  'Restore Default Timetables',
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: JweTheme.textWhite,
+                    color: JweTheme.accentRed,
                   ),
+                ),
+                subtitle: Text(
+                  'Re-feed pristine default schedules into DB',
+                  style: GoogleFonts.jetBrainsMono(fontSize: 10, color: JweTheme.textMuted),
                 ),
                 onTap: () {
                   Navigator.pop(context);
-                  _autoLocateOrigin();
-                },
-              ),
-              const SizedBox(height: 8),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(MdiIcons.mapMarkerPlus, color: JweTheme.accentAmber),
-                title: Text(
-                  'Add Custom Stop',
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: JweTheme.textWhite,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showAddStopDialog();
+                  _resetToDefaults();
                 },
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  void _showAddStopDialog() {
-    final nameCtrl = TextEditingController();
-    final codeCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: JweTheme.panel,
-        title: Text(
-          'ADD TRANSIT STOP',
-          style: GoogleFonts.rajdhani(
-            color: JweTheme.textWhite,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 13),
-              decoration: InputDecoration(
-                labelText: 'Stop Name (e.g. Kozhikode Stand)',
-                labelStyle: TextStyle(color: JweTheme.textMuted),
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: codeCtrl,
-              style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 13),
-              decoration: InputDecoration(
-                labelText: '3-Letter Code (e.g. CLT)',
-                labelStyle: TextStyle(color: JweTheme.textMuted),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: JweTheme.accentAmber,
-              foregroundColor: JweTheme.onAccent,
-            ),
-            onPressed: () {
-              final name = nameCtrl.text.trim();
-              if (name.isNotEmpty) {
-                final code = codeCtrl.text.trim().toUpperCase();
-                final newStop = BusStop(
-                  id: name.toLowerCase().replaceAll(' ', '_'),
-                  name: name.toUpperCase(),
-                  shortCode: code.isNotEmpty ? code : name.substring(0, 3).toUpperCase(),
-                  latitude: 11.23,
-                  longitude: 76.0,
-                );
-                setState(() {
-                  _allStops.add(newStop);
-                  _origin = newStop.name;
-                });
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text('ADD STOP'),
-          ),
-        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final activeRoute = _getActiveRoute();
     final nextBus = _findNextBus();
+    final activeRoute = _getActiveRoute();
     final allDepartures = activeRoute?.departures ?? _getDeparturesForRoute(_origin, _destination);
 
-    final nowMin = DateTime.now().hour * 60 + DateTime.now().minute;
+    final now = DateTime.now();
+    final currentMinutes = now.hour * 60 + now.minute;
+
     final filteredDepartures = _filterMode == "UPCOMING"
-        ? allDepartures.where((t) => _timeToMinutes(t) >= nowMin).toList()
+        ? allDepartures.where((t) => _timeToMinutes(t) >= currentMinutes).toList()
         : allDepartures;
 
-    return Theme(
-      data: Theme.of(context).copyWith(
-        scaffoldBackgroundColor: JweTheme.bgBase,
-      ),
-      child: Scaffold(
-        backgroundColor: JweTheme.bgBase,
-        appBar: AppBar(
-          title: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(MdiIcons.busClock, color: JweTheme.accentAmber, size: 18),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  "BUS RADAR",
-                  style: GoogleFonts.rajdhani(
-                    color: JweTheme.textWhite,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.1,
-                    fontSize: 17,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: JweTheme.bgBase,
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: Icon(MdiIcons.busStopCovered, color: JweTheme.accentAmber, size: 20),
-              tooltip: "Edit Routes & Sub-Stops",
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const BusNetworkEditorScreen(),
-                  ),
-                );
-                _loadSchedules();
-                setState(() {});
-              },
-            ),
-            IconButton(
-              icon: Icon(Icons.my_location, color: JweTheme.accentCyan, size: 20),
-              tooltip: "Auto-detect Nearest Stop",
-              onPressed: () => _autoLocateOrigin(),
-            ),
-            IconButton(
-              icon: Icon(MdiIcons.cogOutline, color: JweTheme.textMid, size: 20),
-              tooltip: "Settings",
-              onPressed: _openSettingsDialog,
-            ),
-          ],
-        ),
-        body: _isLoading
+    return Scaffold(
+      backgroundColor: JweTheme.bgBase,
+      body: SafeArea(
+        child: _isLoading
             ? Center(child: CircularProgressIndicator(color: JweTheme.accentAmber))
-            : SafeArea(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            : Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     children: [
-                      // Origin & Destination Selector Hub
-                      _buildSelectorHub(),
-
-                      const SizedBox(height: 14),
-
-                      // Next Bus Card with Live HUD Telemetry & Manual Commute
-                      BusNextCard(
-                        nextBusData: nextBus,
-                        routeInfo: "$_origin → $_destination",
-                        activeRoute: activeRoute,
-                        liveState: _liveState,
-                        onSwap: _swapLocations,
-                        onLocate: () => _autoLocateOrigin(),
-                        onStartManualCommute: _startManualCommute,
-                        onStopManualCommute: _stopManualCommute,
-                      ),
-
-                      const SizedBox(height: 18),
-
-                      // Filter & Edit Bar
+                      // ── Tactical Header Bar ─────────────────────────────
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Row(
                             children: [
+                              IconButton(
+                                icon: Icon(Icons.arrow_back, color: JweTheme.textWhite, size: 20),
+                                onPressed: () => Navigator.pop(context),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "ARCANE TRANSIT RADAR",
+                                    style: GoogleFonts.rajdhani(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 2.0,
+                                      color: JweTheme.accentAmber,
+                                    ),
+                                  ),
+                                  Text(
+                                    "LIVE BUS TELEMETRY & DISPATCH",
+                                    style: GoogleFonts.jetBrainsMono(
+                                      fontSize: 8.5,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.0,
+                                      color: JweTheme.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: Icon(MdiIcons.mapMarkerPlus, color: JweTheme.accentAmber, size: 20),
+                                tooltip: "Add Place",
+                                onPressed: () => _showAddLocationDialog(),
+                              ),
+                              IconButton(
+                                icon: Icon(MdiIcons.codeBrackets, color: JweTheme.accentAmber, size: 20),
+                                tooltip: "Raw Transmission Edit",
+                                onPressed: _showRawTransmissionEditor,
+                              ),
+                              IconButton(
+                                icon: Icon(MdiIcons.swapVertical, color: JweTheme.accentCyan, size: 20),
+                                tooltip: "Swap Direction",
+                                onPressed: _swapLocations,
+                              ),
+                              IconButton(
+                                icon: Icon(MdiIcons.cogOutline, color: JweTheme.textMid, size: 20),
+                                tooltip: "Transit Config",
+                                onPressed: _showTransitSettingsSheet,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      // ── Interactive Stop Selector ───────────────────────
+                      _buildSelectorHub(),
+
+                      const SizedBox(height: 14),
+
+                      // ── Live Next Bus Card ──────────────────────────────
+                      BusNextCard(
+                        nextBusData: nextBus,
+                        routeInfo: '${DefaultBusNetwork.formatPlaceName(_origin)} → ${DefaultBusNetwork.formatPlaceName(_destination)}',
+                        activeRoute: activeRoute,
+                        onSwap: _swapLocations,
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      // ── Clean Route Progress Bar
+                      if (activeRoute != null)
+                        BusRouteProgressTimeline(
+                          route: activeRoute,
+                          nextBusDepartureTime: nextBus?['time'],
+                        ),
+
+                      const SizedBox(height: 14),
+
+                      // ── Departures Timetable Header ─────────────────────
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(MdiIcons.clockOutline, size: 14, color: JweTheme.accentAmber),
+                              const SizedBox(width: 6),
                               Text(
-                                "TIMETABLE",
+                                "DISPATCH TIMETABLE",
                                 style: GoogleFonts.rajdhani(
-                                  color: JweTheme.textWhite,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.1,
-                                  fontSize: 15,
+                                  letterSpacing: 1.2,
+                                  color: JweTheme.textWhite,
                                 ),
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                                 decoration: BoxDecoration(
                                   color: JweTheme.accentAmber.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  '${filteredDepartures.length} RUNS',
+                                  "${allDepartures.length} RUNS",
                                   style: GoogleFonts.jetBrainsMono(
                                     fontSize: 9.0,
                                     fontWeight: FontWeight.bold,
@@ -906,16 +1260,51 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "ROUTE CONFIGURATION",
+                style: GoogleFonts.jetBrainsMono(
+                  color: JweTheme.textMuted,
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              InkWell(
+                onTap: () => _showAddLocationDialog(),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(MdiIcons.plus, size: 13, color: JweTheme.accentAmber),
+                      const SizedBox(width: 3),
+                      Text(
+                        "+ ADD PLACE",
+                        style: GoogleFonts.jetBrainsMono(
+                          color: JweTheme.accentAmber,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           _buildStopHorizontalList(
             label: "ORIGIN STATION (DEPARTURE)",
             selectedValue: _origin,
             activeColor: JweTheme.accentAmber,
             onSelect: (val) {
               setState(() => _origin = val);
-              BusLocationService.instance.updateContext(
-                stops: _allStops,
-                activeRoute: _getActiveRoute(),
-              );
+              _persistFocus();
               _syncWidget();
             },
           ),
@@ -926,10 +1315,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
             activeColor: JweTheme.accentCyan,
             onSelect: (val) {
               setState(() => _destination = val);
-              BusLocationService.instance.updateContext(
-                stops: _allStops,
-                activeRoute: _getActiveRoute(),
-              );
+              _persistFocus();
               _syncWidget();
             },
           ),
@@ -961,14 +1347,48 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
           height: 32,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: _allStops.length,
+            itemCount: _allStops.length + 1,
             separatorBuilder: (_, __) => const SizedBox(width: 6),
             itemBuilder: (context, index) {
+              if (index == _allStops.length) {
+                return GestureDetector(
+                  onTap: () => _showAddLocationDialog(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: JweTheme.accentAmber.withValues(alpha: 0.08),
+                      border: Border.all(
+                        color: JweTheme.accentAmber.withValues(alpha: 0.5),
+                        width: 1.0,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(MdiIcons.plus, size: 12, color: JweTheme.accentAmber),
+                        const SizedBox(width: 4),
+                        Text(
+                          "ADD PLACE",
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.accentAmber,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
               final stop = _allStops[index];
-              final isSelected = stop.name.toUpperCase() == selectedValue.toUpperCase();
+              final isSelected = stop.name.toLowerCase() == selectedValue.toLowerCase();
 
               return GestureDetector(
                 onTap: () => onSelect(stop.name),
+                onLongPress: () => _showManageStopDialog(stop),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   alignment: Alignment.center,
@@ -993,7 +1413,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        stop.name.toUpperCase(),
+                        DefaultBusNetwork.formatPlaceName(stop.name),
                         style: GoogleFonts.jetBrainsMono(
                           color: isSelected ? JweTheme.textWhite : JweTheme.textMid,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,

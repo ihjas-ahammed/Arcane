@@ -1,5 +1,13 @@
 # ⚡ Arcane System Upgrade // v2026.8.28
 
+### 🚌 Transit Telemetry & Bus Schedule Precision
+- **Pristine Authentic Timetables**: Restored complete authentic schedule defaults for `S.S College`, `Edavannappara`, and `Areekode` (56/56/41 departures) with automated initial DB feeding.
+- **Capitalized Place Names**: Formatted all stations and locations in clean Title/Capitalized Case (`S.S College`, `Edavannappara`, `Areekode`, `Manjeri`, `Calicut`) with bold short code badges.
+- **Custom Place & Route Auto-Publish**: Easily add any custom place or station (`+ ADD PLACE`). Connecting routes are generated automatically and immediately broadcast to the live transit timetable and homescreen widget.
+- **Current Focus Memory**: The app now saves your selected station focus (`lastSelectedBusOrigin` and `lastSelectedBusDestination`) to settings and continuously broadcasts your active focus to Android homescreen widgets.
+- **Bidirectional Two-Way Synchronization**: Updating transmission timetables automatically calculates reverse return runs and derived connections across the entire transit network.
+- **Clean Tactical Architecture**: Removed experimental GPS modules and speedometers in favor of instant, reliable timetable dispatch and home widget synchronization.
+
 ### 🛡️ Classified Skills Matrix & Telemetry Subsystem
 - **Tactical Sci-Fi HUD Experience**: Full implementation of the tactical HUD design system featuring 8-corner chamfer polygon cuts, top notches, glowing red corner brackets, and 58×58 tech icon boxes.
 - **Custom Silhouette Graphics**: Built-in SVG vector silhouettes for Chess Knights, 729 Odometer digit spans, Push-Up figures, and Pull-Up bar rigs.

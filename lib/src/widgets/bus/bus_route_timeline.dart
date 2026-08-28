@@ -2,20 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/models/bus_models.dart';
-import 'package:missions/src/services/bus_location_service.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 
 class BusRouteProgressTimeline extends StatefulWidget {
   final BusRoute route;
   final String? nextBusDepartureTime;
-  final BusTransitLiveState? liveState;
   final Function(BusSubStop subStop, String predictedEta)? onSubStopSelected;
 
   const BusRouteProgressTimeline({
     super.key,
     required this.route,
     this.nextBusDepartureTime,
-    this.liveState,
     this.onSubStopSelected,
   });
 
@@ -31,9 +28,22 @@ class _BusRouteProgressTimelineState extends State<BusRouteProgressTimeline> {
     final subStops = widget.route.subStops;
     final totalKm = widget.route.distanceKm > 0 ? widget.route.distanceKm : 1.0;
     final activeColor = JweTheme.accentAmber;
-    final live = widget.liveState;
-    final isOnBus = live?.isOnBus ?? false;
-    final progress = live?.progressAlongRoute ?? 0.0;
+
+    final origName = DefaultBusNetwork.formatPlaceName(
+      subStops.isNotEmpty
+          ? subStops.first.name
+          : (widget.route.name.contains('→')
+              ? widget.route.name.split('→').first.trim()
+              : widget.route.originId),
+    );
+
+    final destName = DefaultBusNetwork.formatPlaceName(
+      subStops.isNotEmpty
+          ? subStops.last.name
+          : (widget.route.name.contains('→')
+              ? widget.route.name.split('→').last.trim()
+              : widget.route.destinationId),
+    );
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -45,66 +55,38 @@ class _BusRouteProgressTimelineState extends State<BusRouteProgressTimeline> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with live status
+          // Header
           Row(
             children: [
-              Icon(
-                isOnBus ? MdiIcons.busAlert : MdiIcons.mapMarkerPath,
-                size: 13,
-                color: isOnBus ? JweTheme.accentTeal : activeColor,
-              ),
+              Icon(MdiIcons.mapMarkerPath, size: 13, color: activeColor),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  isOnBus ? 'LIVE TRANSIT CORRIDOR' : 'ROUTE & SUB-STOPS RADAR',
+                  subStops.isNotEmpty ? 'ROUTE & INTERMEDIATE STOPS' : 'TRANSIT CORRIDOR',
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 9.5,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.8,
-                    color: isOnBus ? JweTheme.accentTeal : JweTheme.textMid,
+                    color: JweTheme.textMid,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (live?.isTracking == true) ...[
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: (isOnBus ? JweTheme.accentTeal : activeColor).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 5,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isOnBus ? JweTheme.accentTeal : activeColor,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        isOnBus ? '${live?.speedKmh.toStringAsFixed(0)} KM/H' : 'RADAR LOCK',
-                        style: GoogleFonts.jetBrainsMono(
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.bold,
-                          color: isOnBus ? JweTheme.accentTeal : activeColor,
-                        ),
-                      ),
-                    ],
-                  ),
+              Text(
+                '${widget.route.distanceKm} KM',
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 9.0,
+                  fontWeight: FontWeight.bold,
+                  color: JweTheme.textMuted,
                 ),
-              ],
+              ),
             ],
           ),
 
           const SizedBox(height: 14),
 
-          // Two Dots + Line + Sub-stops interactive Timeline
+          // Two Dots + Line + Sub-stops Timeline
           LayoutBuilder(
             builder: (context, constraints) {
               final w = constraints.maxWidth;
@@ -131,27 +113,6 @@ class _BusRouteProgressTimelineState extends State<BusRouteProgressTimeline> {
                       ),
                     ),
 
-                    // Active progress fill if on bus
-                    if (isOnBus && progress > 0)
-                      Positioned(
-                        left: paddingX,
-                        top: 18,
-                        child: Container(
-                          width: trackWidth * progress.clamp(0.0, 1.0),
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: JweTheme.accentTeal,
-                            borderRadius: BorderRadius.circular(2),
-                            boxShadow: [
-                              BoxShadow(
-                                color: JweTheme.accentTeal.withValues(alpha: 0.4),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
                     // Origin Major Dot (Start)
                     Positioned(
                       left: 0,
@@ -159,7 +120,7 @@ class _BusRouteProgressTimelineState extends State<BusRouteProgressTimeline> {
                       child: SizedBox(
                         width: 48,
                         child: _buildMajorStopDot(
-                          name: subStops.isNotEmpty ? subStops.first.name : 'Origin',
+                          name: origName,
                           isStart: true,
                           activeColor: activeColor,
                         ),
@@ -173,7 +134,7 @@ class _BusRouteProgressTimelineState extends State<BusRouteProgressTimeline> {
                       child: SizedBox(
                         width: 48,
                         child: _buildMajorStopDot(
-                          name: subStops.isNotEmpty ? subStops.last.name : 'Dest',
+                          name: destName,
                           isStart: false,
                           activeColor: activeColor,
                         ),
@@ -186,7 +147,6 @@ class _BusRouteProgressTimelineState extends State<BusRouteProgressTimeline> {
                         final ratio = (sub.distanceFromOriginKm / totalKm).clamp(0.08, 0.92);
                         final xPos = paddingX + (trackWidth * ratio) - 7;
                         final isSelected = _selectedSubStop?.name == sub.name;
-                        final isCurrentOrPassed = isOnBus && (ratio <= progress);
 
                         return Positioned(
                           left: xPos,
@@ -209,13 +169,9 @@ class _BusRouteProgressTimelineState extends State<BusRouteProgressTimeline> {
                                   shape: BoxShape.circle,
                                   color: isSelected
                                       ? activeColor
-                                      : (isCurrentOrPassed
-                                          ? JweTheme.accentTeal
-                                          : (JweTheme.isLight ? Colors.white : JweTheme.bgDeep)),
+                                      : (JweTheme.isLight ? Colors.white : JweTheme.bgDeep),
                                   border: Border.all(
-                                    color: isSelected
-                                        ? Colors.white
-                                        : (isCurrentOrPassed ? JweTheme.accentTeal : activeColor),
+                                    color: isSelected ? Colors.white : activeColor,
                                     width: isSelected ? 2.5 : 1.5,
                                   ),
                                   boxShadow: isSelected
@@ -232,39 +188,50 @@ class _BusRouteProgressTimelineState extends State<BusRouteProgressTimeline> {
                           ),
                         );
                       }),
-
-                    // Live GPS Pulse beacon if tracking
-                    if (isOnBus && progress > 0)
-                      Positioned(
-                        left: paddingX + (trackWidth * progress.clamp(0.0, 1.0)) - 8,
-                        top: 11,
-                        child: Container(
-                          width: 16,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: JweTheme.accentTeal,
-                            boxShadow: [
-                              BoxShadow(
-                                color: JweTheme.accentTeal.withValues(alpha: 0.8),
-                                blurRadius: 8,
-                                spreadRadius: 2,
-                              ),
-                            ],
-                          ),
-                          child: const Icon(Icons.directions_bus, size: 10, color: Colors.white),
-                        ),
-                      ),
                   ],
                 ),
               );
             },
           ),
 
-          // Sub-stop Selected Prediction Card
+          // Selected Sub-Stop info chip
           if (_selectedSubStop != null) ...[
-            const SizedBox(height: 6),
-            _buildSubStopPredictionCard(_selectedSubStop!, activeColor),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: activeColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: activeColor.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(MdiIcons.flagCheckered, size: 13, color: activeColor),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${_selectedSubStop!.name} • ${_selectedSubStop!.distanceFromOriginKm} km (~${_selectedSubStop!.timeOffsetMinutes} min)',
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: JweTheme.textWhite,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (widget.nextBusDepartureTime != null)
+                    Text(
+                      'ETA: ${widget.route.predictSubStopArrivalTime(widget.nextBusDepartureTime!, _selectedSubStop!)}',
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: activeColor,
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ],
         ],
       ),
@@ -280,11 +247,11 @@ class _BusRouteProgressTimelineState extends State<BusRouteProgressTimeline> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 16,
-          height: 16,
+          width: 18,
+          height: 18,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isStart ? activeColor : JweTheme.panel,
+            color: isStart ? activeColor : JweTheme.bgDeep,
             border: Border.all(color: activeColor, width: 2),
             boxShadow: [
               BoxShadow(
@@ -295,106 +262,28 @@ class _BusRouteProgressTimelineState extends State<BusRouteProgressTimeline> {
           ),
           child: Center(
             child: Container(
-              width: 5,
-              height: 5,
+              width: 6,
+              height: 6,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isStart ? JweTheme.onAccent : activeColor,
+                color: isStart ? Colors.black : activeColor,
               ),
             ),
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          name.length > 7 ? '${name.substring(0, 6)}..' : name,
+          name,
           style: GoogleFonts.jetBrainsMono(
-            fontSize: 8.5,
+            fontSize: 9.0,
+            color: JweTheme.textWhite,
             fontWeight: FontWeight.bold,
-            color: JweTheme.textMid,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
         ),
       ],
-    );
-  }
-
-  Widget _buildSubStopPredictionCard(BusSubStop sub, Color activeColor) {
-    final nextDep = widget.nextBusDepartureTime;
-    final eta = nextDep != null
-        ? widget.route.predictSubStopArrivalTime(nextDep, sub)
-        : '--:--';
-
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: activeColor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: activeColor.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(MdiIcons.mapMarkerRadius, size: 13, color: activeColor),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        sub.name.toUpperCase(),
-                        style: GoogleFonts.jetBrainsMono(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          color: JweTheme.textWhite,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${sub.distanceFromOriginKm} km • ~${sub.timeOffsetMinutes}m transit',
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 9.0,
-                    color: JweTheme.textMuted,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                'ETA $eta',
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: activeColor,
-                ),
-              ),
-              Text(
-                'NEXT RUN',
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 8.0,
-                  letterSpacing: 0.8,
-                  color: JweTheme.textMuted,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }
