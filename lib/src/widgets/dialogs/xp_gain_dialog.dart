@@ -9,6 +9,7 @@ import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'package:missions/src/widgets/dialogs/wellbeing_detail_dialog.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/src/utils/helpers.dart';
 
 /// "INSIGHT ACQUIRED" alert shown after a reflection's AI analysis completes.
 /// Rendered as a compact modal floating over the underlying screen, styled to
@@ -21,7 +22,13 @@ class XpGainDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entries = xpGained.entries.where((e) => e.value > 0).toList();
+    final Map<String, int> normalizedMap = {};
+    xpGained.forEach((k, v) {
+      if (v <= 0) return;
+      final name = WellbeingTheme.normalizeSkillName(k) ?? k;
+      normalizedMap[name] = (normalizedMap[name] ?? 0) + v;
+    });
+    final entries = normalizedMap.entries.toList();
     final totalXp = entries.fold<int>(0, (a, b) => a + b.value);
 
     return Dialog(
@@ -153,7 +160,7 @@ class _XpBadge extends StatelessWidget {
                 ),
               ),
               Text(
-                '+$n',
+                '+${formatCompactXp(n)}',
                 style: GoogleFonts.saira(
                   color: JweTheme.accentAmber,
                   fontSize: 18,
@@ -299,13 +306,16 @@ class _SkillChip extends StatelessWidget {
             children: [
               Icon(WellbeingTheme.getIcon(name), color: color, size: 18),
               const SizedBox(height: 4),
-              Text(
-                '+$xp',
-                style: GoogleFonts.saira(
-                  color: color,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                  height: 1,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '+${formatCompactXp(xp)}',
+                  style: GoogleFonts.saira(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    height: 1,
+                  ),
                 ),
               ),
               const SizedBox(height: 2),

@@ -1,12 +1,15 @@
-# ⚡ Arcane System Upgrade // v2026.8.26
+# ⚡ Arcane System Upgrade // v2026.8.28
 
-### 📊 Tactical Weekly & Monthly Debrief Overhaul
-- **Logbook Day Context**: Weekly and Monthly briefings now evaluate and archive for the opened logbook day instead of today, enabling accurate retrospective debriefs on demand.
-- **Collapsible People Dossier**: Replaced expansive contact lists with an overarching collapsible dropdown featuring master `EXPAND ALL` and `COLLAPSE ALL` controls to keep debriefs sleek and bloat-free.
-- **Health & Vitality Debrief**: Dedicated AI health trajectory section analyzing sleep consistency, recovery index, activity coaching tips, and 7-day health telemetry metrics.
-- **Day-by-Day Gratitude Intelligence**: Expanded daily gratitude tracking (10+ notes/day) organized day-by-day with category icons, weekly highlights, and master expand/collapse controls.
+### 🛡️ Classified Skills Matrix & Telemetry Subsystem
+- **Tactical Sci-Fi HUD Experience**: Full implementation of the tactical HUD design system featuring 8-corner chamfer polygon cuts, top notches, glowing red corner brackets, and 58×58 tech icon boxes.
+- **Custom Silhouette Graphics**: Built-in SVG vector silhouettes for Chess Knights, 729 Odometer digit spans, Push-Up figures, and Pull-Up bar rigs.
+- **Custom Skill Benchmarks**: Create, edit, and categorize skills (Chess ELO, Memory Digits, Breath Hold, Push-Ups, Pull-Ups, etc.) with custom targets, units, descriptions, and searchable icon pickers across Lucide and Material design icons.
+- **Comprehensive Analytics & Line Charts**: Progress-over-time canvas charts with dashed grid lines, smooth trajectory curves with gradient area fills, pulsating data nodes, and 4-metric stat grids (Best Rating, Sessions, Win Rate, Time Spent).
+- **Training Logs & Trials vs Outcome Bar Charts**: Interactive training logger with delta badges (`+18` teal, `-8` red) and stacked/grouped bar charts for Wins, Losses, and Draws.
+- **Dual Light & Dark Theme Calibration**: Full theme adaptability using warm tactical paper surfaces and high-contrast crimson accents for daylight operations.
 
-### 🔄 In-App Updater Caching & Re-Download Overhaul
-- **Version-Specific APK Caching**: APKs are now uniquely version-tagged (`Arcane_v2026.8.26_b2126082601.apk`) to eliminate stale APK installation bugs across releases.
-- **App Cache Directory Storage**: APKs are downloaded directly into the app's cache directory and auto-cleaned on updates.
-- **One-Tap Re-Download**: Added an interactive `REDOWNLOAD` action button directly in the update dialog to force fresh build downloads when needed.
+### 📈 Reflection XP Formatting & Aggregation
+- **Compact XP Telemetry**: Automatically formats large XP quantities (`1.1K`, `1.2M`) when exceeding 9,999 while accurately calculating total cumulative XP across reflection logs.
+
+### 🎨 Border & Aesthetic Fidelity
+- **Restored Tactical Card Styling**: Restored authentic card border geometry and styling across all protocol screens while maintaining seamless light mode integration.

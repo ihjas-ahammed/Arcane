@@ -7,6 +7,7 @@ import 'package:missions/src/widgets/charts/wellbeing_trend_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/widgets/valorant/valorant_button.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
+import 'package:missions/src/utils/helpers.dart';
 
 class WellbeingDetailDialog extends StatelessWidget {
   final Skill skill;
@@ -82,7 +83,7 @@ class WellbeingDetailDialog extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  "${skill.currentXp} / ${skill.maxXp} XP",
+                  "${formatCompactXp(skill.currentXp)} / ${formatCompactXp(skill.maxXp)} XP",
                   style: GoogleFonts.rajdhani(
                     color: PersonInfoTheme.textWhite,
                     fontSize: 14,
@@ -116,7 +117,7 @@ class WellbeingDetailDialog extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    "+$xpGainedToday XP",
+                    "+${formatCompactXp(xpGainedToday)} XP",
                     style: GoogleFonts.rajdhani(
                       color: xpGainedToday > 0 ? PersonInfoTheme.spideyCyan : PersonInfoTheme.textGrey,
                       fontSize: 16,

@@ -9,6 +9,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/theme/wellbeing_theme.dart';
 
 class WellbeingDrawer extends StatelessWidget {
   const WellbeingDrawer({super.key});
@@ -80,7 +81,11 @@ class WellbeingDrawer extends StatelessWidget {
                       double dayXp = 0;
                       for (var log in appProvider.reflectionLogs) {
                         if (log.timestamp.year == date.year && log.timestamp.month == date.month && log.timestamp.day == date.day) {
-                          dayXp += (log.xpGained[skill.name] ?? 0).toDouble();
+                          log.xpGained.forEach((k, v) {
+                            if (WellbeingTheme.normalizeSkillName(k) == skill.name) {
+                              dayXp += v.toDouble();
+                            }
+                          });
                         }
                       }
                       weeklyXp[6 - i] = dayXp;

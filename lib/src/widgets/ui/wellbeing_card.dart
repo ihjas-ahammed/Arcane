@@ -4,6 +4,7 @@ import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/src/utils/helpers.dart';
 
 /// Operator HUD trait tile — telemetry row with segmented bar.
 class WellbeingCard extends StatelessWidget {
@@ -72,7 +73,7 @@ class WellbeingCard extends StatelessWidget {
             const SizedBox(height: 4),
             Row(children: [
               Text(
-                '${skill.currentXp.toString().padLeft(4)} / ${skill.maxXp} XP',
+                '${formatCompactXp(skill.currentXp)} / ${formatCompactXp(skill.maxXp)} XP',
                 style: GoogleFonts.jetBrainsMono(
                   color: JweTheme.textMuted,
                   fontSize: 10,

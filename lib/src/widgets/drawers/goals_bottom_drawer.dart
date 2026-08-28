@@ -9,6 +9,7 @@ import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/global_toast.dart';
+import 'package:missions/src/utils/helpers.dart';
 import 'package:missions/src/widgets/header_widget.dart';
 import 'package:missions/src/widgets/analytics/jwe_date_selector.dart';
 
@@ -274,7 +275,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                           ArcaneAppIcon(size: 13, color: themeColor),
                           const SizedBox(width: 4),
                           Text(
-                            '+$totalXp XP',
+                            '+${formatCompactXp(totalXp)} XP',
                             style: GoogleFonts.orbitron(
                               fontSize: 10.5,
                               fontWeight: FontWeight.bold,

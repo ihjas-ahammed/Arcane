@@ -4,6 +4,7 @@ import 'package:missions/src/widgets/valorant/valorant_card.dart';
 import 'package:missions/src/screens/journaling/people_info_screen.dart';
 import 'package:missions/src/screens/journaling/simulate_event_screen.dart';
 import 'package:missions/src/screens/journaling/simulate_talk_screen.dart';
+import 'package:missions/src/screens/skills/skills_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class AdvancedToolsScreen extends StatelessWidget {
@@ -31,6 +32,15 @@ class AdvancedToolsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
+            _buildToolCard(
+              context,
+              title: "SKILL MATRIX & TELEMETRY",
+              description: "Track, benchmark, and evaluate custom skills (Chess Elo, Memory Digit Span, Physical Reps, Breath Holds) with interactive progress trends.",
+              icon: MdiIcons.shieldSwordOutline,
+              color: AppTheme.fhAccentRed,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SkillsScreen())),
+            ),
+            const SizedBox(height: 16),
             _buildToolCard(
               context,
               title: "PEOPLE INTEL",

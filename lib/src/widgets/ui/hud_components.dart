@@ -154,7 +154,7 @@ class _BracketPainter extends CustomPainter {
 }
 
 // ─────────────────────────────────────────────────────────────
-// HudPanel — sharp cut-corner panel with optional brackets & border
+// HudPanel — sharp cut-corner panel with optional brackets
 // ─────────────────────────────────────────────────────────────
 class HudPanel extends StatelessWidget {
   final Widget child;
@@ -188,37 +188,23 @@ class HudPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final panelBg = background ?? JweTheme.panel;
-    final borderColor = JweTheme.isLight
-        ? (accent != null ? accent!.withValues(alpha: 0.25) : JweTheme.border.withValues(alpha: 0.8))
-        : JweTheme.lineSoft.withValues(alpha: 0.3);
-
     Widget content = ClipPath(
       clipper: HudCutClipper(clip: clip),
       child: Container(
         width: width ?? double.infinity,
         height: height,
-        color: panelBg,
+        color: background ?? JweTheme.panel,
         padding: padding,
         child: child,
       ),
     );
 
-    content = Stack(children: [
-      content,
-      Positioned.fill(
-        child: IgnorePointer(
-          child: CustomPaint(
-            painter: _HudCutBorderPainter(
-              clip: clip,
-              borderColor: borderColor,
-            ),
-          ),
-        ),
-      ),
-      if (brackets)
+    if (brackets) {
+      content = Stack(children: [
+        content,
         Positioned.fill(child: HudBrackets(color: accent, all: allBrackets)),
-    ]);
+      ]);
+    }
 
     final wrapped = Container(margin: margin, child: content);
 
@@ -229,39 +215,6 @@ class HudPanel extends StatelessWidget {
       child: wrapped,
     );
   }
-}
-
-class _HudCutBorderPainter extends CustomPainter {
-  final HudClip clip;
-  final double cut;
-  final Color borderColor;
-  final double borderWidth;
-
-  _HudCutBorderPainter({
-    required this.clip,
-    this.cut = 12,
-    required this.borderColor,
-    this.borderWidth = 1.0,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (borderColor.alpha == 0) return;
-    final clipper = HudCutClipper(clip: clip, cut: cut);
-    final path = clipper.getClip(size);
-    final paint = Paint()
-      ..color = borderColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = borderWidth;
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _HudCutBorderPainter oldDelegate) =>
-      oldDelegate.clip != clip ||
-      oldDelegate.cut != cut ||
-      oldDelegate.borderColor != borderColor ||
-      oldDelegate.borderWidth != borderWidth;
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -4,17 +4,20 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/widgets/drawers/goals_bottom_drawer.dart';
+import 'package:missions/src/screens/skills/skills_screen.dart';
 import 'package:missions/src/screens/nora_ai_screen.dart';
 
 /// Operator HUD classified-access tiles.
 class JweQuickAccessGrid extends StatelessWidget {
   final VoidCallback onArchive;
   final VoidCallback onAdvanced;
+  final VoidCallback? onSkills;
 
   const JweQuickAccessGrid({
     super.key,
     required this.onArchive,
     required this.onAdvanced,
+    this.onSkills,
   });
 
   @override
@@ -55,6 +58,16 @@ class JweQuickAccessGrid extends StatelessWidget {
         code: 'A-03',
         onTap: () => GoalsBottomDrawer.show(context),
         onLongPress: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NoraAiScreen())),
+      ),
+      const SizedBox(height: 6),
+      _Tile(
+        title: 'SKILL MATRIX & TELEMETRY',
+        sub: 'Benchmarks · rating · training logs',
+        icon: MdiIcons.shieldSwordOutline,
+        accent: JweTheme.accentRed,
+        tone: HudTone.red,
+        code: 'A-04',
+        onTap: onSkills ?? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SkillsScreen())),
       ),
     ]);
   }

@@ -99,6 +99,33 @@ String formatTime(double totalSeconds) {
   return "$paddedMinutes:$paddedSeconds";
 }
 
+/// Formats XP and numeric scores compactly.
+/// Returns exact integer string for values up to 9999 (e.g. "9999").
+/// Above 9999, formats with K / M / B (e.g. 10000 -> "10K", 10100 -> "10.1K", 1200000 -> "1.2M").
+String formatCompactXp(num value) {
+  if (value.abs() <= 9999) {
+    return value.round().toString();
+  }
+
+  final double absVal = value.abs().toDouble();
+  final String sign = value < 0 ? '-' : '';
+
+  if (absVal >= 1000000000) {
+    final double v = absVal / 1000000000.0;
+    final String str = v.toStringAsFixed(1);
+    return '$sign${str.endsWith('.0') ? str.substring(0, str.length - 2) : str}B';
+  } else if (absVal >= 1000000) {
+    final double v = absVal / 1000000.0;
+    final String str = v.toStringAsFixed(1);
+    return '$sign${str.endsWith('.0') ? str.substring(0, str.length - 2) : str}M';
+  } else {
+    // 10000 to 999999
+    final double v = absVal / 1000.0;
+    final String str = v.toStringAsFixed(1);
+    return '$sign${str.endsWith('.0') ? str.substring(0, str.length - 2) : str}K';
+  }
+}
+
 extension StringExtension on String {
   String capitalize() {
     if (isEmpty) return this;

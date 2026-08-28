@@ -4,6 +4,7 @@ import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
+import 'package:missions/src/utils/helpers.dart';
 
 class ReflectionLogCard extends StatelessWidget {
   final ReflectionLog log;
@@ -17,7 +18,7 @@ class ReflectionLogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalXp = log.xpGained.values.fold(0, (sum, xp) => sum + xp);
+    final totalXp = log.xpGained.values.fold(0, (sum, xp) => sum + (xp > 0 ? xp : 0));
 
     return Container(
       decoration: BoxDecoration(
@@ -57,7 +58,7 @@ class ReflectionLogCard extends StatelessWidget {
                           border: Border.all(color: JweTheme.accentAmber.withOpacity(0.5))
                         ),
                         child: Text(
-                          "+$totalXp XP", 
+                          "+${formatCompactXp(totalXp)} XP", 
                           style:  TextStyle(
                             color: JweTheme.accentAmber, 
                             fontSize: 10, 

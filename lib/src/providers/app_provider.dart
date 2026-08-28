@@ -1772,7 +1772,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
               logsWithXp.length;
       final rawXp = (score * lifetimeAvg * hoursPassed).round();
       // Overwrite/merge if multiple keys end up normalized to the same canonical name
-      result[normalized] = (result[normalized] ?? 0) + rawXp.clamp(1, 9999);
+      result[normalized] = (result[normalized] ?? 0) + (rawXp < 1 ? 1 : rawXp);
     }
     return result;
   }

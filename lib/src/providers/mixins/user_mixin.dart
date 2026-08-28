@@ -6,6 +6,7 @@ import 'package:missions/src/models/habit_models.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/models/sop_model.dart';
 import 'package:missions/src/models/sop_session_model.dart';
+import 'package:missions/src/models/tracked_skill_model.dart';
 import 'package:missions/src/providers/mixins/sync_mixin.dart';
 import 'package:missions/src/services/app_user.dart';
 
@@ -19,6 +20,7 @@ mixin UserMixin on ChangeNotifier {
   // Settings & Profile
   AppSettings _settings = AppSettings();
   List<Skill> _skills = [];
+  List<TrackedSkill> _trackedSkills = [];
   List<ReflectionLog> _reflectionLogs = [];
   List<SopModel> _sops = [];
   SopSessionState? _activeSopSession;
@@ -35,10 +37,28 @@ mixin UserMixin on ChangeNotifier {
   String? get lastLoginDate => _lastLoginDate;
   AppSettings get settings => _settings;
   List<Skill> get skills => _skills;
+  List<TrackedSkill> get trackedSkills => _trackedSkills;
   List<ReflectionLog> get reflectionLogs => _reflectionLogs;
   List<SopModel> get sops => _sops;
   ChatbotMemory get chatbotMemory => _chatbotMemory;
   int get apiKeyIndex => _apiKeyIndex;
+
+  int get overallSkillsIndex {
+    if (_trackedSkills.isEmpty) return 68;
+    final totalProgress = _trackedSkills.fold<double>(0.0, (acc, s) => acc + s.progress);
+    final avg = totalProgress / _trackedSkills.length;
+    return (avg * 100).round().clamp(0, 100);
+  }
+
+  String get overallSkillsTier {
+    final idx = overallSkillsIndex;
+    if (idx < 30) return 'NOVICE';
+    if (idx < 50) return 'AVERAGE';
+    if (idx < 70) return 'COMPETENT';
+    if (idx < 85) return 'PROFICIENT';
+    if (idx < 95) return 'EXPERT';
+    return 'ELITE';
+  }
 
   // Sync Dependency
   SyncMixin get sync => this as SyncMixin;
@@ -110,6 +130,9 @@ mixin UserMixin on ChangeNotifier {
     bool hasLegacy = _skills.any((s) => s.name.toLowerCase() == 'wisdom') || _skills.length < 12;
     if (_skills.isEmpty || hasLegacy) {
       _skills = getBaseWellbeingSkills();
+    }
+    if (_trackedSkills.isEmpty) {
+      _trackedSkills = TrackedSkill.defaultSkills();
     }
   }
 
@@ -289,6 +312,82 @@ mixin UserMixin on ChangeNotifier {
     notifyListeners();
   }
 
+  // --- Tracked Skill Methods ---
+  void setTrackedSkills(List<TrackedSkill> list) {
+    _trackedSkills = list;
+    sync.markDirty('settings');
+    notifyListeners();
+  }
+
+  void addTrackedSkill(TrackedSkill skill) {
+    _trackedSkills = [..._trackedSkills, skill];
+    sync.markDirty('settings');
+    notifyListeners();
+  }
+
+  void updateTrackedSkill(TrackedSkill skill) {
+    _trackedSkills = _trackedSkills.map((s) => s.id == skill.id ? skill : s).toList();
+    sync.markDirty('settings');
+    notifyListeners();
+  }
+
+  void deleteTrackedSkill(String skillId) {
+    _trackedSkills = _trackedSkills.where((s) => s.id != skillId).toList();
+    sync.markDirty('settings');
+    notifyListeners();
+  }
+
+  void addSkillTrainingLog(String skillId, SkillTrainingLog log) {
+    final idx = _trackedSkills.indexWhere((s) => s.id == skillId);
+    if (idx != -1) {
+      final skill = _trackedSkills[idx];
+      final newLogs = List<SkillTrainingLog>.from(skill.logs)..insert(0, log);
+      final updatedSkill = skill.copyWith(
+        currentValue: log.value,
+        updatedAt: DateTime.now(),
+        logs: newLogs,
+      );
+      _trackedSkills[idx] = updatedSkill;
+      sync.markDirty('settings');
+      notifyListeners();
+    }
+  }
+
+  void updateSkillTrainingLog(String skillId, SkillTrainingLog updatedLog) {
+    final idx = _trackedSkills.indexWhere((s) => s.id == skillId);
+    if (idx != -1) {
+      final skill = _trackedSkills[idx];
+      final newLogs = skill.logs.map((l) => l.id == updatedLog.id ? updatedLog : l).toList();
+      newLogs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      final latestVal = newLogs.isNotEmpty ? newLogs.first.value : skill.currentValue;
+      final updatedSkill = skill.copyWith(
+        currentValue: latestVal,
+        updatedAt: DateTime.now(),
+        logs: newLogs,
+      );
+      _trackedSkills[idx] = updatedSkill;
+      sync.markDirty('settings');
+      notifyListeners();
+    }
+  }
+
+  void deleteSkillTrainingLog(String skillId, String logId) {
+    final idx = _trackedSkills.indexWhere((s) => s.id == skillId);
+    if (idx != -1) {
+      final skill = _trackedSkills[idx];
+      final newLogs = skill.logs.where((l) => l.id != logId).toList();
+      final latestVal = newLogs.isNotEmpty ? newLogs.first.value : skill.currentValue;
+      final updatedSkill = skill.copyWith(
+        currentValue: latestVal,
+        updatedAt: DateTime.now(),
+        logs: newLogs,
+      );
+      _trackedSkills[idx] = updatedSkill;
+      sync.markDirty('settings');
+      notifyListeners();
+    }
+  }
+
   void loadUserState(Map<String, dynamic> data) {
     _lastLoginDate = data['lastLoginDate'];
     if (data['settings'] != null) {
@@ -299,6 +398,15 @@ mixin UserMixin on ChangeNotifier {
       _skills = (data['skills'] as List).map((e) => Skill.fromJson(e)).toList();
     }
     initializeSkills();
+
+    if (data['trackedSkills'] != null) {
+      _trackedSkills = (data['trackedSkills'] as List)
+          .map((e) => TrackedSkill.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    }
+    if (_trackedSkills.isEmpty) {
+      _trackedSkills = TrackedSkill.defaultSkills();
+    }
 
     if (data['reflectionLogs'] != null) {
       _reflectionLogs = (data['reflectionLogs'] as List).map((e) => ReflectionLog.fromJson(e)).toList();
@@ -325,6 +433,7 @@ mixin UserMixin on ChangeNotifier {
       'lastLoginDate': _lastLoginDate,
       'settings': _settings.toJson(),
       'skills': _skills.map((e) => e.toJson()).toList(),
+      'trackedSkills': _trackedSkills.map((e) => e.toJson()).toList(),
       'reflectionLogs': _reflectionLogs.map((e) => e.toJson()).toList(),
       'sops': _sops.map((e) => e.toJson()).toList(),
       'chatbotMemory': _chatbotMemory.toJson(),

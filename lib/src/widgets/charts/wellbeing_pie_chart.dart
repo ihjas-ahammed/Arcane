@@ -5,6 +5,7 @@ import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'package:missions/src/models/skill_models.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/utils/helpers.dart';
 
 class WellbeingPieChart extends StatelessWidget {
   final List<ReflectionLog> logs;
@@ -51,7 +52,7 @@ class WellbeingPieChart extends StatelessWidget {
 
     // Default Text
     String centerTopText = "TOTAL XP";
-    String centerBottomText = "$totalXp";
+    String centerBottomText = formatCompactXp(totalXp);
     Color centerColor = JweTheme.textWhite;
 
     // Selected Text
@@ -62,7 +63,7 @@ class WellbeingPieChart extends StatelessWidget {
       } else if (centerTopText.contains('-')) {
         centerTopText = centerTopText.replaceAll('-', '-\n');
       }
-      centerBottomText = "+${categoryTotals[selectedVirtue]}";
+      centerBottomText = "+${formatCompactXp(categoryTotals[selectedVirtue]!)}";
       centerColor = WellbeingTheme.getColor(selectedVirtue!);
     }
 
