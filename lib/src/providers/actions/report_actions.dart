@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/services/ai_service.dart';
 import 'package:missions/src/utils/helpers.dart';
 import 'package:missions/src/utils/history_helper.dart';

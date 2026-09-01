@@ -392,7 +392,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                       _HealthIntelView(healthIntel: healthIntel),
                       const SizedBox(height: 16),
                     ],
-                    _buildHealthTelemetrySummary(provider, effDate),
+                    _buildHealthTelemetrySummary(widget.provider, effDate),
                   ],
                 ),
               ).animate().fadeIn(delay: 320.ms).slideY(begin: 0.05, end: 0),
@@ -421,7 +421,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                 background: JweTheme.bgBase.withOpacity(0.5),
                 allBrackets: false,
                 padding: const EdgeInsets.all(16),
-                child: _buildRawWeeklyMetrics(provider, effDate),
+                child: _buildRawWeeklyMetrics(widget.provider, effDate),
               ).animate().fadeIn(delay: 360.ms).slideY(begin: 0.05, end: 0),
             ),
 
@@ -643,7 +643,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                         final pMap = gratefulPeople[i] as Map<String, dynamic>;
                         final pName = pMap['name']?.toString() ?? 'Unknown';
                         final pReason = pMap['reason']?.toString() ?? '';
-                        final existingPerson = provider.chatbotMemory.people.where(
+                        final existingPerson = widget.provider.chatbotMemory.people.where(
                             (e) => e.name.toLowerCase().trim() == pName.toLowerCase().trim()).firstOrNull;
                         final category = pMap['category']?.toString() ??
                             (existingPerson != null
@@ -1100,7 +1100,7 @@ class _GratefulPersonCard extends StatelessWidget {
   }
 }
 
-extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
+extension WeeklyReviewScreenHelper on _WeeklyReviewScreenState {
   Widget _buildHealthTelemetrySummary(AppProvider provider, DateTime effDate) {
     double totalWater = 0;
     double totalSleepMins = 0;
@@ -1294,7 +1294,7 @@ extension WeeklyReviewScreenHelper on WeeklyReviewScreen {
 
     // Gather finance metrics (static saved snapshot when archived, else calculated)
     double weekIncome = 0, weekExpense = 0, balance = provider.financeActions.currentBalance;
-    final savedFinance = reportData['saved_finance'] as Map<String, dynamic>?;
+    final savedFinance = _currentReportData['saved_finance'] as Map<String, dynamic>?;
     if (savedFinance != null) {
       weekIncome = (savedFinance['income'] as num?)?.toDouble() ?? 0;
       weekExpense = (savedFinance['expense'] as num?)?.toDouble() ?? 0;

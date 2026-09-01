@@ -853,7 +853,7 @@ class _MonthlyReviewScreenState extends State<MonthlyReviewScreen> {
                   for (final r in relationshipAudit) {
                     final m = r as Map<String, dynamic>;
                     final pName = m['name']?.toString() ?? '';
-                    final existingPerson = provider.chatbotMemory.people.firstWhereOrNull(
+                    final existingPerson = widget.provider.chatbotMemory.people.firstWhereOrNull(
                         (e) => e.name.toLowerCase().trim() == pName.toLowerCase().trim());
                     final category = existingPerson != null
                         ? PersonInfo.getRelationCategory(existingPerson.relation).toUpperCase()
@@ -881,7 +881,7 @@ class _MonthlyReviewScreenState extends State<MonthlyReviewScreen> {
                           ),
                           children: members.map((m) {
                             final pName = m['name']?.toString() ?? 'Unknown';
-                            final existingPerson = provider.chatbotMemory.people.firstWhereOrNull(
+                            final existingPerson = widget.provider.chatbotMemory.people.firstWhereOrNull(
                                 (e) => e.name.toLowerCase().trim() == pName.toLowerCase().trim());
 
                             return InkWell(
