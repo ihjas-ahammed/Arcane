@@ -15,6 +15,9 @@
 - **Advanced Tactical UI**: Introduced a rotating radar HUD widget with angular corner chamfers, pulsing progress sweep, elapsed timer telemetry, and dynamic active engine badges (`PRO-TIER ENGINE` vs `LITE MODEL FALLBACK ACTIVE`).
 - **Comprehensive Error Trapping**: Embedded retry workflows and error banners with actionable recovery options.
 
+### 📦 Seamless In-App APK Package Installation
+- **Permission & Directory Calibration**: Updated update storage resolution to external files / application support directories to bypass erroneous Android 11+ `MANAGE_EXTERNAL_STORAGE` permission checks, allowing the native Android Package Installer to trigger smoothly with standard unknown app install privileges.
+
 ### 🎨 Goals Drawer & Tactical HUD Refinements
 - **Streamlined Goals Header**: Decluttered top metadata bar in the Goals bottom drawer for maximum focus and visual clarity.
 - **Emoji-Free Military Aesthetics**: Purged decorative emojis from HUD status badges and XP toasts in favor of clean iconography and monospace typography.

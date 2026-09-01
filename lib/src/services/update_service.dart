@@ -102,30 +102,27 @@ class UpdateService {
     }
   }
 
-  /// Resolves the local cache directory for APK downloads
+  /// Resolves the local directory for APK downloads
   Future<Directory> _getUpdateDir() async {
     Directory baseDir;
     try {
       if (Platform.isAndroid) {
-        // Prefer external cache directory which is accessible to system package installer
-        final extCacheDirs = await getExternalCacheDirectories();
-        if (extCacheDirs != null && extCacheDirs.isNotEmpty) {
-          baseDir = extCacheDirs.first;
-        } else {
-          baseDir = (await getExternalStorageDirectory()) ?? (await getApplicationCacheDirectory());
-        }
+        // Use external storage directory (maps to context.getExternalFilesDir(null))
+        // or application support directory (maps to context.getFilesDir())
+        // which match OpenFilex's pathRequiresPermission check without requiring MANAGE_EXTERNAL_STORAGE.
+        baseDir = (await getExternalStorageDirectory()) ?? (await getApplicationSupportDirectory());
       } else {
-        baseDir = await getApplicationCacheDirectory();
+        baseDir = await getApplicationSupportDirectory();
       }
     } catch (_) {
       try {
-        baseDir = await getTemporaryDirectory();
-      } catch (_) {
         baseDir = await getApplicationDocumentsDirectory();
+      } catch (_) {
+        baseDir = await getTemporaryDirectory();
       }
     }
 
-    final updateDir = Directory('${baseDir.path}/apk_cache');
+    final updateDir = Directory('${baseDir.path}/updates');
     if (!await updateDir.exists()) {
       await updateDir.create(recursive: true);
     }
@@ -174,6 +171,16 @@ class UpdateService {
           }
         }
       }
+      // Also clean legacy apk_cache folder if present
+      try {
+        final extCacheDirs = await getExternalCacheDirectories();
+        if (extCacheDirs != null && extCacheDirs.isNotEmpty) {
+          final legacyDir = Directory('${extCacheDirs.first.path}/apk_cache');
+          if (await legacyDir.exists()) {
+            await legacyDir.delete(recursive: true);
+          }
+        }
+      } catch (_) {}
     } catch (e) {
       debugPrint('[UpdateService] Error cleaning old APKs: $e');
     }
