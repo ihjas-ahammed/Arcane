@@ -1417,7 +1417,11 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     return getPreviouslyUsedStories();
   }
 
-  Future<Map<String, dynamic>> generateTacticalBriefing(String date, List<ReflectionLog> logs) async { 
+  Future<Map<String, dynamic>> generateTacticalBriefing(
+    String date,
+    List<ReflectionLog> logs, {
+    Function(String status)? onStatusUpdate,
+  }) async { 
     final logsFormatted = logs.map((l) => {'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason, 'action': l.action}).toList();
     final recentBriefings = <String>[];
     for (int i=1; i<=3; i++) {
@@ -1427,12 +1431,14 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
        if (b != null && b['summary'] != null) recentBriefings.add(b['summary']);
     }
     
-    final allLogsContext = reflectionLogs.reversed.take(50).map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
+    final targetDate = DateTime.tryParse(date) ?? DateTime.now();
+    final targetEndOfDay = DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59, 59, 999);
+    final pastLogs = reflectionLogs.where((l) => l.timestamp.isBefore(targetEndOfDay)).toList();
+    final allLogsContext = pastLogs.reversed.take(50).map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
     final pastQuotes = getPreviouslyUsedQuotes().take(15).toList();
     final pastQuotesStr = pastQuotes.isNotEmpty ? pastQuotes.join("\n") : null;
     
     // Finance context for target date
-    final targetDate = DateTime.tryParse(date) ?? DateTime.now();
     double dayIncome = 0, dayExpense = 0;
     for (final t in transactions) {
       if (t.timestamp.year == targetDate.year &&
@@ -1457,10 +1463,13 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       financeText: financeStr,
       goalsText: goalsStr,
       modelCandidates: settings.heavyModels, 
+      liteModelCandidates: settings.liteModels,
+      proTimeout: const Duration(seconds: 30),
       currentApiKeyIndex: apiKeyIndex, 
       customApiKeys: settings.customApiKeys,
       onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 
       onLog: (m) => debugPrint(m),
+      onStatusUpdate: onStatusUpdate,
       customInstruction: settings.customBriefingPrompt,
       writingStyleMap: settings.adaptWritingStyle ? settings.writingStyleMap : null,
     );

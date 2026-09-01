@@ -478,6 +478,83 @@ class AIService {
     }
   }
 
+  /// Executes AI generation specifically calibrated for tactical briefings and reports.
+  /// 
+  /// 1. Tries Pro/Heavy models with [proTimeout].
+  /// 2. If Pro models time out or encounter an error, immediately catches the error,
+  ///    notifies [onStatusUpdate], logs the event, and retries with Lite/Flash models.
+  /// 3. Captures all kinds of errors (TimeoutException, JSON decode errors, Socket/Network errors,
+  ///    invalid keys, 429 rate limits) with descriptive reporting.
+  Future<Map<String, dynamic>> makeBriefingAICall({
+    required String prompt,
+    required List<String> proModels,
+    List<String>? liteModels,
+    required Duration proTimeout,
+    required int currentApiKeyIndex,
+    List<String>? customApiKeys,
+    required Function(int) onNewApiKeyIndex,
+    required Function(String) onLog,
+    Function(String status)? onStatusUpdate,
+  }) async {
+    final proList = proModels.isNotEmpty
+        ? proModels
+        : (liteModels != null && liteModels.isNotEmpty
+            ? liteModels
+            : const ['gemini-2.0-flash']);
+    final liteList = liteModels != null && liteModels.isNotEmpty
+        ? liteModels
+        : const ['gemini-2.0-flash', 'gemini-1.5-flash'];
+
+    final proName = proList.first.replaceAll('models/', '');
+    final liteName = liteList.first.replaceAll('models/', '');
+
+    onStatusUpdate?.call('SYNTHESIZING WITH PRO MODEL [$proName] (TIMEOUT: ${proTimeout.inSeconds}s)...');
+
+    try {
+      final result = await makeAICall(
+        prompt: prompt,
+        modelCandidates: proList,
+        customApiKeys: customApiKeys,
+        currentApiKeyIndex: currentApiKeyIndex,
+        onNewApiKeyIndex: onNewApiKeyIndex,
+        onLog: onLog,
+      ).timeout(proTimeout);
+
+      if (result.isEmpty) {
+        throw Exception("Pro model returned empty payload.");
+      }
+      return result;
+    } catch (e) {
+      final isTimeout = e is TimeoutException;
+      final errorDetail = isTimeout
+          ? 'Pro model [$proName] timed out after ${proTimeout.inSeconds}s'
+          : 'Pro model [$proName] error: ${e.toString()}';
+
+      onLog('<span style="color:var(--fh-accent-orange);">$errorDetail. Retrying with Lite model [$liteName]...</span>');
+      onStatusUpdate?.call(isTimeout
+          ? 'PRO MODEL TIMEOUT (${proTimeout.inSeconds}s) → RETRYING WITH LITE MODEL [$liteName]...'
+          : 'PRO MODEL FAILED → RETRYING WITH LITE MODEL [$liteName]...');
+
+      try {
+        final liteResult = await makeAICall(
+          prompt: prompt,
+          modelCandidates: liteList,
+          customApiKeys: customApiKeys,
+          currentApiKeyIndex: currentApiKeyIndex,
+          onNewApiKeyIndex: onNewApiKeyIndex,
+          onLog: onLog,
+        );
+        if (liteResult.isEmpty) {
+          throw Exception("Lite model returned empty payload.");
+        }
+        return liteResult;
+      } catch (liteError) {
+        onLog('<span style="color:var(--fh-accent-red);">$errorDetail. Lite model fallback also failed: $liteError</span>');
+        throw Exception('Briefing generation failed:\n• $errorDetail\n• Lite model fallback error: $liteError');
+      }
+    }
+  }
+
   Future<List<String>> queryNeuralArchive({
     required String query,
     required String logsContext,
@@ -1108,10 +1185,13 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     required List<String> previousBriefings,
     required String fullContext,
     required List<String> modelCandidates,
+    List<String>? liteModelCandidates,
+    Duration proTimeout = const Duration(seconds: 30),
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
+    Function(String status)? onStatusUpdate,
     String? customInstruction,
     String? writingStyleMap,
     String? financeText,
@@ -1171,13 +1251,17 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
     
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
+    return await makeBriefingAICall(
+      prompt: prompt,
+      proModels: modelCandidates,
+      liteModels: liteModelCandidates,
+      proTimeout: proTimeout,
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      onStatusUpdate: onStatusUpdate,
+    );
   }
 
   Future<Map<String, dynamic>> generateWeeklyReport({
@@ -1185,10 +1269,13 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     required String timeStatsText,
     required String wellbeingStatsText,
     required List<String> modelCandidates,
+    List<String>? liteModelCandidates,
+    Duration proTimeout = const Duration(minutes: 1),
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
+    Function(String status)? onStatusUpdate,
     String? financeText,
     String? healthText,
     String? agentProgressText,
@@ -1269,7 +1356,17 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
-    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return await makeBriefingAICall(
+      prompt: prompt,
+      proModels: modelCandidates,
+      liteModels: liteModelCandidates,
+      proTimeout: proTimeout,
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      onStatusUpdate: onStatusUpdate,
+    );
   }
 
   Future<Map<String, dynamic>> generateMonthlyReport({
@@ -1278,10 +1375,13 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     required String timeStatsText,
     required String wellbeingStatsText,
     required List<String> modelCandidates,
+    List<String>? liteModelCandidates,
+    Duration proTimeout = const Duration(minutes: 2),
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
+    Function(String status)? onStatusUpdate,
     String? financeText,
     String? healthText,
     String? peopleContext,
@@ -1348,7 +1448,17 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
-    return await makeAICall(prompt: prompt, modelCandidates: modelCandidates, customApiKeys: customApiKeys, currentApiKeyIndex: currentApiKeyIndex, onNewApiKeyIndex: onNewApiKeyIndex, onLog: onLog);
+    return await makeBriefingAICall(
+      prompt: prompt,
+      proModels: modelCandidates,
+      liteModels: liteModelCandidates,
+      proTimeout: proTimeout,
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      onStatusUpdate: onStatusUpdate,
+    );
   }
 
   Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
@@ -1383,10 +1493,13 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     required String reflectionsList,
     required String sessionsList,
     required List<String> modelCandidates,
+    List<String>? liteModelCandidates,
+    Duration proTimeout = const Duration(seconds: 30),
     required int currentApiKeyIndex,
     List<String>? customApiKeys,
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
+    Function(String status)? onStatusUpdate,
     String? writingStyleMap,
     String? knownPeopleText,
     String? goalsText,
@@ -1438,13 +1551,17 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
 
-    return await makeAICall(
-        prompt: prompt,
-        modelCandidates: modelCandidates,
-        customApiKeys: customApiKeys,
-        currentApiKeyIndex: currentApiKeyIndex,
-        onNewApiKeyIndex: onNewApiKeyIndex,
-        onLog: onLog);
+    return await makeBriefingAICall(
+      prompt: prompt,
+      proModels: modelCandidates,
+      liteModels: liteModelCandidates,
+      proTimeout: proTimeout,
+      currentApiKeyIndex: currentApiKeyIndex,
+      customApiKeys: customApiKeys,
+      onNewApiKeyIndex: onNewApiKeyIndex,
+      onLog: onLog,
+      onStatusUpdate: onStatusUpdate,
+    );
   }
 
   Future<List<Map<String, dynamic>>> extractPeopleFromReflections({

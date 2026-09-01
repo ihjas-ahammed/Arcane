@@ -7,8 +7,18 @@ import 'package:missions/src/screens/journaling/monthly_review_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class ArchivedReportsScreen extends StatelessWidget {
+import 'package:missions/src/widgets/ui/tactical_briefing_indicator.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+
+class ArchivedReportsScreen extends StatefulWidget {
   const ArchivedReportsScreen({super.key});
+
+  @override
+  State<ArchivedReportsScreen> createState() => _ArchivedReportsScreenState();
+}
+
+class _ArchivedReportsScreenState extends State<ArchivedReportsScreen> {
+  String? _regenerateStatus;
 
   Future<List<Map<String, dynamic>>> _fetchAllReports(AppProvider provider) async {
     final results = await Future.wait([
@@ -25,9 +35,84 @@ class ArchivedReportsScreen extends StatelessWidget {
     return combined;
   }
 
+  Future<void> _regenerateArchivedReport(
+    BuildContext context,
+    AppProvider provider,
+    Map<String, dynamic> doc,
+  ) async {
+    final isMonthly = doc['type'] == 'monthly';
+    final dateId = doc['id'] as String;
+    final dateObj = DateTime.tryParse(dateId) ?? DateTime.now();
+    final type = isMonthly ? BriefingType.monthly : BriefingType.weekly;
+
+    setState(() {
+      _regenerateStatus = 'Regenerating ${isMonthly ? "Monthly Briefing" : "7-Day Review"} for $dateId...';
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: StatefulBuilder(
+            builder: (ctx, setDialogState) {
+              return TacticalBriefingIndicator(
+                type: type,
+                statusMessage: _regenerateStatus,
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    try {
+      if (isMonthly) {
+        final regenerated = await provider.reportActions.generateMonthlyReport(
+          dateObj,
+          (status) {
+            if (mounted) setState(() => _regenerateStatus = status);
+          },
+        );
+        await provider.saveMonthlyReport(dateId, regenerated);
+      } else {
+        final regenerated = await provider.reportActions.generateWeeklyReport(
+          dateObj,
+          (status) {
+            if (mounted) setState(() => _regenerateStatus = status);
+          },
+        );
+        await provider.saveWeeklyReport(dateId, regenerated);
+      }
+
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // Dismiss loading dialog
+        setState(() {}); // Refresh list
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: isMonthly ? JweTheme.accentTeal : JweTheme.accentAmber,
+            content: Text("${isMonthly ? "Monthly Briefing" : "7-Day Review"} ($dateId) Regenerated & Saved!"),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: JweTheme.accentRed,
+            content: Text("Regeneration failed: $e"),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context, listen: false);
+    final provider = Provider.of<AppProvider>(context);
 
     return Scaffold(
       backgroundColor: AppTheme.fhBgDeepDark,
@@ -43,7 +128,7 @@ class ArchivedReportsScreen extends StatelessWidget {
           }
 
           if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}", style:   TextStyle(color: AppTheme.fhAccentRed)));
+            return Center(child: Text("Error: ${snapshot.error}", style: TextStyle(color: AppTheme.fhAccentRed)));
           }
 
           final reports = snapshot.data ?? [];
@@ -55,9 +140,9 @@ class ArchivedReportsScreen extends StatelessWidget {
                 children: [
                   Icon(MdiIcons.fileDocumentOutline, size: 64, color: AppTheme.fhTextDisabled.withOpacity(0.3)),
                   const SizedBox(height: 16),
-                    Text(
+                  Text(
                     "NO ARCHIVED REPORTS",
-                    style: TextStyle(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay, fontSize: 18)
+                    style: TextStyle(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay, fontSize: 18),
                   ),
                 ],
               ),
@@ -91,7 +176,7 @@ class ArchivedReportsScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -104,12 +189,22 @@ class ArchivedReportsScreen extends StatelessWidget {
                   ),
                   title: Text(isMonthly ? "MONTHLY BRIEFING" : "WEEKLY DEBRIEF",
                       style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.fhTextPrimary, fontFamily: AppTheme.fontDisplay)),
-                  subtitle: Text(displayDate, style:   TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
-                  trailing: Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary),
-                  onTap: () {
+                  subtitle: Text(displayDate, style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(MdiIcons.refresh, size: 18, color: accent),
+                        tooltip: 'Regenerate Report',
+                        onPressed: () => _regenerateArchivedReport(context, provider, doc),
+                      ),
+                      Icon(MdiIcons.chevronRight, color: AppTheme.fhTextSecondary, size: 20),
+                    ],
+                  ),
+                  onTap: () async {
                     final reportDateStr = reportData['report_date'] as String? ?? doc['id'] as String?;
                     final reportDate = reportDateStr != null ? DateTime.tryParse(reportDateStr) : null;
-                    Navigator.push(
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (ctx) => isMonthly
@@ -125,6 +220,7 @@ class ArchivedReportsScreen extends StatelessWidget {
                               ),
                       ),
                     );
+                    if (mounted) setState(() {});
                   },
                 ),
               );

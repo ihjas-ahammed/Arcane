@@ -7,10 +7,12 @@ import 'package:missions/src/widgets/ui/gratitude_intel_card.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/screens/journaling/person_detail_screen.dart';
+import 'package:missions/src/widgets/ui/tactical_briefing_indicator.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:collection/collection.dart';
+import 'package:intl/intl.dart';
 
-class MonthlyReviewScreen extends StatelessWidget {
+class MonthlyReviewScreen extends StatefulWidget {
   final Map<String, dynamic> reportData;
   final AppProvider provider;
   final VoidCallback? onArchive;
@@ -25,11 +27,101 @@ class MonthlyReviewScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final monthLabel = reportData['month_label'] as String? ?? '';
-    final narrative = reportData['narrative'] as String? ?? 'No narrative available.';
+  State<MonthlyReviewScreen> createState() => _MonthlyReviewScreenState();
+}
 
-    final climate = reportData['emotional_climate'] as Map<String, dynamic>?;
+class _MonthlyReviewScreenState extends State<MonthlyReviewScreen> {
+  late Map<String, dynamic> _currentReportData;
+  bool _isRegenerating = false;
+  String? _regenerateStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentReportData = Map<String, dynamic>.from(widget.reportData);
+  }
+
+  DateTime get _effectiveDate =>
+      widget.targetDate ??
+      (_currentReportData['report_date'] != null ? DateTime.tryParse(_currentReportData['report_date']!) : null) ??
+      (_currentReportData['generated_at'] != null ? DateTime.tryParse(_currentReportData['generated_at']!) : null) ??
+      DateTime.now();
+
+  Future<void> _regenerateReport() async {
+    final effDate = _effectiveDate;
+    final dateStr = DateFormat('yyyy-MM-dd').format(effDate);
+
+    setState(() {
+      _isRegenerating = true;
+      _regenerateStatus = 'Synthesizing 30-day monthly briefing for $dateStr...';
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: StatefulBuilder(
+            builder: (ctx, setDialogState) {
+              return TacticalBriefingIndicator(
+                type: BriefingType.monthly,
+                statusMessage: _regenerateStatus,
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    try {
+      final regenerated = await widget.provider.reportActions.generateMonthlyReport(
+        effDate,
+        (status) {
+          if (mounted) {
+            setState(() => _regenerateStatus = status);
+          }
+        },
+      );
+
+      await widget.provider.saveMonthlyReport(dateStr, regenerated);
+
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // dismiss dialog
+        setState(() {
+          _currentReportData = regenerated;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: JweTheme.accentTeal,
+            content: Text("Monthly Briefing ($dateStr) Regenerated & Saved!"),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: JweTheme.accentRed,
+            content: Text("Regeneration failed: $e"),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRegenerating = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final monthLabel = _currentReportData['month_label'] as String? ?? '';
+    final narrative = _currentReportData['narrative'] as String? ?? 'No narrative available.';
+
+    final climate = _currentReportData['emotional_climate'] as Map<String, dynamic>?;
     final dominantEmotions = (climate?['dominant_emotions'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList() ??
@@ -37,20 +129,20 @@ class MonthlyReviewScreen extends StatelessWidget {
     final trajectory = climate?['trajectory'] as String? ?? '';
     final patterns = climate?['patterns'] as List<dynamic>? ?? [];
 
-    final aar = reportData['after_action_review'] as List<dynamic>? ?? [];
-    final progressReview = reportData['progress_review'] as List<dynamic>? ?? [];
-    final identityTrajectory = reportData['identity_trajectory'] as String? ?? '';
-    final relationshipAudit = reportData['relationship_audit'] as List<dynamic>? ?? [];
-    final wellbeingDeltas = reportData['wellbeing_deltas'] as List<dynamic>? ?? [];
-    final lifeDomains = reportData['life_domains'] as List<dynamic>? ?? [];
-    final bestPossibleSelf = reportData['best_possible_self'] as String? ?? '';
-    final woop = reportData['next_month_woop'] as List<dynamic>? ?? [];
-    final gratitude = reportData['gratitude_reminiscence'] as List<dynamic>? ?? [];
-    final lettingGo = reportData['letting_go'] as String? ?? '';
+    final aar = _currentReportData['after_action_review'] as List<dynamic>? ?? [];
+    final progressReview = _currentReportData['progress_review'] as List<dynamic>? ?? [];
+    final identityTrajectory = _currentReportData['identity_trajectory'] as String? ?? '';
+    final relationshipAudit = _currentReportData['relationship_audit'] as List<dynamic>? ?? [];
+    final wellbeingDeltas = _currentReportData['wellbeing_deltas'] as List<dynamic>? ?? [];
+    final lifeDomains = _currentReportData['life_domains'] as List<dynamic>? ?? [];
+    final bestPossibleSelf = _currentReportData['best_possible_self'] as String? ?? '';
+    final woop = _currentReportData['next_month_woop'] as List<dynamic>? ?? [];
+    final gratitude = _currentReportData['gratitude_reminiscence'] as List<dynamic>? ?? [];
+    final lettingGo = _currentReportData['letting_go'] as String? ?? '';
 
-    final creativeStory = reportData['creative_story'] as Map<String, dynamic>?;
-    final quoteReflections = reportData['quote_reflections'] as List<dynamic>? ?? [];
-    final savedFinance = reportData['saved_finance'] as Map<String, dynamic>?;
+    final creativeStory = _currentReportData['creative_story'] as Map<String, dynamic>?;
+    final quoteReflections = _currentReportData['quote_reflections'] as List<dynamic>? ?? [];
+    final savedFinance = _currentReportData['saved_finance'] as Map<String, dynamic>?;
 
     return Scaffold(
       backgroundColor: JweTheme.bgDeep,
@@ -71,11 +163,16 @@ class MonthlyReviewScreen extends StatelessWidget {
           ),
         ).animate().fadeIn(delay: 100.ms),
         actions: [
-          if (onArchive != null)
+          IconButton(
+            icon: Icon(MdiIcons.refresh, color: JweTheme.accentTeal),
+            tooltip: 'Regenerate Monthly Briefing',
+            onPressed: _isRegenerating ? null : _regenerateReport,
+          ).animate().fadeIn(delay: 150.ms),
+          if (widget.onArchive != null)
             IconButton(
               icon: Icon(MdiIcons.archiveArrowDownOutline, color: JweTheme.accentTeal),
               onPressed: () {
-                onArchive!();
+                widget.onArchive!();
                 Navigator.of(context).pop();
               },
             ).animate().fadeIn(delay: 200.ms),
@@ -100,21 +197,54 @@ class MonthlyReviewScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'MONTH CLOSED',
-                          style: GoogleFonts.saira(
-                            color: JweTheme.textWhite,
-                            fontSize: 32,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.4,
-                            height: 1,
-                            shadows: [
-                              Shadow(
-                                  color: JweTheme.accentTeal.withValues(alpha: 0.4),
-                                  blurRadius: 14),
-                            ],
-                          ),
-                        ).animate().fadeIn(delay: 120.ms).slideX(begin: -0.05, end: 0),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'MONTH CLOSED',
+                                style: GoogleFonts.saira(
+                                  color: JweTheme.textWhite,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.4,
+                                  height: 1,
+                                  shadows: [
+                                    Shadow(
+                                        color: JweTheme.accentTeal.withValues(alpha: 0.4),
+                                        blurRadius: 14),
+                                  ],
+                                ),
+                              ).animate().fadeIn(delay: 120.ms).slideX(begin: -0.05, end: 0),
+                            ),
+                            InkWell(
+                              onTap: _isRegenerating ? null : _regenerateReport,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: JweTheme.accentTeal.withValues(alpha: 0.12),
+                                  border: Border.all(color: JweTheme.accentTeal.withValues(alpha: 0.5)),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(MdiIcons.refresh, size: 12, color: JweTheme.accentTeal),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'REGENERATE',
+                                      style: GoogleFonts.jetBrainsMono(
+                                        color: JweTheme.accentTeal,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.0,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 6),
                         Text(
                           monthLabel.isNotEmpty

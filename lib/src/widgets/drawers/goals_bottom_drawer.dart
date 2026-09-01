@@ -150,7 +150,6 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
           }) / goals.length;
 
     final sheetBg = isLight ? const Color(0xFFF6F3EC) : const Color(0xFF0D0E14);
-    final periodKeyStr = GoalModel.getPeriodKey(_activeScope, _selectedDate);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final isKeyboardOpen = bottomInset > 0;
 
@@ -230,17 +229,17 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                             child: RichText(
                               text: TextSpan(
                                 style: GoogleFonts.orbitron(
-                                  fontSize: 13,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0,
+                                  letterSpacing: 1.1,
                                 ),
                                 children: [
                                   TextSpan(
-                                    text: 'GOALS & METRICS ',
+                                    text: 'GOALS & ',
                                     style: TextStyle(color: isLight ? Colors.black87 : Colors.white),
                                   ),
                                   TextSpan(
-                                    text: 'OPERATOR',
+                                    text: 'METRICS',
                                     style: TextStyle(color: themeColor),
                                   ),
                                 ],
@@ -249,11 +248,11 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Period: $periodKeyStr · Track count, time & subchecklists',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            '// TARGET PROTOCOLS',
                             style: GoogleFonts.jetBrainsMono(
                               fontSize: 9.5,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.2,
                               color: isLight ? const Color(0xFF475569) : Colors.white54,
                             ),
                           ),
@@ -788,7 +787,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                       onTap: () {
                         appProvider.updateGoalCounter(goal.id, 1);
                         if (goal.currentValue + 1 >= goal.targetValue) {
-                          showGlobalToast('⚡ Counter Target Reached! +${goal.xpReward} XP');
+                          showGlobalToast('Counter Target Reached! +${goal.xpReward} XP');
                         }
                       },
                       child: Container(

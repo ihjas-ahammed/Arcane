@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/providers/app_provider.dart';
-import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/widgets/charts/wellbeing_pie_chart.dart';
@@ -17,6 +16,7 @@ import 'package:missions/src/screens/journaling/advanced_tools_screen.dart';
 import 'package:missions/src/screens/journaling/archived_reports_screen.dart';
 import 'package:missions/src/widgets/cards/start_day_report_card.dart'; 
 import 'package:missions/src/widgets/ui/task_progress_snapshot_view.dart';
+import 'package:missions/src/widgets/ui/tactical_briefing_indicator.dart';
 import 'package:missions/src/widgets/analytics/jwe_date_selector.dart';
 import 'package:missions/src/widgets/analytics/jwe_reflection_progress.dart';
 import 'package:missions/src/widgets/analytics/jwe_quick_access_grid.dart';
@@ -40,6 +40,13 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   bool _isGeneratingWeeklyReport = false;
   bool _isGeneratingMonthlyReport = false;
   bool _isGeneratingStartDay = false;
+  
+  String? _briefingStatus;
+  String? _briefingError;
+  String? _startupStatus;
+  String? _startupError;
+  String? _weeklyStatus;
+  String? _monthlyStatus;
   
   Map<String, dynamic>? _tempGeneratedBriefing;
 
@@ -107,260 +114,83 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   Future<void> _generateTacticalBriefing(AppProvider provider, List<ReflectionLog> logs) async {
     if (_selectedDate == null) return;
     
-    setState(() => _isGeneratingSummary = true);
+    setState(() {
+      _isGeneratingSummary = true;
+      _briefingStatus = 'Synthesizing today\'s reflections and metrics...';
+      _briefingError = null;
+    });
     
     try {
-      final briefingData = await provider.generateTacticalBriefing(_selectedDate!, logs);
+      final briefingData = await provider.generateTacticalBriefing(
+        _selectedDate!,
+        logs,
+        onStatusUpdate: (status) {
+          if (mounted) setState(() => _briefingStatus = status);
+        },
+      );
       
       setState(() {
         _tempGeneratedBriefing = briefingData;
+        _briefingError = null;
       });
       
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to generate briefing: $e")));
+        setState(() => _briefingError = e.toString());
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: JweTheme.accentRed,
+          content: Text("Briefing generation failed: $e"),
+        ));
       }
     } finally {
       if (mounted) setState(() => _isGeneratingSummary = false);
     }
   }
 
-  String _buildFinanceWeekContext(AppProvider provider, [DateTime? targetDate]) {
-    final now = targetDate != null
-        ? DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59, 59, 999)
-        : DateTime.now();
-    final weekAgo = now.subtract(const Duration(days: 7));
-    double weekIncome = 0, weekExpense = 0;
-    for (final t in provider.transactions) {
-      if (t.timestamp.isAfter(weekAgo) && t.timestamp.isBefore(now)) {
-        if (t.isIncome) {
-          weekIncome += t.amount;
-        } else {
-          weekExpense += t.amount;
-        }
-      }
-    }
-    final balance = provider.financeActions.currentBalance;
-    return 'Week Income: ₹${weekIncome.toStringAsFixed(0)}, Expense: ₹${weekExpense.toStringAsFixed(0)}, Net: ₹${(weekIncome - weekExpense).toStringAsFixed(0)}, Balance: ₹${balance.toStringAsFixed(0)}';
-  }
-
-  String _buildHealthWeekContext(AppProvider provider, [DateTime? targetDate]) {
-    final now = targetDate != null
-        ? DateTime(targetDate.year, targetDate.month, targetDate.day)
-        : DateTime.now();
-    double totalWater = 0;
-    double totalSleepMins = 0;
-    double totalWalkKm = 0;
-    double totalWorkoutMins = 0;
-    int loggedDays = 0;
-    for (int i = 0; i < 7; i++) {
-      final d = now.subtract(Duration(days: i));
-      final dStr = DateFormat('yyyy-MM-dd').format(d);
-      final log = provider.getDailyHealthLog(dStr);
-      final sleep = log.sleepLogs.fold<int>(0, (sum, s) => sum + s.durationMinutes);
-      final walk = log.activityLogs.fold<double>(0, (sum, a) => sum + a.walkDistanceKm);
-      final workout = log.activityLogs.fold<int>(0, (sum, a) => sum + a.workoutMinutes);
-      if (log.waterGlasses > 0 || sleep > 0 || walk > 0 || workout > 0) loggedDays++;
-      totalWater += log.waterGlasses;
-      totalSleepMins += sleep;
-      totalWalkKm += walk;
-      totalWorkoutMins += workout;
-    }
-    return 'Average Sleep: ${(totalSleepMins / 7 / 60).toStringAsFixed(1)} hours/day, '
-        'Average Water: ${(totalWater / 7).toStringAsFixed(1)} glasses/day, '
-        'Total Walks: ${totalWalkKm.toStringAsFixed(1)} km, '
-        'Total Workouts: ${(totalWorkoutMins / 60).toStringAsFixed(1)} hours '
-        '($loggedDays/7 days tracked)';
-  }
-
-  String _buildAgentProgressContext(AppProvider provider, [DateTime? targetDate]) {
-    final now = targetDate != null
-        ? DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59, 59, 999)
-        : DateTime.now();
-    final weekAgo = now.subtract(const Duration(days: 7));
-    final buf = StringBuffer();
-    for (final task in provider.mainTasks.where((t) => !t.isDeleted && t.isActive).take(4)) {
-      int weekSec = 0;
-      int completedSubs = 0;
-      final activeSubs = task.subTasks.where((s) => !s.isDeleted && s.isActive).toList();
-      for (final sub in activeSubs) {
-        if (sub.completed) completedSubs++;
-        for (final sess in sub.sessions) {
-          if (sess.startTime.isAfter(weekAgo) && sess.startTime.isBefore(now)) weekSec += sess.durationSeconds;
-        }
-      }
-      buf.writeln('${task.name}: ${(weekSec / 3600).toStringAsFixed(1)}h this week, $completedSubs/${activeSubs.length} subtasks done');
-    }
-    return buf.toString();
-  }
-
-  String _buildWeeklyBriefingContext(AppProvider provider, [DateTime? targetDate]) {
-    final now = targetDate != null
-        ? DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59, 59, 999)
-        : DateTime.now();
-    final weekAgo = now.subtract(const Duration(days: 7));
-    final buf = StringBuffer();
-
-    // 1. Completed Tasks (Last 7 Days)
-    buf.writeln('=== COMPLETED TASKS & CHECKPOINTS (LAST 7 DAYS BY MISSION) ===');
-    int completedCount = 0;
-    for (final task in provider.mainTasks.where((t) => !t.isDeleted)) {
-      bool taskHeaderWritten = false;
-      for (final sub in task.subTasks.where((s) => !s.isDeleted && !s.isRecurring)) {
-        if (sub.completed && sub.completedDate != null) {
-          try {
-            final compDate = DateTime.parse(sub.completedDate!);
-            if (compDate.isAfter(weekAgo) && compDate.isBefore(now)) {
-              if (!taskHeaderWritten) {
-                buf.writeln('[Mission: ${task.name}]');
-                taskHeaderWritten = true;
-              }
-              buf.writeln('  - [Subtask] ${sub.name} (Completed: ${sub.completedDate})');
-              completedCount++;
-            }
-          } catch (_) {}
-        }
-        void checkCps(List<SubSubTask> list, String parentPath) {
-          for (final cp in list) {
-            if (cp.completed && cp.completionTimestamp != null) {
-              try {
-                final compDate = DateTime.parse(cp.completionTimestamp!);
-                if (compDate.isAfter(weekAgo) && compDate.isBefore(now)) {
-                  if (!taskHeaderWritten) {
-                    buf.writeln('[Mission: ${task.name}]');
-                    taskHeaderWritten = true;
-                  }
-                  buf.writeln('  - [Checkpoint] $parentPath > ${cp.name} (Completed: ${cp.completionTimestamp})');
-                  completedCount++;
-                }
-              } catch (_) {}
-            }
-            checkCps(cp.substeps, '$parentPath > ${cp.name}');
-          }
-        }
-        checkCps(sub.subSubTasks, sub.name);
-      }
-    }
-    if (completedCount == 0) {
-      buf.writeln('No completed tasks/checkpoints found.');
-    }
-    buf.writeln('');
-
-    // 2. Finance Brief
-    buf.writeln('=== FINANCE BRIEF (LAST 7 DAYS) ===');
-    double weekIncome = 0, weekExpense = 0;
-    for (final t in provider.transactions) {
-      if (t.timestamp.isAfter(weekAgo) && t.timestamp.isBefore(now)) {
-        if (t.isIncome) {
-          weekIncome += t.amount;
-        } else {
-          weekExpense += t.amount;
-        }
-      }
-    }
-    final balance = provider.financeActions.currentBalance;
-    buf.writeln('- Income: ₹${weekIncome.toStringAsFixed(0)}');
-    buf.writeln('- Expense: ₹${weekExpense.toStringAsFixed(0)}');
-    buf.writeln('- Net: ₹${(weekIncome - weekExpense).toStringAsFixed(0)}');
-    buf.writeln('- Current Balance: ₹${balance.toStringAsFixed(0)}');
-    buf.writeln('');
-
-    // 3. Health Brief
-    buf.writeln('=== HEALTH BRIEF (LAST 7 DAYS) ===');
-    double totalWater = 0;
-    double totalSleepMins = 0;
-    double totalWalkKm = 0;
-    double totalWorkoutMins = 0;
-    for (int i = 0; i < 7; i++) {
-      final dStr = DateFormat('yyyy-MM-dd').format(now.subtract(Duration(days: i)));
-      final log = provider.getDailyHealthLog(dStr);
-      totalWater += log.waterGlasses;
-      totalSleepMins += log.sleepLogs.fold<int>(0, (sum, s) => sum + s.durationMinutes);
-      totalWalkKm += log.activityLogs.fold<double>(0, (sum, a) => sum + a.walkDistanceKm);
-      totalWorkoutMins += log.activityLogs.fold<int>(0, (sum, a) => sum + a.workoutMinutes);
-    }
-    buf.writeln('- Average Water: ${(totalWater / 7).toStringAsFixed(1)} glasses/day');
-    buf.writeln('- Average Sleep: ${(totalSleepMins / 7 / 60).toStringAsFixed(1)} hours/day');
-    buf.writeln('- Total Walk Distance: ${totalWalkKm.toStringAsFixed(1)} km');
-    buf.writeln('- Total Workout Time: ${(totalWorkoutMins / 60).toStringAsFixed(1)} hours');
-    buf.writeln('');
-
-    // 4. Daily Gratitude & Reflections Breakdown
-    buf.writeln('=== DAILY GRATITUDE LOGS (DIVIDED BY DAY FOR LAST 7 DAYS) ===');
-    final dailyGratBreakdown = provider.getWeeklyGratitudeBreakdown(now);
-    for (final dayInfo in dailyGratBreakdown) {
-      final dStr = dayInfo['date'] as String;
-      final dLabel = dayInfo['label'] as String;
-      final items = (dayInfo['items'] as List<dynamic>?) ?? [];
-      buf.writeln('[$dLabel - $dStr]');
-      if (items.isNotEmpty) {
-        for (final item in items) {
-          if (item is Map) {
-            buf.writeln('  • (${item['icon_type'] ?? 'general'}) ${item['text']}');
-          }
-        }
-      } else {
-        buf.writeln('  • (No daily briefing saved, extract from reflections/activities for this day)');
-      }
-    }
-    buf.writeln('');
-
-    // 5. Interaction Brief (People)
-    buf.writeln('=== INTERACTION BRIEF (PEOPLE) ===');
-    final people = provider.chatbotMemory.people;
-    if (people.isNotEmpty) {
-      for (final p in people) {
-        buf.writeln('- ${p.name} (${p.relation})');
-      }
-    } else {
-      buf.writeln('No contacts registered.');
-    }
-    return buf.toString();
+  void _showBriefingDialog(BuildContext context, BriefingType type, ValueGetter<String?> statusGetter) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: StatefulBuilder(
+            builder: (ctx, setDialogState) {
+              return TacticalBriefingIndicator(
+                type: type,
+                statusMessage: statusGetter(),
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _generateWeeklyReport(AppProvider provider) async {
-    setState(() => _isGeneratingWeeklyReport = true);
+    setState(() {
+      _isGeneratingWeeklyReport = true;
+      _weeklyStatus = 'Synthesizing 7-day performance telemetry...';
+    });
+
+    _showBriefingDialog(context, BriefingType.weekly, () => _weeklyStatus);
+
     try {
       final targetDate = _selectedDate != null
           ? DateTime.tryParse(_selectedDate!) ?? DateTime.now()
           : DateTime.now();
       final selectedDateStr = _selectedDate ?? DateFormat('yyyy-MM-dd').format(targetDate);
 
-      final data = provider.getLast7DaysData(targetDate);
-      final wellbeingDiff = provider.getWeeklyWellbeingComparison(targetDate);
-      final aiService = provider.aiService;
-      final financeContext = _buildFinanceWeekContext(provider, targetDate);
-      final healthContext = _buildHealthWeekContext(provider, targetDate);
-      final agentContext = _buildAgentProgressContext(provider, targetDate);
-      final weeklyContext = _buildWeeklyBriefingContext(provider, targetDate);
-
-      final pastStories = await provider.fetchPreviouslyUsedStories();
-      final pastStoriesStr = pastStories.isNotEmpty ? pastStories.map((s) => "- $s").join("\n") : null;
-      final pastQuotes = provider.getPreviouslyUsedQuotes();
-      final pastQuotesStr = pastQuotes.isNotEmpty ? pastQuotes.take(30).map((q) => "- $q").join("\n") : null;
-
-      final result = await aiService.generateWeeklyReport(
-        logsText: data['logs'] as String,
-        timeStatsText: data['times'] as String,
-        wellbeingStatsText: wellbeingDiff,
-        financeText: financeContext,
-        healthText: healthContext,
-        agentProgressText: agentContext,
-        weeklyBriefingContext: weeklyContext,
-        pastStoriesContext: pastStoriesStr,
-        pastQuotesContext: pastQuotesStr,
-        modelCandidates: provider.settings.liteModels,
-        currentApiKeyIndex: provider.apiKeyIndex,
-        customApiKeys: provider.settings.customApiKeys,
-        onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
-        onLog: (msg) => debugPrint(msg),
-        writingStyleMap: provider.settings.adaptWritingStyle ? provider.settings.writingStyleMap : null,
+      final result = await provider.reportActions.generateWeeklyReport(
+        targetDate,
+        (status) {
+          if (mounted) setState(() => _weeklyStatus = status);
+        },
       );
 
-      result['report_date'] = selectedDateStr;
-      result['generated_at'] = targetDate.toIso8601String();
-
       if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // Close loading dialog
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -369,23 +199,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               provider: provider,
               targetDate: targetDate,
               onArchive: () async {
-                final weekAgo = targetDate.subtract(const Duration(days: 7));
-                double weekIncome = 0, weekExpense = 0;
-                for (final t in provider.transactions) {
-                  if (t.timestamp.isAfter(weekAgo) && t.timestamp.isBefore(targetDate.add(const Duration(days: 1)))) {
-                    if (t.isIncome) {
-                      weekIncome += t.amount;
-                    } else {
-                      weekExpense += t.amount;
-                    }
-                  }
-                }
-                result['saved_finance'] = {
-                  'income': weekIncome,
-                  'expense': weekExpense,
-                  'net': weekIncome - weekExpense,
-                  'balance': provider.financeActions.currentBalance,
-                };
                 await provider.saveWeeklyReport(selectedDateStr, result);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Weekly Review ($selectedDateStr) Saved to Archive!")));
@@ -397,7 +210,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Report gen failed: $e")));
+        Navigator.of(context, rootNavigator: true).pop(); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: JweTheme.accentRed,
+          content: Text("Weekly Report failed: $e"),
+        ));
       }
     } finally {
       if (mounted) setState(() => _isGeneratingWeeklyReport = false);
@@ -405,16 +222,28 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   }
 
   Future<void> _generateMonthlyReport(AppProvider provider) async {
-    setState(() => _isGeneratingMonthlyReport = true);
+    setState(() {
+      _isGeneratingMonthlyReport = true;
+      _monthlyStatus = 'Synthesizing 30-day monthly briefing...';
+    });
+
+    _showBriefingDialog(context, BriefingType.monthly, () => _monthlyStatus);
+
     try {
       final targetDate = _selectedDate != null
           ? DateTime.tryParse(_selectedDate!) ?? DateTime.now()
           : DateTime.now();
       final selectedDateStr = _selectedDate ?? DateFormat('yyyy-MM-dd').format(targetDate);
 
-      final result = await provider.reportActions.generateMonthlyReport(targetDate);
+      final result = await provider.reportActions.generateMonthlyReport(
+        targetDate,
+        (status) {
+          if (mounted) setState(() => _monthlyStatus = status);
+        },
+      );
 
       if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // Close loading dialog
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -434,7 +263,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Monthly briefing failed: $e")));
+        Navigator.of(context, rootNavigator: true).pop(); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: JweTheme.accentRed,
+          content: Text("Monthly briefing failed: $e"),
+        ));
       }
     } finally {
       if (mounted) setState(() => _isGeneratingMonthlyReport = false);
@@ -442,11 +275,26 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   }
 
   Future<void> _generateStartDayReport(AppProvider provider) async {
-    setState(() => _isGeneratingStartDay = true);
+    setState(() {
+      _isGeneratingStartDay = true;
+      _startupStatus = 'Synthesizing system startup sequence...';
+      _startupError = null;
+    });
     try {
-      await provider.reportActions.generateStartDayReport();
+      await provider.reportActions.generateStartDayReport(
+        onStatusUpdate: (status) {
+          if (mounted) setState(() => _startupStatus = status);
+        },
+      );
+      setState(() => _startupError = null);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Start Day Report failed: $e")));
+      if (mounted) {
+        setState(() => _startupError = e.toString());
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: JweTheme.accentRed,
+          content: Text("Start Day Report failed: $e"),
+        ));
+      }
     } finally {
       if (mounted) setState(() => _isGeneratingStartDay = false);
     }
@@ -650,7 +498,24 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             ),
 
             // ── Startup report ─────────────────────────
-            if (startDayReport != null)
+            if (_isGeneratingStartDay)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                child: TacticalBriefingIndicator(
+                  type: BriefingType.startup,
+                  statusMessage: _startupStatus,
+                ),
+              )
+            else if (_startupError != null && startDayReport == null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                child: TacticalBriefingIndicator(
+                  type: BriefingType.startup,
+                  errorMessage: _startupError,
+                  onRetry: () => _generateStartDayReport(appProvider),
+                ),
+              )
+            else if (startDayReport != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
                 child: StartDayReportCard(
@@ -666,8 +531,8 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                   label: 'SYSTEM STARTUP REPORT',
                   icon: MdiIcons.power,
                   accent: JweTheme.accentCyan,
-                  loading: _isGeneratingStartDay,
-                  onTap: _isGeneratingStartDay ? null : () => _generateStartDayReport(appProvider),
+                  loading: false,
+                  onTap: () => _generateStartDayReport(appProvider),
                 ),
               ),
 
@@ -675,48 +540,59 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             const HudSectionHead(label: 'TACTICAL BRIEFING', code: 'AI', accent: HudTone.amber),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-              child: displayBriefing != null
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TacticalBriefingCard(
-                          briefingData: displayBriefing,
-                          isSaved: savedBriefing != null,
-                          date: _selectedDate != null ? DateTime.tryParse(_selectedDate!) : null,
-                          onSave: savedBriefing == null
-                              ? () {
-                                  appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
-                                  setState(() {});
-                                }
-                              : null,
-                          onDeleteAndRetry: () async {
-                            if (_selectedDate != null) {
-                              appProvider.deleteTacticalBriefing(_selectedDate!);
-                              await _generateTacticalBriefing(appProvider, reflectionsForDate);
-                            }
-                          },
-                        ),
-                      ],
+              child: _isGeneratingSummary
+                  ? TacticalBriefingIndicator(
+                      type: BriefingType.daily,
+                      statusMessage: _briefingStatus,
                     )
-                  : HudPanel(
-                      clip: HudClip.br,
-                      accent: JweTheme.accentAmber,
-                      padding: const EdgeInsets.all(16),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                        Text('NO BRIEFING INTEL AVAILABLE',
-                            style: GoogleFonts.jetBrainsMono(
-                              color: JweTheme.textMuted, fontSize: 10, letterSpacing: 1.4, fontWeight: FontWeight.w600,
-                            )),
-                        const SizedBox(height: 14),
-                        _HudActionBar(
-                          label: _isGeneratingSummary ? 'ANALYZING…' : '+ GENERATE BRIEFING',
-                          icon: MdiIcons.brain,
-                          accent: JweTheme.accentAmber,
-                          loading: _isGeneratingSummary,
-                          onTap: _isGeneratingSummary ? null : () => _generateTacticalBriefing(appProvider, reflectionsForDate),
-                        ),
-                      ]),
-                    ),
+                  : _briefingError != null && displayBriefing == null
+                      ? TacticalBriefingIndicator(
+                          type: BriefingType.daily,
+                          errorMessage: _briefingError,
+                          onRetry: () => _generateTacticalBriefing(appProvider, reflectionsForDate),
+                        )
+                      : displayBriefing != null
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                TacticalBriefingCard(
+                                  briefingData: displayBriefing,
+                                  isSaved: savedBriefing != null,
+                                  date: _selectedDate != null ? DateTime.tryParse(_selectedDate!) : null,
+                                  onSave: savedBriefing == null
+                                      ? () {
+                                          appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
+                                          setState(() {});
+                                        }
+                                      : null,
+                                  onDeleteAndRetry: () async {
+                                    if (_selectedDate != null) {
+                                      appProvider.deleteTacticalBriefing(_selectedDate!);
+                                      await _generateTacticalBriefing(appProvider, reflectionsForDate);
+                                    }
+                                  },
+                                ),
+                              ],
+                            )
+                          : HudPanel(
+                              clip: HudClip.br,
+                              accent: JweTheme.accentAmber,
+                              padding: const EdgeInsets.all(16),
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                                Text('NO BRIEFING INTEL AVAILABLE',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: JweTheme.textMuted, fontSize: 10, letterSpacing: 1.4, fontWeight: FontWeight.w600,
+                                    )),
+                                const SizedBox(height: 14),
+                                _HudActionBar(
+                                  label: '+ GENERATE BRIEFING',
+                                  icon: MdiIcons.brain,
+                                  accent: JweTheme.accentAmber,
+                                  loading: false,
+                                  onTap: () => _generateTacticalBriefing(appProvider, reflectionsForDate),
+                                ),
+                              ]),
+                            ),
             ),
 
             if (startDayReport != null && startDayReport['task_snapshot'] != null)

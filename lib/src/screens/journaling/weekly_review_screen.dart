@@ -11,9 +11,10 @@ import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
+import 'package:missions/src/widgets/ui/tactical_briefing_indicator.dart';
 import 'package:missions/src/screens/journaling/person_detail_screen.dart';
 
-class WeeklyReviewScreen extends StatelessWidget {
+class WeeklyReviewScreen extends StatefulWidget {
   final Map<String, dynamic> reportData;
   final AppProvider provider;
   final VoidCallback? onArchive;
@@ -27,11 +28,95 @@ class WeeklyReviewScreen extends StatelessWidget {
     this.targetDate,
   });
 
+  @override
+  State<WeeklyReviewScreen> createState() => _WeeklyReviewScreenState();
+}
+
+class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
+  late Map<String, dynamic> _currentReportData;
+  bool _isRegenerating = false;
+  String? _regenerateStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentReportData = Map<String, dynamic>.from(widget.reportData);
+  }
+
   DateTime get _effectiveDate =>
-      targetDate ??
-      (reportData['report_date'] != null ? DateTime.tryParse(reportData['report_date']!) : null) ??
-      (reportData['generated_at'] != null ? DateTime.tryParse(reportData['generated_at']!) : null) ??
+      widget.targetDate ??
+      (_currentReportData['report_date'] != null ? DateTime.tryParse(_currentReportData['report_date']!) : null) ??
+      (_currentReportData['generated_at'] != null ? DateTime.tryParse(_currentReportData['generated_at']!) : null) ??
       DateTime.now();
+
+  Future<void> _regenerateReport() async {
+    final effDate = _effectiveDate;
+    final dateStr = DateFormat('yyyy-MM-dd').format(effDate);
+
+    setState(() {
+      _isRegenerating = true;
+      _regenerateStatus = 'Synthesizing 7-day performance review for $dateStr...';
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: StatefulBuilder(
+            builder: (ctx, setDialogState) {
+              return TacticalBriefingIndicator(
+                type: BriefingType.weekly,
+                statusMessage: _regenerateStatus,
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    try {
+      final regenerated = await widget.provider.reportActions.generateWeeklyReport(
+        effDate,
+        (status) {
+          if (mounted) {
+            setState(() => _regenerateStatus = status);
+          }
+        },
+      );
+
+      await widget.provider.saveWeeklyReport(dateStr, regenerated);
+
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // dismiss dialog
+        setState(() {
+          _currentReportData = regenerated;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: JweTheme.accentAmber,
+            content: Text("7-Day Review ($dateStr) Regenerated & Saved!"),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: JweTheme.accentRed,
+            content: Text("Regeneration failed: $e"),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRegenerating = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,23 +125,23 @@ class WeeklyReviewScreen extends StatelessWidget {
     final weekRangeLabel = '${DateFormat('MMM d').format(weekStart)} – ${DateFormat('MMM d, yyyy').format(effDate)}';
 
     // Extracting data gracefully, handling legacy formats where needed.
-    final summary = reportData['summary'] as String? ?? 'No summary available.';
-    final wellbeingAnalysis = reportData['wellbeing_analysis'] as String? ?? '';
-    final healthAnalysis = reportData['health_analysis'] as String? ?? '';
-    final healthIntel = reportData['health_intel'] as Map<String, dynamic>?;
+    final summary = _currentReportData['summary'] as String? ?? 'No summary available.';
+    final wellbeingAnalysis = _currentReportData['wellbeing_analysis'] as String? ?? '';
+    final healthAnalysis = _currentReportData['health_analysis'] as String? ?? '';
+    final healthIntel = _currentReportData['health_intel'] as Map<String, dynamic>?;
     
     // New GTD and Atomic Habits fields
-    final gtdCurrent = reportData['gtd_get_current'] as List<dynamic>? ?? [];
-    final gtdCreative = reportData['gtd_get_creative'] as List<dynamic>? ?? [];
-    final atomicFriction = reportData['atomic_friction'] as List<dynamic>? ?? [];
-    final identityVotes = reportData['identity_votes'] as List<dynamic>? ?? [];
+    final gtdCurrent = _currentReportData['gtd_get_current'] as List<dynamic>? ?? [];
+    final gtdCreative = _currentReportData['gtd_get_creative'] as List<dynamic>? ?? [];
+    final atomicFriction = _currentReportData['atomic_friction'] as List<dynamic>? ?? [];
+    final identityVotes = _currentReportData['identity_votes'] as List<dynamic>? ?? [];
 
     // Existing fields
-    final abilities = reportData['improved_abilities'] as List<dynamic>? ?? [];
-    final gratefulPeople = reportData['grateful_people'] as List<dynamic>? ?? [];
-    final rawGratitudeByDay = (reportData['gratitude_by_day'] as List<dynamic>?)
-        ?? provider.getWeeklyGratitudeBreakdown(effDate);
-    final gratitudeHighlights = reportData['gratitude_highlights'] as List<dynamic>? ?? [];
+    final abilities = _currentReportData['improved_abilities'] as List<dynamic>? ?? [];
+    final gratefulPeople = _currentReportData['grateful_people'] as List<dynamic>? ?? [];
+    final rawGratitudeByDay = (_currentReportData['gratitude_by_day'] as List<dynamic>?)
+        ?? widget.provider.getWeeklyGratitudeBreakdown(effDate);
+    final gratitudeHighlights = _currentReportData['gratitude_highlights'] as List<dynamic>? ?? [];
 
     // Convert raw gratitude by day to structured map list
     final List<Map<String, dynamic>> dailyGratitudes = [];
@@ -67,12 +152,12 @@ class WeeklyReviewScreen extends StatelessWidget {
     }
 
     // After-action review, energy map, capitalization (share a win)
-    final afterAction = reportData['after_action'] as Map<String, dynamic>?;
-    final energyMap = reportData['energy_map'] as Map<String, dynamic>?;
+    final afterAction = _currentReportData['after_action'] as Map<String, dynamic>?;
+    final energyMap = _currentReportData['energy_map'] as Map<String, dynamic>?;
     final energizers = (energyMap?['energizers'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
     final drainers = (energyMap?['drainers'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
-    final shareWin = reportData['share_win'] as Map<String, dynamic>?;
-    final creativeStory = reportData['creative_story'] as Map<String, dynamic>?;
+    final shareWin = _currentReportData['share_win'] as Map<String, dynamic>?;
+    final creativeStory = _currentReportData['creative_story'] as Map<String, dynamic>?;
 
     return Scaffold(
       backgroundColor: JweTheme.bgDeep,
@@ -93,11 +178,16 @@ class WeeklyReviewScreen extends StatelessWidget {
           ),
         ).animate().fadeIn(delay: 100.ms),
         actions: [
-          if (onArchive != null)
+          IconButton(
+            icon: Icon(MdiIcons.refresh, color: JweTheme.accentAmber),
+            tooltip: 'Regenerate 7-Day Review',
+            onPressed: _isRegenerating ? null : _regenerateReport,
+          ).animate().fadeIn(delay: 150.ms),
+          if (widget.onArchive != null)
             IconButton(
               icon: Icon(MdiIcons.archiveArrowDownOutline, color: JweTheme.accentAmber),
               onPressed: () {
-                onArchive!();
+                widget.onArchive!();
                 Navigator.of(context).pop();
               },
             ).animate().fadeIn(delay: 200.ms),
@@ -122,19 +212,52 @@ class WeeklyReviewScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'SYSTEM DEBRIEF',
-                          style: GoogleFonts.saira(
-                            color: JweTheme.textWhite,
-                            fontSize: 32,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.4,
-                            height: 1,
-                            shadows: [
-                              Shadow(color: JweTheme.accentAmber.withOpacity(0.4), blurRadius: 14),
-                            ],
-                          ),
-                        ).animate().fadeIn(delay: 120.ms).slideX(begin: -0.05, end: 0),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'SYSTEM DEBRIEF',
+                                style: GoogleFonts.saira(
+                                  color: JweTheme.textWhite,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.4,
+                                  height: 1,
+                                  shadows: [
+                                    Shadow(color: JweTheme.accentAmber.withOpacity(0.4), blurRadius: 14),
+                                  ],
+                                ),
+                              ).animate().fadeIn(delay: 120.ms).slideX(begin: -0.05, end: 0),
+                            ),
+                            InkWell(
+                              onTap: _isRegenerating ? null : _regenerateReport,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: JweTheme.accentAmber.withValues(alpha: 0.12),
+                                  border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.5)),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(MdiIcons.refresh, size: 12, color: JweTheme.accentAmber),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'REGENERATE',
+                                      style: GoogleFonts.jetBrainsMono(
+                                        color: JweTheme.accentAmber,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.0,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 6),
                         Text(
                           weekRangeLabel.toUpperCase(),
