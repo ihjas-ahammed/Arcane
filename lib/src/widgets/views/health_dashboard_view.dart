@@ -421,11 +421,66 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                 labelColor: accentColor,
                 dividerColor: accentColor.withValues(alpha: 0.15),
                 unselectedLabelColor: JweTheme.textMuted,
-                labelStyle: GoogleFonts.jetBrainsMono(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                indicatorWeight: 2.0,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                 tabs: const [
-                  Tab(text: "LOGS", icon: Icon(MdiIcons.heartPulse, size: 18)),
-                  Tab(text: "NUTRITION", icon: Icon(MdiIcons.silverwareForkKnife, size: 18)),
-                  Tab(text: "STATS", icon: Icon(MdiIcons.chartDonut, size: 18)),
+                  Tab(
+                    height: 40,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(MdiIcons.heartPulse, size: 14),
+                        SizedBox(width: 6),
+                        Text(
+                          "LOGS",
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    height: 40,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(MdiIcons.silverwareForkKnife, size: 14),
+                        SizedBox(width: 6),
+                        Text(
+                          "NUTRITION",
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    height: 40,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(MdiIcons.chartDonut, size: 14),
+                        SizedBox(width: 6),
+                        Text(
+                          "STATS",
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1012,20 +1067,32 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
   // TAB 3: STATS & SCIENCE RECOMMENDATIONS
   // ==========================================
   Widget _buildStatsTab(BuildContext context, AppProvider provider, DailyHealthLog currentLog, Color accent, double bottomPadding) {
-    // Generate averages over last 30 days. Each metric is averaged over only
-    // the days it was actually logged — otherwise unlogged days count as 0 and
-    // silently drag every average down into a meaningless number.
+    // Generate averages over last 30 days. Each metric is averaged ONLY over
+    // the days it actually has entries (DropNA), ensuring independent, accurate averages.
     final now = DateTime.now();
     double totalWater = 0;
-    double totalSleepHours = 0;
-    double totalCalories = 0;
-    double totalProtein = 0;
-    double totalCarbs = 0;
-    double totalFat = 0;
-    double totalWalkKm = 0;
-    int totalWorkoutMins = 0;
+    int waterDays = 0;
 
-    int loggedDays = 0;
+    double totalSleepHours = 0;
+    int sleepDays = 0;
+
+    double totalCalories = 0;
+    int calorieDays = 0;
+
+    double totalProtein = 0;
+    int proteinDays = 0;
+
+    double totalCarbs = 0;
+    int carbDays = 0;
+
+    double totalFat = 0;
+    int fatDays = 0;
+
+    double totalWalkKm = 0;
+    int walkDays = 0;
+
+    int totalWorkoutMins = 0;
+    int workoutDays = 0;
 
     for (int i = 0; i < 30; i++) {
       final date = now.subtract(Duration(days: i));
@@ -1033,48 +1100,72 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
       final log = provider.healthLogs[dateStr];
       if (log == null) continue;
 
+      // 1. Water
+      if (log.waterGlasses > 0) {
+        totalWater += log.waterGlasses;
+        waterDays++;
+      }
+
+      // 2. Sleep
+      final sleepMins = log.sleepLogs.fold(0, (sum, item) => sum + item.durationMinutes);
+      if (sleepMins > 0) {
+        totalSleepHours += sleepMins / 60.0;
+        sleepDays++;
+      }
+
+      // 3. Walk / Locomotion
+      final walkKm = log.activityLogs.fold(0.0, (sum, item) => sum + item.walkDistanceKm);
+      if (walkKm > 0) {
+        totalWalkKm += walkKm;
+        walkDays++;
+      }
+
+      // 4. Workout
+      final workoutMins = log.activityLogs.fold(0, (sum, item) => sum + item.workoutMinutes);
+      if (workoutMins > 0) {
+        totalWorkoutMins += workoutMins;
+        workoutDays++;
+      }
+
+      // 5. Nutrition / Macros
       final mealsWithFood = log.meals.map((meal) {
         return provider.foodItems.firstWhereOrNull((f) => f.id == meal.foodItemId);
       }).whereType<FoodItem>().toList();
 
-      final hasData = log.waterGlasses > 0 ||
-          log.sleepLogs.isNotEmpty ||
-          log.activityLogs.isNotEmpty ||
-          mealsWithFood.isNotEmpty ||
-          log.energyLogs.isNotEmpty;
+      if (mealsWithFood.isNotEmpty) {
+        final dayCalories = mealsWithFood.fold(0, (sum, item) => sum + item.calories);
+        final dayProtein = mealsWithFood.fold(0.0, (sum, item) => sum + item.protein);
+        final dayCarbs = mealsWithFood.fold(0.0, (sum, item) => sum + item.carbs);
+        final dayFat = mealsWithFood.fold(0.0, (sum, item) => sum + item.fat);
 
-      if (hasData) {
-        loggedDays++;
-        totalWater += log.waterGlasses;
-
-        final sleepHours =
-            log.sleepLogs.fold(0, (sum, item) => sum + item.durationMinutes) / 60.0;
-        totalSleepHours += sleepHours;
-
-        final walkKm =
-            log.activityLogs.fold(0.0, (sum, item) => sum + item.walkDistanceKm);
-        totalWalkKm += walkKm;
-
-        final workoutMins =
-            log.activityLogs.fold(0, (sum, item) => sum + item.workoutMinutes);
-        totalWorkoutMins += workoutMins;
-
-        totalCalories += mealsWithFood.fold(0, (sum, item) => sum + item.calories);
-        totalProtein += mealsWithFood.fold(0.0, (sum, item) => sum + item.protein);
-        totalCarbs += mealsWithFood.fold(0.0, (sum, item) => sum + item.carbs);
-        totalFat += mealsWithFood.fold(0.0, (sum, item) => sum + item.fat);
+        if (dayCalories > 0) {
+          totalCalories += dayCalories;
+          calorieDays++;
+        }
+        if (dayProtein > 0) {
+          totalProtein += dayProtein;
+          proteinDays++;
+        }
+        if (dayCarbs > 0) {
+          totalCarbs += dayCarbs;
+          carbDays++;
+        }
+        if (dayFat > 0) {
+          totalFat += dayFat;
+          fatDays++;
+        }
       }
     }
 
     double avgOver(num total, int count) => count == 0 ? 0 : total / count;
-    final avgWater = avgOver(totalWater, loggedDays);
-    final avgSleep = avgOver(totalSleepHours, loggedDays);
-    final avgCalories = avgOver(totalCalories, loggedDays);
-    final avgProtein = avgOver(totalProtein, loggedDays);
-    final avgCarbs = avgOver(totalCarbs, loggedDays);
-    final avgFat = avgOver(totalFat, loggedDays);
-    final avgWalkKm = avgOver(totalWalkKm, loggedDays);
-    final avgWorkoutMins = avgOver(totalWorkoutMins, loggedDays);
+    final avgWater = avgOver(totalWater, waterDays);
+    final avgSleep = avgOver(totalSleepHours, sleepDays);
+    final avgCalories = avgOver(totalCalories, calorieDays);
+    final avgProtein = avgOver(totalProtein, proteinDays);
+    final avgCarbs = avgOver(totalCarbs, carbDays);
+    final avgFat = avgOver(totalFat, fatDays);
+    final avgWalkKm = avgOver(totalWalkKm, walkDays);
+    final avgWorkoutMins = avgOver(totalWorkoutMins, workoutDays);
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPadding + 60),
@@ -1086,13 +1177,17 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
             children: [
               Container(width: 4, height: 12, color: JweTheme.accentCyan),
               const SizedBox(width: 8),
-              Text(
-                'HEALTH TELEMETRY & LONGEVITY STATS (30-DAY AVG)',
-                style: GoogleFonts.jetBrainsMono(
-                  color: JweTheme.accentCyan,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
+              Expanded(
+                child: Text(
+                  'HEALTH TELEMETRY & LONGEVITY STATS (30-DAY AVG)',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.accentCyan,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -1108,48 +1203,168 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // 1. Calories
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('CALORIC ENERGY DEPLOYMENT', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.5, fontWeight: FontWeight.bold)),
-                    Text('${avgCalories.round()} / 2200 kcal avg', style: GoogleFonts.chakraPetch(color: JweTheme.accentCyan, fontSize: 13, fontWeight: FontWeight.bold)),
+                    Text(
+                      'CALORIC ENERGY DEPLOYMENT',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.textMuted,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${avgCalories.round()} / 2200 kcal',
+                          style: GoogleFonts.chakraPetch(
+                            color: JweTheme.accentCyan,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          calorieDays > 0 ? '${calorieDays}d avg' : 'no data',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.textMuted,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    HudProgressBar(value: (avgCalories / 2200 * 100).clamp(0.0, 100.0), tone: HudTone.cyan),
                   ],
                 ),
-                const SizedBox(height: 8),
-                HudProgressBar(value: (avgCalories / 2200 * 100).clamp(0.0, 100.0), tone: HudTone.cyan),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // 2. Protein
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('PROTEIN SYNTHESIS TARGET', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.5, fontWeight: FontWeight.bold)),
-                    Text('${avgProtein.toStringAsFixed(1)} / 120g avg', style: GoogleFonts.chakraPetch(color: JweTheme.accentTeal, fontSize: 13, fontWeight: FontWeight.bold)),
+                    Text(
+                      'PROTEIN SYNTHESIS TARGET',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.textMuted,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${avgProtein.toStringAsFixed(1)} / 120g',
+                          style: GoogleFonts.chakraPetch(
+                            color: JweTheme.accentTeal,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          proteinDays > 0 ? '${proteinDays}d avg' : 'no data',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.textMuted,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    HudProgressBar(value: (avgProtein / 120 * 100).clamp(0.0, 100.0), tone: HudTone.teal),
                   ],
                 ),
-                const SizedBox(height: 8),
-                HudProgressBar(value: (avgProtein / 120 * 100).clamp(0.0, 100.0), tone: HudTone.teal),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // 3. Carbohydrates
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('CARBOHYDRATE THRESHOLD', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.5, fontWeight: FontWeight.bold)),
-                    Text('${avgCarbs.toStringAsFixed(1)} / 250g avg', style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold)),
+                    Text(
+                      'CARBOHYDRATE THRESHOLD',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.textMuted,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${avgCarbs.toStringAsFixed(1)} / 250g',
+                          style: GoogleFonts.chakraPetch(
+                            color: JweTheme.textWhite,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          carbDays > 0 ? '${carbDays}d avg' : 'no data',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.textMuted,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    HudProgressBar(value: (avgCarbs / 250 * 100).clamp(0.0, 100.0), tone: HudTone.neutral),
                   ],
                 ),
-                const SizedBox(height: 8),
-                HudProgressBar(value: (avgCarbs / 250 * 100).clamp(0.0, 100.0), tone: HudTone.neutral),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // 4. Lipid / Fat
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('LIPID / FAT DEPLOYMENT', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.5, fontWeight: FontWeight.bold)),
-                    Text('${avgFat.toStringAsFixed(1)} / 70g avg', style: GoogleFonts.chakraPetch(color: JweTheme.accentAmber, fontSize: 13, fontWeight: FontWeight.bold)),
+                    Text(
+                      'LIPID / FAT DEPLOYMENT',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.textMuted,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${avgFat.toStringAsFixed(1)} / 70g',
+                          style: GoogleFonts.chakraPetch(
+                            color: JweTheme.accentAmber,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          fatDays > 0 ? '${fatDays}d avg' : 'no data',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.textMuted,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    HudProgressBar(value: (avgFat / 70 * 100).clamp(0.0, 100.0), tone: HudTone.amber),
                   ],
                 ),
-                const SizedBox(height: 8),
-                HudProgressBar(value: (avgFat / 70 * 100).clamp(0.0, 100.0), tone: HudTone.amber),
               ],
             ),
           ),
@@ -1168,7 +1383,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                     label: "SLEEP AVERAGE",
                     value: avgSleep.toStringAsFixed(1),
                     unit: "HRS",
-                    sub: "Walker limit: 8.0h",
+                    sub: sleepDays > 0 ? "Walker limit: 8.0h • ${sleepDays}d" : "Walker limit: 8.0h",
                     tone: HudTone.cyan,
                   ),
                 ),
@@ -1184,7 +1399,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                     label: "WATER AVERAGE",
                     value: avgWater.toStringAsFixed(1),
                     unit: "GLS",
-                    sub: "Attia target: 8.0",
+                    sub: waterDays > 0 ? "Attia target: 8.0 • ${waterDays}d" : "Attia target: 8.0",
                     tone: HudTone.cyan,
                   ),
                 ),
@@ -1206,7 +1421,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                     label: "DAILY ACTIVE DURATION",
                     value: "${avgWorkoutMins.round()}",
                     unit: "MINS",
-                    sub: "Goal: 30 min",
+                    sub: workoutDays > 0 ? "Goal: 30 min • ${workoutDays}d" : "Goal: 30 min",
                     tone: HudTone.teal,
                   ),
                 ),
@@ -1222,7 +1437,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                     label: "DAILY LOCOMOTION",
                     value: avgWalkKm.toStringAsFixed(1),
                     unit: "KM",
-                    sub: "Goal: 5.0 km",
+                    sub: walkDays > 0 ? "Goal: 5.0 km • ${walkDays}d" : "Goal: 5.0 km",
                     tone: HudTone.teal,
                   ),
                 ),
@@ -1243,13 +1458,17 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                   children: [
                     Icon(MdiIcons.bookOpenVariant, color: JweTheme.accentAmber, size: 14),
                     const SizedBox(width: 8),
-                    Text(
-                      'LONGEVITY CLINICAL DIRECTIVES',
-                      style: GoogleFonts.jetBrainsMono(
-                        color: JweTheme.accentAmber,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
+                    Expanded(
+                      child: Text(
+                        'LONGEVITY CLINICAL DIRECTIVES',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: JweTheme.accentAmber,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],

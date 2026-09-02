@@ -1,22 +1,23 @@
-# ⚡ Arcane System Upgrade // v2026.9.1
+# ⚡ Arcane System Upgrade // v2026.9.2
 
-### 🔄 Archived Logs Regeneration Subsystem
-- **In-Place Historical Regeneration**: Added seamless regeneration for past 7-Day Reviews, 30-Day Monthly Briefings, and Daily Tactical Briefings from either the active view screen or the Archived Reports screen.
-- **Strict Historical Boundaries**: When regenerating past logs, all data (transactions, completed mission checkpoints, habits, health telemetry, reflection history, and prior monthly context) is strictly bounded by that specific historical target date, guaranteeing zero future data leakage.
-- **Live State & Archive Overwrites**: Regenerating past reviews automatically overwrites the stored archive record and immediately updates the live UI.
+### 📱 Homescreen Widgets Studio & Native Widget Parity
+- **Pin to Homescreen Support**: Added direct widget pinning actions inside the Homescreen Widgets Studio using Android's native `requestPinWidget` API.
+- **Pixel-Perfect Widget Parity**: Aligned colors, contrast, typography, and layout metrics between Flutter widget previews and Android XML RemoteViews (`#0D1426` panel background, `#EAECF3` white text).
+- **Clean Telemetry Readouts**: Removed cluttering minute countdown suffixes (`(Xm)`) from the main bus departure display across both native Kotlin and Flutter preview widgets.
+- **Real-Time Data Streaming**: Previews now reflect live state directly from `AppProvider` and `BusLocationService` with collapsible interactive test controls.
 
-### ⏱️ Pro AI Model Timeouts & Automatic Fast Fallback
-- **Tiered AI Execution Timeouts**: Configured strict per-briefing timeouts (30 seconds for Daily Briefing & Startup Report, 1 minute for Weekly Review, 2 minutes for Monthly Briefing) to prevent hanging during API traffic spikes.
-- **Zero-Drop Fast Model Fallback**: Catches network/timeout exceptions, logs diagnostics, and instantly re-routes generation through fast-tier models (`gemini-2.0-flash`) without user intervention.
-- **Real-Time Telemetry Callbacks**: Real-time status reporting streamed directly into UI status banners throughout multi-step AI synthesis.
+### 🚌 Transit Radar & Directional Dispatch Overhaul
+- **Strict Directional Timetables**: Fixed route matching to ensure origin/destination directions (`A → B` vs `B → A`) maintain completely separate, independent departure timetables.
+- **Dynamic Last-Selected Focus**: Bus widget automatically synchronizes with the user's active route focus in the app and responds to in-app or native widget swap triggers.
+- **Header Layout Polish**: Refactored tactical header bar to eliminate layout clipping on narrow mobile viewports.
 
-### 🛡️ Cyber-Tactical Briefing Indicator HUD
-- **Advanced Tactical UI**: Introduced a rotating radar HUD widget with angular corner chamfers, pulsing progress sweep, elapsed timer telemetry, and dynamic active engine badges (`PRO-TIER ENGINE` vs `LITE MODEL FALLBACK ACTIVE`).
-- **Comprehensive Error Trapping**: Embedded retry workflows and error banners with actionable recovery options.
+### 🧬 Biometrics & Health Telemetry Refinements
+- **DropNA Metric-Specific Averages**: 30-day health averages (Calories, Protein, Carbs, Fats, Sleep, Water, Workout Duration, Locomotion) are now calculated strictly over days with recorded entries rather than dividing across a shared day counter.
+- **Entry Day Count Telemetry**: Displays unique recorded day counts for each metric (e.g., `1373 / 2200 kcal (24d avg)`).
+- **Redesigned Compact Toolbar**: Upgraded Biometrics TabBar to a sleek horizontal `<small_icon> <label>` design (`LOGS`, `NUTRITION`, `STATS`).
+- **Stacked Macro Layout**: Reorganized macro progress metrics with titles on top and progress bars underneath to prevent horizontal text collision.
 
-### 📦 Seamless In-App APK Package Installation
-- **Permission & Directory Calibration**: Updated update storage resolution to external files / application support directories to bypass erroneous Android 11+ `MANAGE_EXTERNAL_STORAGE` permission checks, allowing the native Android Package Installer to trigger smoothly with standard unknown app install privileges.
-
-### 🎨 Goals Drawer & Tactical HUD Refinements
-- **Streamlined Goals Header**: Decluttered top metadata bar in the Goals bottom drawer for maximum focus and visual clarity.
-- **Emoji-Free Military Aesthetics**: Purged decorative emojis from HUD status badges and XP toasts in favor of clean iconography and monospace typography.
+### 🛠️ SOP Protocols & Project Note Enhancements
+- **Auto-Scaling SOP Title**: Resolved title truncation in SOP Directory with responsive scaling.
+- **Editable Project Logs**: Made project logs and notes editable with slide-right delete and long-press edit gestures.
+- **State Preservation**: Reinforced deep checkpoint restoration during task completion and deletion undo.

@@ -43,13 +43,17 @@ class _SopListScreenState extends State<SopListScreen> {
           icon: Icon(Icons.arrow_back, color: JweTheme.textWhite),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'STANDARD OPERATIONAL PROCEDURES',
-          style: GoogleFonts.jetBrainsMono(
-            color: JweTheme.accentAmber,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'STANDARD OPERATIONAL PROCEDURES',
+            style: GoogleFonts.jetBrainsMono(
+              color: JweTheme.accentAmber,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+            ),
           ),
         ),
         bottom: PreferredSize(

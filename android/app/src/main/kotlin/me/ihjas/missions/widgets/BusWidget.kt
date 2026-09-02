@@ -44,8 +44,6 @@ class BusWidget : HomeWidgetProvider() {
 
         val mainTimeText = if (isOnBus && minutesRemaining >= 0) {
             "ETA ~${minutesRemaining}M TO $destination"
-        } else if (minutesRemaining >= 0) {
-            "$nextTime (${minutesRemaining}m)"
         } else {
             nextTime
         }

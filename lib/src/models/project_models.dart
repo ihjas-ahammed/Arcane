@@ -82,6 +82,22 @@ class ProjectRelease {
     this.isReleased = false,
   });
 
+  ProjectRelease copyWith({
+    String? id,
+    String? version,
+    String? title,
+    DateTime? date,
+    bool? isReleased,
+  }) {
+    return ProjectRelease(
+      id: id ?? this.id,
+      version: version ?? this.version,
+      title: title ?? this.title,
+      date: date ?? this.date,
+      isReleased: isReleased ?? this.isReleased,
+    );
+  }
+
   factory ProjectRelease.fromJson(Map<String, dynamic> json) {
     return ProjectRelease(
       id: json['id'] as String? ?? const Uuid().v4(),
@@ -115,6 +131,20 @@ class ProjectNote {
     required this.content,
     required this.createdAt,
   });
+
+  ProjectNote copyWith({
+    String? id,
+    String? title,
+    String? content,
+    DateTime? createdAt,
+  }) {
+    return ProjectNote(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      content: content ?? this.content,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 
   factory ProjectNote.fromJson(Map<String, dynamic> json) {
     return ProjectNote(

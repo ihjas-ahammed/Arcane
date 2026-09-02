@@ -499,7 +499,11 @@ class TaskActions {
     final subSubtask = subtask?.findCheckpoint(subSubtaskId);
     final String name = subSubtask?.name ?? 'Checkpoint';
 
-    final savedTasks = _provider.mainTasks;
+    final savedTasks = _provider.mainTasks.map((t) => t.copyWith(
+      subTasks: t.subTasks.map((st) => st.copyWith(
+        subSubTasks: st.subSubTasks.map((sss) => sss.copyWith()).toList(),
+      )).toList(),
+    )).toList();
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
@@ -884,8 +888,6 @@ class TaskActions {
         subtaskToUpdate.completed = false;
         subtaskToUpdate.completedDate = null;
         subtaskToUpdate.lastCompletedDate = null;
-        subtaskToUpdate.subSubTasks = subtaskToUpdate.subSubTasks.map((child) => _markAllDescendantsUncompleted(child)).toList();
-        if (subtaskToUpdate.isCountable) subtaskToUpdate.currentCount = 0;
       }
     }
 
@@ -895,8 +897,6 @@ class TaskActions {
       if (!subtaskToUpdate.completed) {
         subtaskToUpdate.completedDate = null;
         subtaskToUpdate.lastCompletedDate = null;
-        subtaskToUpdate.subSubTasks = subtaskToUpdate.subSubTasks.map((child) => _markAllDescendantsUncompleted(child)).toList();
-        if (subtaskToUpdate.isCountable) subtaskToUpdate.currentCount = 0;
       } else {
         subtaskToUpdate.completedDate = getTodayDateString();
         subtaskToUpdate.lastCompletedDate = DateTime.now();
@@ -984,14 +984,11 @@ class TaskActions {
         return task.copyWith(
           subTasks: task.subTasks.map((st) {
             if (st.id == subtaskId) {
-              final updatedSubSubTasks = st.subSubTasks.map((child) => _markAllDescendantsUncompleted(child)).toList();
               return st.copyWith(
                 completed: false, 
-                completedDate: null,
+                completedDate: null, 
                 lastCompletedDate: null, 
                 updatedAt: DateTime.now(),
-                currentCount: st.isCountable ? 0 : st.currentCount,
-                subSubTasks: updatedSubSubTasks,
               );
             }
             return st;
@@ -1007,6 +1004,12 @@ class TaskActions {
     final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     final subtask = task?.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
     if (subtask == null) return;
+
+    final savedTasks = _provider.mainTasks.map((t) => t.copyWith(
+      subTasks: t.subTasks.map((st) => st.copyWith(
+        subSubTasks: st.subSubTasks.map((sss) => sss.copyWith()).toList(),
+      )).toList(),
+    )).toList();
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
@@ -1028,19 +1031,11 @@ class TaskActions {
       showUndoSnackBar(
         message: 'Deleted "${subtask.name}"',
         onUndo: () {
-          final restoreMainTasks = _provider.mainTasks.map((t) {
-            if (t.id == mainTaskId) {
-              return t.copyWith(
-                subTasks: t.subTasks.map((st) => st.id == subtaskId ? st.copyWith(isDeleted: false) : st).toList(),
-              );
-            }
-            return t;
-          }).toList();
           final restoreActiveTimers = Map<String, dynamic>.from(_provider.activeTimers.map((k, v) => MapEntry(k, v.toJson())));
           if (previousTimer != null) {
             restoreActiveTimers[subtaskId] = previousTimer;
           }
-          _provider.setProviderState(mainTasks: restoreMainTasks, activeTimers: restoreActiveTimers);
+          _provider.setProviderState(mainTasks: savedTasks, activeTimers: restoreActiveTimers);
         },
       );
     }
@@ -1183,7 +1178,12 @@ class TaskActions {
     final oldSession = oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
     if (oldSession == null) return;
 
-    final savedTasks = _provider.mainTasks;
+    final savedTasks = _provider.mainTasks.map((t) => t.copyWith(
+      subTasks: t.subTasks.map((st) => st.copyWith(
+        sessions: List<TaskSession>.from(st.sessions),
+        subSubTasks: st.subSubTasks.map((sss) => sss.copyWith()).toList(),
+      )).toList(),
+    )).toList();
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {

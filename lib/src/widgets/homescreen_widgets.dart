@@ -821,6 +821,31 @@ class BusHomeWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Exact colors from Android widget_colors.xml
+    const bgPanel = Color(0xFF0D1426);
+    const bgDeep = Color(0xFF04060E);
+    const accentAmber = Color(0xFFFFB547);
+    const accentCyan = Color(0xFF5FE1D8);
+    const accentTeal = Color(0xFF4AF3C2);
+    const textWhite = Color(0xFFEAECF3);
+    const textMid = Color(0xFFA8B3C7);
+    const textMuted = Color(0xFF5E6C87);
+
+    final statusBadge = isOnBus ? "[ ON BUS // TRANSIT ACTIVE ]" : "[ BUS RADAR // STANDBY ]";
+    final speedLabel = isOnBus && speedKmh > 0 ? "SPEED: $speedKmh KM/H" : "GPS: ACTIVE";
+    
+    // Main Time: When on bus and remaining minutes >= 0: ETA ~14M TO EDAVANNAPPARA.
+    // When not on bus: simply nextTime (no "(3m)")
+    final mainTimeText = isOnBus && minutesRemaining >= 0
+        ? "ETA ~${minutesRemaining}M TO ${destination.toUpperCase()}"
+        : nextTime;
+
+    final subStopInfo = nextSubStop.isNotEmpty
+        ? (isOnBus ? "NEXT STOP: ${nextSubStop.toUpperCase()}" : "VIA: ${nextSubStop.toUpperCase()}")
+        : (minutesRemaining >= 0 ? "DEPARTS IN $minutesRemaining MIN" : "CHECK SCHEDULE");
+
+    final borderColor = isOnBus ? accentTeal : accentAmber;
+
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -828,10 +853,10 @@ class BusHomeWidget extends StatelessWidget {
         height: 200,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: AppTheme.fhBgDark,
+          color: bgPanel,
           border: Border.all(
-            color: isOnBus ? AppTheme.fhAccentGreen : AppTheme.fhAccentGold,
-            width: 2,
+            color: borderColor,
+            width: 1.5,
           ),
           borderRadius: BorderRadius.circular(12),
         ),
@@ -841,93 +866,92 @@ class BusHomeWidget extends StatelessWidget {
             // Header Row
             Row(
               children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: isOnBus ? AppTheme.fhAccentGreen : AppTheme.fhAccentGold,
-                    shape: BoxShape.rectangle,
+                Expanded(
+                  child: Text(
+                    statusBadge,
+                    style: TextStyle(
+                      color: isOnBus ? accentTeal : accentAmber,
+                      fontSize: 10,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 8),
                 Text(
-                  isOnBus ? "TRANSIT // ON BUS" : "BUS RADAR // STANDBY",
-                  style: TextStyle(
-                    color: isOnBus ? AppTheme.fhAccentGreen : AppTheme.fhAccentGold,
-                    fontSize: 11,
+                  speedLabel,
+                  style: const TextStyle(
+                    color: textMuted,
                     fontFamily: 'monospace',
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  isOnBus && speedKmh > 0 ? "$speedKmh KM/H" : "GPS READY",
-                  style: TextStyle(
-                    color: AppTheme.fhTextDisabled,
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    letterSpacing: 1.2,
+                    fontSize: 9.5,
+                    letterSpacing: 1.0,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
+            // Route Name
             Text(
               "${origin.toUpperCase()} → ${destination.toUpperCase()}",
-              style: TextStyle(
-                color: AppTheme.fhTextSecondary,
-                fontSize: 13,
+              style: const TextStyle(
+                color: textMid,
+                fontSize: 11,
                 fontFamily: 'monospace',
-                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             const Spacer(),
+            // Main Time (Bright white text matching widget_text_white)
             Text(
-              isOnBus && minutesRemaining >= 0
-                  ? "ETA ~${minutesRemaining}M TO $destination"
-                  : (minutesRemaining >= 0 ? "$nextTime (${minutesRemaining}m)" : nextTime),
+              mainTimeText,
               style: const TextStyle(
-                color: AppTheme.fhLightTextPrimary,
-                fontSize: 26,
-                fontFamily: AppTheme.fontDisplay,
+                color: textWhite,
+                fontSize: 24,
+                fontFamily: 'monospace',
                 fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
               ),
               maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            if (nextSubStop.isNotEmpty) ...[
-              const SizedBox(height: 2),
-              Text(
-                isOnBus ? "NEXT STOP: ${nextSubStop.toUpperCase()}" : "VIA: ${nextSubStop.toUpperCase()}",
-                style: TextStyle(
-                  color: AppTheme.fhAccentTeal,
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.bold,
-                ),
+            const SizedBox(height: 2),
+            // Sub-Stop / Telemetry info
+            Text(
+              subStopInfo,
+              style: const TextStyle(
+                color: accentCyan,
+                fontSize: 10.5,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.6,
               ),
-            ],
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             const Spacer(),
+            // Action Buttons
             Row(
               children: [
                 Expanded(
                   child: Container(
-                    height: 32,
+                    height: 34,
                     decoration: BoxDecoration(
-                      border: Border.all(color: AppTheme.fhAccentGold, width: 1.5),
+                      border: Border.all(color: accentAmber, width: 1.5),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     alignment: Alignment.center,
-                    child: Text(
+                    child: const Text(
                       "⇄ SWAP",
                       style: TextStyle(
-                        color: AppTheme.fhAccentGold,
-                        fontFamily: AppTheme.fontDisplay,
-                        fontSize: 12,
+                        color: accentAmber,
+                        fontFamily: 'monospace',
+                        fontSize: 11.5,
                         fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
+                        letterSpacing: 0.8,
                       ),
                     ),
                   ),
@@ -936,20 +960,20 @@ class BusHomeWidget extends StatelessWidget {
                 Expanded(
                   flex: 2,
                   child: Container(
-                    height: 32,
+                    height: 34,
                     decoration: BoxDecoration(
-                      color: AppTheme.fhAccentGold,
+                      color: accentAmber,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     alignment: Alignment.center,
                     child: const Text(
                       "TIMETABLE",
                       style: TextStyle(
-                        color: Colors.black,
-                        fontFamily: AppTheme.fontDisplay,
-                        fontSize: 12,
+                        color: bgDeep,
+                        fontFamily: 'monospace',
+                        fontSize: 11.5,
                         fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
+                        letterSpacing: 0.8,
                       ),
                     ),
                   ),

@@ -68,6 +68,27 @@ class HomeWidgetService {
     Future.microtask(() => cb(action));
   }
 
+  // ── Pin Widget to Home Screen ──────────────────────────────────────────
+
+  Future<bool> requestPinWidget(String providerName) async {
+    if (!_supported) return false;
+    try {
+      await HomeWidget.requestPinWidget(
+        androidName: providerName.split('.').last,
+        qualifiedAndroidName: providerName,
+      );
+      return true;
+    } catch (e) {
+      debugPrint('[HomeWidget] requestPinWidget $providerName error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> requestPinBus() => requestPinWidget(_providerBus);
+  Future<bool> requestPinTask() => requestPinWidget(_providerRunning);
+  Future<bool> requestPinFinance() => requestPinWidget(_providerFinance);
+  Future<bool> requestPinJournal() => requestPinWidget(_providerJournal);
+
   // ── Publish ────────────────────────────────────────────────────────────
 
   Future<void> publishTask({

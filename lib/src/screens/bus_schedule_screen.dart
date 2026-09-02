@@ -44,17 +44,38 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
     _clockTimer = Timer.periodic(const Duration(seconds: 15), (_) => _updateTime());
   }
 
-  BusRoute? _getActiveRoute() {
-    final normOrigin = _origin.toLowerCase().trim();
-    final normDest = _destination.toLowerCase().trim();
+  bool _matchesRoute(BusRoute r, String origin, String dest) {
+    final normOrigin = origin.toLowerCase().trim();
+    final normDest = dest.toLowerCase().trim();
 
-    return _allRoutes.where((r) {
-      final rOrig = r.name.toLowerCase();
-      final rDest = r.name.toLowerCase();
-      return (rOrig.contains(normOrigin) || r.originId.toLowerCase().contains(normOrigin)) &&
-          (rDest.contains(normDest) || r.destinationId.toLowerCase().contains(normDest));
-    }).firstOrNull ??
-        _allRoutes.where((r) => r.originId == _origin && r.destinationId == _destination).firstOrNull ??
+    final rOrigName = _allStops.where((s) => s.id.toLowerCase() == r.originId.toLowerCase()).firstOrNull?.name ?? r.originId;
+    final rDestName = _allStops.where((s) => s.id.toLowerCase() == r.destinationId.toLowerCase()).firstOrNull?.name ?? r.destinationId;
+
+    if (rOrigName.toLowerCase().trim() == normOrigin && rDestName.toLowerCase().trim() == normDest) {
+      return true;
+    }
+
+    if (r.name.contains('→')) {
+      final parts = r.name.split('→');
+      if (parts.length == 2 &&
+          parts[0].trim().toLowerCase() == normOrigin &&
+          parts[1].trim().toLowerCase() == normDest) {
+        return true;
+      }
+    } else if (r.name.contains('->')) {
+      final parts = r.name.split('->');
+      if (parts.length == 2 &&
+          parts[0].trim().toLowerCase() == normOrigin &&
+          parts[1].trim().toLowerCase() == normDest) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  BusRoute? _getActiveRoute() {
+    return _allRoutes.where((r) => _matchesRoute(r, _origin, _destination)).firstOrNull ??
         _buildFallbackDerivedRoute(_origin, _destination);
   }
 
@@ -71,7 +92,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
     final departures = _getDeparturesForRoute(origin, dest);
 
     return BusRoute(
-      id: 'fallback_${origin.toLowerCase()}_to_${dest.toLowerCase()}',
+      id: 'fallback_${origin.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}_to_${dest.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}',
       originId: origin,
       destinationId: dest,
       name: '${DefaultBusNetwork.formatPlaceName(origin)} → ${DefaultBusNetwork.formatPlaceName(dest)}',
@@ -83,14 +104,13 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
   }
 
   List<String> _getDeparturesForRoute(String origin, String dest) {
+    final matched = _allRoutes.where((r) => _matchesRoute(r, origin, dest)).firstOrNull;
+    if (matched != null && matched.departures.isNotEmpty) {
+      return matched.departures;
+    }
+
     final normOrigin = origin.toLowerCase().trim();
     final normDest = dest.toLowerCase().trim();
-
-    for (final r in _allRoutes) {
-      if (r.name.toLowerCase().contains(normOrigin) && r.name.toLowerCase().contains(normDest)) {
-        if (r.departures.isNotEmpty) return r.departures;
-      }
-    }
 
     final scheduleMap = DefaultBusNetwork.getDefaultScheduleMap();
     for (final k in scheduleMap.keys) {
@@ -103,12 +123,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       }
     }
 
-    return const [
-      "06:30 AM", "07:15 AM", "08:00 AM", "08:35 AM", "09:15 AM", "10:00 AM",
-      "10:45 AM", "11:30 AM", "12:15 PM", "01:00 PM", "01:45 PM", "02:30 PM",
-      "03:15 PM", "04:00 PM", "04:45 PM", "05:30 PM", "06:15 PM", "07:00 PM",
-      "07:45 PM", "08:30 PM"
-    ];
+    return const [];
   }
 
   Future<void> _loadSchedules() async {
@@ -202,7 +217,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       final provider = Provider.of<AppProvider>(context, listen: false);
       final newSettings = AppSettings.fromJson(provider.settings.toJson());
 
-      // 1. Build scheduleMap from _allRoutes
+      // 1. Build scheduleMap strictly directional from _allRoutes
       final Map<String, Map<String, List<String>>> customMap = {};
       for (final r in _allRoutes) {
         final origName = _allStops.where((s) => s.id == r.originId).firstOrNull?.name ?? r.originId;
@@ -212,40 +227,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
         if (!customMap.containsKey(formOrig)) {
           customMap[formOrig] = {};
         }
-        customMap[formOrig]![formDst] = r.departures;
-      }
-
-      // 2. Auto addition of two-way bidirectional data and derived routes
-      DefaultBusNetwork.calculateAndFillDerivedSchedules(customMap);
-
-      // 3. Update all routes with derived two-way departures
-      for (final orig in customMap.keys) {
-        for (final dst in customMap[orig]!.keys) {
-          final deps = customMap[orig]![dst]!;
-          final idx = _allRoutes.indexWhere((r) {
-            final rOrig = _allStops.where((s) => s.id == r.originId).firstOrNull?.name ?? r.originId;
-            final rDst = _allStops.where((s) => s.id == r.destinationId).firstOrNull?.name ?? r.destinationId;
-            return rOrig.toLowerCase() == orig.toLowerCase() && rDst.toLowerCase() == dst.toLowerCase();
-          });
-
-          if (idx >= 0) {
-            _allRoutes[idx] = _allRoutes[idx].copyWith(departures: deps, subStops: const []);
-          } else {
-            // Auto create route if missing
-            _allRoutes.add(
-              BusRoute(
-                id: 'route_${orig.toLowerCase().replaceAll(' ', '_')}_to_${dst.toLowerCase().replaceAll(' ', '_')}',
-                originId: orig,
-                destinationId: dst,
-                name: '$orig → $dst',
-                distanceKm: 12.0,
-                baseDurationMinutes: 25,
-                subStops: const [],
-                departures: deps,
-              ),
-            );
-          }
-        }
+        customMap[formOrig]![formDst] = List<String>.from(r.departures);
       }
 
       newSettings.customBusStopsJson = _allStops.map((s) => s.toJson()).toList();
@@ -257,7 +239,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       provider.setSettings(newSettings);
 
       _syncWidget();
-      setState(() {});
+      if (mounted) setState(() {});
     } catch (e) {
       debugPrint("Error saving schedules: $e");
     }
@@ -396,16 +378,16 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
           currentDeps.sort((a, b) => _timeToMinutes(a).compareTo(_timeToMinutes(b)));
         }
 
-        final idx = _allRoutes.indexWhere((r) => r.id == route.id);
+        final idx = _allRoutes.indexWhere((r) => _matchesRoute(r, _origin, _destination));
         if (idx >= 0) {
           _allRoutes[idx] = route.copyWith(departures: currentDeps, subStops: const []);
         } else {
           _allRoutes.add(
             BusRoute(
-              id: route.id,
-              originId: route.originId,
-              destinationId: route.destinationId,
-              name: route.name,
+              id: 'route_${_origin.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}_to_${_destination.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}',
+              originId: _origin,
+              destinationId: _destination,
+              name: '$_origin → $_destination',
               distanceKm: route.distanceKm,
               baseDurationMinutes: route.baseDurationMinutes,
               subStops: const [],
@@ -424,7 +406,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       final currentDeps = List<String>.from(route.departures);
       currentDeps.remove(time);
 
-      final idx = _allRoutes.indexWhere((r) => r.id == route.id);
+      final idx = _allRoutes.indexWhere((r) => _matchesRoute(r, _origin, _destination));
       if (idx >= 0) {
         _allRoutes[idx] = route.copyWith(departures: currentDeps, subStops: const []);
       }
@@ -463,7 +445,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                "Paste or edit departure times separated by commas or newlines (e.g. 08:00 AM, 08:15 AM, 01:30 PM). Updating synchronizes two-way return data and broadcasts to widget.",
+                "Paste or edit departure times separated by commas or newlines (e.g. 08:00 AM, 08:15 AM, 01:30 PM). Changes apply specifically to this route direction.",
                 style: GoogleFonts.rajdhani(color: JweTheme.textMuted, fontSize: 12),
               ),
               const SizedBox(height: 12),
@@ -517,16 +499,16 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
 
                 final route = _getActiveRoute();
                 if (route != null) {
-                  final idx = _allRoutes.indexWhere((r) => r.id == route.id);
+                  final idx = _allRoutes.indexWhere((r) => _matchesRoute(r, _origin, _destination));
                   if (idx >= 0) {
                     _allRoutes[idx] = route.copyWith(departures: distinctList, subStops: const []);
                   } else {
                     _allRoutes.add(
                       BusRoute(
-                        id: route.id,
-                        originId: route.originId,
-                        destinationId: route.destinationId,
-                        name: route.name,
+                        id: 'route_${_origin.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}_to_${_destination.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}',
+                        originId: _origin,
+                        destinationId: _destination,
+                        name: '$_origin → $_destination',
                         distanceKm: route.distanceKm,
                         baseDurationMinutes: route.baseDurationMinutes,
                         subStops: const [],
@@ -1032,62 +1014,80 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                     children: [
                       // ── Tactical Header Bar ─────────────────────────────
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: Icon(Icons.arrow_back, color: JweTheme.textWhite, size: 20),
-                                onPressed: () => Navigator.pop(context),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                              ),
-                              const SizedBox(width: 12),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "ARCANE TRANSIT RADAR",
-                                    style: GoogleFonts.rajdhani(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 2.0,
-                                      color: JweTheme.accentAmber,
-                                    ),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  icon: Icon(Icons.arrow_back, color: JweTheme.textWhite, size: 20),
+                                  onPressed: () => Navigator.pop(context),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        "ARCANE TRANSIT RADAR",
+                                        style: GoogleFonts.rajdhani(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.2,
+                                          color: JweTheme.accentAmber,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        "LIVE BUS TELEMETRY & DISPATCH",
+                                        style: GoogleFonts.jetBrainsMono(
+                                          fontSize: 8.0,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.8,
+                                          color: JweTheme.textMuted,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
                                   ),
-                                  Text(
-                                    "LIVE BUS TELEMETRY & DISPATCH",
-                                    style: GoogleFonts.jetBrainsMono(
-                                      fontSize: 8.5,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1.0,
-                                      color: JweTheme.textMuted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                                ),
+                              ],
+                            ),
                           ),
+                          const SizedBox(width: 6),
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: Icon(MdiIcons.mapMarkerPlus, color: JweTheme.accentAmber, size: 20),
+                                icon: Icon(MdiIcons.mapMarkerPlus, color: JweTheme.accentAmber, size: 18),
                                 tooltip: "Add Place",
+                                padding: const EdgeInsets.all(6),
+                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                                 onPressed: () => _showAddLocationDialog(),
                               ),
                               IconButton(
-                                icon: Icon(MdiIcons.codeBrackets, color: JweTheme.accentAmber, size: 20),
+                                icon: Icon(MdiIcons.codeBrackets, color: JweTheme.accentAmber, size: 18),
                                 tooltip: "Raw Transmission Edit",
+                                padding: const EdgeInsets.all(6),
+                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                                 onPressed: _showRawTransmissionEditor,
                               ),
                               IconButton(
-                                icon: Icon(MdiIcons.swapVertical, color: JweTheme.accentCyan, size: 20),
+                                icon: Icon(MdiIcons.swapVertical, color: JweTheme.accentCyan, size: 18),
                                 tooltip: "Swap Direction",
+                                padding: const EdgeInsets.all(6),
+                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                                 onPressed: _swapLocations,
                               ),
                               IconButton(
-                                icon: Icon(MdiIcons.cogOutline, color: JweTheme.textMid, size: 20),
+                                icon: Icon(MdiIcons.cogOutline, color: JweTheme.textMid, size: 18),
                                 tooltip: "Transit Config",
+                                padding: const EdgeInsets.all(6),
+                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                                 onPressed: _showTransitSettingsSheet,
                               ),
                             ],

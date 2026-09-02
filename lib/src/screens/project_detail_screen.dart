@@ -112,11 +112,19 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
     }
   }
 
-  void _showAddReleaseDialog(BuildContext context, AppProvider provider, Project project) {
-    final versionController = TextEditingController();
-    final titleController = TextEditingController();
-    DateTime? selectedDate;
-    bool isReleased = false;
+  void _showAddOrEditReleaseDialog(
+    BuildContext context,
+    AppProvider provider,
+    Project project, {
+    ProjectRelease? existingRelease,
+    Color? accent,
+  }) {
+    final accentColor = accent ?? provider.getSelectedTask()?.taskColor ?? JweTheme.accentAmber;
+    final isEditing = existingRelease != null;
+    final versionController = TextEditingController(text: existingRelease?.version ?? '');
+    final titleController = TextEditingController(text: existingRelease?.title ?? '');
+    DateTime? selectedDate = existingRelease?.date;
+    bool isReleased = existingRelease?.isReleased ?? false;
 
     showDialog(
       context: context,
@@ -125,11 +133,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
           backgroundColor: JweTheme.panel,
           scrollable: true,
           shape: RoundedRectangleBorder(
-            side: BorderSide(color: JweTheme.accentAmber, width: 2),
+            side: BorderSide(color: accentColor, width: 2),
             borderRadius: BorderRadius.zero,
           ),
           title: Text(
-            'PLAN PROJECT RELEASE',
+            isEditing ? 'MODIFY PROJECT RELEASE' : 'PLAN PROJECT RELEASE',
             style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold),
           ),
           content: Column(
@@ -142,7 +150,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
                   labelText: 'VERSION (e.g. v1.0.0)',
                   labelStyle:  TextStyle(color: JweTheme.textMuted),
                   enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
-                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
+                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: accentColor)),
                 ),
               ),
               const SizedBox(height: 12),
@@ -153,7 +161,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
                   labelText: 'RELEASE TITLE / MILESTONE',
                   labelStyle:  TextStyle(color: JweTheme.textMuted),
                   enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
-                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
+                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: accentColor)),
                 ),
               ),
               const SizedBox(height: 16),
@@ -163,11 +171,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
                   selectedDate == null ? 'SELECT TARGET DATE' : DateFormat('yyyy-MM-dd').format(selectedDate!),
                   style: TextStyle(color: selectedDate == null ? JweTheme.textMuted : JweTheme.textWhite, fontSize: 13),
                 ),
-                trailing: Icon(MdiIcons.calendar, color: JweTheme.accentAmber),
+                trailing: Icon(MdiIcons.calendar, color: accentColor),
                 onTap: () async {
                   final picked = await showDatePicker(
                     context: context,
-                    initialDate: DateTime.now(),
+                    initialDate: selectedDate ?? DateTime.now(),
                     firstDate: DateTime.now().subtract(const Duration(days: 365)),
                     lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
                   );
@@ -179,7 +187,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title:  Text('MARK AS SHIPPED', style: TextStyle(color: JweTheme.textWhite, fontSize: 13)),
-                activeThumbColor: JweTheme.accentAmber,
+                activeThumbColor: accentColor,
                 value: isReleased,
                 onChanged: (val) => setDialogState(() => isReleased = val),
               ),
@@ -192,7 +200,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: JweTheme.accentAmber,
+                backgroundColor: accentColor,
                 foregroundColor: JweTheme.onAccent,
                 shape: const BeveledRectangleBorder(),
               ),
@@ -200,21 +208,32 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
                 final version = versionController.text.trim();
                 final title = titleController.text.trim();
                 if (version.isNotEmpty && title.isNotEmpty) {
-                  final newRelease = ProjectRelease(
-                    id: const Uuid().v4(),
-                    version: version,
-                    title: title,
-                    date: selectedDate,
-                    isReleased: isReleased,
-                  );
-                  final updated = project.copyWith(
-                    releases: [...project.releases, newRelease],
-                  );
-                  provider.updateProject(updated);
+                  if (isEditing) {
+                    final updatedRelease = existingRelease.copyWith(
+                      version: version,
+                      title: title,
+                      date: selectedDate,
+                      isReleased: isReleased,
+                    );
+                    final updatedReleases = project.releases.map((r) => r.id == existingRelease.id ? updatedRelease : r).toList();
+                    provider.updateProject(project.copyWith(releases: updatedReleases));
+                  } else {
+                    final newRelease = ProjectRelease(
+                      id: const Uuid().v4(),
+                      version: version,
+                      title: title,
+                      date: selectedDate,
+                      isReleased: isReleased,
+                    );
+                    final updated = project.copyWith(
+                      releases: [...project.releases, newRelease],
+                    );
+                    provider.updateProject(updated);
+                  }
                   Navigator.pop(ctx);
                 }
               },
-              child: const Text('SAVE'),
+              child: Text(isEditing ? 'UPDATE' : 'SAVE'),
             ),
           ],
         ),
@@ -222,9 +241,17 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
     );
   }
 
-  void _showAddNoteDialog(BuildContext context, AppProvider provider, Project project) {
-    final titleController = TextEditingController();
-    final contentController = TextEditingController();
+  void _showAddOrEditNoteDialog(
+    BuildContext context,
+    AppProvider provider,
+    Project project, {
+    ProjectNote? existingNote,
+    Color? accent,
+  }) {
+    final accentColor = accent ?? provider.getSelectedTask()?.taskColor ?? JweTheme.accentAmber;
+    final isEditing = existingNote != null;
+    final titleController = TextEditingController(text: existingNote?.title ?? '');
+    final contentController = TextEditingController(text: existingNote?.content ?? '');
 
     showDialog(
       context: context,
@@ -232,11 +259,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
         backgroundColor: JweTheme.panel,
         scrollable: true,
         shape: RoundedRectangleBorder(
-          side: BorderSide(color: JweTheme.accentAmber, width: 2),
+          side: BorderSide(color: accentColor, width: 2),
           borderRadius: BorderRadius.zero,
         ),
         title: Text(
-          'ADD PROTOCOL NOTE',
+          isEditing ? 'EDIT PROTOCOL NOTE' : 'ADD PROTOCOL NOTE',
           style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold),
         ),
         content: Column(
@@ -249,19 +276,19 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
                 labelText: 'NOTE TITLE',
                 labelStyle:  TextStyle(color: JweTheme.textMuted),
                 enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: accentColor)),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: contentController,
-              maxLines: 4,
+              maxLines: 5,
               style:  TextStyle(color: JweTheme.textWhite),
               decoration: InputDecoration(
                 labelText: 'CONTENT',
                 labelStyle:  TextStyle(color: JweTheme.textMuted),
                 enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: accentColor)),
               ),
             ),
           ],
@@ -273,28 +300,38 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: JweTheme.accentAmber,
+              backgroundColor: accentColor,
               foregroundColor: JweTheme.onAccent,
               shape: const BeveledRectangleBorder(),
             ),
             onPressed: () {
               final title = titleController.text.trim();
               final content = contentController.text.trim();
-              if (title.isNotEmpty && content.isNotEmpty) {
-                final newNote = ProjectNote(
-                  id: const Uuid().v4(),
-                  title: title,
-                  content: content,
-                  createdAt: DateTime.now(),
-                );
-                final updated = project.copyWith(
-                  notes: [newNote, ...project.notes],
-                );
-                provider.updateProject(updated);
+              if (title.isNotEmpty || content.isNotEmpty) {
+                if (isEditing) {
+                  final updatedNote = existingNote.copyWith(
+                    title: title.isNotEmpty ? title : 'UNTITLED NOTE',
+                    content: content,
+                  );
+                  final updatedNotes = project.notes.map((n) => n.id == existingNote.id ? updatedNote : n).toList();
+                  final updated = project.copyWith(notes: updatedNotes);
+                  provider.updateProject(updated);
+                } else {
+                  final newNote = ProjectNote(
+                    id: const Uuid().v4(),
+                    title: title.isNotEmpty ? title : 'UNTITLED NOTE',
+                    content: content,
+                    createdAt: DateTime.now(),
+                  );
+                  final updated = project.copyWith(
+                    notes: [newNote, ...project.notes],
+                  );
+                  provider.updateProject(updated);
+                }
                 Navigator.pop(ctx);
               }
             },
-            child: const Text('SAVE'),
+            child: Text(isEditing ? 'UPDATE' : 'SAVE'),
           ),
         ],
       ),
@@ -618,7 +655,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
               ),
               const Spacer(),
               TextButton.icon(
-                onPressed: () => _showAddReleaseDialog(context, provider, project),
+                onPressed: () => _showAddOrEditReleaseDialog(context, provider, project, accent: accentColor),
                 icon: Icon(MdiIcons.plus, size: 14, color: accentColor),
                 label: Text('PLAN RELEASE', style: TextStyle(color: accentColor, fontSize: 11)),
               ),
@@ -703,6 +740,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
                   ],
                 ],
               ),
+            ),
+            IconButton(
+              icon: Icon(MdiIcons.pencilOutline, color: accentColor, size: 18),
+              tooltip: 'Edit Release',
+              onPressed: () => _showAddOrEditReleaseDialog(context, provider, project, existingRelease: release, accent: accentColor),
             ),
             IconButton(
               icon: Icon(
@@ -973,7 +1015,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
               ),
               const Spacer(),
               TextButton.icon(
-                onPressed: () => _showAddNoteDialog(context, provider, project),
+                onPressed: () => _showAddOrEditNoteDialog(context, provider, project, accent: accentColor),
                 icon: Icon(MdiIcons.plus, size: 14, color: accentColor),
                 label: Text('ADD LOG ENTRY', style: TextStyle(color: accentColor, fontSize: 11)),
               ),
@@ -990,10 +1032,22 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
               child:  Text('NO LOG ENTRIES CREATED.', style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
             )
           else
-            ...project.notes.map((n) => _ProjectNoteCard(note: n, onDelete: () {
-                  final updatedNotes = project.notes.where((note) => note.id != n.id).toList();
-                  provider.updateProject(project.copyWith(notes: updatedNotes));
-                })),
+            ...project.notes.map((n) => _ProjectNoteCard(
+                  key: ValueKey(n.id),
+                  note: n,
+                  accentColor: accentColor,
+                  onEdit: () => _showAddOrEditNoteDialog(
+                    context,
+                    provider,
+                    project,
+                    existingNote: n,
+                    accent: accentColor,
+                  ),
+                  onDelete: () {
+                    final updatedNotes = project.notes.where((note) => note.id != n.id).toList();
+                    provider.updateProject(project.copyWith(notes: updatedNotes));
+                  },
+                )),
         ],
       ),
     );
@@ -1195,9 +1249,17 @@ class _ProjectDetailViewState extends State<ProjectDetailView> with SingleTicker
 
 class _ProjectNoteCard extends StatefulWidget {
   final ProjectNote note;
+  final Color accentColor;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
-  const _ProjectNoteCard({required this.note, required this.onDelete});
+  const _ProjectNoteCard({
+    super.key,
+    required this.note,
+    required this.accentColor,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   State<_ProjectNoteCard> createState() => _ProjectNoteCardState();
@@ -1208,56 +1270,123 @@ class _ProjectNoteCardState extends State<_ProjectNoteCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: JweTheme.panel,
-      margin: const EdgeInsets.only(bottom: 10),
-      shape:  Border(left: BorderSide(color: JweTheme.textMuted, width: 2)),
-      child: InkWell(
-        onTap: () => setState(() => _expanded = !_expanded),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.note.title.toUpperCase(),
-                          style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                        Text(
-                          DateFormat('yyyy-MM-dd HH:mm').format(widget.note.createdAt),
-                          style:  TextStyle(color: JweTheme.textMuted, fontSize: 9),
-                        ),
-                      ],
+    return Dismissible(
+      key: ValueKey(widget.note.id),
+      direction: DismissDirection.startToEnd,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: JweTheme.accentRed.withValues(alpha: 0.85),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.delete_outline, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'DELETE ENTRY',
+              style: GoogleFonts.jetBrainsMono(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 10,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+      confirmDismiss: (direction) async {
+        return await showDialog<bool>(
+          context: context,
+          builder: (confirmCtx) => AlertDialog(
+            backgroundColor: JweTheme.panel,
+            shape: RoundedRectangleBorder(
+              side: BorderSide(color: JweTheme.accentRed, width: 2),
+              borderRadius: BorderRadius.zero,
+            ),
+            title: Text(
+              'DELETE NOTE ENTRY?',
+              style: GoogleFonts.rajdhani(color: JweTheme.accentRed, fontWeight: FontWeight.bold),
+            ),
+            content: Text(
+              'Delete note "${widget.note.title}"?',
+              style: TextStyle(color: JweTheme.textMuted),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(confirmCtx, false),
+                child: Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: JweTheme.accentRed,
+                  foregroundColor: Colors.white,
+                  shape: const BeveledRectangleBorder(),
+                ),
+                onPressed: () => Navigator.pop(confirmCtx, true),
+                child: const Text('DELETE'),
+              ),
+            ],
+          ),
+        );
+      },
+      onDismissed: (direction) {
+        widget.onDelete();
+      },
+      child: Card(
+        color: JweTheme.panel,
+        margin: const EdgeInsets.only(bottom: 10),
+        shape: Border(left: BorderSide(color: widget.accentColor.withValues(alpha: 0.8), width: 3)),
+        child: InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          onLongPress: widget.onEdit,
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.note.title.toUpperCase(),
+                            style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            DateFormat('yyyy-MM-dd HH:mm').format(widget.note.createdAt),
+                            style: TextStyle(color: JweTheme.textMuted, fontSize: 9),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      _expanded ? MdiIcons.chevronUp : MdiIcons.chevronDown,
+                      color: JweTheme.textMuted,
+                      size: 18,
+                    ),
+                  ],
+                ),
+                if (_expanded) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: ArcSurfaces.dim(0.3),
+                      border: Border.all(color: JweTheme.border),
+                    ),
+                    child: Text(
+                      widget.note.content,
+                      style: GoogleFonts.inter(color: JweTheme.textMid, fontSize: 12, height: 1.4),
                     ),
                   ),
-                  Icon(
-                    _expanded ? MdiIcons.chevronUp : MdiIcons.chevronDown,
-                    color: JweTheme.textMuted,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon:  Icon(MdiIcons.deleteOutline, color: JweTheme.accentRed, size: 18),
-                    constraints: const BoxConstraints(),
-                    padding: EdgeInsets.zero,
-                    onPressed: widget.onDelete,
-                  ),
                 ],
-              ),
-              if (_expanded) ...[
-                const SizedBox(height: 8),
-                Text(
-                  widget.note.content,
-                  style: GoogleFonts.inter(color: JweTheme.textMid, fontSize: 12, height: 1.4),
-                ),
               ],
-            ],
+            ),
           ),
         ),
       ),

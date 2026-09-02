@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
@@ -144,6 +145,11 @@ class WidgetActionRouter {
         _push((_) => const BusScheduleScreen());
         break;
       case 'bus_swap':
+        _busSwap(provider);
+        if (!silent) {
+          _push((_) => const BusScheduleScreen());
+        }
+        break;
       case 'bus_locate':
         if (!silent) {
           _push((_) => const BusScheduleScreen());
@@ -247,6 +253,18 @@ class WidgetActionRouter {
       )..remove(queueId);
       provider.taskActions.updateDayPlan(helper.getTodayDateString(), plan);
     }
+  }
+
+  void _busSwap(AppProvider provider) {
+    try {
+      final settings = provider.settings;
+      final orig = settings.lastSelectedBusOrigin ?? 'S.S College';
+      final dest = settings.lastSelectedBusDestination ?? 'Edavannappara';
+      final newSettings = AppSettings.fromJson(settings.toJson());
+      newSettings.lastSelectedBusOrigin = dest;
+      newSettings.lastSelectedBusDestination = orig;
+      provider.setSettings(newSettings);
+    } catch (_) {}
   }
 
   ({

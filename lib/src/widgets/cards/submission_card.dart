@@ -105,6 +105,12 @@ class SubmissionCard extends StatelessWidget {
             final wasCompleted = isCompleted;
             final subId = current.id;
             final mainId = parentTask.id;
+            final savedTasks = provider.mainTasks.map((t) => t.copyWith(
+              subTasks: t.subTasks.map((st) => st.copyWith(
+                subSubTasks: st.subSubTasks.map((sss) => sss.copyWith()).toList(),
+              )).toList(),
+            )).toList();
+
             if (isCompleted) {
               provider.taskActions.uncompleteSubtask(mainId, subId);
             } else {
@@ -113,11 +119,7 @@ class SubmissionCard extends StatelessWidget {
             showUndoSnackBar(
               message: wasCompleted ? 'Directive marked incomplete' : 'Directive completed',
               onUndo: () {
-                if (wasCompleted) {
-                  provider.taskActions.completeSubtask(mainId, subId);
-                } else {
-                  provider.taskActions.uncompleteSubtask(mainId, subId);
-                }
+                provider.setProviderState(mainTasks: savedTasks);
               },
             );
             return false;

@@ -350,33 +350,87 @@ class HomeWidgetPublisher {
   Future<void> _publishBus({bool force = false}) async {
     try {
       final live = BusLocationService.instance.currentState;
-      final routes = DefaultBusNetwork.getRoutes();
-      final stops = DefaultBusNetwork.stops;
+      final settings = _provider.settings;
 
+      // 1. Resolve Stops & Routes (Custom or default)
+      List<BusStop> stops = DefaultBusNetwork.stops;
+      if (settings.customBusStopsJson != null && settings.customBusStopsJson!.isNotEmpty) {
+        stops = settings.customBusStopsJson!.map((e) => BusStop.fromJson(e)).toList();
+      }
+
+      List<BusRoute> routes = DefaultBusNetwork.getRoutes();
+      if (settings.customBusRoutesJson != null && settings.customBusRoutesJson!.isNotEmpty) {
+        routes = settings.customBusRoutesJson!.map((e) => BusRoute.fromJson(e)).toList();
+      }
+
+      // 2. Resolve focused Origin and Destination
       String origin = 'S.S College';
-      String destination = 'EDAVANNAPPARA';
+      String destination = 'Edavannappara';
 
       if (live.activeRoute != null) {
         origin = live.activeRoute!.originId;
         destination = live.activeRoute!.destinationId;
-        final origStop = stops.firstWhereOrNull((s) => s.id == origin);
-        final destStop = stops.firstWhereOrNull((s) => s.id == destination);
+        final origStop = stops.firstWhereOrNull((s) => s.id == origin || s.name.toLowerCase() == origin.toLowerCase());
+        final destStop = stops.firstWhereOrNull((s) => s.id == destination || s.name.toLowerCase() == destination.toLowerCase());
         if (origStop != null) origin = origStop.name;
         if (destStop != null) destination = destStop.name;
+      } else if (settings.lastSelectedBusOrigin != null && settings.lastSelectedBusDestination != null) {
+        origin = settings.lastSelectedBusOrigin!;
+        destination = settings.lastSelectedBusDestination!;
       }
 
-      // Find departures for this route
+      final normOrigin = origin.toLowerCase().trim();
+      final normDest = destination.toLowerCase().trim();
+
+      // 3. Find directional departures for this route
       List<String> departures = const [];
-      final activeR = routes.firstWhereOrNull(
-        (r) => r.originId.toLowerCase() == origin.toLowerCase() || r.name.toLowerCase().contains(origin.toLowerCase()),
-      );
-      if (activeR != null) {
-        departures = activeR.departures;
-      } else if (routes.isNotEmpty) {
-        departures = routes.first.departures;
+
+      // Check custom schedule map
+      if (settings.customBusSchedules != null && settings.customBusSchedules!.isNotEmpty) {
+        for (final k in settings.customBusSchedules!.keys) {
+          if (k.toLowerCase().trim() == normOrigin) {
+            for (final k2 in settings.customBusSchedules![k]!.keys) {
+              if (k2.toLowerCase().trim() == normDest && settings.customBusSchedules![k]![k2]!.isNotEmpty) {
+                departures = settings.customBusSchedules![k]![k2]!;
+                break;
+              }
+            }
+          }
+        }
       }
 
-      // Calculate next bus
+      // Check loaded routes directionally
+      if (departures.isEmpty) {
+        final activeR = routes.firstWhereOrNull((r) {
+          final rOrig = stops.firstWhereOrNull((s) => s.id.toLowerCase() == r.originId.toLowerCase())?.name ?? r.originId;
+          final rDest = stops.firstWhereOrNull((s) => s.id.toLowerCase() == r.destinationId.toLowerCase())?.name ?? r.destinationId;
+          if (rOrig.toLowerCase().trim() == normOrigin && rDest.toLowerCase().trim() == normDest) return true;
+          if (r.name.contains('→')) {
+            final parts = r.name.split('→');
+            if (parts.length == 2 && parts[0].trim().toLowerCase() == normOrigin && parts[1].trim().toLowerCase() == normDest) return true;
+          }
+          return false;
+        });
+        if (activeR != null && activeR.departures.isNotEmpty) {
+          departures = activeR.departures;
+        }
+      }
+
+      if (departures.isEmpty) {
+        final defaultMap = DefaultBusNetwork.getDefaultScheduleMap();
+        for (final k in defaultMap.keys) {
+          if (k.toLowerCase().trim() == normOrigin) {
+            for (final k2 in defaultMap[k]!.keys) {
+              if (k2.toLowerCase().trim() == normDest && defaultMap[k]![k2]!.isNotEmpty) {
+                departures = defaultMap[k]![k2]!;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      // 4. Calculate next bus
       final now = DateTime.now();
       final currentMinutes = now.hour * 60 + now.minute;
       String nextTime = '08:15 AM';
@@ -403,9 +457,12 @@ class HomeWidgetPublisher {
         } catch (_) {}
       }
 
+      final formOrigin = DefaultBusNetwork.formatPlaceName(origin);
+      final formDest = DefaultBusNetwork.formatPlaceName(destination);
+
       final key = [
-        origin,
-        destination,
+        formOrigin,
+        formDest,
         nextTime,
         live.isOnBus,
         live.nextSubStop?.name ?? '',
@@ -417,8 +474,8 @@ class HomeWidgetPublisher {
       _lastBusKey = key;
 
       await HomeWidgetService.instance.publishBus(
-        origin: origin,
-        destination: destination,
+        origin: formOrigin,
+        destination: formDest,
         nextTime: nextTime,
         nextSubStop: live.nextSubStop?.name ?? '',
         isOnBus: live.isOnBus,

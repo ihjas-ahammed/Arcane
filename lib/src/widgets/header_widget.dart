@@ -116,43 +116,83 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
             color: JweTheme.bgCanvas,
             border: Border(bottom: BorderSide(color: JweTheme.lineSoft, width: 1)),
           ),
-          child: Row(children: [
-            const HudDot(tone: HudTone.teal, size: 5),
-            const SizedBox(width: 8),
-            InkWell(
-              onTap: () => _editCallsign(context, appProvider, callsign),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(callsign,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const HudDot(tone: HudTone.teal, size: 5),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: InkWell(
+                        onTap: () => _editCallsign(context, appProvider, callsign),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                callsign,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.jetBrainsMono(
+                                  fontSize: 9.5,
+                                  color: JweTheme.textMid,
+                                  letterSpacing: 1.4,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(MdiIcons.pencilOutline, size: 10, color: JweTheme.textMuted),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(width: 2, height: 2, color: JweTheme.lineSoft),
+                    const SizedBox(width: 6),
+                    Text(
+                      'LVL $maxLevel',
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 9.5,
+                        color: JweTheme.accentCyan,
+                        letterSpacing: 1.2,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _dateLabel(),
                     style: GoogleFonts.jetBrainsMono(
-                      fontSize: 9.5, color: JweTheme.textMid, letterSpacing: 1.4, fontWeight: FontWeight.w600,
-                    )),
-                const SizedBox(width: 4),
-                Icon(MdiIcons.pencilOutline, size: 10, color: JweTheme.textMuted),
-              ]),
-            ),
-            const SizedBox(width: 6),
-            Container(width: 2, height: 2, color: JweTheme.lineSoft),
-            const SizedBox(width: 6),
-            Text('LVL $maxLevel',
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 9.5, color: JweTheme.accentCyan, letterSpacing: 1.2, fontWeight: FontWeight.w600,
-                )),
-            const Spacer(),
-            Flexible(
-              child: Text(_dateLabel(),
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 9.5, color: JweTheme.textMuted, letterSpacing: 1.2, fontWeight: FontWeight.w500,
-                  )),
-            ),
-            const SizedBox(width: 6),
-            Container(width: 2, height: 2, color: JweTheme.lineSoft),
-            const SizedBox(width: 6),
-            Text(clock,
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 9.5, color: Theme.of(context).primaryColor, letterSpacing: 1.4, fontWeight: FontWeight.w600,
-                )),
-          ]),
+                      fontSize: 9.5,
+                      color: JweTheme.textMuted,
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(width: 2, height: 2, color: JweTheme.lineSoft),
+                  const SizedBox(width: 6),
+                  Text(
+                    clock,
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 9.5,
+                      color: Theme.of(context).primaryColor,
+                      letterSpacing: 1.4,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
