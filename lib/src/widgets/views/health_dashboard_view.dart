@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 import 'package:collection/collection.dart';
 import 'package:missions/src/services/widget_action_router.dart';
 import 'package:missions/src/widgets/health/energy_panel.dart';
+import 'package:missions/src/utils/sleep_advisor_helper.dart';
 
 class HealthDashboardView extends StatefulWidget {
   const HealthDashboardView({super.key});
@@ -45,83 +46,177 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
 
   // --- Sleep Logging Dialog ---
   void _showSleepDialog(BuildContext context, AppProvider provider, String dateStr) {
-    final startController = TextEditingController(text: "23:00");
-    final endController = TextEditingController(text: "07:00");
+    TimeOfDay bedTime = const TimeOfDay(hour: 23, minute: 0);
+    TimeOfDay wakeTime = const TimeOfDay(hour: 7, minute: 0);
+
+    Widget buildTimePickerRow({
+      required BuildContext ctx,
+      required String label,
+      required TimeOfDay time,
+      required void Function(TimeOfDay picked) onSelected,
+    }) {
+      return InkWell(
+        onTap: () async {
+          final picked = await showTimePicker(
+            context: ctx,
+            initialTime: time,
+            builder: (pickerCtx, child) => Theme(
+              data: Theme.of(pickerCtx).copyWith(
+                colorScheme: JweTheme.pickerScheme(
+                  accent: JweTheme.accentCyan,
+                  surface: JweTheme.panel,
+                ),
+              ),
+              child: child!,
+            ),
+          );
+          if (picked != null) {
+            onSelected(picked);
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: JweTheme.bgCanvas.withValues(alpha: 0.35),
+            border: Border.all(color: JweTheme.border),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.textMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    time.format(ctx),
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.accentCyan,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              Icon(
+                MdiIcons.clockOutline,
+                size: 20,
+                color: JweTheme.accentCyan.withValues(alpha: 0.8),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: JweTheme.panel,
-        scrollable: true,
-        shape: RoundedRectangleBorder(
-          side: BorderSide(color: JweTheme.accentCyan, width: 2),
-          borderRadius: BorderRadius.zero,
-        ),
-        title: Text(
-          'LOG SLEEP RECORD',
-          style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: startController,
-              style:  TextStyle(color: JweTheme.textWhite),
-              decoration: InputDecoration(
-                labelText: 'BED TIME (HH:MM)',
-                labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
-                enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentCyan)),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: endController,
-              style:  TextStyle(color: JweTheme.textWhite),
-              decoration: InputDecoration(
-                labelText: 'WAKE TIME (HH:MM)',
-                labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
-                enabledBorder:  UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentCyan)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('ABORT', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: JweTheme.accentCyan,
-              foregroundColor: JweTheme.onAccent,
-              shape: const BeveledRectangleBorder(),
-            ),
-            onPressed: () {
-              final startParts = startController.text.split(':');
-              final endParts = endController.text.split(':');
-              if (startParts.length == 2 && endParts.length == 2) {
-                final now = DateTime.tryParse(dateStr) ?? DateTime.now();
-                final sh = int.tryParse(startParts[0]) ?? 23;
-                final sm = int.tryParse(startParts[1]) ?? 0;
-                final eh = int.tryParse(endParts[0]) ?? 7;
-                final em = int.tryParse(endParts[1]) ?? 0;
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) {
+          final now = DateTime.tryParse(dateStr) ?? DateTime.now();
+          final start = DateTime(now.year, now.month, now.day, bedTime.hour, bedTime.minute);
+          var end = DateTime(now.year, now.month, now.day, wakeTime.hour, wakeTime.minute);
+          if (end.isBefore(start)) end = end.add(const Duration(days: 1));
+          final diff = end.difference(start);
 
-                final start = DateTime(now.year, now.month, now.day, sh, sm);
-                var end = DateTime(now.year, now.month, now.day, eh, em);
-                if (end.isBefore(start)) end = end.add(const Duration(days: 1));
-
-                provider.addSleepLog(dateStr, SleepLog(
-                  id: const Uuid().v4(),
-                  startTime: start,
-                  endTime: end,
-                ));
-                Navigator.pop(ctx);
-              }
-            },
-            child: Text('LOG', style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.bold)),
-          ),
-        ],
+          return AlertDialog(
+            backgroundColor: JweTheme.panel,
+            scrollable: true,
+            shape: RoundedRectangleBorder(
+              side: BorderSide(color: JweTheme.accentCyan, width: 2),
+              borderRadius: BorderRadius.zero,
+            ),
+            title: Text(
+              'LOG SLEEP RECORD',
+              style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                buildTimePickerRow(
+                  ctx: dialogCtx,
+                  label: 'BED TIME',
+                  time: bedTime,
+                  onSelected: (picked) {
+                    setDialogState(() {
+                      bedTime = picked;
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                buildTimePickerRow(
+                  ctx: dialogCtx,
+                  label: 'WAKE TIME',
+                  time: wakeTime,
+                  onSelected: (picked) {
+                    setDialogState(() {
+                      wakeTime = picked;
+                    });
+                  },
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: JweTheme.accentCyan.withValues(alpha: 0.1),
+                    border: Border.all(color: JweTheme.accentCyan.withValues(alpha: 0.25)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(MdiIcons.informationOutline, size: 14, color: JweTheme.accentCyan),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          end.day != start.day
+                              ? "Crosses midnight • ${diff.inHours}h ${diff.inMinutes % 60}m duration"
+                              : "Same day • ${diff.inHours}h ${diff.inMinutes % 60}m duration",
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.textMid,
+                            fontSize: 10.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('ABORT', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: JweTheme.accentCyan,
+                  foregroundColor: JweTheme.onAccent,
+                  shape: const BeveledRectangleBorder(),
+                ),
+                onPressed: () {
+                  provider.addSleepLog(
+                    dateStr,
+                    SleepLog(
+                      id: const Uuid().v4(),
+                      startTime: start,
+                      endTime: end,
+                    ),
+                  );
+                  Navigator.pop(ctx);
+                },
+                child: Text('LOG', style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -502,6 +597,317 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
     );
   }
 
+  Widget _buildCircadianAdvisorCard(BuildContext context, AppProvider provider, DateTime refDate, String dateStr) {
+    final advisor = SleepAdvisorHelper.calculate(provider, refDate);
+
+    Color badgeBg;
+    Color badgeBorder;
+    Color badgeText;
+    String badgeLabel;
+
+    switch (advisor.napStatus) {
+      case NapWindowStatus.activeNow:
+        badgeBg = JweTheme.accentTeal.withValues(alpha: 0.2);
+        badgeBorder = JweTheme.accentTeal;
+        badgeText = JweTheme.accentTeal;
+        badgeLabel = 'ACTIVE WINDOW';
+        break;
+      case NapWindowStatus.upcoming:
+        badgeBg = JweTheme.accentAmber.withValues(alpha: 0.15);
+        badgeBorder = JweTheme.accentAmber.withValues(alpha: 0.5);
+        badgeText = JweTheme.accentAmber;
+        badgeLabel = 'RECOMMENDED';
+        break;
+      case NapWindowStatus.completedToday:
+        badgeBg = JweTheme.accentCyan.withValues(alpha: 0.15);
+        badgeBorder = JweTheme.accentCyan.withValues(alpha: 0.5);
+        badgeText = JweTheme.accentCyan;
+        badgeLabel = 'NAP RECORDED';
+        break;
+      case NapWindowStatus.windowPassed:
+        badgeBg = JweTheme.bgCanvas.withValues(alpha: 0.3);
+        badgeBorder = JweTheme.border;
+        badgeText = JweTheme.textMuted;
+        badgeLabel = 'WINDOW CONCLUDED';
+        break;
+    }
+
+    return HudPanel(
+      clip: HudClip.br,
+      accent: JweTheme.accentAmber,
+      brackets: true,
+      allBrackets: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(MdiIcons.weatherNight, size: 14, color: JweTheme.accentAmber),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'CIRCADIAN SLEEP & NAP ADVISOR',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.jetBrainsMono(
+                          color: JweTheme.accentAmber,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: JweTheme.accentAmber.withValues(alpha: 0.12),
+                  border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.35)),
+                ),
+                child: Text(
+                  advisor.fromHistory ? '7-DAY TELEMETRY' : 'RESEARCH BASELINE',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.accentAmber,
+                    fontSize: 7.5,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // 1. NEXT SUGGESTED POWER NAP TIME
+          Text(
+            'NEXT SUGGESTED POWER NAP',
+            style: GoogleFonts.jetBrainsMono(
+              color: JweTheme.textMuted,
+              fontSize: 8.5,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  children: [
+                    Text(
+                      "${DateFormat('h:mm a').format(advisor.napWindowStart)} — ${DateFormat('h:mm a').format(advisor.napWindowEnd)}",
+                      style: GoogleFonts.chakraPetch(
+                        color: JweTheme.accentAmber,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    Text(
+                      "(${advisor.napDurationMinutes}m ideal)",
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.textMuted,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  border: Border.all(color: badgeBorder),
+                ),
+                child: Text(
+                  badgeLabel,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: badgeText,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: JweTheme.bgCanvas.withValues(alpha: 0.35),
+              border: Border.all(color: JweTheme.border),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(MdiIcons.batteryChargingOutline, size: 14, color: JweTheme.accentAmber),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    advisor.napReasoning,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.textMid,
+                      fontSize: 10,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Divider
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Divider(color: JweTheme.border.withValues(alpha: 0.5), height: 1),
+          ),
+
+          // 2. NEXT SLEEP TIME (BELOW POWER NAP)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'NEXT RECOMMENDED SLEEP',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.textMuted,
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'TARGET: ${advisor.targetSleepCycles} CYCLES (7.5H)',
+                style: GoogleFonts.jetBrainsMono(
+                  color: JweTheme.accentCyan,
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.6,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  children: [
+                    Text(
+                      DateFormat('h:mm a').format(advisor.nextBedtime),
+                      style: GoogleFonts.chakraPetch(
+                        color: JweTheme.textWhite,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    Text(
+                      advisor.nextBedtime.day == refDate.day ? "TONIGHT" : "LATE TONIGHT",
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.accentCyan,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(MdiIcons.alarm, size: 12, color: JweTheme.textMuted),
+                  const SizedBox(width: 4),
+                  Text(
+                    "Wake: ${DateFormat('h:mm a').format(advisor.nextWakeTime)}",
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.textMid,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: JweTheme.bgCanvas.withValues(alpha: 0.35),
+              border: Border.all(color: JweTheme.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(MdiIcons.weatherSunset, size: 14, color: JweTheme.accentCyan),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "Wind-down routine: ${DateFormat('h:mm a').format(advisor.windDownTime)} (dim lights, screens off)",
+                        style: GoogleFonts.jetBrainsMono(
+                          color: JweTheme.textWhite,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  advisor.bedtimeReasoning,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.textMuted,
+                    fontSize: 9.5,
+                    height: 1.3,
+                  ),
+                ),
+                if (advisor.fromHistory) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    "7-Day Baseline: ${(advisor.avgWeeklySleepMinutes / 60).floor()}h ${advisor.avgWeeklySleepMinutes % 60}m avg • Habitual Wake: ${DateFormat('h:mm a').format(DateTime(2026, 1, 1, advisor.habitualWakeMinute ~/ 60, advisor.habitualWakeMinute % 60))}",
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.textMid.withValues(alpha: 0.7),
+                      fontSize: 8.5,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ==========================================
   // TAB 1: LOGS
   // ==========================================
@@ -686,6 +1092,10 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
               ],
             ),
           ),
+          const SizedBox(height: 16),
+
+          // Circadian Sleep & Nap Advisor (Power nap recommendation & Next bedtime)
+          _buildCircadianAdvisorCard(context, provider, _selectedDate, dateStr),
           const SizedBox(height: 16),
 
           // Activity logs

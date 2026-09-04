@@ -45,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
-    'BIOMETRICS',
+    'HEALTH',
     'SCHEDULE',
     'PROJECTS',
     'ANALYTICS',
@@ -134,13 +134,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _checkPinAndNavigate(BuildContext context, Widget screen) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
-  }
 
   static final _desktopNavItems = <_DesktopNavItem>[
     _DesktopNavItem(label: 'MISSIONS', icon: MdiIcons.targetAccount),
-    _DesktopNavItem(label: 'BIO', icon: MdiIcons.heartPulse),
+    _DesktopNavItem(label: 'HEALTH', icon: MdiIcons.heartPulse),
     _DesktopNavItem(label: 'SCHEDULE', icon: MdiIcons.calendarClock),
     _DesktopNavItem(label: 'PROJECTS', icon: MdiIcons.rocketLaunchOutline),
     _DesktopNavItem(label: 'INTEL', icon: MdiIcons.notebookOutline),

@@ -18,7 +18,7 @@ class HealthDashboardScreen extends StatelessWidget {
             Container(width: 4, height: 22, color: SpideyTheme.spideyRed),
             const SizedBox(width: 10),
             Text(
-              "BIOMETRICS",
+              "HEALTH",
               style: GoogleFonts.rajdhani(
                 color: SpideyTheme.textWhite,
                 fontWeight: FontWeight.bold,

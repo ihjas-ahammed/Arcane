@@ -89,8 +89,9 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
                       end = end.add(const Duration(days: 1));
                   }
                   
+                  final targetDate = DateFormat('yyyy-MM-dd').format(_startDate);
                   final provider = Provider.of<AppProvider>(context, listen: false);
-                  provider.addSleepLog(widget.dateStr, SleepLog(
+                  provider.addSleepLog(targetDate, SleepLog(
                     id: const Uuid().v4(),
                     startTime: start,
                     endTime: end,
@@ -106,35 +107,35 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
   }
 
   Widget _buildDatePickerRow(String label, DateTime date, Function(DateTime) onSelect) {
-    return Container(
-      decoration: BoxDecoration(
-        color: SpideyTheme.bgElevated,
-        border: Border.all(color: SpideyTheme.border),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style:  TextStyle(color: SpideyTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
-          InkWell(
-            onTap: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: date,
-                firstDate: DateTime(2023),
-                lastDate: DateTime.now().add(const Duration(days: 1)),
-                builder: (context, child) => Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme: JweTheme.pickerScheme(
-                        accent: SpideyTheme.spideyCyan,
-                        surface: SpideyTheme.bgPanel),
-                  ),
-                  child: child!,
-                ),
-              );
-              if (picked != null) onSelect(picked);
-            },
-            child: Text(
+    return InkWell(
+      onTap: () async {
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: date,
+          firstDate: DateTime(2023),
+          lastDate: DateTime.now().add(const Duration(days: 1)),
+          builder: (context, child) => Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: JweTheme.pickerScheme(
+                  accent: SpideyTheme.spideyCyan,
+                  surface: SpideyTheme.bgPanel),
+            ),
+            child: child!,
+          ),
+        );
+        if (picked != null) onSelect(picked);
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: SpideyTheme.bgElevated,
+          border: Border.all(color: SpideyTheme.border),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style:  TextStyle(color: SpideyTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
+            Text(
               DateFormat('MMM dd, yyyy').format(date).toUpperCase(),
               style:   TextStyle(
                 fontFamily: "RobotoMono",
@@ -143,40 +144,40 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
                 color: SpideyTheme.spideyCyan
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildTimePickerRow(String label, TimeOfDay? time, Function(TimeOfDay) onSelect) {
-    return Container(
-      decoration: BoxDecoration(
-        color: SpideyTheme.bgElevated,
-        border: Border.all(color: SpideyTheme.border),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style:  TextStyle(color: SpideyTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
-          InkWell(
-            onTap: () async {
-              final picked = await showTimePicker(
-                context: context,
-                initialTime: time ?? TimeOfDay.now(),
-                builder: (context, child) => Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme: JweTheme.pickerScheme(
-                        accent: SpideyTheme.spideyCyan,
-                        surface: SpideyTheme.bgPanel),
-                  ),
-                  child: child!,
-                ),
-              );
-              if (picked != null) onSelect(picked);
-            },
-            child: Text(
+    return InkWell(
+      onTap: () async {
+        final picked = await showTimePicker(
+          context: context,
+          initialTime: time ?? TimeOfDay.now(),
+          builder: (context, child) => Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: JweTheme.pickerScheme(
+                  accent: SpideyTheme.spideyCyan,
+                  surface: SpideyTheme.bgPanel),
+            ),
+            child: child!,
+          ),
+        );
+        if (picked != null) onSelect(picked);
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: SpideyTheme.bgElevated,
+          border: Border.all(color: SpideyTheme.border),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style:  TextStyle(color: SpideyTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 12)),
+            Text(
               time?.format(context) ?? "--:--",
               style:   TextStyle(
                 fontFamily: "RobotoMono",
@@ -185,8 +186,8 @@ class _AddSleepDialogState extends State<AddSleepDialog> {
                 color: SpideyTheme.spideyCyan
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

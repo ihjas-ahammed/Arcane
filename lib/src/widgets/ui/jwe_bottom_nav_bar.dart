@@ -31,7 +31,7 @@ class JweBottomNavBar extends StatelessWidget {
 
   static const _tabs = <_TabSpec>[
     _TabSpec(label: 'MISSIONS', icon: 'target'),
-    _TabSpec(label: 'BIO',      icon: 'pulse'),
+    _TabSpec(label: 'HEALTH',   icon: 'pulse'),
     _TabSpec(label: 'SCHEDULE', icon: 'calendar'),
     _TabSpec(label: 'PROJECTS', icon: 'projects'),
     _TabSpec(label: 'INTEL',    icon: 'note'),
@@ -201,7 +201,7 @@ class JweBottomNavBar extends StatelessWidget {
                 child: Row(
                   children: [
                     Expanded(child: _buildTab(0)), // MISSIONS
-                    Expanded(child: _buildTab(1)), // BIO
+                    Expanded(child: _buildTab(1)), // HEALTH
                     Expanded(child: _buildTab(2)), // SCHEDULE
                     
                     const SizedBox(width: 52), // Gap for Nora circle
