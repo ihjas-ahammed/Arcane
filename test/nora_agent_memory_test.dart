@@ -3,7 +3,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_dart/firebase_dart.dart' as fd;
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/models/task_models.dart';
-import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/services/nora_agent_engine.dart';

@@ -1,10 +1,19 @@
-# ⚡ Arcane System Upgrade // v2026.9.4
+# ⚡ Arcane System Upgrade // v2026.9.5
 
-### 🧬 Health Architecture & Circadian Sleep Telemetry
-- **"Health" Tab Nomenclature**: Unified app-wide navigation and system headers from legacy "Bio" / "Biometrics" to clean "HEALTH" across bottom navigation, desktop rail, router indexes, and screen bars.
-- **Interactive Time-Picker Sleep Logging**: Replaced manual text fields in sleep record logging with interactive time-picker rows themed via `JweTheme.pickerScheme`, featuring live sleep duration feedback and seamless one-touch tap targets.
-- **Circadian Sleep & Nap Advisor**: Integrated science-backed circadian sleep intelligence analyzing the past 7 days of sleep telemetry:
-  - **Power Nap Windows**: Computes post-lunch circadian alertness dips (7.2h post-wake), enforcing adenosine clearance cutoffs before 4:00 PM and optimal 20-minute light-sleep targets to eliminate sleep inertia.
-  - **Ultradian Bedtime Planning**: Formulates optimal bedtime targets anchored to 5 complete 90-minute sleep cycles (7.5h + 15m latency) aligned with habitual wake schedules.
-  - **Circular Midnight Arithmetic**: Engineered circular midnight offset calculations for robust handling of sleep logs crossing the midnight boundary.
-  - **Responsive HUD Layout**: Fluid, overflow-free tactical card rendering across all mobile viewport widths.
+### 📐 Tactical Multi-Plan Height Consistency & Dynamic Layout
+- **Multi-Task Row Height Parity**: Wrapped multi-task rows (2-in-1 and 3-in-1 planner & hero cards) with `IntrinsicHeight` and vertical cross-axis stretch, guaranteeing consistent card heights between tasks with and without subtasks or checkpoints.
+- **Checkpoint Badges for Multitask Cards**: Standardized active checkpoint status indicators (`Icons.checklist_rounded`) on multitask cards displaying active `${completedCps}/${totalCps}` ratios with instant one-tap dialogs to inspect and toggle checkpoints.
+- **Responsive Overflow Shielding**: Dynamic typography scaling and flex constraints preventing horizontal or vertical text overflow in multi-task configurations.
+
+### 🛡️ Unified Tactical HUD Chamfered Border Styling
+- **Tactical HUD Card Geometry**: Introduced `TacticalCardBorderPainter` and `Chamfer4CornerClipper` delivering authentic sci-fi angled corner notches and cyan border lines.
+- **Cross-Component Border Parity**: Unified tactical border styling across Today Planner cards, Schedule Hero widget, and Android Homescreen preview widgets.
+- **Clean Iconography**: Purged decorative emojis in favor of crisp, high-contrast Material and Lucide vector icons.
+
+### 🔄 In-App Updater Version Superiority & Stability
+- **Strict Version Superiority Enforcement**: Re-engineered update availability resolution to guarantee older or equal releases (e.g. v2026.9.1) are never offered as available updates, even during forced manual checks.
+- **Dual-Tier Version Resolution**: Built-in Android `versionCode` validation backed by semantic version string parsing (`isVersionStringNewer`).
+- **Real-Time Latest Build Confirmation**: Clear feedback confirming the active installation is on the latest build.
+
+### 🚫 Phoenix Protocol Deprecation
+- **Clean Protocol Architecture**: Fully removed deprecated Phoenix protocol remnants and obsolete triangle corner painters for a streamlined, performance-optimized mission execution pipeline.

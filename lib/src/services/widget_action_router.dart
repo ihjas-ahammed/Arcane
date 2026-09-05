@@ -216,7 +216,6 @@ class WidgetActionRouter {
     final topFive = TaskCalculations.resolveTopFiveDayPlanTasks(
       mainTasks: provider.mainTasks,
       plan: provider.taskActions.getDayPlan(today),
-      phoenixId: provider.taskActions.getPhoenixId(today),
     );
     if (index >= topFive.length) return;
     final item = topFive[index];
@@ -277,7 +276,6 @@ class WidgetActionRouter {
   }) _resolveActive(AppProvider provider) {
     final today = helper.getTodayDateString();
     final plan = List<String>.from(provider.taskActions.getDayPlan(today));
-    final phoenixId = provider.taskActions.getPhoenixId(today);
 
     final runningEntry = provider.activeTimers.entries
         .firstWhereOrNull((e) => e.value.isRunning && e.value.type == 'subtask');
@@ -303,27 +301,6 @@ class WidgetActionRouter {
           }
         }
         return (mainTask: m, subTask: s, checkpoint: cp, isRunning: true, queueId: queueId);
-      }
-    }
-
-    // The Phoenix is what the widget headlines, so quick actions target it.
-    if (phoenixId != null) {
-      final parts = phoenixId.split('|');
-      if (parts.length >= 2) {
-        final m = provider.mainTasks
-            .firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
-        final s = m?.subTasks
-            .firstWhereOrNull((st) => st.id == parts[1] && !st.isDeleted);
-        if (m != null && s != null && !s.completed) {
-          if (parts.length == 3) {
-            final cp = s.findCheckpoint(parts[2]);
-            if (cp != null && !cp.completed) {
-              return (mainTask: m, subTask: s, checkpoint: cp, isRunning: false, queueId: phoenixId);
-            }
-          } else {
-            return (mainTask: m, subTask: s, checkpoint: null, isRunning: false, queueId: phoenixId);
-          }
-        }
       }
     }
 

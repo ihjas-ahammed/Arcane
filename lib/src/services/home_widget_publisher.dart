@@ -61,12 +61,10 @@ class HomeWidgetPublisher {
     SubTask? subTask,
     SubSubTask? checkpoint,
     bool isRunning,
-    bool isPhoenix,
     String? queueId,
   }) _resolveActiveTask() {
     final today = helper.getTodayDateString();
     final plan = List<String>.from(_provider.taskActions.getDayPlan(today));
-    final phoenixId = _provider.taskActions.getPhoenixId(today);
 
     // Running session always claims the headline.
     final runningEntry = _provider.activeTimers.entries
@@ -97,30 +95,8 @@ class HomeWidgetPublisher {
           subTask: s,
           checkpoint: cp,
           isRunning: true,
-          isPhoenix: queueId != null && queueId == phoenixId,
           queueId: queueId,
         );
-      }
-    }
-
-    // The Phoenix outranks the rest of the queue when nothing is running.
-    if (phoenixId != null) {
-      final parts = phoenixId.split('|');
-      if (parts.length >= 2) {
-        final m = _provider.mainTasks
-            .firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
-        final s = m?.subTasks
-            .firstWhereOrNull((st) => st.id == parts[1] && !st.isDeleted);
-        if (m != null && s != null && !s.completed) {
-          if (parts.length == 3) {
-            final cp = s.findCheckpoint(parts[2]);
-            if (cp != null && !cp.completed) {
-              return (mainTask: m, subTask: s, checkpoint: cp, isRunning: false, isPhoenix: true, queueId: phoenixId);
-            }
-          } else {
-            return (mainTask: m, subTask: s, checkpoint: null, isRunning: false, isPhoenix: true, queueId: phoenixId);
-          }
-        }
       }
     }
 
@@ -137,12 +113,12 @@ class HomeWidgetPublisher {
       if (parts.length == 3) {
         final cp = s.findCheckpoint(parts[2]);
         if (cp == null || cp.completed) continue;
-        return (mainTask: m, subTask: s, checkpoint: cp, isRunning: false, isPhoenix: false, queueId: idPair);
+        return (mainTask: m, subTask: s, checkpoint: cp, isRunning: false, queueId: idPair);
       }
-      return (mainTask: m, subTask: s, checkpoint: null, isRunning: false, isPhoenix: false, queueId: idPair);
+      return (mainTask: m, subTask: s, checkpoint: null, isRunning: false, queueId: idPair);
     }
 
-    return (mainTask: null, subTask: null, checkpoint: null, isRunning: false, isPhoenix: false, queueId: null);
+    return (mainTask: null, subTask: null, checkpoint: null, isRunning: false, queueId: null);
   }
 
   Future<void> _publishTask({bool force = false}) async {
@@ -157,7 +133,54 @@ class HomeWidgetPublisher {
     final topFiveTasks = TaskCalculations.resolveTopFiveDayPlanTasks(
       mainTasks: _provider.mainTasks,
       plan: _provider.taskActions.getDayPlan(today),
-      phoenixId: _provider.taskActions.getPhoenixId(today),
+    );
+
+    final planRows = _provider.taskActions.getDayPlanRows(today);
+    List<String> activeRowCompoundIds = [];
+    if (s != null) {
+      final activeSubId = s.id;
+      for (final row in planRows) {
+        if (row.any((id) {
+          final parts = id.split('|');
+          return parts.length >= 2 && parts[1] == activeSubId;
+        })) {
+          activeRowCompoundIds = row;
+          break;
+        }
+      }
+    }
+    if (activeRowCompoundIds.isEmpty) {
+      for (final row in planRows) {
+        bool hasUncompleted = false;
+        for (final id in row) {
+          final parts = id.split('|');
+          if (parts.length >= 2) {
+            final candM = _provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
+            final candS = candM?.subTasks.firstWhereOrNull((st) => st.id == parts[1] && !st.isDeleted);
+            if (candS != null && !candS.completed) {
+              if (parts.length == 3) {
+                final candCp = candS.findCheckpoint(parts[2]);
+                if (candCp != null && !candCp.completed) {
+                  hasUncompleted = true;
+                  break;
+                }
+              } else {
+                hasUncompleted = true;
+                break;
+              }
+            }
+          }
+        }
+        if (hasUncompleted) {
+          activeRowCompoundIds = row;
+          break;
+        }
+      }
+    }
+    final multitaskTasks = TaskCalculations.resolveDayPlanItems(
+      mainTasks: _provider.mainTasks,
+      compoundIds: activeRowCompoundIds,
+      activeTimers: _provider.activeTimers,
     );
 
     final title = s == null
@@ -186,12 +209,12 @@ class HomeWidgetPublisher {
 
     final key = [
       dayPlannerWidgetCheckable,
-      topFiveTasks.map((t) => '${t.compoundId}|${t.name}|${t.isPhoenix}').join(','),
+      topFiveTasks.map((t) => '${t.compoundId}|${t.name}').join(','),
+      multitaskTasks.map((t) => '${t.compoundId}|${t.name}|${t.isRunning}').join(','),
       s != null,
       title,
       subtitle,
       r.isRunning,
-      r.isPhoenix,
       cp != null,
       capacity,
       accumulated.toInt(),
@@ -211,10 +234,11 @@ class HomeWidgetPublisher {
         accumulatedSeconds: accumulated.toInt(),
         progress: progress,
         sessionStart: sessionStart,
-        isPhoenix: r.isPhoenix,
+        isPhoenix: false,
         capacity: capacity,
         dayPlannerWidgetCheckable: dayPlannerWidgetCheckable,
         topFiveTasks: topFiveTasks,
+        multitaskTasks: multitaskTasks,
       );
     } catch (e) {
       debugPrint('[HomeWidget] publish task: $e');

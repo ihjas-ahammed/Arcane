@@ -19,9 +19,6 @@ class ScheduleHeroWidget extends StatefulWidget {
   final SubSubTask? checkpoint;
   final bool isRunning;
 
-  /// True when the headlined item is today's Phoenix (most-important task).
-  final bool isPhoenix;
-
   /// Day-capacity readout: total planned vs realistic (buffer-aware) minutes.
   final int plannedMinutes;
   final int realisticMinutes;
@@ -41,6 +38,8 @@ class ScheduleHeroWidget extends StatefulWidget {
 
   final List<ResolvedDayPlanItem> topFiveTasks;
   final void Function(ResolvedDayPlanItem item) onCheckTask;
+  final List<ResolvedDayPlanItem> multitaskItems;
+  final void Function(ResolvedDayPlanItem item)? onCheckMultitaskItem;
 
   const ScheduleHeroWidget({
     super.key,
@@ -48,7 +47,6 @@ class ScheduleHeroWidget extends StatefulWidget {
     this.subTask,
     this.checkpoint,
     required this.isRunning,
-    this.isPhoenix = false,
     this.plannedMinutes = 0,
     this.realisticMinutes = 0,
     required this.accumulatedTodaySeconds,
@@ -60,6 +58,8 @@ class ScheduleHeroWidget extends StatefulWidget {
     required this.onTitleTap,
     this.topFiveTasks = const [],
     required this.onCheckTask,
+    this.multitaskItems = const [],
+    this.onCheckMultitaskItem,
   });
 
   @override
@@ -125,11 +125,9 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
 
     final accent = isEmpty
         ? JweTheme.textMuted
-        : (widget.isPhoenix
-            ? JweTheme.accentAmber
-            : (isCheckpoint
-                ? JweTheme.accentCyan
-                : (widget.mainTask?.taskColor ?? JweTheme.accentAmber)));
+        : (isCheckpoint
+            ? JweTheme.accentCyan
+            : (widget.mainTask?.taskColor ?? JweTheme.accentAmber));
     final tone = _toneFor(accent);
 
     final title = isEmpty
@@ -169,12 +167,26 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
         // The 1 Hz session ticker repaints this panel; the boundary keeps
         // that from invalidating the rest of the schedule page layer.
         child: RepaintBoundary(
-          child: HudPanel(
-          clip: HudClip.both,
-          accent: accent,
-          allBrackets: true,
-          padding: EdgeInsets.zero,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          child: ClipPath(
+            clipper: const Chamfer4CornerClipper(chamfer: 10.0),
+            child: CustomPaint(
+              foregroundPainter: TacticalCardBorderPainter(
+                themeColor: accent,
+                chamfer: 10.0,
+                bracketSize: 12.0,
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF090F16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.05),
+                      blurRadius: 16,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             // ── Status bar ───────────────────────────────
             Container(
               padding: const EdgeInsets.fromLTRB(14, 7, 12, 7),
@@ -182,23 +194,18 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                 border: Border(bottom: BorderSide(color: accent.withValues(alpha: 0.25))),
               ),
               child: Row(children: [
-                if (widget.isPhoenix && !isEmpty) ...[
-                  Icon(MdiIcons.fire, size: 12, color: accent),
-                  const SizedBox(width: 6),
-                ] else ...[
-                  HudDot(tone: tone),
-                  const SizedBox(width: 10),
-                ],
+                HudDot(tone: tone),
+                const SizedBox(width: 10),
                 Text(
-                  isEmpty
+                  isEmpty && widget.multitaskItems.isEmpty
                       ? 'QUEUE EMPTY'
-                      : (widget.isPhoenix
-                          ? 'PHOENIX · ${widget.isRunning ? "ENGAGED" : "STANDBY"}'
+                      : (widget.multitaskItems.length > 1
+                          ? 'MULTITASK PROTOCOL · [${widget.multitaskItems.length} ACTIVE]'
                           : (isCheckpoint
                               ? 'CHECKPOINT · ${widget.isRunning ? "ENGAGED" : "STANDBY"}'
                               : (widget.isRunning ? 'ACTIVE · ENGAGED' : 'ACTIVE · STANDBY'))),
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 10, color: accent, fontWeight: FontWeight.w600, letterSpacing: 1.6,
+                  style: GoogleFonts.rajdhani(
+                    fontSize: 11, color: accent, fontWeight: FontWeight.bold, letterSpacing: 1.6,
                   ),
                 ),
                 const Spacer(),
@@ -206,8 +213,8 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: Text('REC',
-                        style: GoogleFonts.jetBrainsMono(
-                          fontSize: 9, color: accent, fontWeight: FontWeight.w700, letterSpacing: 1.4,
+                        style: GoogleFonts.rajdhani(
+                          fontSize: 10, color: accent, fontWeight: FontWeight.bold, letterSpacing: 1.4,
                         )).animate(onPlay: (c) => c.repeat()).fadeOut(duration: 700.ms, delay: 700.ms),
                   ),
                 InkWell(
@@ -221,8 +228,8 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                       Icon(MdiIcons.formatListBulleted, size: 11, color: JweTheme.textMid),
                       const SizedBox(width: 4),
                       Text('DAY PLAN',
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 9, color: JweTheme.textMid, fontWeight: FontWeight.w600, letterSpacing: 1.4,
+                          style: GoogleFonts.rajdhani(
+                            fontSize: 10, color: JweTheme.textMid, fontWeight: FontWeight.bold, letterSpacing: 1.4,
                           )),
                     ]),
                   ),
@@ -231,118 +238,121 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
             ),
   
             // ── Body ─────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  InkWell(
-                    onTap: isEmpty ? null : widget.onTitleTap,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: GoogleFonts.saira(
-                            color: JweTheme.textWhite,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            height: 1.15,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        if (sub.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: accent.withValues(alpha: 0.08),
-                              border: Border(left: BorderSide(color: accent, width: 2)),
+            if (widget.multitaskItems.length > 1)
+              _buildMultitaskBody(context, accent, tone)
+            else
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    InkWell(
+                      onTap: isEmpty ? null : widget.onTitleTap,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: GoogleFonts.rajdhani(
+                              color: JweTheme.textWhite,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              height: 1.15,
+                              letterSpacing: 0.5,
                             ),
-                            child: Text(
-                              sub,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.jetBrainsMono(
-                                color: JweTheme.textMid,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.5,
+                          ),
+                          if (sub.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: accent.withValues(alpha: 0.08),
+                                border: Border(left: BorderSide(color: accent, width: 2)),
                               ),
+                              child: Text(
+                                sub,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.rajdhani(
+                                  color: JweTheme.textMid,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (!isEmpty) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          HudRing(
+                            value: ringPct,
+                            size: 64,
+                            stroke: 5,
+                            tone: tone,
+                            label: _ringLabel(ringSec),
+                            sub: widget.isRunning ? 'SESSION' : 'TODAY',
+                          ),
+                          const SizedBox(width: 20),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'OPERATIONAL CAPACITY',
+                                  style: GoogleFonts.rajdhani(
+                                    color: JweTheme.textMuted,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  widget.realisticMinutes > 0
+                                      ? '${formatMinutes(widget.plannedMinutes)} PLANNED / ${formatMinutes(widget.realisticMinutes)} CAPACITY'
+                                      : 'NO TARGET ESTIMATES SET',
+                                  style: GoogleFonts.rajdhani(
+                                    color: widget.plannedMinutes > widget.realisticMinutes
+                                        ? const Color(0xFFFF2A4B)
+                                        : JweTheme.textWhite,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'ENGAGEMENT STATUS',
+                                  style: GoogleFonts.rajdhani(
+                                    color: JweTheme.textMuted,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  widget.isRunning ? 'REC LIVE TICKING' : 'STANDBY IDLE',
+                                  style: GoogleFonts.rajdhani(
+                                    color: widget.isRunning ? const Color(0xFF10B981) : JweTheme.textMuted,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
-                      ],
-                    ),
-                  ),
-                  if (!isEmpty) ...[
-                    const SizedBox(height: 16),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        HudRing(
-                          value: ringPct,
-                          size: 64,
-                          stroke: 5,
-                          tone: tone,
-                          label: _ringLabel(ringSec),
-                          sub: widget.isRunning ? 'SESSION' : 'TODAY',
-                        ),
-                        const SizedBox(width: 20),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'OPERATIONAL CAPACITY',
-                                style: GoogleFonts.jetBrainsMono(
-                                  color: JweTheme.textMuted,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                widget.realisticMinutes > 0
-                                    ? '${formatMinutes(widget.plannedMinutes)} PLANNED / ${formatMinutes(widget.realisticMinutes)} CAPACITY'
-                                    : 'NO TARGET ESTIMATES SET',
-                                style: GoogleFonts.chakraPetch(
-                                  color: widget.plannedMinutes > widget.realisticMinutes
-                                      ? JweTheme.accentRed
-                                      : JweTheme.textWhite,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'ENGAGEMENT STATUS',
-                                style: GoogleFonts.jetBrainsMono(
-                                  color: JweTheme.textMuted,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                widget.isRunning ? 'REC LIVE TICKING' : 'STANDBY IDLE',
-                                style: GoogleFonts.chakraPetch(
-                                  color: widget.isRunning ? JweTheme.accentTeal : JweTheme.textMuted,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
 
             // ── Top Five Tasks Checklist (visible when expanded) ─────────
             if (_isExpanded) ...[
@@ -386,10 +396,6 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                           ),
                           child: Row(
                             children: [
-                              if (item.isPhoenix) ...[
-                                Icon(Icons.fireplace, size: 13, color: JweTheme.accentAmber),
-                                const SizedBox(width: 4),
-                              ],
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -399,7 +405,7 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: GoogleFonts.saira(
-                                        color: item.isPhoenix ? JweTheme.accentAmber : JweTheme.textWhite,
+                                        color: JweTheme.textWhite,
                                         fontSize: 12,
                                         fontWeight: FontWeight.w700,
                                       ),
@@ -426,7 +432,7 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                                   height: 22,
                                   decoration: BoxDecoration(
                                     border: Border.all(
-                                      color: item.isPhoenix ? JweTheme.accentAmber : JweTheme.accentTeal,
+                                      color: JweTheme.accentTeal,
                                       width: 1.5,
                                     ),
                                     borderRadius: BorderRadius.circular(4),
@@ -448,7 +454,7 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
             ],
   
             // ── Action row ───────────────────────────────
-            if (!isEmpty)
+            if (!isEmpty || widget.multitaskItems.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                 child: Row(children: [
@@ -457,7 +463,7 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                       label: widget.isRunning ? 'HALT SESSION' : 'ENGAGE',
                       icon: widget.isRunning ? MdiIcons.pause : MdiIcons.play,
                       primary: !widget.isRunning,
-                      accent: widget.isRunning ? JweTheme.accentRed : accent,
+                      accent: widget.isRunning ? const Color(0xFFFF2A4B) : const Color(0xFF00F0FF),
                       onTap: widget.onPlayPause,
                     ),
                   ),
@@ -471,11 +477,183 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                   ),
                 ]),
               ),
-          ]),
+            ]),
           ),
         ),
       ),
-    ).animate().fadeIn(duration: 360.ms).slideY(begin: -0.04, end: 0);
+    ),
+  ),
+).animate().fadeIn(duration: 360.ms).slideY(begin: -0.04, end: 0);
+  }
+
+  Widget _buildMultitaskBody(BuildContext context, Color accent, HudTone tone) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: widget.multitaskItems.map((item) {
+                final itemBorderColor = item.isRunning
+                    ? const Color(0xFFFF2A4B)
+                    : item.color;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: ClipPath(
+                      clipper: const Chamfer4CornerClipper(chamfer: 6.0),
+                      child: CustomPaint(
+                        foregroundPainter: TacticalCardBorderPainter(
+                          themeColor: itemBorderColor,
+                          chamfer: 6.0,
+                          bracketSize: 8.0,
+                        ),
+                        child: Container(
+                          height: double.infinity,
+                          padding: const EdgeInsets.all(8),
+                          color: const Color(0xFF05080C),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          item.parentName.toUpperCase(),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.rajdhani(
+                                            color: item.color,
+                                            fontSize: 9.5,
+                                            letterSpacing: 1.2,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    item.name.toUpperCase(),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.rajdhani(
+                                      color: Colors.white,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.bold,
+                                      height: 1.15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.checklist_rounded,
+                                        size: 11,
+                                        color: item.totalCheckpoints > 0
+                                            ? const Color(0xFF00F0FF)
+                                            : const Color(0xFF64748B),
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        item.totalCheckpoints > 0
+                                            ? '${item.completedCheckpoints}/${item.totalCheckpoints}'
+                                            : '0/0',
+                                        style: GoogleFonts.rajdhani(
+                                          color: item.totalCheckpoints > 0
+                                              ? const Color(0xFF00F0FF)
+                                              : const Color(0xFF64748B),
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: InkWell(
+                                  onTap: () => widget.onCheckMultitaskItem?.call(item),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: const Color(0xFF00F0FF).withValues(alpha: 0.6),
+                                        width: 1,
+                                      ),
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.check, size: 12, color: Color(0xFF00F0FF)),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          'DONE',
+                                          style: GoogleFonts.rajdhani(
+                                            color: const Color(0xFF00F0FF),
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 1,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                widget.realisticMinutes > 0
+                    ? '${formatMinutes(widget.plannedMinutes)} PLANNED / ${formatMinutes(widget.realisticMinutes)} CAPACITY'
+                    : 'TARGET CAPACITY',
+                style: GoogleFonts.rajdhani(
+                  color: widget.plannedMinutes > widget.realisticMinutes
+                      ? const Color(0xFFFF2A4B)
+                      : const Color(0xFF8FA2B6),
+                  fontSize: 11,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                widget.isRunning ? 'REC LIVE TICKING' : 'STANDBY IDLE',
+                style: GoogleFonts.rajdhani(
+                  color: widget.isRunning ? const Color(0xFF10B981) : const Color(0xFF62778D),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 

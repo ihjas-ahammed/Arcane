@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 
@@ -8,6 +9,9 @@ import 'package:intl/intl.dart';
 /// Since they are rendered to a fixed logical size (400x200), we wrap them in
 /// a fixed 400x200 Container to ensure layout stability and pixel-perfect results.
 
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/utils/task_calculations.dart';
 
 class RunningTaskHomeWidget extends StatelessWidget {
@@ -18,10 +22,15 @@ class RunningTaskHomeWidget extends StatelessWidget {
   final bool isCheckpoint;
   final int accumulatedSeconds;
   final double progress; // 0..1 — mirrors the missions screen subtask progress
-  final bool isPhoenix; // true when the headlined item is today's Phoenix
+  final bool isPhoenix; // Deprecated - Phoenix protocol removed
   final String capacity; // e.g. "2h40 / 4h30"; empty hides the readout
   final bool dayPlannerWidgetCheckable;
   final List<ResolvedDayPlanItem> topFiveTasks;
+  final List<ResolvedDayPlanItem> multitaskTasks;
+
+  static const Color _neonCyan = Color(0xFF00F0FF);
+  static const Color _neonRed = Color(0xFFFF2A4B);
+  static const Color _textMuted = Color(0xFF62778D);
 
   const RunningTaskHomeWidget({
     super.key,
@@ -36,160 +45,699 @@ class RunningTaskHomeWidget extends StatelessWidget {
     this.capacity = '',
     this.dayPlannerWidgetCheckable = false,
     this.topFiveTasks = const [],
+    this.multitaskTasks = const [],
   });
+
+  HudTone _toneFor(Color c) {
+    if (c == JweTheme.accentCyan || c == _neonCyan) return HudTone.cyan;
+    if (c == JweTheme.accentTeal) return HudTone.teal;
+    if (c == JweTheme.accentRed || c == _neonRed) return HudTone.red;
+    return HudTone.amber;
+  }
+
+  String _ringLabel(double sec) {
+    final s = sec.floor();
+    if (s < 3600) {
+      final m = (s ~/ 60).toString().padLeft(2, '0');
+      final ss = (s % 60).toString().padLeft(2, '0');
+      return '$m:$ss';
+    }
+    final h = s ~/ 3600;
+    final m = (s % 3600) ~/ 60;
+    return '${h}h ${m.toString().padLeft(2, '0')}m';
+  }
+
+  Widget _buildActionButton({
+    required String label,
+    required IconData icon,
+    required bool primary,
+    required Color accent,
+    double? width,
+  }) {
+    final bg = primary ? accent : accent.withValues(alpha: 0.12);
+    final fg = primary ? const Color(0xFF05080C) : accent;
+    final border = Border.all(color: accent, width: 1.2);
+
+    return Container(
+      width: width,
+      height: 30,
+      decoration: BoxDecoration(
+        color: bg,
+        border: border,
+        borderRadius: BorderRadius.circular(3),
+      ),
+      alignment: Alignment.center,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: GoogleFonts.rajdhani(
+              color: fg,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildCheckableList(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      child: Container(
+      child: SizedBox(
         width: 400,
         height: 200,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppTheme.fhBgDark,
-          border: Border.all(color: AppTheme.fhAccentGold, width: 2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: AppTheme.fhAccentGold,
-                    shape: BoxShape.rectangle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  "DAY PLAN",
-                  style: TextStyle(
-                    color: AppTheme.fhAccentGold,
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const Spacer(),
-                if (capacity.isNotEmpty)
-                  Text(
-                    "CAP $capacity",
-                    style:   TextStyle(
-                      color: AppTheme.fhTextDisabled,
-                      fontFamily: 'monospace',
-                      fontSize: 11,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-              ],
+        child: ClipPath(
+          clipper: const Chamfer4CornerClipper(chamfer: 10.0),
+          child: CustomPaint(
+            foregroundPainter: const TacticalCardBorderPainter(
+              themeColor: _neonCyan,
+              chamfer: 10.0,
+              bracketSize: 12.0,
             ),
-            const SizedBox(height: 4),
-            // List of top 5 tasks
-            Expanded(
-              child: topFiveTasks.isEmpty
-                  ?   Center(
-                      child: Text(
-                        "NO PLAN SET",
-                        style: TextStyle(
-                          color: AppTheme.fhTextDisabled,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+            child: Container(
+              color: const Color(0xFF090F16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.fromLTRB(14, 6, 12, 6),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: _neonCyan.withValues(alpha: 0.25))),
+                ),
+                child: Row(
+                  children: [
+                    const HudDot(tone: HudTone.cyan),
+                    const SizedBox(width: 8),
+                    Text(
+                      'DAY PLAN // TACTICAL DISPATCH',
+                      style: GoogleFonts.rajdhani(
+                        color: _neonCyan,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.3,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (capacity.isNotEmpty)
+                      Text(
+                        'CAP $capacity',
+                        style: GoogleFonts.rajdhani(
+                          color: _textMuted,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.1,
                         ),
                       ),
-                    )
-                  : Column(
-                      children: List.generate(5, (index) {
-                        if (index >= topFiveTasks.length) {
-                          return const SizedBox(height: 26);
-                        }
-                        final item = topFiveTasks[index];
-                        return Container(
-                          height: 26,
-                          margin: const EdgeInsets.only(bottom: 2),
-                          child: Row(
-                            children: [
-                              // Task Indicator / Color bar
-                              Container(
-                                width: 4,
-                                height: 18,
-                                decoration: BoxDecoration(
-                                  color: item.color,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Task details (Name & Subtitle)
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Row(
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              // List of top 5 tasks
+              Expanded(
+                child: topFiveTasks.isEmpty
+                    ? Center(
+                        child: Text(
+                          'NO ACTIVE PLAN',
+                          style: GoogleFonts.teko(
+                            color: _textMuted,
+                            fontSize: 18,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Column(
+                          children: List.generate(5, (index) {
+                            if (index >= topFiveTasks.length) {
+                              return const SizedBox(height: 26);
+                            }
+                            final item = topFiveTasks[index];
+                            return Container(
+                              height: 26,
+                              margin: const EdgeInsets.only(bottom: 2),
+                              child: Row(
+                                children: [
+                                  // Task Indicator / Color bar
+                                  Container(
+                                    width: 3,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                      color: item.color,
+                                      borderRadius: BorderRadius.circular(1),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Task details (Name & Subtitle)
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        if (item.isPhoenix) ...[
-                                          Icon(Icons.fireplace, size: 12, color: AppTheme.fhAccentOrange),
-                                          const SizedBox(width: 4),
-                                        ],
-                                        Expanded(
-                                          child: Text(
-                                            item.name.toUpperCase(),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: item.isPhoenix ? AppTheme.fhAccentOrange : AppTheme.fhTextPrimary,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                        Text(
+                                          item.name.toUpperCase(),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.rajdhani(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          item.parentName.toUpperCase(),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.rajdhani(
+                                            color: _textMuted,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                       ],
                                     ),
-                                    Text(
-                                      item.parentName.toUpperCase(),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style:   TextStyle(
-                                        color: AppTheme.fhTextSecondary,
-                                        fontSize: 9,
-                                        fontFamily: 'monospace',
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Checkbox representation
-                              Container(
-                                width: 18,
-                                height: 18,
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: item.isPhoenix ? AppTheme.fhAccentOrange : AppTheme.fhAccentTeal,
-                                    width: 1.5,
                                   ),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Icon(
-                                  Icons.check,
-                                  size: 12,
-                                  color: Colors.transparent,
-                                ),
+                                  // Checkbox representation
+                                  Container(
+                                    width: 16,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: _neonCyan,
+                                        width: 1.2,
+                                      ),
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                    child: const Icon(
+                                      Icons.check,
+                                      size: 11,
+                                      color: Colors.transparent,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
                               ),
-                              const SizedBox(width: 16),
-                            ],
-                          ),
-                        );
-                      }),
-                    ),
+                            );
+                          }),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  ),
+);
+  }
+
+  Widget _buildMultitaskWidget(BuildContext context) {
+    final anyRunning = isRunning || multitaskTasks.any((t) => t.isRunning);
+    final accentColor = anyRunning ? _neonRed : _neonCyan;
+    final tone = _toneFor(accentColor);
+    final items = multitaskTasks.take(3).toList();
+
+    return Material(
+      color: Colors.transparent,
+      child: SizedBox(
+        width: 400,
+        height: 200,
+        child: ClipPath(
+          clipper: const Chamfer4CornerClipper(chamfer: 10.0),
+          child: CustomPaint(
+            foregroundPainter: TacticalCardBorderPainter(
+              themeColor: accentColor,
+              chamfer: 10.0,
+              bracketSize: 12.0,
             ),
-          ],
+            child: Container(
+              color: const Color(0xFF090F16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+              // ── Header Row ──
+              Container(
+                padding: const EdgeInsets.fromLTRB(14, 6, 12, 6),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: accentColor.withValues(alpha: 0.25))),
+                ),
+                child: Row(
+                  children: [
+                    HudDot(tone: tone),
+                    const SizedBox(width: 8),
+                    Text(
+                      'MULTITASK PROTOCOL · [0${items.length} ACTIVE]',
+                      style: GoogleFonts.rajdhani(
+                        color: accentColor,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (anyRunning)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Text(
+                          'REC',
+                          style: GoogleFonts.rajdhani(
+                            fontSize: 10,
+                            color: accentColor,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.4,
+                          ),
+                        ),
+                      ),
+                    if (capacity.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: JweTheme.lineSoft),
+                        ),
+                        child: Text(
+                          'CAP $capacity',
+                          style: GoogleFonts.rajdhani(
+                            color: JweTheme.textMid,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              // ── Multitask Cards Row ──
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (int i = 0; i < items.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 6),
+                        Expanded(
+                          child: _buildMiniCard(items[i], i + 1),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+
+              // ── Buttons Row ──
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildActionButton(
+                        label: anyRunning ? 'HALT SESSION' : 'ENGAGE ALL',
+                        icon: anyRunning ? MdiIcons.pause : MdiIcons.play,
+                        primary: !anyRunning,
+                        accent: anyRunning ? const Color(0xFFFF2A4B) : const Color(0xFF00F0FF),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildActionButton(
+                      label: 'CHECK',
+                      icon: Icons.check,
+                      primary: false,
+                      accent: const Color(0xFF00F0FF),
+                      width: 80,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildActionButton(
+                      label: 'FINISH',
+                      icon: MdiIcons.checkAll,
+                      primary: false,
+                      accent: JweTheme.accentAmber,
+                      width: 80,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  ),
+);
+  }
+
+  Widget _buildMiniCard(ResolvedDayPlanItem item, int index) {
+    final itemBorderColor = item.isRunning
+        ? const Color(0xFFFF2A4B)
+        : item.color;
+
+    return ClipPath(
+      clipper: const Chamfer4CornerClipper(chamfer: 6.0),
+      child: CustomPaint(
+        foregroundPainter: TacticalCardBorderPainter(
+          themeColor: itemBorderColor,
+          chamfer: 6.0,
+          bracketSize: 8.0,
+        ),
+        child: Container(
+          height: double.infinity,
+          padding: const EdgeInsets.all(7),
+          color: const Color(0xFF05080C),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.parentName.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.rajdhani(
+                            color: item.color,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '0$index',
+                        style: GoogleFonts.rajdhani(
+                          color: JweTheme.textMuted.withValues(alpha: 0.7),
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.name.toUpperCase(),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.rajdhani(
+                      color: Colors.white,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      height: 1.15,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.checklist_rounded,
+                        size: 10,
+                        color: item.totalCheckpoints > 0
+                            ? _neonCyan
+                            : const Color(0xFF64748B),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        item.totalCheckpoints > 0
+                            ? '${item.completedCheckpoints}/${item.totalCheckpoints}'
+                            : '0/0',
+                        style: GoogleFonts.rajdhani(
+                          color: item.totalCheckpoints > 0
+                              ? _neonCyan
+                              : const Color(0xFF64748B),
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Widget _buildSingleTaskWidget(BuildContext context) {
+    final accent = !hasTask
+        ? JweTheme.textMuted
+        : (isCheckpoint
+            ? JweTheme.accentCyan
+            : JweTheme.accentAmber);
+    final tone = _toneFor(accent);
+
+    final statusLabel = !hasTask
+        ? 'QUEUE EMPTY'
+        : (isCheckpoint
+            ? (isRunning ? 'CHECKPOINT · ENGAGED' : 'CHECKPOINT · STANDBY')
+            : (isRunning ? 'ACTIVE · ENGAGED' : 'ACTIVE · STANDBY'));
+
+    final ringSec = accumulatedSeconds.toDouble();
+    final ringPct = ((ringSec % 3600) / 3600 * 100).clamp(0.0, 100.0);
+
+    return Material(
+      color: Colors.transparent,
+      child: SizedBox(
+        width: 400,
+        height: 200,
+        child: ClipPath(
+          clipper: const Chamfer4CornerClipper(chamfer: 10.0),
+          child: CustomPaint(
+            foregroundPainter: TacticalCardBorderPainter(
+              themeColor: accent,
+              chamfer: 10.0,
+              bracketSize: 12.0,
+            ),
+            child: Container(
+              color: const Color(0xFF090F16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+              // ── Status Bar ──
+              Container(
+                padding: const EdgeInsets.fromLTRB(14, 6, 12, 6),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: accent.withValues(alpha: 0.25))),
+                ),
+                child: Row(
+                  children: [
+                    HudDot(tone: tone),
+                    const SizedBox(width: 8),
+                    Text(
+                      statusLabel,
+                      style: GoogleFonts.rajdhani(
+                        fontSize: 10.5,
+                        color: accent,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (isRunning)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Text(
+                          'REC',
+                          style: GoogleFonts.rajdhani(
+                            fontSize: 10,
+                            color: accent,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.4,
+                          ),
+                        ),
+                      ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: JweTheme.lineSoft),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(MdiIcons.formatListBulleted, size: 10, color: JweTheme.textMid),
+                          const SizedBox(width: 4),
+                          Text(
+                            'DAY PLAN',
+                            style: GoogleFonts.rajdhani(
+                              fontSize: 9.5,
+                              color: JweTheme.textMid,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Body ──
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title
+                    Text(
+                      hasTask ? title.toUpperCase() : 'NO PLAN SET',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.rajdhani(
+                        color: JweTheme.textWhite,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                        height: 1.15,
+                      ),
+                    ),
+                    if (hasTask && subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: accent.withValues(alpha: 0.08),
+                              border: Border(left: BorderSide(color: accent, width: 2)),
+                            ),
+                            constraints: const BoxConstraints(maxWidth: 360),
+                            child: Text(
+                              subtitle.toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.rajdhani(
+                                color: JweTheme.textMid,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        HudRing(
+                          value: ringPct,
+                          size: 52,
+                          stroke: 4.5,
+                          tone: tone,
+                          label: _ringLabel(ringSec),
+                          sub: isRunning ? 'SESSION' : 'TODAY',
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'OPERATIONAL CAPACITY',
+                                style: GoogleFonts.rajdhani(
+                                  color: JweTheme.textMuted,
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                capacity.isNotEmpty ? capacity : 'NO TARGET ESTIMATES SET',
+                                style: GoogleFonts.rajdhani(
+                                  color: JweTheme.textWhite,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'ENGAGEMENT STATUS',
+                                style: GoogleFonts.rajdhani(
+                                  color: JweTheme.textMuted,
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                isRunning ? 'REC LIVE TICKING' : 'STANDBY IDLE',
+                                style: GoogleFonts.rajdhani(
+                                  color: isRunning ? const Color(0xFF10B981) : JweTheme.textMuted,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const Spacer(),
+
+              // ── Action Row ──
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildActionButton(
+                        label: hasTask ? (isRunning ? 'HALT SESSION' : 'ENGAGE') : 'OPEN PLAN',
+                        icon: isRunning ? MdiIcons.pause : MdiIcons.play,
+                        primary: !isRunning && hasTask,
+                        accent: isRunning ? const Color(0xFFFF2A4B) : const Color(0xFF00F0FF),
+                      ),
+                    ),
+                    if (hasTask && isCheckpoint) ...[
+                      const SizedBox(width: 8),
+                      _buildActionButton(
+                        label: 'CHECK',
+                        icon: Icons.check,
+                        primary: false,
+                        accent: const Color(0xFF00F0FF),
+                        width: 80,
+                      ),
+                    ],
+                    const SizedBox(width: 8),
+                    _buildActionButton(
+                      label: hasTask ? 'FINISH' : 'REFRESH',
+                      icon: hasTask ? MdiIcons.checkAll : Icons.refresh,
+                      primary: false,
+                      accent: hasTask ? JweTheme.accentAmber : JweTheme.textMuted,
+                      width: 80,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  ),
+);
   }
 
   @override
@@ -198,224 +746,11 @@ class RunningTaskHomeWidget extends StatelessWidget {
       return _buildCheckableList(context);
     }
 
-    // Phoenix anchors an amber identity; a live session still flips to red.
-    final accentColor = isRunning
-        ? AppTheme.fhAccentRed
-        : (isPhoenix && hasTask ? AppTheme.fhAccentOrange : AppTheme.fhAccentGold);
+    if (multitaskTasks.length > 1) {
+      return _buildMultitaskWidget(context);
+    }
 
-    final statusLabel = !hasTask
-        ? "QUEUE EMPTY"
-        : (isPhoenix
-            ? (isRunning ? "PHOENIX · ENGAGED" : "PHOENIX · STANDBY")
-            : (isCheckpoint
-                ? (isRunning ? "CHECKPOINT · ENGAGED" : "CHECKPOINT · STANDBY")
-                : (isRunning ? "ACTIVE · ENGAGED" : "ACTIVE · STANDBY")));
-
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        width: 400,
-        height: 200,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppTheme.fhBgDark,
-          border: Border.all(color: accentColor, width: 2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Row
-            Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: accentColor,
-                    shape: BoxShape.rectangle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  statusLabel,
-                  style: TextStyle(
-                    color: accentColor,
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                if (isPhoenix && hasTask) ...[
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppTheme.fhAccentOrange.withValues(alpha: 0.14),
-                      border: Border.all(
-                          color: AppTheme.fhAccentOrange.withValues(alpha: 0.5)),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child:  Text(
-                      "PHOENIX",
-                      style: TextStyle(
-                        color: AppTheme.fhAccentOrange,
-                        fontSize: 9,
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.4,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 6),
-            // Title
-            Text(
-              hasTask ? title.toUpperCase() : 'NO PLAN SET',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style:   TextStyle(
-                color: AppTheme.fhTextPrimary,
-                fontFamily: AppTheme.fontDisplay,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 2),
-            // Subtitle
-            Text(
-              hasTask ? subtitle.toUpperCase() : 'QUEUE STANDBY',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style:   TextStyle(
-                color: AppTheme.fhTextSecondary,
-                fontFamily: 'monospace',
-                fontSize: 11,
-                letterSpacing: 1.0,
-              ),
-            ),
-            const SizedBox(height: 6),
-            // Timer Area (we render the label, but leave blank space on the right
-            // where the native ticking Chronometer will overlay)
-            Row(
-              children: [
-                  Text(
-                  "TODAY",
-                  style: TextStyle(
-                    color: AppTheme.fhTextDisabled,
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const Spacer(),
-                if (hasTask && capacity.isNotEmpty)
-                  Text(
-                    "CAP $capacity",
-                    style:   TextStyle(
-                      color: AppTheme.fhTextDisabled,
-                      fontFamily: 'monospace',
-                      fontSize: 11,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-              ],
-            ),
-            const Spacer(),
-            // Progress bar — only meaningful when there is a task with steps.
-            if (hasTask) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(3),
-                child: LinearProgressIndicator(
-                  value: progress.clamp(0.0, 1.0),
-                  minHeight: 5,
-                  backgroundColor: AppTheme.fhBorderColor,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                      isRunning ? AppTheme.fhAccentRed : AppTheme.fhAccentGold),
-                ),
-              ),
-              const SizedBox(height: 6),
-            ],
-            // Buttons Row (Visuals matching the clickable transparent areas in XML)
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: hasTask
-                          ? (isRunning ? AppTheme.fhAccentRed : AppTheme.fhAccentGold)
-                          : AppTheme.fhAccentGold,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      hasTask ? (isRunning ? "HALT SESSION" : "ENGAGE") : "OPEN PLAN",
-                      style:   TextStyle(
-                        color: AppTheme.fhBgDeepDark,
-                        fontFamily: AppTheme.fontDisplay,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                  ),
-                ),
-                // CHECK button — only when there's an active task.
-                if (hasTask) ...[
-                  const SizedBox(width: 10),
-                  Container(
-                    width: 88,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppTheme.fhAccentTeal, width: 1.5),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    alignment: Alignment.center,
-                    child:   Text(
-                      "CHECK",
-                      style: TextStyle(
-                        color: AppTheme.fhAccentTeal,
-                        fontFamily: AppTheme.fontDisplay,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(width: 10),
-                Container(
-                  width: 88,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: hasTask ? AppTheme.fhAccentGold : AppTheme.fhAccentGold.withValues(alpha: 0.5),
-                      width: 1.5,
-                    ),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    hasTask ? "FINISH" : "REFRESH",
-                    style: TextStyle(
-                      color: hasTask ? AppTheme.fhAccentGold : AppTheme.fhAccentGold.withValues(alpha: 0.5),
-                      fontFamily: AppTheme.fontDisplay,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+    return _buildSingleTaskWidget(context);
   }
 }
 

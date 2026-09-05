@@ -1237,8 +1237,8 @@ class _SettingsViewState extends State<SettingsView> {
             FutureBuilder<PackageInfo>(
               future: appProvider.updateService.getLocalPackageInfo(),
               builder: (context, snapshot) {
-                final ver = snapshot.data?.version ?? '2026.8.7';
-                final buildNum = snapshot.data?.buildNumber ?? '2126080701';
+                final ver = snapshot.data?.version ?? '2026.9.5';
+                final buildNum = snapshot.data?.buildNumber ?? '2126090501';
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(

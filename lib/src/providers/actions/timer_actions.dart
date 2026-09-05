@@ -40,7 +40,6 @@ class TimerActions {
       currentPlan.insert(0, compoundId);
       
       _provider.taskActions.updateDayPlan(dateStr, currentPlan);
-      _provider.taskActions.setPhoenix(dateStr, compoundId);
     }
 
     Map<String, ActiveTimerInfo> updatedActiveTimers = Map.from(_provider.activeTimers);

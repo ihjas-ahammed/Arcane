@@ -104,6 +104,7 @@ class HomeWidgetService {
     String capacity = '',
     bool dayPlannerWidgetCheckable = false,
     List<ResolvedDayPlanItem> topFiveTasks = const [],
+    List<ResolvedDayPlanItem> multitaskTasks = const [],
   }) async {
     if (!_supported) return;
 
@@ -123,10 +124,19 @@ class HomeWidgetService {
       'arcane.task.sessionStartMs': sessionStart?.millisecondsSinceEpoch ?? 0,
       'arcane.task.updatedAtMs': DateTime.now().millisecondsSinceEpoch,
       'arcane.task.dayPlannerWidgetCheckable': dayPlannerWidgetCheckable,
+      'arcane.task.multitaskCount': multitaskTasks.length,
     };
     for (var i = 0; i < 5; i++) {
       data['arcane.task.dp$i.title'] =
           i < topFiveTasks.length ? topFiveTasks[i].name : '';
+    }
+    for (var i = 0; i < 3; i++) {
+      data['arcane.task.mt$i.title'] =
+          i < multitaskTasks.length ? multitaskTasks[i].name : '';
+      data['arcane.task.mt$i.parent'] =
+          i < multitaskTasks.length ? multitaskTasks[i].parentName : '';
+      data['arcane.task.mt$i.checkpoints'] =
+          i < multitaskTasks.length ? '${multitaskTasks[i].completedCheckpoints}/${multitaskTasks[i].totalCheckpoints}' : '';
     }
     await _setAll(data);
     await _refresh(_providerRunning);

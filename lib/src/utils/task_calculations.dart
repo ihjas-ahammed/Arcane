@@ -13,17 +13,25 @@ class ResolvedDayPlanItem {
   final String subTaskId;
   final String? checkpointId; // original checkpoint ID if it was a checkpoint entry
   final String? targetCheckpointId; // lowest level checkpoint ID if nested, else null
+  final int totalCheckpoints;
+  final int completedCheckpoints;
+  final int durationMinutes;
+  final bool isRunning;
 
   ResolvedDayPlanItem({
     required this.compoundId,
     required this.name,
     required this.parentName,
     required this.color,
-    required this.isPhoenix,
+    this.isPhoenix = false,
     required this.mainTaskId,
     required this.subTaskId,
     this.checkpointId,
     this.targetCheckpointId,
+    this.totalCheckpoints = 0,
+    this.completedCheckpoints = 0,
+    this.durationMinutes = 0,
+    this.isRunning = false,
   });
 }
 
@@ -107,12 +115,12 @@ class TaskCalculations {
   static List<ResolvedDayPlanItem> resolveTopFiveDayPlanTasks({
     required List<MainTask> mainTasks,
     required List<String> plan,
-    required String? phoenixId,
+    String? phoenixId,
   }) {
     final List<ResolvedDayPlanItem> resolved = [];
     final Set<String> processedCompoundIds = {};
 
-    ResolvedDayPlanItem? resolveItem(String compoundId, bool isPhoenix) {
+    ResolvedDayPlanItem? resolveItem(String compoundId) {
       final parts = compoundId.split('|');
       if (parts.length < 2) return null;
       final mTask = mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
@@ -134,7 +142,6 @@ class TaskCalculations {
           name: displayName,
           parentName: '${mTask.name} · ${sTask.name}',
           color: mTask.taskColor,
-          isPhoenix: isPhoenix,
           mainTaskId: mTask.id,
           subTaskId: sTask.id,
           checkpointId: cp.id,
@@ -152,7 +159,6 @@ class TaskCalculations {
           name: displayName,
           parentName: mTask.name,
           color: mTask.taskColor,
-          isPhoenix: isPhoenix,
           mainTaskId: mTask.id,
           subTaskId: sTask.id,
           checkpointId: null,
@@ -161,19 +167,9 @@ class TaskCalculations {
       }
     }
 
-    // 1. Resolve Phoenix first
-    if (phoenixId != null) {
-      final resolvedPhx = resolveItem(phoenixId, true);
-      if (resolvedPhx != null) {
-        resolved.add(resolvedPhx);
-        processedCompoundIds.add(phoenixId);
-      }
-    }
-
-    // 2. Resolve other plan items
     for (final idPair in plan) {
       if (processedCompoundIds.contains(idPair)) continue;
-      final item = resolveItem(idPair, false);
+      final item = resolveItem(idPair);
       if (item != null) {
         resolved.add(item);
         processedCompoundIds.add(idPair);
@@ -181,6 +177,68 @@ class TaskCalculations {
     }
 
     return resolved.take(5).toList();
+  }
+
+  static List<ResolvedDayPlanItem> resolveDayPlanItems({
+    required List<MainTask> mainTasks,
+    required List<String> compoundIds,
+    String? phoenixId,
+    Map<String, ActiveTimerInfo>? activeTimers,
+  }) {
+    final List<ResolvedDayPlanItem> resolved = [];
+    for (final compoundId in compoundIds) {
+      final parts = compoundId.split('|');
+      if (parts.length < 2) continue;
+
+      final mTask = mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
+      final sTask = mTask?.subTasks.firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
+      if (mTask == null || sTask == null) continue;
+
+      final isRunning = activeTimers?[sTask.id]?.isRunning ?? false;
+      final checkables = sTask.subSubTasks.where((sst) => sst.isActive && sst.type != 'info').toList();
+      final totalCp = checkables.length;
+      final completedCp = checkables.where((sst) => sst.completed).length;
+
+      if (parts.length == 3) {
+        final cp = sTask.findCheckpoint(parts[2]);
+        if (cp == null) continue;
+        final lowestCp = _findLowestIncompleteSubSubTask(cp);
+        final targetCpId = (lowestCp != null && lowestCp.id != cp.id) ? lowestCp.id : null;
+        final displayName = lowestCp?.name ?? cp.name;
+
+        resolved.add(ResolvedDayPlanItem(
+          compoundId: compoundId,
+          name: displayName,
+          parentName: '${mTask.name} · ${sTask.name}',
+          color: mTask.taskColor,
+          mainTaskId: mTask.id,
+          subTaskId: sTask.id,
+          checkpointId: cp.id,
+          targetCheckpointId: targetCpId,
+          totalCheckpoints: cp.substeps.where((sst) => sst.isActive && sst.type != 'info').length,
+          completedCheckpoints: cp.substeps.where((sst) => sst.isActive && sst.type != 'info' && sst.completed).length,
+          durationMinutes: defaultCheckpointMinutes,
+          isRunning: isRunning,
+        ));
+      } else {
+        final lowestCp = nextCheckpoint(sTask);
+        resolved.add(ResolvedDayPlanItem(
+          compoundId: compoundId,
+          name: lowestCp?.name ?? sTask.name,
+          parentName: mTask.name,
+          color: mTask.taskColor,
+          mainTaskId: mTask.id,
+          subTaskId: sTask.id,
+          checkpointId: null,
+          targetCheckpointId: lowestCp?.id,
+          totalCheckpoints: totalCp,
+          completedCheckpoints: completedCp,
+          durationMinutes: defaultSubtaskMinutes,
+          isRunning: isRunning,
+        ));
+      }
+    }
+    return resolved;
   }
 
   static SubSubTask? _findLowestIncompleteSubSubTask(SubSubTask parent) {

@@ -25,10 +25,44 @@ class UpdateService {
       return PackageInfo(
         appName: 'Arcane',
         packageName: 'me.ihjas.missions',
-        version: '2026.9.1',
-        buildNumber: '2126090101',
+        version: '2026.9.5',
+        buildNumber: '2126090501',
       );
     }
+  }
+
+  /// Compares two version strings (e.g. "2026.9.5" vs "2026.9.1").
+  /// Returns true ONLY if remoteVer is strictly newer than localVer.
+  static bool isVersionStringNewer(String remoteVer, String localVer) {
+    final cleanRemote = remoteVer.trim().replaceFirst(RegExp(r'^[vV]'), '').split('+').first;
+    final cleanLocal = localVer.trim().replaceFirst(RegExp(r'^[vV]'), '').split('+').first;
+
+    final remoteParts = cleanRemote.split('.').map((p) => int.tryParse(p) ?? 0).toList();
+    final localParts = cleanLocal.split('.').map((p) => int.tryParse(p) ?? 0).toList();
+
+    final maxLen = remoteParts.length > localParts.length ? remoteParts.length : localParts.length;
+    for (int i = 0; i < maxLen; i++) {
+      final r = i < remoteParts.length ? remoteParts[i] : 0;
+      final l = i < localParts.length ? localParts[i] : 0;
+      if (r > l) return true;
+      if (r < l) return false;
+    }
+    return false;
+  }
+
+  /// Evaluates whether a remote release is strictly newer than the currently installed build.
+  static bool isUpdateAvailable({
+    required int remoteCode,
+    required int localCode,
+    required String remoteVersion,
+    required String localVersion,
+  }) {
+    if (remoteCode > 0 && localCode > 0) {
+      if (remoteCode > localCode) return true;
+      if (remoteCode < localCode) return false;
+      return isVersionStringNewer(remoteVersion, localVersion);
+    }
+    return isVersionStringNewer(remoteVersion, localVersion);
   }
 
   /// Checks whether an update is available on GitHub
@@ -91,7 +125,19 @@ class UpdateService {
 
       final updateModel = UpdateModel.fromJson(metadataJson, changelogMarkdown: changelogMarkdown);
 
-      if (remoteVersionCode > localBuildNumber || forceCheck) {
+      final isNewer = isUpdateAvailable(
+        remoteCode: remoteVersionCode,
+        localCode: localBuildNumber,
+        remoteVersion: updateModel.versionName,
+        localVersion: packageInfo.version,
+      );
+
+      debugPrint(
+        '[UpdateService] Installed: v${packageInfo.version} (#$localBuildNumber), '
+        'Remote: v${updateModel.versionName} (#$remoteVersionCode) -> isNewer: $isNewer (forceCheck: $forceCheck)',
+      );
+
+      if (isNewer) {
         // Proactively clean older versions from cache
         await clearOldApks(updateModel.versionedApkFilename);
         return updateModel;

@@ -125,7 +125,127 @@ class TaskActions {
     return List<String>.from(dayData['dailyPlan'] ?? []);
   }
 
+  List<List<String>> getDayPlanRows(String dateStr) {
+    final dayData = _provider.completedByDay[dateStr];
+    if (dayData == null) return [];
+    final rawRows = dayData['dailyPlanRows'];
+    if (rawRows is List) {
+      final rows = <List<String>>[];
+      for (final r in rawRows) {
+        if (r is List) {
+          final row = r.whereType<String>().where((s) => s.isNotEmpty).toList();
+          if (row.isNotEmpty) rows.add(row);
+        }
+      }
+      if (rows.isNotEmpty) {
+        // Also ensure any items in dailyPlan that aren't in dailyPlanRows are included
+        final flatPlan = getDayPlan(dateStr);
+        final existingInRows = rows.expand((r) => r).toSet();
+        for (final id in flatPlan) {
+          if (!existingInRows.contains(id)) {
+            rows.add([id]);
+            existingInRows.add(id);
+          }
+        }
+        return rows;
+      }
+    }
+    final flat = getDayPlan(dateStr);
+    return flat.map((id) => [id]).toList();
+  }
+
+  void updateDayPlanRows(String dateStr, List<List<String>> rows) {
+    final cleanRows = rows
+        .map((r) => r.where((id) => id.isNotEmpty).toList())
+        .where((r) => r.isNotEmpty)
+        .toList();
+    final flatPlan = cleanRows.expand((r) => r).toList();
+
+    final newHistory = Map<String, dynamic>.from(_provider.completedByDay);
+    if (!newHistory.containsKey(dateStr)) {
+      newHistory[dateStr] = {
+        'taskTimes': <String, int>{},
+        'subtasksCompleted': <Map<String, dynamic>>[],
+        'checkpointsCompleted': <Map<String, dynamic>>[],
+      };
+    }
+    newHistory[dateStr]['dailyPlanRows'] = cleanRows;
+    newHistory[dateStr]['dailyPlan'] = flatPlan;
+    _provider.setProviderState(completedByDay: newHistory);
+  }
+
+  List<List<Map<String, dynamic>>> getDayPlanRowEntries(String dateStr) {
+    final dayData = _provider.completedByDay[dateStr];
+    if (dayData == null) return [];
+    final raw = dayData['planRowEntries'];
+    if (raw is List) {
+      final rows = <List<Map<String, dynamic>>>[];
+      for (final r in raw) {
+        if (r is List) {
+          final row = r
+              .whereType<Map>()
+              .map((m) => Map<String, dynamic>.from(m))
+              .toList();
+          if (row.isNotEmpty) rows.add(row);
+        }
+      }
+      return rows;
+    }
+    return [];
+  }
+
+  void saveDayPlanRowEntries(
+    String dateStr,
+    List<List<Map<String, dynamic>>> rowEntries,
+  ) {
+    final cleanRows = rowEntries
+        .map((r) => r.where((e) => (e['id'] as String? ?? '').isNotEmpty).toList())
+        .where((r) => r.isNotEmpty)
+        .toList();
+    final flatPlan = cleanRows
+        .expand((r) => r)
+        .map((e) => e['id'] as String)
+        .toList();
+    final stringRows = cleanRows
+        .map((r) => r.map((e) => e['id'] as String).toList())
+        .toList();
+
+    final newHistory = Map<String, dynamic>.from(_provider.completedByDay);
+    if (!newHistory.containsKey(dateStr)) {
+      newHistory[dateStr] = {
+        'taskTimes': <String, int>{},
+        'subtasksCompleted': <Map<String, dynamic>>[],
+        'checkpointsCompleted': <Map<String, dynamic>>[],
+      };
+    }
+    newHistory[dateStr]['planRowEntries'] = cleanRows;
+    newHistory[dateStr]['dailyPlanRows'] = stringRows;
+    newHistory[dateStr]['dailyPlan'] = flatPlan;
+    _provider.setProviderState(completedByDay: newHistory);
+  }
+
   void updateDayPlan(String dateStr, List<String> plan) {
+    final existingRows = getDayPlanRows(dateStr);
+    final remainingPlan = List<String>.from(plan);
+    final newRows = <List<String>>[];
+
+    for (final row in existingRows) {
+      final updatedRow = <String>[];
+      for (final id in row) {
+        final idx = remainingPlan.indexOf(id);
+        if (idx != -1) {
+          updatedRow.add(id);
+          remainingPlan.removeAt(idx);
+        }
+      }
+      if (updatedRow.isNotEmpty) {
+        newRows.add(updatedRow);
+      }
+    }
+    for (final leftover in remainingPlan) {
+      newRows.add([leftover]);
+    }
+
     final newHistory = Map<String, dynamic>.from(_provider.completedByDay);
     if (!newHistory.containsKey(dateStr)) {
       newHistory[dateStr] = {
@@ -135,34 +255,7 @@ class TaskActions {
       };
     }
     newHistory[dateStr]['dailyPlan'] = plan;
-    // A Phoenix that's no longer in the plan can't remain anointed.
-    final phx = newHistory[dateStr]['phoenixId'];
-    if (phx is String && !plan.contains(phx)) {
-      newHistory[dateStr].remove('phoenixId');
-    }
-    _provider.setProviderState(completedByDay: newHistory);
-  }
-
-  // --- Phoenix (daily most-important task) ---
-  String? getPhoenixId(String dateStr) {
-    final id = _provider.completedByDay[dateStr]?['phoenixId'];
-    return id is String && id.isNotEmpty ? id : null;
-  }
-
-  void setPhoenix(String dateStr, String? compoundId) {
-    final newHistory = Map<String, dynamic>.from(_provider.completedByDay);
-    if (!newHistory.containsKey(dateStr)) {
-      newHistory[dateStr] = {
-        'taskTimes': <String, int>{},
-        'subtasksCompleted': <Map<String, dynamic>>[],
-        'checkpointsCompleted': <Map<String, dynamic>>[],
-      };
-    }
-    if (compoundId == null || compoundId.isEmpty) {
-      newHistory[dateStr].remove('phoenixId');
-    } else {
-      newHistory[dateStr]['phoenixId'] = compoundId;
-    }
+    newHistory[dateStr]['dailyPlanRows'] = newRows;
     _provider.setProviderState(completedByDay: newHistory);
   }
 
@@ -176,17 +269,6 @@ class TaskActions {
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
-  }
-
-  /// Clears today's Phoenix if its id is [prefix] or a child of it (completing a
-  /// subtask retires the subtask itself and any of its checkpoints).
-  void _clearPhoenixIfPrefix(String prefix) {
-    final today = getTodayDateString();
-    final current = getPhoenixId(today);
-    if (current != null &&
-        (current == prefix || current.startsWith('$prefix|'))) {
-      setPhoenix(today, null);
-    }
   }
 
   /// Consumes one planned occurrence of [compoundId] (e.g. after a work
@@ -362,16 +444,6 @@ class TaskActions {
       }
     }
     newHistory[toDate]['dailyPlanEstimates'] = mergedEstimates;
-
-    // Carry the Phoenix forward if it survived and the new day has none.
-    final srcPhoenix = getPhoenixId(fromDate);
-    final dstHasPhoenix = newHistory[toDate]['phoenixId'] is String;
-    if (srcPhoenix != null &&
-        !dstHasPhoenix &&
-        _isPlanItemActionable(srcPhoenix) &&
-        merged.contains(srcPhoenix)) {
-      newHistory[toDate]['phoenixId'] = srcPhoenix;
-    }
 
     newHistory[toDate]['carryoverHandled'] = true;
     _provider.setProviderState(completedByDay: newHistory);
@@ -552,7 +624,6 @@ class TaskActions {
   void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
     final updates = {'completed': true, 'completionTimestamp': DateTime.now().toIso8601String()};
     updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
-    _clearPhoenixIfPrefix('$mainTaskId|$parentSubtaskId|$subSubtaskId');
     logToDailySummary('subSubtaskCompleted', {'parentTaskId': mainTaskId, 'parentSubTaskId': parentSubtaskId, 'subSubTaskId': subSubtaskId});
   }
 
@@ -966,8 +1037,6 @@ class TaskActions {
     }).toList();
 
     _provider.setProviderState(mainTasks: newMainTasks);
-
-    _clearPhoenixIfPrefix('$mainTaskId|$subtaskId');
 
     logToDailySummary('subtaskCompleted', {
       'parentTaskId': mainTask.id,

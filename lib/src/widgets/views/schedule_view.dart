@@ -565,35 +565,6 @@ class _ScheduleViewState extends State<ScheduleView> {
       }
     }
 
-    // PRIORITY 1.5 — the Phoenix (selected date's most-important task) claims the hero
-    // ahead of the rest of the queue.
-    final phoenixId =
-        provider.taskActions.getPhoenixId(selectedDateStr);
-    if (nextSubTask == null && phoenixId != null) {
-      final parts = phoenixId.split('|');
-      if (parts.length >= 2) {
-        final mTask = provider.mainTasks
-            .firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
-        final sTask = mTask?.subTasks
-            .firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
-        if (sTask != null && !sTask.completed) {
-          if (parts.length == 3) {
-            final cp = sTask.findCheckpoint(parts[2]);
-            if (cp != null && !cp.completed) {
-              nextQueueId = phoenixId;
-              nextMainTask = mTask;
-              nextSubTask = sTask;
-              nextCheckpoint = cp;
-            }
-          } else {
-            nextQueueId = phoenixId;
-            nextMainTask = mTask;
-            nextSubTask = sTask;
-          }
-        }
-      }
-    }
-
     // PRIORITY 2 — fall back to the next uncompleted entry in the day plan.
     if (nextSubTask == null) {
       for (String idPair in plan) {
@@ -632,7 +603,6 @@ class _ScheduleViewState extends State<ScheduleView> {
         : 0.0;
     final sessionStart = isRunning ? activeTimer?.startTime : null;
 
-    final isPhoenix = phoenixId != null && nextQueueId == phoenixId;
     final now = DateTime.now();
     final dayWindow = resolveDayWindow(provider, now);
     final plannedMin =
@@ -642,7 +612,53 @@ class _ScheduleViewState extends State<ScheduleView> {
     final topFiveTasks = TaskCalculations.resolveTopFiveDayPlanTasks(
       mainTasks: provider.mainTasks,
       plan: plan,
-      phoenixId: phoenixId,
+    );
+
+    final planRows = provider.taskActions.getDayPlanRows(selectedDateStr);
+    List<String> activeRowCompoundIds = [];
+    if (nextSubTask != null) {
+      final activeSubId = nextSubTask.id;
+      for (final row in planRows) {
+        if (row.any((id) {
+          final parts = id.split('|');
+          return parts.length >= 2 && parts[1] == activeSubId;
+        })) {
+          activeRowCompoundIds = row;
+          break;
+        }
+      }
+    }
+    if (activeRowCompoundIds.isEmpty) {
+      for (final row in planRows) {
+        bool hasUncompleted = false;
+        for (final id in row) {
+          final parts = id.split('|');
+          if (parts.length >= 2) {
+            final m = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
+            final s = m?.subTasks.firstWhereOrNull((st) => st.id == parts[1] && !st.isDeleted);
+            if (s != null && !s.completed) {
+              if (parts.length == 3) {
+                final cp = s.findCheckpoint(parts[2]);
+                if (cp != null && !cp.completed) {
+                  hasUncompleted = true;
+                  break;
+                }
+              } else {
+                hasUncompleted = true;
+                break;
+              }
+            }
+          }
+        }
+        if (hasUncompleted) {
+          activeRowCompoundIds = row;
+          break;
+        }
+      }
+    }
+    final multitaskItems = TaskCalculations.resolveDayPlanItems(
+      mainTasks: provider.mainTasks,
+      compoundIds: activeRowCompoundIds,
     );
 
     final bool isLargeScreen = MediaQuery.of(context).size.width > 900;
@@ -657,12 +673,22 @@ class _ScheduleViewState extends State<ScheduleView> {
           subTask: nextSubTask,
           checkpoint: nextCheckpoint,
           isRunning: isRunning,
-          isPhoenix: isPhoenix,
           plannedMinutes: plannedMin,
           realisticMinutes: realisticMin,
           accumulatedTodaySeconds: accumulatedTodaySeconds,
           sessionStart: sessionStart,
           topFiveTasks: topFiveTasks,
+          multitaskItems: multitaskItems,
+          onCheckMultitaskItem: (item) {
+            if (item.targetCheckpointId != null) {
+              provider.taskActions.completeSubSubtask(item.mainTaskId, item.subTaskId, item.targetCheckpointId!);
+            } else {
+              provider.taskActions.completeSubtask(item.mainTaskId, item.subTaskId);
+            }
+            final currentPlan = List<String>.from(provider.taskActions.getDayPlan(selectedDateStr));
+            currentPlan.remove(item.compoundId);
+            provider.taskActions.updateDayPlan(selectedDateStr, currentPlan);
+          },
           onCheckTask: (item) {
             if (item.targetCheckpointId != null) {
               provider.taskActions.completeSubSubtask(item.mainTaskId, item.subTaskId, item.targetCheckpointId!);
@@ -681,22 +707,22 @@ class _ScheduleViewState extends State<ScheduleView> {
           onPlayPause: () {
             if (nextSubTask == null || nextMainTask == null) return;
             if (isRunning) {
-              provider.pauseTimer(nextSubTask!.id);
-              provider.logTimerAndReset(nextSubTask!.id);
+              provider.pauseTimer(nextSubTask.id);
+              provider.logTimerAndReset(nextSubTask.id);
             } else {
-              provider.startTimer(nextSubTask!.id, 'subtask', nextMainTask!.id);
+              provider.startTimer(nextSubTask.id, 'subtask', nextMainTask.id);
             }
           },
           onFinishCheckpoint: () {
             if (nextQueueId != null && nextCheckpoint != null && nextMainTask != null && nextSubTask != null) {
-              provider.taskActions.completeSubSubtask(nextMainTask!.id, nextSubTask!.id, nextCheckpoint!.id);
+              provider.taskActions.completeSubSubtask(nextMainTask.id, nextSubTask.id, nextCheckpoint.id);
               final newPlan = List<String>.from(plan)..remove(nextQueueId);
               provider.taskActions.updateDayPlan(selectedDateStr, newPlan);
             }
           },
           onFinishSubTask: () {
             if (nextQueueId != null && nextMainTask != null && nextSubTask != null) {
-              provider.taskActions.completeSubtask(nextMainTask!.id, nextSubTask!.id);
+              provider.taskActions.completeSubtask(nextMainTask.id, nextSubTask.id);
               final newPlan = List<String>.from(plan)..remove(nextQueueId);
               provider.taskActions.updateDayPlan(selectedDateStr, newPlan);
             }

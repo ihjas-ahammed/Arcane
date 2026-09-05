@@ -38,18 +38,5 @@ void main() {
 
       expect(provider.taskActions.getDayPlan(date), ['task1|subA']);
     });
-
-    test('phoenix survives while a duplicate occurrence remains', () {
-      final provider = AppProvider.forTest();
-      const date = '2026-07-11';
-      provider.taskActions.updateDayPlan(date, ['task1|subA', 'task1|subA']);
-      provider.taskActions.setPhoenix(date, 'task1|subA');
-
-      provider.taskActions.removeFromDayPlan('task1|subA', date);
-      expect(provider.taskActions.getPhoenixId(date), 'task1|subA');
-
-      provider.taskActions.removeFromDayPlan('task1|subA', date);
-      expect(provider.taskActions.getPhoenixId(date), isNull);
-    });
   });
 }

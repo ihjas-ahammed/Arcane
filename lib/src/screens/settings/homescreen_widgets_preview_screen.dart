@@ -12,6 +12,7 @@ import 'package:missions/src/services/bus_location_service.dart';
 import 'package:missions/src/services/home_widget_service.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
+import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/widgets/homescreen_widgets.dart';
 
 class HomescreenWidgetsPreviewScreen extends StatefulWidget {
@@ -41,13 +42,13 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
 
   // 2. Task Widget Custom Test State
   String _taskTitle = "DESIGN NEURAL ARCHITECTURE";
-  String _taskSubtitle = "PHOENIX PROTOCOL // DEEP WORK";
+  String _taskSubtitle = "OPERATIONAL PROTOCOL // DEEP WORK";
   String _taskCapacity = "2h40 / 4h30";
   double _taskProgress = 0.65;
   bool _taskIsRunning = true;
-  bool _taskIsPhoenix = true;
   final bool _taskIsCheckpoint = false;
   final int _taskAccumulatedSeconds = 1800;
+  int _taskMultitaskCount = 1;
 
   // 3. Finance Widget Custom Test State
   double _financeBalance = 24500.0;
@@ -214,12 +215,11 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
     bool isCheckpoint,
     int accumulatedSeconds,
     double progress,
-    bool isPhoenix,
     String capacity,
+    List<ResolvedDayPlanItem> multitaskTasks,
   }) _resolveLiveTask(AppProvider provider) {
     final today = helper.getTodayDateString();
     final plan = List<String>.from(provider.taskActions.getDayPlan(today));
-    final phoenixId = provider.taskActions.getPhoenixId(today);
 
     // 1. Running session always claims the headline
     final runningEntry = provider.activeTimers.entries
@@ -228,7 +228,6 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
     SubTask? s;
     SubSubTask? cp;
     bool isRunning = false;
-    bool isPhoenix = false;
 
     if (runningEntry != null) {
       m = provider.mainTasks.firstWhereOrNull((t) => t.id == runningEntry.value.mainTaskId && !t.isDeleted);
@@ -240,7 +239,6 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
           return parts.length >= 2 && parts[0] == m!.id && parts[1] == s!.id;
         });
         if (inPlan != null) {
-          isPhoenix = inPlan == phoenixId;
           final parts = inPlan.split('|');
           if (parts.length == 3) {
             cp = s.findCheckpoint(parts[2]);
@@ -249,31 +247,20 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
       }
     }
 
-    // 2. Fallback to Phoenix or first day plan item
+    // 2. Fallback to first day plan item
     if (s == null) {
-      if (phoenixId != null) {
-        final parts = phoenixId.split('|');
-        if (parts.length >= 2) {
-          m = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
-          s = m?.subTasks.firstWhereOrNull((st) => st.id == parts[1] && !st.isDeleted && !st.completed);
-          if (s != null) {
-            isPhoenix = true;
-            if (parts.length == 3) cp = s.findCheckpoint(parts[2]);
+      for (final qId in plan) {
+        final parts = qId.split('|');
+        if (parts.length < 2) continue;
+        final candidateM = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
+        final candidateS = candidateM?.subTasks.firstWhereOrNull((st) => st.id == parts[1] && !st.isDeleted && !st.completed);
+        if (candidateM != null && candidateS != null) {
+          m = candidateM;
+          s = candidateS;
+          if (parts.length == 3) {
+            cp = s.findCheckpoint(parts[2]);
           }
-        }
-      }
-      if (s == null) {
-        for (final qId in plan) {
-          final parts = qId.split('|');
-          if (parts.length < 2) continue;
-          final candidateM = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
-          final candidateS = candidateM?.subTasks.firstWhereOrNull((st) => st.id == parts[1] && !st.isDeleted && !st.completed);
-          if (candidateM != null && candidateS != null) {
-            m = candidateM;
-            s = candidateS;
-            if (parts.length == 3) cp = s.findCheckpoint(parts[2]);
-            break;
-          }
+          break;
         }
       }
     }
@@ -287,6 +274,54 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
     final progress = s != null ? s.calculateProgress() : 0.0;
     final capacity = s != null && s.targetCount > 0 ? "${s.currentCount}/${s.targetCount}" : "";
 
+    final planRows = provider.taskActions.getDayPlanRows(today);
+    List<String> activeRowCompoundIds = [];
+    if (s != null) {
+      final activeSubId = s.id;
+      for (final row in planRows) {
+        if (row.any((id) {
+          final parts = id.split('|');
+          return parts.length >= 2 && parts[1] == activeSubId;
+        })) {
+          activeRowCompoundIds = row;
+          break;
+        }
+      }
+    }
+    if (activeRowCompoundIds.isEmpty) {
+      for (final row in planRows) {
+        bool hasUncompleted = false;
+        for (final id in row) {
+          final parts = id.split('|');
+          if (parts.length >= 2) {
+            final candM = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
+            final candS = candM?.subTasks.firstWhereOrNull((st) => st.id == parts[1] && !st.isDeleted);
+            if (candS != null && !candS.completed) {
+              if (parts.length == 3) {
+                final candCp = candS.findCheckpoint(parts[2]);
+                if (candCp != null && !candCp.completed) {
+                  hasUncompleted = true;
+                  break;
+                }
+              } else {
+                hasUncompleted = true;
+                break;
+              }
+            }
+          }
+        }
+        if (hasUncompleted) {
+          activeRowCompoundIds = row;
+          break;
+        }
+      }
+    }
+    final multitaskTasks = TaskCalculations.resolveDayPlanItems(
+      mainTasks: provider.mainTasks,
+      compoundIds: activeRowCompoundIds,
+      activeTimers: provider.activeTimers,
+    );
+
     return (
       hasTask: hasTask,
       title: title,
@@ -295,8 +330,8 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
       isCheckpoint: cp != null,
       accumulatedSeconds: accumulated,
       progress: progress,
-      isPhoenix: isPhoenix,
       capacity: capacity,
+      multitaskTasks: multitaskTasks,
     );
   }
 
@@ -459,8 +494,48 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
       isCheckpoint: _taskIsCheckpoint,
       accumulatedSeconds: _taskAccumulatedSeconds,
       progress: _taskProgress,
-      isPhoenix: _taskIsPhoenix,
       capacity: _taskCapacity,
+      multitaskTasks: _taskMultitaskCount > 1
+          ? [
+              ResolvedDayPlanItem(
+                compoundId: 'test-1',
+                name: _taskTitle,
+                parentName: 'PRIMARY PROTOCOL',
+                color: Colors.cyan,
+                mainTaskId: 'm1',
+                subTaskId: 's1',
+                isRunning: _taskIsRunning,
+                totalCheckpoints: 3,
+                completedCheckpoints: 1,
+                durationMinutes: 45,
+              ),
+              ResolvedDayPlanItem(
+                compoundId: 'test-2',
+                name: 'SYSTEM RECON & TELEMETRY',
+                parentName: 'ARCANE CORE',
+                color: Colors.amber,
+                mainTaskId: 'm2',
+                subTaskId: 's2',
+                isRunning: false,
+                totalCheckpoints: 0,
+                completedCheckpoints: 0,
+                durationMinutes: 30,
+              ),
+              if (_taskMultitaskCount >= 3)
+                ResolvedDayPlanItem(
+                  compoundId: 'test-3',
+                  name: 'SECURITY AUDIT // SUITE',
+                  parentName: 'CYBERPUNK OPS',
+                  color: Colors.purple,
+                  mainTaskId: 'm3',
+                  subTaskId: 's3',
+                  isRunning: false,
+                  totalCheckpoints: 4,
+                  completedCheckpoints: 2,
+                  durationMinutes: 20,
+                ),
+            ]
+          : const <ResolvedDayPlanItem>[],
     ) : _resolveLiveTask(provider);
 
     await HomeWidgetService.instance.publishTask(
@@ -471,8 +546,9 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
       isCheckpoint: task.isCheckpoint,
       accumulatedSeconds: task.accumulatedSeconds,
       progress: task.progress,
-      isPhoenix: task.isPhoenix,
+      isPhoenix: false,
       capacity: task.capacity,
+      multitaskTasks: task.multitaskTasks,
     );
     if (mounted) {
       setState(() => _isSyncing = false);
@@ -599,10 +675,10 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
             unselectedLabelColor: JweTheme.textMuted,
             labelStyle: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.bold),
             tabs: const [
-              Tab(text: "1. BUS TRANSIT"),
-              Tab(text: "2. ACTIVE TASK"),
-              Tab(text: "3. FINANCE"),
-              Tab(text: "4. JOURNAL"),
+              Tab(text: "BUS ROUTE"),
+              Tab(text: "TASK HERO"),
+              Tab(text: "FINANCE"),
+              Tab(text: "JOURNAL"),
             ],
           ),
         ),
@@ -623,11 +699,11 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
   Widget _buildBusWidgetTab(AppProvider provider) {
     final live = _resolveLiveBus(provider);
     final origin = _overrideBus ? _busOrigin : live.origin;
-    final dest = _overrideBus ? _busDest : live.destination;
+    final destination = _overrideBus ? _busDest : live.destination;
     final nextTime = _overrideBus ? _busNextTime : live.nextTime;
     final nextSubStop = _overrideBus ? _busSubStop : live.nextSubStop;
     final isOnBus = _overrideBus ? _busIsOnBus : live.isOnBus;
-    final speedKmh = _overrideBus ? _busSpeedKmh : live.speedKmh;
+    final speed = _overrideBus ? _busSpeedKmh : live.speedKmh;
     final minsRemaining = _overrideBus ? _busMinsRemaining : live.minutesRemaining;
 
     return SingleChildScrollView(
@@ -641,11 +717,11 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
             child: Center(
               child: BusHomeWidget(
                 origin: origin,
-                destination: dest,
+                destination: destination,
                 nextTime: nextTime,
                 nextSubStop: nextSubStop,
                 isOnBus: isOnBus,
-                speedKmh: speedKmh,
+                speedKmh: speed,
                 minutesRemaining: minsRemaining,
               ),
             ),
@@ -654,7 +730,7 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
           _buildActionButtons(
             syncLabel: "SYNC BUS WIDGET",
             onSync: () => _pushBusToAndroid(provider),
-            onPin: () => _pinWidget(HomeWidgetService.instance.requestPinBus, "Bus Transit Widget"),
+            onPin: () => _pinWidget(HomeWidgetService.instance.requestPinBus, "Live Bus Widget"),
           ),
           const SizedBox(height: 20),
           _buildTestControlsAccordion(
@@ -669,7 +745,7 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
                   _busSubStop = live.nextSubStop;
                   _busIsOnBus = live.isOnBus;
                   _busSpeedKmh = live.speedKmh;
-                  _busMinsRemaining = live.minutesRemaining >= 0 ? live.minutesRemaining : 15;
+                  _busMinsRemaining = live.minutesRemaining;
                 }
               });
             },
@@ -727,8 +803,56 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
     final isCheckpoint = _overrideTask ? _taskIsCheckpoint : live.isCheckpoint;
     final accumulated = _overrideTask ? _taskAccumulatedSeconds : live.accumulatedSeconds;
     final progress = _overrideTask ? _taskProgress : live.progress;
-    final isPhoenix = _overrideTask ? _taskIsPhoenix : live.isPhoenix;
     final capacity = _overrideTask ? _taskCapacity : live.capacity;
+
+    final List<ResolvedDayPlanItem> previewMultitask;
+    if (_overrideTask) {
+      if (_taskMultitaskCount > 1) {
+        previewMultitask = [
+          ResolvedDayPlanItem(
+            compoundId: 'test-1',
+            name: _taskTitle,
+            parentName: 'PRIMARY PROTOCOL',
+            color: Colors.cyan,
+            mainTaskId: 'm1',
+            subTaskId: 's1',
+            isRunning: _taskIsRunning,
+            totalCheckpoints: 3,
+            completedCheckpoints: 1,
+            durationMinutes: 45,
+          ),
+          ResolvedDayPlanItem(
+            compoundId: 'test-2',
+            name: 'SYSTEM RECON & TELEMETRY',
+            parentName: 'ARCANE CORE',
+            color: Colors.amber,
+            mainTaskId: 'm2',
+            subTaskId: 's2',
+            isRunning: false,
+            totalCheckpoints: 0,
+            completedCheckpoints: 0,
+            durationMinutes: 30,
+          ),
+          if (_taskMultitaskCount >= 3)
+            ResolvedDayPlanItem(
+              compoundId: 'test-3',
+              name: 'SECURITY AUDIT // SUITE',
+              parentName: 'CYBERPUNK OPS',
+              color: Colors.purple,
+              mainTaskId: 'm3',
+              subTaskId: 's3',
+              isRunning: false,
+              totalCheckpoints: 4,
+              completedCheckpoints: 2,
+              durationMinutes: 20,
+            ),
+        ];
+      } else {
+        previewMultitask = const [];
+      }
+    } else {
+      previewMultitask = live.multitaskTasks;
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -747,8 +871,8 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
                 isCheckpoint: isCheckpoint,
                 accumulatedSeconds: accumulated,
                 progress: progress,
-                isPhoenix: isPhoenix,
                 capacity: capacity,
+                multitaskTasks: previewMultitask,
               ),
             ),
           ),
@@ -768,7 +892,6 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
                   _taskTitle = live.title;
                   _taskSubtitle = live.subtitle;
                   _taskIsRunning = live.isRunning;
-                  _taskIsPhoenix = live.isPhoenix;
                   _taskProgress = live.progress;
                   _taskCapacity = live.capacity;
                 }
@@ -782,12 +905,6 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
                   value: _taskIsRunning,
                   activeTrackColor: JweTheme.accentAmber,
                   onChanged: (val) => setState(() => _taskIsRunning = val),
-                ),
-                SwitchListTile(
-                  title: Text("Is Phoenix Mission", style: TextStyle(color: JweTheme.textWhite, fontSize: 13)),
-                  value: _taskIsPhoenix,
-                  activeTrackColor: JweTheme.accentRed,
-                  onChanged: (val) => setState(() => _taskIsPhoenix = val),
                 ),
                 const SizedBox(height: 8),
                 _buildTextField("Mission Title", _taskTitle, (val) => setState(() => _taskTitle = val)),
@@ -803,6 +920,18 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
                   max: 1.0,
                   activeColor: JweTheme.accentAmber,
                   onChanged: (v) => setState(() => _taskProgress = v),
+                ),
+                const SizedBox(height: 12),
+                Text("Multitask Layout Mode", style: TextStyle(color: JweTheme.textWhite, fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                SegmentedButton<int>(
+                  segments: const [
+                    ButtonSegment(value: 1, label: Text("1 Task", style: TextStyle(fontSize: 11))),
+                    ButtonSegment(value: 2, label: Text("2 Tasks", style: TextStyle(fontSize: 11))),
+                    ButtonSegment(value: 3, label: Text("3 Tasks", style: TextStyle(fontSize: 11))),
+                  ],
+                  selected: {_taskMultitaskCount},
+                  onSelectionChanged: (set) => setState(() => _taskMultitaskCount = set.first),
                 ),
               ],
             ),

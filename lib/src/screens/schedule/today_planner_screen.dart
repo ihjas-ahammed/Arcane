@@ -8,14 +8,50 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:missions/src/theme/app_theme.dart';
-import 'package:missions/src/theme/person_info_theme.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
 import 'package:missions/src/utils/day_budget_helper.dart';
 import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/utils/global_toast.dart';
-import 'package:missions/src/theme/arc/arc_theme.dart';
+
+/// One slot in the day plan. The same compound id may appear more than once
+/// (planning several sessions of the same work), so each slot carries its own
+/// stable [key] for list identity and animations.
+class _PlanCheckpoint {
+  final String id;
+  String name;
+  bool completed;
+  int durationMinutes;
+
+  _PlanCheckpoint({
+    required this.id,
+    required this.name,
+    this.completed = false,
+    this.durationMinutes = 15,
+  });
+
+  _PlanCheckpoint clone({String? newId}) => _PlanCheckpoint(
+    id: newId ?? const Uuid().v4(),
+    name: name,
+    completed: completed,
+    durationMinutes: durationMinutes,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'completed': completed,
+    'durationMinutes': durationMinutes,
+  };
+
+  factory _PlanCheckpoint.fromJson(Map<String, dynamic> json) => _PlanCheckpoint(
+    id: json['id'] as String? ?? const Uuid().v4(),
+    name: json['name'] as String? ?? '',
+    completed: json['completed'] as bool? ?? false,
+    durationMinutes: (json['durationMinutes'] as num?)?.toInt() ?? 15,
+  );
+}
 
 /// One slot in the day plan. The same compound id may appear more than once
 /// (planning several sessions of the same work), so each slot carries its own
@@ -25,7 +61,59 @@ class _PlanEntry {
   final String key;
   final String id;
   final bool addedAtRuntime;
-  _PlanEntry(this.id, {this.addedAtRuntime = false}) : key = 'plan-entry-${_seq++}';
+  List<_PlanCheckpoint> checkpoints;
+
+  _PlanEntry(
+    this.id, {
+    this.addedAtRuntime = false,
+    String? key,
+    List<_PlanCheckpoint>? checkpoints,
+  })  : key = key ?? 'plan-entry-${_seq++}',
+        checkpoints = checkpoints ?? [];
+
+  _PlanEntry clone() {
+    return _PlanEntry(
+      id,
+      addedAtRuntime: true,
+      checkpoints: checkpoints.map((c) => c.clone()).toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'key': key,
+    'id': id,
+    'addedAtRuntime': addedAtRuntime,
+    'checkpoints': checkpoints.map((c) => c.toJson()).toList(),
+  };
+
+  factory _PlanEntry.fromJson(Map<String, dynamic> json) => _PlanEntry(
+    json['id'] as String? ?? '',
+    addedAtRuntime: json['addedAtRuntime'] as bool? ?? false,
+    key: json['key'] as String?,
+    checkpoints: (json['checkpoints'] as List?)
+        ?.whereType<Map>()
+        .map((m) => _PlanCheckpoint.fromJson(Map<String, dynamic>.from(m)))
+        .toList() ??
+        [],
+  );
+}
+
+/// A row in the multi-planner holding 1, 2, or 3 plans for multitasking.
+class _PlanRowData {
+  static int _rowSeq = 0;
+  final String key;
+  final List<_PlanEntry> entries;
+
+  _PlanRowData(this.entries, {String? key})
+      : key = key ?? 'plan-row-${_rowSeq++}';
+
+  int get count => entries.length.clamp(1, 3);
+}
+
+class _PlanEntryDragData {
+  final _PlanEntry entry;
+  final int sourceRowIndex;
+  _PlanEntryDragData({required this.entry, required this.sourceRowIndex});
 }
 
 enum _LeaveKind { removed, completed }
@@ -40,7 +128,8 @@ class TodayPlannerScreen extends StatefulWidget {
 
 class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   late String _date;
-  List<_PlanEntry> _entries = [];
+  List<_PlanRowData> _rows = [];
+  List<_PlanEntry> get _entries => _rows.expand((r) => r.entries).toList();
   Map<String, int> _estimates = {};
   final Map<String, _LeaveKind> _leaving = {};
   bool _addExpanded = false;
@@ -48,6 +137,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   bool _isInit = true;
   int _activeAddTab = 0; // 0 for Missions, 1 for Routines
+  int? _multitaskTargetRowIndex;
 
   @override
   void didChangeDependencies() {
@@ -55,7 +145,33 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     if (_isInit) {
       _date = widget.date ?? helper.getTodayDateString();
       final provider = Provider.of<AppProvider>(context, listen: false);
-      _entries = provider.taskActions.getDayPlan(_date).map(_PlanEntry.new).toList();
+      final savedRowEntries = provider.taskActions.getDayPlanRowEntries(_date);
+      if (savedRowEntries.isNotEmpty) {
+        _rows = savedRowEntries
+            .map((row) => _PlanRowData(row.map(_PlanEntry.fromJson).toList()))
+            .toList();
+      } else {
+        final rowLists = provider.taskActions.getDayPlanRows(_date);
+        _rows = rowLists.map((row) {
+          return _PlanRowData(row.map((id) {
+            final entry = _PlanEntry(id);
+            final parts = id.split('|');
+            if (parts.length >= 2) {
+              final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+              final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+              if (sub != null && sub.subSubTasks.isNotEmpty) {
+                entry.checkpoints = sub.subSubTasks.map((sst) => _PlanCheckpoint(
+                  id: const Uuid().v4(),
+                  name: sst.name,
+                  completed: false,
+                  durationMinutes: sst.timeSpentMinutes > 0 ? sst.timeSpentMinutes : 15,
+                )).toList();
+              }
+            }
+            return entry;
+          }).toList());
+        }).toList();
+      }
       _estimates = provider.taskActions.getDayPlanEstimates(_date);
       _isInit = false;
     }
@@ -68,7 +184,10 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   }
 
   void _persistPlan(AppProvider provider) {
-    provider.taskActions.updateDayPlan(_date, _entries.map((e) => e.id).toList());
+    provider.taskActions.saveDayPlanRowEntries(
+      _date,
+      _rows.map((r) => r.entries.map((e) => e.toJson()).toList()).toList(),
+    );
   }
 
   void _setEstimate(AppProvider provider, String compoundId, int minutes) {
@@ -121,9 +240,69 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     return sub.completed;
   }
 
-  void _addToPlan(AppProvider provider, String compoundId) {
+  void _addToPlan(AppProvider provider, String compoundId, [int? targetRowIdx]) {
+    final target = targetRowIdx ?? _multitaskTargetRowIndex;
+    final newEntry = _PlanEntry(compoundId, addedAtRuntime: true);
+    final parts = compoundId.split('|');
+    if (parts.length >= 2) {
+      final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+      final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+      if (sub != null && sub.subSubTasks.isNotEmpty) {
+        newEntry.checkpoints = sub.subSubTasks.map((sst) => _PlanCheckpoint(
+          id: const Uuid().v4(),
+          name: sst.name,
+          completed: false,
+          durationMinutes: sst.timeSpentMinutes > 0 ? sst.timeSpentMinutes : 15,
+        )).toList();
+      }
+    }
+
     setState(() {
-      _entries.add(_PlanEntry(compoundId, addedAtRuntime: true));
+      if (target != null && target >= 0 && target < _rows.length && _rows[target].entries.length < 3) {
+        _rows[target].entries.add(newEntry);
+      } else {
+        _rows.add(_PlanRowData([newEntry]));
+      }
+      _multitaskTargetRowIndex = null;
+    });
+    _persistPlan(provider);
+  }
+
+  void _duplicatePlanItem(AppProvider provider, _PlanEntry entry, int rowIndex) {
+    final cloned = entry.clone();
+    setState(() {
+      if (_rows[rowIndex].entries.length < 3) {
+        _rows[rowIndex].entries.add(cloned);
+      } else {
+        _rows.insert(rowIndex + 1, _PlanRowData([cloned]));
+      }
+    });
+    _persistPlan(provider);
+    showGlobalToast('Mission duplicated with independent checkpoints');
+  }
+
+  void _toggleCheckpoint(AppProvider provider, _PlanEntry entry, _PlanCheckpoint checkpoint) {
+    setState(() {
+      checkpoint.completed = !checkpoint.completed;
+    });
+    _persistPlan(provider);
+  }
+
+  void _removeCheckpoint(AppProvider provider, _PlanEntry entry, _PlanCheckpoint checkpoint) {
+    setState(() {
+      entry.checkpoints.removeWhere((c) => c.id == checkpoint.id);
+    });
+    _persistPlan(provider);
+  }
+
+  void _addCheckpoint(AppProvider provider, _PlanEntry entry, String name, int duration) {
+    setState(() {
+      entry.checkpoints.add(_PlanCheckpoint(
+        id: const Uuid().v4(),
+        name: name,
+        completed: false,
+        durationMinutes: duration,
+      ));
     });
     _persistPlan(provider);
   }
@@ -137,10 +316,13 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   void _finishLeave(AppProvider provider, _PlanEntry entry) {
     if (!mounted) return;
     setState(() {
-      _entries.removeWhere((e) => e.key == entry.key);
+      for (final row in _rows) {
+        row.entries.removeWhere((e) => e.key == entry.key);
+      }
+      _rows.removeWhere((r) => r.entries.isEmpty);
       _leaving.remove(entry.key);
     });
-    _persistPlan(provider); // updateDayPlan auto-clears a Phoenix that left the plan
+    _persistPlan(provider);
   }
 
   void _removeFromPlan(AppProvider provider, _PlanEntry entry) {
@@ -166,20 +348,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     _startLeave(entry, _LeaveKind.completed);
   }
 
-  void _togglePhoenix(AppProvider provider, _PlanEntry entry) {
-    final current = provider.taskActions.getPhoenixId(_date);
-    if (current == entry.id) {
-      provider.taskActions.setPhoenix(_date, null);
-    } else {
-      // Pin to the front so the Phoenix reads as the first thing of the day.
-      setState(() {
-        _entries.removeWhere((e) => e.key == entry.key);
-        _entries.insert(0, entry);
-      });
-      _persistPlan(provider);
-      provider.taskActions.setPhoenix(_date, entry.id);
-    }
-  }
+
 
   Future<void> _editEstimate(AppProvider provider, String compoundId) async {
     final current = _estimateFor(compoundId, provider);
@@ -358,51 +527,224 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     final realisticMinutes = window.realisticMinutes(now);
 
     int plannedMinutes = 0;
-    int doneMinutes = 0;
-    int doneCount = 0;
     for (final entry in _entries) {
       final est = _estimateFor(entry.id, provider);
-      if (_isEntryDone(provider, entry.id)) {
-        doneMinutes += est;
-        doneCount++;
-      } else {
+      if (!_isEntryDone(provider, entry.id)) {
         plannedMinutes += est;
       }
     }
     final active = _resolveActive(provider);
 
     return Scaffold(
-      backgroundColor: AppTheme.fhBgDeepDark,
+      backgroundColor: const Color(0xFF05080C),
       appBar: AppBar(
-        title: Text(
-            _date == helper.getTodayDateString()
-                ? 'TODAY'
-                : DateFormat('dd MMM yyyy').format(DateTime.parse(_date)).toUpperCase(),
-            style: GoogleFonts.rajdhani(
-                color: AppTheme.fhAccentTeal,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 3)),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme:   IconThemeData(color: AppTheme.fhTextPrimary),
-      ),
-      body: SafeArea(
-        child: Column(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: Color(0xFF94A3B8)),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Row(
           children: [
-            _BudgetBar(
-              plannedMinutes: plannedMinutes,
-              doneMinutes: doneMinutes,
-              doneCount: doneCount,
-              minutesLeft: minutesLeft,
-              realisticMinutes: realisticMinutes,
-              fromHistory: window.fromHistory,
-            ),
-            if (active.title != null)
-              _ActivePill(
-                title: active.title!,
-                color: active.color ?? AppTheme.fhAccentTeal,
-                isRunning: active.isRunning,
+            Text(
+              _date == helper.getTodayDateString()
+                  ? 'TODAY'
+                  : DateFormat('dd MMM yyyy').format(DateTime.parse(_date)).toUpperCase(),
+              style: GoogleFonts.teko(
+                fontSize: 32,
+                letterSpacing: 4,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
+            ),
+            const SizedBox(width: 8),
+            Container(width: 16, height: 2, color: const Color(0xFFFF2A4B)),
+          ],
+        ),
+        actions: [
+          Center(
+            child: InkWell(
+              onTap: () => setState(() {
+                _multitaskTargetRowIndex = null;
+                _addExpanded = true;
+              }),
+              borderRadius: BorderRadius.circular(2),
+              child: Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00F0FF).withValues(alpha: 0.1),
+                  border: Border.all(color: const Color(0xFF00F0FF), width: 1),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.add, size: 14, color: Color(0xFF00F0FF)),
+                    const SizedBox(width: 4),
+                    Text(
+                      'ADD',
+                      style: GoogleFonts.rajdhani(
+                        color: const Color(0xFF00F0FF),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 14, top: 12),
+            child: Text.rich(
+              TextSpan(
+                text: 'DISCIPLINE\nBUILDS\nFREEDOM ',
+                style: GoogleFonts.rajdhani(
+                  color: const Color(0xFF7B8FA3),
+                  fontSize: 8,
+                  letterSpacing: 2,
+                  fontWeight: FontWeight.bold,
+                  height: 1.2,
+                ),
+                children: const [
+                  TextSpan(text: '—', style: TextStyle(color: Color(0xFFFF2A4B))),
+                ],
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: 0.85,
+                child: const CustomPaint(
+                  painter: _TacticalBackgroundPainter(),
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+            // Time & Progress Overview
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            formatMinutes(plannedMinutes),
+                            style: GoogleFonts.teko(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'PLANNED / ${realisticMinutes > 0 ? formatMinutes(realisticMinutes) : '0m'} USABLE',
+                            style: GoogleFonts.rajdhani(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                              color: const Color(0xFF7C90A5),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Text(
+                            '${minutesLeft}m LEFT ',
+                            style: GoogleFonts.rajdhani(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                              color: const Color(0xFFCBD5E1),
+                            ),
+                          ),
+                          const Icon(Icons.nightlight_round, size: 14, color: Color(0xFFCBD5E1)),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    width: double.infinity,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF111D28),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    alignment: Alignment.centerLeft,
+                    child: FractionallySizedBox(
+                      widthFactor: realisticMinutes > 0
+                          ? (plannedMinutes / realisticMinutes).clamp(0.02, 1.0)
+                          : 0.88,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00F0FF),
+                          borderRadius: BorderRadius.circular(2),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x6600F0FF), blurRadius: 10, spreadRadius: 1),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            // Up Next Status
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(width: 7, height: 7, color: const Color(0xFFFF2A4B)),
+                      const SizedBox(width: 8),
+                      Text(
+                        'UP NEXT',
+                        style: GoogleFonts.rajdhani(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          color: const Color(0xFF8FA2B6),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    (active.title ?? 'NONE').toUpperCase(),
+                    style: GoogleFonts.rajdhani(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFFF1F5F9),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
             Expanded(child: _buildPlanList(provider)),
             _AddSection(
               expanded: _addExpanded,
@@ -418,40 +760,46 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
           ],
         ),
       ),
-    );
+    ],
+  ),
+  );
   }
 
   Widget _buildPlanList(AppProvider provider) {
-    if (_entries.isEmpty) {
+    if (_rows.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(MdiIcons.formatListBulletedSquare,
-                size: 48, color: AppTheme.fhTextDisabled),
+            Icon(MdiIcons.formatListBulletedSquare, size: 48, color: const Color(0xFF62778D)),
             const SizedBox(height: 12),
-            Text('NOTHING PLANNED',
-                style: GoogleFonts.rajdhani(
-                    color: AppTheme.fhTextDisabled,
-                    fontSize: 14,
-                    letterSpacing: 2,
-                    fontWeight: FontWeight.bold)),
+            Text(
+              'NOTHING PLANNED',
+              style: GoogleFonts.rajdhani(
+                color: const Color(0xFF62778D),
+                fontSize: 14,
+                letterSpacing: 2,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text('Queue the work that matters today.',
-                style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
+            Text('Queue the work that matters today.', style: GoogleFonts.rajdhani(color: const Color(0xFF62778D), fontSize: 12)),
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: () => setState(() => _addExpanded = true),
-              icon: Icon(MdiIcons.plusBoxOutline, size: 16, color: AppTheme.fhAccentTeal),
-              label: Text('ADD MISSIONS',
-                  style: TextStyle(
-                      color: AppTheme.fhAccentTeal,
-                      fontSize: 12,
-                      letterSpacing: 1.5,
-                      fontWeight: FontWeight.bold)),
+              icon: const Icon(Icons.add, size: 16, color: Color(0xFF00F0FF)),
+              label: Text(
+                'ADD MISSIONS',
+                style: GoogleFonts.rajdhani(
+                  color: const Color(0xFF00F0FF),
+                  fontSize: 12,
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFF00F0FF)),
                 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
             ),
@@ -460,105 +808,22 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       );
     }
 
-    final phoenixId = provider.taskActions.getPhoenixId(_date);
-    // Only the first occurrence is the Phoenix; duplicates stay in the queue.
-    final phoenixIndex =
-        phoenixId == null ? -1 : _entries.indexWhere((e) => e.id == phoenixId);
-    final phoenixEntry = phoenixIndex == -1 ? null : _entries[phoenixIndex];
-    final queue = [
-      for (var i = 0; i < _entries.length; i++)
-        if (i != phoenixIndex) _entries[i],
-    ];
-
-    final list = ReorderableListView.builder(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-      itemCount: queue.length,
-      buildDefaultDragHandles: false,
-      proxyDecorator: (child, _, animation) => AnimatedBuilder(
-        animation: animation,
-        builder: (context, _) {
-          final t = Curves.easeOut.transform(animation.value);
-          return Transform.scale(
-            scale: 1 + 0.02 * t,
-            child: Material(
-              color: Colors.transparent,
-              elevation: 6 * t,
-              shadowColor: ArcEffects.shadow(0.5),
-              child: child,
-            ),
-          );
-        },
-      ),
-      onReorderItem: (oldIndex, newIndex) {
-        setState(() {
-          final item = queue.removeAt(oldIndex);
-          queue.insert(newIndex, item);
-          _entries = [if (phoenixEntry != null) phoenixEntry, ...queue];
-        });
-        _persistPlan(provider);
-      },
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 24),
+      itemCount: _rows.length * 2 + 2,
       itemBuilder: (context, index) {
-        final entry = queue[index];
-        return _AnimatedEntry(
-          key: ValueKey(entry.key),
-          animateIn: entry.addedAtRuntime,
-          leaving: _leaving[entry.key],
-          onLeft: () => _finishLeave(provider, entry),
-          child: _PlanRow(
-            compoundId: entry.id,
-            provider: provider,
-            dragIndex: index,
-            minutes: _estimateFor(entry.id, provider),
-            isCustomEstimate: _estimates.containsKey(entry.id),
-            isDone: _isEntryDone(provider, entry.id),
-            hasReminder: provider.plannerReminderTime(entry.id) != null,
-            onEditEstimate: () => _editEstimate(provider, entry.id),
-            onEditReminder: () => _editReminder(provider, entry.id),
-            onRemove: () => _removeFromPlan(provider, entry),
-            onAnoint: () => _togglePhoenix(provider, entry),
-            onCheck: () => _completePlanItem(provider, entry),
-          ),
-        );
-      },
-    );
+        if (index == _rows.length * 2 + 1) {
+          return const _TacticalFooter();
+        }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        AnimatedSwitcher(
-          duration: 280.ms,
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
-            child: SizeTransition(
-                sizeFactor: animation, alignment: const Alignment(-1.0, -1.0), child: child),
-          ),
-          child: phoenixEntry != null
-              ? _AnimatedEntry(
-                  key: ValueKey('phoenix-${phoenixEntry.key}'),
-                  animateIn: false,
-                  leaving: _leaving[phoenixEntry.key],
-                  onLeft: () => _finishLeave(provider, phoenixEntry),
-                  child: _PhoenixCard(
-                    compoundId: phoenixEntry.id,
-                    provider: provider,
-                    minutes: _estimateFor(phoenixEntry.id, provider),
-                    isCustomEstimate: _estimates.containsKey(phoenixEntry.id),
-                    isDone: _isEntryDone(provider, phoenixEntry.id),
-                    hasReminder:
-                        provider.plannerReminderTime(phoenixEntry.id) != null,
-                    onEditEstimate: () => _editEstimate(provider, phoenixEntry.id),
-                    onEditReminder: () => _editReminder(provider, phoenixEntry.id),
-                    onRemove: () => _removeFromPlan(provider, phoenixEntry),
-                    onDemote: () => _togglePhoenix(provider, phoenixEntry),
-                    onCheck: () => _completePlanItem(provider, phoenixEntry),
-                  ),
-                )
-              : const _AnointHint(key: ValueKey('anoint-hint')),
-        ),
-        Expanded(child: list),
-      ],
+        if (index.isEven) {
+          final dividerIdx = index ~/ 2;
+          return _buildDropDivider(provider, dividerIdx);
+        } else {
+          final rowIdx = index ~/ 2;
+          return _buildTaskRow(provider, _rows[rowIdx], rowIdx);
+        }
+      },
     );
   }
 
@@ -758,7 +1023,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   void _addRoutineToPlan(AppProvider provider, RoutineList routine) {
     setState(() {
       for (final compoundId in routine.taskIds) {
-        _entries.add(_PlanEntry(compoundId, addedAtRuntime: true));
+        _rows.add(_PlanRowData([_PlanEntry(compoundId, addedAtRuntime: true)]));
       }
     });
     _persistPlan(provider);
@@ -1294,6 +1559,1416 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       parentPath: task.name,
     );
   }
+
+  Widget _buildDropDivider(AppProvider provider, int dividerIdx) {
+    return DragTarget<_PlanEntryDragData>(
+      onWillAcceptWithDetails: (details) => true,
+      onAcceptWithDetails: (details) {
+        final dragData = details.data;
+        setState(() {
+          final sourceRow = _rows[dragData.sourceRowIndex];
+          sourceRow.entries.removeWhere((e) => e.key == dragData.entry.key);
+
+          int insertIdx = dividerIdx;
+          if (sourceRow.entries.isEmpty) {
+            _rows.removeAt(dragData.sourceRowIndex);
+            if (dragData.sourceRowIndex < dividerIdx) {
+              insertIdx = (insertIdx - 1).clamp(0, _rows.length);
+            }
+          }
+          insertIdx = insertIdx.clamp(0, _rows.length);
+          _rows.insert(insertIdx, _PlanRowData([dragData.entry]));
+        });
+        _persistPlan(provider);
+        showGlobalToast('Moved to new tactical row');
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isHovered = candidateData.isNotEmpty;
+        if (isHovered) {
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF00F0FF).withValues(alpha: 0.1),
+              border: Border.all(color: const Color(0xFF00F0FF), width: 1.5),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.add_circle_outline, size: 14, color: Color(0xFF00F0FF)),
+                  const SizedBox(width: 6),
+                  Text(
+                    'DROP HERE TO CREATE NEW ROW',
+                    style: GoogleFonts.rajdhani(
+                      color: const Color(0xFF00F0FF),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return const SizedBox(height: 6);
+      },
+    );
+  }
+
+  Widget _buildTaskRow(AppProvider provider, _PlanRowData rowData, int rowIndex) {
+    Widget content;
+    if (rowData.entries.length == 1) {
+      content = _buildTacticalCard1(provider, rowData.entries[0], rowIndex, 0);
+    } else if (rowData.entries.length == 2) {
+      content = IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: _buildTacticalCard2(provider, rowData.entries[0], rowIndex, 0)),
+            const SizedBox(width: 8),
+            Expanded(child: _buildTacticalCard2(provider, rowData.entries[1], rowIndex, 1)),
+          ],
+        ),
+      );
+    } else {
+      content = IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: _buildTacticalCard3(provider, rowData.entries[0], rowIndex, 0)),
+            const SizedBox(width: 6),
+            Expanded(child: _buildTacticalCard3(provider, rowData.entries[1], rowIndex, 1)),
+            const SizedBox(width: 6),
+            Expanded(child: _buildTacticalCard3(provider, rowData.entries[2], rowIndex, 2)),
+          ],
+        ),
+      );
+    }
+
+    return DragTarget<_PlanEntryDragData>(
+      onWillAcceptWithDetails: (details) => true,
+      onAcceptWithDetails: (details) {
+        final dragData = details.data;
+        if (dragData.sourceRowIndex == rowIndex) {
+          return;
+        }
+        if (rowData.entries.length >= 3) {
+          showGlobalToast('TACTICAL OVERLOAD: Maximum 3 missions allowed per row!');
+          return;
+        }
+        setState(() {
+          final sourceRow = _rows[dragData.sourceRowIndex];
+          sourceRow.entries.removeWhere((e) => e.key == dragData.entry.key);
+          if (sourceRow.entries.isEmpty) {
+            _rows.removeAt(dragData.sourceRowIndex);
+          }
+          rowData.entries.add(dragData.entry);
+        });
+        _persistPlan(provider);
+        showGlobalToast('Multitasking linked');
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isHovered = candidateData.isNotEmpty;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          decoration: isHovered
+              ? BoxDecoration(
+                  border: Border.all(color: const Color(0xFF00F0FF), width: 1.5),
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x3300F0FF), blurRadius: 8, spreadRadius: 1),
+                  ],
+                )
+              : null,
+          child: content,
+        );
+      },
+    );
+  }
+
+  Widget _buildTacticalCard1(AppProvider provider, _PlanEntry entry, int rowIndex, int colIndex) {
+    final parts = entry.id.split('|');
+    if (parts.length < 2) return const SizedBox.shrink();
+
+    final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+    if (task == null || sub == null || task.isDeleted || sub.isDeleted) {
+      return const SizedBox.shrink();
+    }
+
+    final isCheckpoint = parts.length == 3;
+    SubSubTask? cp;
+    if (isCheckpoint) {
+      cp = sub.findCheckpoint(parts[2]);
+      if (cp == null) return const SizedBox.shrink();
+    }
+
+    final title = isCheckpoint ? cp!.name : sub.name;
+    final parent = isCheckpoint ? '${task.name} > ${_findParentPath(sub, cp!)}' : task.name;
+    final minutes = _estimateFor(entry.id, provider);
+    final isCustomEstimate = _estimates.containsKey(entry.id);
+    final isDone = _isEntryDone(provider, entry.id);
+    final hasReminder = provider.plannerReminderTime(entry.id) != null;
+    final taskColor = task.taskColor;
+
+    return _AnimatedEntry(
+      key: ValueKey(entry.key),
+      animateIn: entry.addedAtRuntime,
+      leaving: _leaving[entry.key],
+      onLeft: () => _finishLeave(provider, entry),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 250),
+        opacity: isDone ? 0.55 : 1.0,
+        child: ClipPath(
+          clipper: const _Chamfer4CornerClipper(chamfer: 10.0),
+          child: CustomPaint(
+            foregroundPainter: _TacticalCardBorderPainter(
+              themeColor: taskColor,
+              chamfer: 10.0,
+              bracketSize: 12.0,
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF090F16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF00F0FF).withValues(alpha: 0.05),
+                    blurRadius: 16,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Draggable<_PlanEntryDragData>(
+                        data: _PlanEntryDragData(entry: entry, sourceRowIndex: rowIndex),
+                        feedback: Material(
+                          color: Colors.transparent,
+                          child: Container(
+                            width: 260,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF090F16),
+                              border: Border.all(color: const Color(0xFF00F0FF)),
+                              borderRadius: BorderRadius.circular(4),
+                              boxShadow: const [
+                                BoxShadow(color: Color(0x6600F0FF), blurRadius: 10),
+                              ],
+                            ),
+                            child: Text(
+                              title,
+                              style: GoogleFonts.rajdhani(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        childWhenDragging: const Opacity(
+                          opacity: 0.3,
+                          child: Icon(Icons.drag_indicator, size: 18, color: Color(0xFF475569)),
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.only(right: 8),
+                          child: Icon(Icons.drag_indicator, size: 18, color: Color(0xFF475569)),
+                        ),
+                      ),
+                      // NO HERO ICON!
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: GoogleFonts.rajdhani(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.2,
+                                decoration: isDone ? TextDecoration.lineThrough : null,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              parent.toUpperCase(),
+                              style: GoogleFonts.rajdhani(
+                                color: const Color(0xFF64748B),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: () => _editEstimate(provider, entry.id),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            border: Border.all(
+                              color: isCustomEstimate
+                                  ? const Color(0xFF00F0FF)
+                                  : taskColor,
+                            ),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            formatMinutes(minutes),
+                            style: GoogleFonts.rajdhani(
+                              color: isCustomEstimate
+                                  ? const Color(0xFF00F0FF)
+                                  : taskColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      InkWell(
+                        onTap: () => _removeFromPlan(provider, entry),
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(Icons.close, color: Color(0xFF64748B), size: 16),
+                        ),
+                      ),
+                      _buildCardMenuButton(
+                        provider: provider,
+                        entry: entry,
+                        mainTaskId: task.id,
+                        subTaskId: sub.id,
+                        subTaskName: sub.name,
+                        rowIndex: rowIndex,
+                        isInMultiRow: false,
+                      ),
+                    ],
+                  ),
+                  if (!isCheckpoint)
+                    _buildTacticalSubtasksPanel(provider, entry),
+                  Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.only(top: 6),
+                    decoration: const BoxDecoration(
+                      border: Border(top: BorderSide(color: Color(0xFF14202D), width: 1)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            InkWell(
+                              onTap: () => _editReminder(provider, entry.id),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                child: Icon(
+                                  hasReminder ? MdiIcons.bellRing : MdiIcons.bellOutline,
+                                  color: hasReminder ? const Color(0xFF00F0FF) : const Color(0xFF64748B),
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        InkWell(
+                          onTap: () => _completePlanItem(provider, entry),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            child: Icon(
+                              Icons.check,
+                              color: isDone ? const Color(0xFF10B981) : const Color(0xFF00F0FF),
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTacticalCard2(AppProvider provider, _PlanEntry entry, int rowIndex, int colIndex) {
+    final parts = entry.id.split('|');
+    if (parts.length < 2) return const SizedBox.shrink();
+
+    final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+    if (task == null || sub == null || task.isDeleted || sub.isDeleted) {
+      return const SizedBox.shrink();
+    }
+
+    final isCheckpoint = parts.length == 3;
+    SubSubTask? cp;
+    if (isCheckpoint) {
+      cp = sub.findCheckpoint(parts[2]);
+      if (cp == null) return const SizedBox.shrink();
+    }
+
+    final title = isCheckpoint ? cp!.name : sub.name;
+    final parent = isCheckpoint ? '${task.name} > ${_findParentPath(sub, cp!)}' : task.name;
+    final minutes = _estimateFor(entry.id, provider);
+    final isCustomEstimate = _estimates.containsKey(entry.id);
+    final isDone = _isEntryDone(provider, entry.id);
+    final hasReminder = provider.plannerReminderTime(entry.id) != null;
+    final taskColor = task.taskColor;
+    final checkpoints = entry.checkpoints;
+    final totalCps = checkpoints.length;
+    final completedCps = checkpoints.where((c) => c.completed).length;
+
+    return _AnimatedEntry(
+      key: ValueKey(entry.key),
+      animateIn: entry.addedAtRuntime,
+      leaving: _leaving[entry.key],
+      onLeft: () => _finishLeave(provider, entry),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 250),
+        opacity: isDone ? 0.55 : 1.0,
+        child: ClipPath(
+          clipper: const _Chamfer4CornerClipper(chamfer: 6.0),
+          child: CustomPaint(
+            foregroundPainter: _TacticalCardBorderPainter(
+              themeColor: taskColor,
+              chamfer: 6.0,
+              bracketSize: 8.0,
+            ),
+            child: Container(
+              height: double.infinity,
+              constraints: const BoxConstraints(minHeight: 84),
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(
+                color: Color(0xFF090F16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Draggable<_PlanEntryDragData>(
+                        data: _PlanEntryDragData(entry: entry, sourceRowIndex: rowIndex),
+                        feedback: Material(
+                          color: Colors.transparent,
+                          child: Container(
+                            width: 170,
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF090F16),
+                              border: Border.all(color: const Color(0xFF00F0FF)),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              title,
+                              style: GoogleFonts.rajdhani(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        childWhenDragging: const Opacity(
+                          opacity: 0.3,
+                          child: Icon(Icons.drag_indicator, size: 14, color: Color(0xFF475569)),
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.only(right: 5, top: 1),
+                          child: Icon(Icons.drag_indicator, size: 14, color: Color(0xFF475569)),
+                        ),
+                      ),
+                      // NO HERO ICON!
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: GoogleFonts.rajdhani(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                                decoration: isDone ? TextDecoration.lineThrough : null,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              parent.toUpperCase(),
+                              style: GoogleFonts.rajdhani(
+                                color: const Color(0xFF64748B),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.4,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            InkWell(
+                              onTap: () => _showSubtasksModal(provider, entry, sub.name),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.checklist_rounded,
+                                    size: 12,
+                                    color: totalCps > 0 ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    totalCps > 0 ? '$completedCps/$totalCps' : '0/0',
+                                    style: GoogleFonts.rajdhani(
+                                      color: totalCps > 0 ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      InkWell(
+                        onTap: () => _editEstimate(provider, entry.id),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            border: Border.all(
+                              color: isCustomEstimate ? const Color(0xFF00F0FF) : taskColor,
+                            ),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            formatMinutes(minutes),
+                            style: GoogleFonts.rajdhani(
+                              color: isCustomEstimate ? const Color(0xFF00F0FF) : taskColor,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.only(top: 4),
+                    decoration: const BoxDecoration(
+                      border: Border(top: BorderSide(color: Color(0xFF14202D), width: 1)),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.center,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          InkWell(
+                            onTap: () => _editReminder(provider, entry.id),
+                            child: Padding(
+                              padding: const EdgeInsets.all(3),
+                              child: Icon(
+                                hasReminder ? MdiIcons.bellRing : MdiIcons.bellOutline,
+                                color: hasReminder ? const Color(0xFF00F0FF) : const Color(0xFF64748B),
+                                size: 13,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          InkWell(
+                            onTap: () => _completePlanItem(provider, entry),
+                            child: Padding(
+                              padding: const EdgeInsets.all(3),
+                              child: Icon(
+                                Icons.check,
+                                color: isDone ? const Color(0xFF10B981) : const Color(0xFF00F0FF),
+                                size: 14,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          InkWell(
+                            onTap: () => _removeFromPlan(provider, entry),
+                            child: const Padding(
+                              padding: EdgeInsets.all(3),
+                              child: Icon(Icons.close, color: Color(0xFFFF2A4B), size: 13),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          _buildCardMenuButton(
+                            provider: provider,
+                            entry: entry,
+                            mainTaskId: task.id,
+                            subTaskId: sub.id,
+                            subTaskName: sub.name,
+                            rowIndex: rowIndex,
+                            isInMultiRow: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTacticalCard3(AppProvider provider, _PlanEntry entry, int rowIndex, int colIndex) {
+    final parts = entry.id.split('|');
+    if (parts.length < 2) return const SizedBox.shrink();
+
+    final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
+    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
+    if (task == null || sub == null || task.isDeleted || sub.isDeleted) {
+      return const SizedBox.shrink();
+    }
+
+    final isCheckpoint = parts.length == 3;
+    SubSubTask? cp;
+    if (isCheckpoint) {
+      cp = sub.findCheckpoint(parts[2]);
+      if (cp == null) return const SizedBox.shrink();
+    }
+
+    final title = isCheckpoint ? cp!.name : sub.name;
+    final parent = isCheckpoint ? '${task.name} > ${_findParentPath(sub, cp!)}' : task.name;
+    final minutes = _estimateFor(entry.id, provider);
+    final isCustomEstimate = _estimates.containsKey(entry.id);
+    final isDone = _isEntryDone(provider, entry.id);
+    final hasReminder = provider.plannerReminderTime(entry.id) != null;
+    final taskColor = task.taskColor;
+    final checkpoints = entry.checkpoints;
+    final totalCps = checkpoints.length;
+    final completedCps = checkpoints.where((c) => c.completed).length;
+
+    return _AnimatedEntry(
+      key: ValueKey(entry.key),
+      animateIn: entry.addedAtRuntime,
+      leaving: _leaving[entry.key],
+      onLeft: () => _finishLeave(provider, entry),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 250),
+        opacity: isDone ? 0.55 : 1.0,
+        child: ClipPath(
+          clipper: const _Chamfer4CornerClipper(chamfer: 4.0),
+          child: CustomPaint(
+            foregroundPainter: _TacticalCardBorderPainter(
+              themeColor: taskColor,
+              chamfer: 4.0,
+              bracketSize: 6.0,
+            ),
+            child: Container(
+              height: double.infinity,
+              constraints: const BoxConstraints(minHeight: 80),
+              padding: const EdgeInsets.fromLTRB(5, 6, 5, 5),
+              decoration: const BoxDecoration(
+                color: Color(0xFF090F16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Draggable<_PlanEntryDragData>(
+                        data: _PlanEntryDragData(entry: entry, sourceRowIndex: rowIndex),
+                        feedback: Material(
+                          color: Colors.transparent,
+                          child: Container(
+                            width: 140,
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF090F16),
+                              border: Border.all(color: const Color(0xFF00F0FF)),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              title,
+                              style: GoogleFonts.rajdhani(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        childWhenDragging: const Opacity(
+                          opacity: 0.3,
+                          child: Icon(Icons.drag_indicator, size: 11, color: Color(0xFF475569)),
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.only(right: 2, top: 1),
+                          child: Icon(Icons.drag_indicator, size: 11, color: Color(0xFF475569)),
+                        ),
+                      ),
+                      // NO HERO ICON!
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: GoogleFonts.rajdhani(
+                                color: Colors.white,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.2,
+                                decoration: isDone ? TextDecoration.lineThrough : null,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              parent.toUpperCase(),
+                              style: GoogleFonts.rajdhani(
+                                color: const Color(0xFF64748B),
+                                fontSize: 7.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            InkWell(
+                              onTap: () => _showSubtasksModal(provider, entry, sub.name),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.checklist_rounded,
+                                    size: 10,
+                                    color: totalCps > 0 ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    totalCps > 0 ? '$completedCps/$totalCps' : '0/0',
+                                    style: GoogleFonts.rajdhani(
+                                      color: totalCps > 0 ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      InkWell(
+                        onTap: () => _editEstimate(provider, entry.id),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            border: Border.all(
+                              color: isCustomEstimate ? const Color(0xFF00F0FF) : taskColor,
+                            ),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            formatMinutes(minutes),
+                            style: GoogleFonts.rajdhani(
+                              color: isCustomEstimate ? const Color(0xFF00F0FF) : taskColor,
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Container(
+                    padding: const EdgeInsets.only(top: 3),
+                    decoration: const BoxDecoration(
+                      border: Border(top: BorderSide(color: Color(0xFF14202D), width: 1)),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.center,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          InkWell(
+                            onTap: () => _editReminder(provider, entry.id),
+                            child: Padding(
+                              padding: const EdgeInsets.all(2),
+                              child: Icon(
+                                hasReminder ? MdiIcons.bellRing : MdiIcons.bellOutline,
+                                color: hasReminder ? const Color(0xFF00F0FF) : const Color(0xFF64748B),
+                                size: 11,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          InkWell(
+                            onTap: () => _completePlanItem(provider, entry),
+                            child: Padding(
+                              padding: const EdgeInsets.all(2),
+                              child: Icon(
+                                Icons.check,
+                                color: isDone ? const Color(0xFF10B981) : const Color(0xFF00F0FF),
+                                size: 11,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          InkWell(
+                            onTap: () => _removeFromPlan(provider, entry),
+                            child: const Padding(
+                              padding: EdgeInsets.all(2),
+                              child: Icon(Icons.close, color: Color(0xFFFF2A4B), size: 11),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          _buildCardMenuButton(
+                            provider: provider,
+                            entry: entry,
+                            mainTaskId: task.id,
+                            subTaskId: sub.id,
+                            subTaskName: sub.name,
+                            rowIndex: rowIndex,
+                            isInMultiRow: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTacticalSubtasksPanel(
+    AppProvider provider,
+    _PlanEntry entry,
+  ) {
+    final checkpoints = entry.checkpoints;
+    final completedCount = checkpoints.where((c) => c.completed).length;
+    final totalCount = checkpoints.length;
+    final totalMinutes = checkpoints.fold<int>(0, (sum, c) => sum + c.durationMinutes);
+    final progress = totalCount > 0 ? completedCount / totalCount : 0.0;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF060A0F),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFF14202D)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'SUB TASKS ($completedCount/$totalCount)',
+                style: GoogleFonts.rajdhani(
+                  color: const Color(0xFF64748B),
+                  fontSize: 10,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                'Total: ${totalMinutes}m',
+                style: GoogleFonts.rajdhani(
+                  color: const Color(0xFF64748B),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          if (totalCount > 0) ...[
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: progress,
+                backgroundColor: const Color(0xFF1E293B),
+                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00F0FF)),
+                minHeight: 3,
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          if (checkpoints.isNotEmpty)
+            ...checkpoints.map((cp) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  children: [
+                    _CustomSquareCheck(
+                      checked: cp.completed,
+                      onTap: () => _toggleCheckpoint(provider, entry, cp),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        cp.name,
+                        style: GoogleFonts.rajdhani(
+                          color: cp.completed ? const Color(0xFF64748B) : const Color(0xFFCBD5E1),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          decoration: cp.completed ? TextDecoration.lineThrough : null,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${cp.durationMinutes}m',
+                      style: GoogleFonts.rajdhani(
+                        color: const Color(0xFF94A3B8),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    InkWell(
+                      onTap: () => _removeCheckpoint(provider, entry, cp),
+                      child: const Padding(
+                        padding: EdgeInsets.all(2),
+                        child: Text(
+                          '✕',
+                          style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          const SizedBox(height: 6),
+          InkWell(
+            onTap: () => _promptAddSubtask(provider, entry),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFF1E293B), style: BorderStyle.solid),
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.add, size: 12, color: Color(0xFF00F0FF)),
+                  const SizedBox(width: 4),
+                  Text(
+                    '+ ADD SUB TASK',
+                    style: GoogleFonts.rajdhani(
+                      color: const Color(0xFF00F0FF),
+                      fontSize: 11,
+                      letterSpacing: 1.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSubtasksModal(AppProvider provider, _PlanEntry entry, String subTaskName) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF090F16),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+        side: BorderSide(color: Color(0xFF182533), width: 1.5),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final checkpoints = entry.checkpoints;
+            final completedCount = checkpoints.where((c) => c.completed).length;
+
+            return SafeArea(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'CHECKPOINTS',
+                                style: GoogleFonts.rajdhani(
+                                  color: const Color(0xFF00F0FF),
+                                  fontSize: 11,
+                                  letterSpacing: 2,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                subTaskName,
+                                style: GoogleFonts.rajdhani(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF111D28),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFF182533)),
+                          ),
+                          child: Text(
+                            '$completedCount / ${checkpoints.length}',
+                            style: GoogleFonts.rajdhani(
+                              color: const Color(0xFF00F0FF),
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Divider(color: Color(0xFF182533), height: 1),
+                    const SizedBox(height: 8),
+                    if (checkpoints.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: Center(
+                          child: Text(
+                            'No checkpoints attached yet.',
+                            style: GoogleFonts.rajdhani(color: const Color(0xFF64748B), fontSize: 14),
+                          ),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: checkpoints.length,
+                          itemBuilder: (context, idx) {
+                            final cp = checkpoints[idx];
+                            return Container(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF05080C),
+                                border: Border.all(
+                                  color: cp.completed ? const Color(0xFF182533) : const Color(0xFF1F2F40),
+                                ),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                children: [
+                                  _CustomSquareCheck(
+                                    checked: cp.completed,
+                                    onTap: () {
+                                      _toggleCheckpoint(provider, entry, cp);
+                                      setModalState(() {});
+                                    },
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      cp.name,
+                                      style: GoogleFonts.rajdhani(
+                                        color: cp.completed ? const Color(0xFF64748B) : Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        decoration: cp.completed ? TextDecoration.lineThrough : null,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    '${cp.durationMinutes}m',
+                                    style: GoogleFonts.rajdhani(
+                                      color: const Color(0xFF94A3B8),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  InkWell(
+                                    onTap: () {
+                                      _removeCheckpoint(provider, entry, cp);
+                                      setModalState(() {});
+                                    },
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: Text(
+                                        '✕',
+                                        style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        await _promptAddSubtask(provider, entry);
+                        setModalState(() {});
+                      },
+                      icon: const Icon(Icons.add, size: 16, color: Color(0xFF00F0FF)),
+                      label: Text(
+                        'ADD CHECKPOINT',
+                        style: GoogleFonts.rajdhani(
+                          color: const Color(0xFF00F0FF),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          fontSize: 13,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF00F0FF)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _promptAddSubtask(AppProvider provider, _PlanEntry entry) async {
+    final nameCtrl = TextEditingController();
+    int selectedMinutes = 15;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDlgState) => AlertDialog(
+          backgroundColor: const Color(0xFF090F16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+            side: const BorderSide(color: Color(0xFF00F0FF), width: 1.5),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.add_task, color: Color(0xFF00F0FF), size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'ADD CHECKPOINT',
+                style: GoogleFonts.rajdhani(
+                  color: const Color(0xFF00F0FF),
+                  fontSize: 16,
+                  letterSpacing: 2,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                autofocus: true,
+                style: GoogleFonts.rajdhani(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                decoration: InputDecoration(
+                  hintText: 'Checkpoint title…',
+                  hintStyle: GoogleFonts.rajdhani(color: const Color(0xFF62778D)),
+                  enabledBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF182533)),
+                  ),
+                  focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00F0FF)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'ESTIMATED DURATION',
+                style: GoogleFonts.rajdhani(
+                  color: const Color(0xFF7C90A5),
+                  fontSize: 11,
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [5, 10, 15, 25, 30].map((m) {
+                  final isSel = selectedMinutes == m;
+                  return ChoiceChip(
+                    label: Text('${m}m',
+                        style: GoogleFonts.rajdhani(
+                          color: isSel ? const Color(0xFF05080C) : const Color(0xFFCBD5E1),
+                          fontWeight: FontWeight.bold,
+                        )),
+                    selected: isSel,
+                    selectedColor: const Color(0xFF00F0FF),
+                    backgroundColor: const Color(0xFF111D28),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                    onSelected: (_) => setDlgState(() => selectedMinutes = m),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('CANCEL', style: GoogleFonts.rajdhani(color: const Color(0xFF62778D), fontWeight: FontWeight.bold)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00F0FF),
+                foregroundColor: const Color(0xFF05080C),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+              ),
+              onPressed: () {
+                if (nameCtrl.text.trim().isNotEmpty) {
+                  Navigator.pop(ctx, true);
+                }
+              },
+              child: Text('ADD', style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == true && nameCtrl.text.trim().isNotEmpty) {
+      _addCheckpoint(provider, entry, nameCtrl.text.trim(), selectedMinutes);
+      showGlobalToast('Checkpoint added');
+    }
+  }
+
+  Widget _buildCardMenuButton({
+    required AppProvider provider,
+    required _PlanEntry entry,
+    required String mainTaskId,
+    required String subTaskId,
+    required String subTaskName,
+    required int rowIndex,
+    required bool isInMultiRow,
+  }) {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert, size: 16, color: Color(0xFF62778D)),
+      color: const Color(0xFF090F16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(4),
+        side: const BorderSide(color: Color(0xFF182533)),
+      ),
+      padding: EdgeInsets.zero,
+      onSelected: (action) => _onCardMenuSelected(
+        action: action,
+        provider: provider,
+        entry: entry,
+        mainTaskId: mainTaskId,
+        subTaskId: subTaskId,
+        subTaskName: subTaskName,
+        rowIndex: rowIndex,
+      ),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'duplicate_mission',
+          child: Row(
+            children: [
+              const Icon(Icons.copy, size: 16, color: Color(0xFF00F0FF)),
+              const SizedBox(width: 8),
+              Text('DUPLICATE MISSION', style: GoogleFonts.rajdhani(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'add_subtask',
+          child: Row(
+            children: [
+              const Icon(Icons.add, size: 16, color: Color(0xFF00F0FF)),
+              const SizedBox(width: 8),
+              Text('ADD CHECKPOINT', style: GoogleFonts.rajdhani(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'view_subtasks',
+          child: Row(
+            children: [
+              const Icon(Icons.checklist, size: 16, color: Color(0xFF00F0FF)),
+              const SizedBox(width: 8),
+              Text('VIEW CHECKPOINTS', style: GoogleFonts.rajdhani(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+        if (isInMultiRow)
+          PopupMenuItem(
+            value: 'move_own_row',
+            child: Row(
+              children: [
+                const Icon(Icons.table_rows_outlined, size: 16, color: Color(0xFFF59E0B)),
+                const SizedBox(width: 8),
+                Text('MOVE TO OWN ROW', style: GoogleFonts.rajdhani(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        PopupMenuItem(
+          value: 'multitask_add',
+          child: Row(
+            children: [
+              const Icon(Icons.view_column_outlined, size: 16, color: Color(0xFF10B981)),
+              const SizedBox(width: 8),
+              Text('MULTITASK / ADD TO ROW', style: GoogleFonts.rajdhani(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'adjust_duration',
+          child: Row(
+            children: [
+              const Icon(Icons.timer_outlined, size: 16, color: Color(0xFFCBD5E1)),
+              const SizedBox(width: 8),
+              Text('ADJUST DURATION', style: GoogleFonts.rajdhani(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'reminder',
+          child: Row(
+            children: [
+              const Icon(Icons.notifications_outlined, size: 16, color: Color(0xFFCBD5E1)),
+              const SizedBox(width: 8),
+              Text('SET REMINDER', style: GoogleFonts.rajdhani(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(height: 1),
+        PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              const Icon(Icons.delete_outline, size: 16, color: Color(0xFFFF2A4B)),
+              const SizedBox(width: 8),
+              Text('DELETE MISSION', style: GoogleFonts.rajdhani(color: const Color(0xFFFF2A4B), fontSize: 13, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _onCardMenuSelected({
+    required String action,
+    required AppProvider provider,
+    required _PlanEntry entry,
+    required String mainTaskId,
+    required String subTaskId,
+    required String subTaskName,
+    required int rowIndex,
+  }) {
+    switch (action) {
+      case 'duplicate_mission':
+        _duplicatePlanItem(provider, entry, rowIndex);
+        break;
+      case 'add_subtask':
+        _promptAddSubtask(provider, entry);
+        break;
+      case 'view_subtasks':
+        _showSubtasksModal(provider, entry, subTaskName);
+        break;
+      case 'move_own_row':
+        setState(() {
+          if (rowIndex >= 0 && rowIndex < _rows.length) {
+            final row = _rows[rowIndex];
+            row.entries.removeWhere((e) => e.key == entry.key);
+            if (row.entries.isEmpty) {
+              _rows.removeAt(rowIndex);
+            }
+            _rows.insert(rowIndex + 1, _PlanRowData([entry]));
+          }
+        });
+        _persistPlan(provider);
+        showGlobalToast('Moved to separate row');
+        break;
+      case 'multitask_add':
+        if (_rows[rowIndex].entries.length >= 3) {
+          showGlobalToast('TACTICAL OVERLOAD: Maximum 3 missions allowed per row!');
+          return;
+        }
+        setState(() {
+          _multitaskTargetRowIndex = rowIndex;
+          _addExpanded = true;
+        });
+        showGlobalToast('Select a mission below to link to row ${rowIndex + 1}');
+        break;
+      case 'adjust_duration':
+        _editEstimate(provider, entry.id);
+        break;
+      case 'reminder':
+        _editReminder(provider, entry.id);
+        break;
+      case 'delete':
+        _removeFromPlan(provider, entry);
+        break;
+    }
+  }
 }
 
 /// Animates a plan entry in (grow + fade) when queued and out (collapse +
@@ -1383,602 +3058,299 @@ class _AnimatedEntryState extends State<_AnimatedEntry>
   }
 }
 
-class _BudgetBar extends StatelessWidget {
-  final int plannedMinutes;
-  final int doneMinutes;
-  final int doneCount;
-  final int minutesLeft;
-  final int realisticMinutes;
-  final bool fromHistory;
 
-  const _BudgetBar({
-    required this.plannedMinutes,
-    required this.doneMinutes,
-    required this.doneCount,
-    required this.minutesLeft,
-    required this.realisticMinutes,
-    required this.fromHistory,
-  });
+
+class _TacticalFooter extends StatelessWidget {
+  const _TacticalFooter();
 
   @override
   Widget build(BuildContext context) {
-    // Capacity is judged against realistic (buffer-aware) time, not raw time left.
-    final over = realisticMinutes > 0 && plannedMinutes > realisticMinutes;
-    final ratio = realisticMinutes <= 0
-        ? 1.0
-        : (plannedMinutes / realisticMinutes).clamp(0.0, 1.0);
-    final color = over
-        ? AppTheme.fhAccentRed
-        : (ratio > 0.85 ? PersonInfoTheme.spideyCyan : AppTheme.fhAccentGreen);
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      decoration:   BoxDecoration(
-        color: AppTheme.fhBgDark,
-        border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: plannedMinutes.toDouble()),
-                duration: const Duration(milliseconds: 450),
-                curve: Curves.easeOutCubic,
-                builder: (_, v, __) => Text(formatMinutes(v.round()),
-                    style: GoogleFonts.rajdhani(
-                        color: AppTheme.fhTextPrimary,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        height: 1)),
-              ),
-              const SizedBox(width: 6),
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text('PLANNED / ${formatMinutes(realisticMinutes)} USABLE',
-                    style: TextStyle(
-                        color: over ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
-                        fontSize: 10,
-                        letterSpacing: 1.5,
-                        fontWeight: FontWeight.bold)),
-              ),
-              const Spacer(),
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  '${formatMinutes(minutesLeft)} LEFT',
-                  style: TextStyle(
-                      color: over ? AppTheme.fhAccentRed : AppTheme.fhTextSecondary,
-                      fontSize: 11,
-                      letterSpacing: 1.5,
-                      fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Tooltip(
-                message: fromHistory
-                    ? 'Window from your sleep history'
-                    : 'Window from default 07:00–22:00',
-                child: Icon(
-                  fromHistory ? MdiIcons.weatherNight : MdiIcons.clockOutline,
-                  size: 14,
-                  color: AppTheme.fhTextDisabled,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRect(
-            child: SizedBox(
-              height: 4,
-              child: LayoutBuilder(
-                builder: (context, constraints) => Stack(children: [
-                  Container(color: AppTheme.fhBgDeepDark),
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 400),
-                    curve: Curves.easeOutCubic,
-                    width: constraints.maxWidth * ratio,
-                    color: color,
-                  ),
-                ]),
-              ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 20),
+      child: Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CustomPaint(
+              size: const Size(14, 14),
+              painter: _ValorantMarkPainter(color: const Color(0xFFFF2A4B)),
             ),
-          ),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: SizeTransition(
-                  sizeFactor: animation, alignment: const Alignment(-1.0, -1.0), child: child),
-            ),
-            child: (over || doneCount > 0)
-                ? Padding(
-                    key: ValueKey('bar-meta-$over-$doneCount-$doneMinutes'),
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Row(
-                      children: [
-                        if (doneCount > 0)
-                          Text(
-                            '✓ $doneCount DONE · ${formatMinutes(doneMinutes)}',
-                            style: TextStyle(
-                                color: AppTheme.fhAccentGreen,
-                                fontSize: 10,
-                                letterSpacing: 1.2,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        const Spacer(),
-                        if (over)
-                          Text(
-                            'OVER BY ${formatMinutes(plannedMinutes - realisticMinutes)} — TRIM OR RESCHEDULE',
-                            style: TextStyle(
-                                color: AppTheme.fhAccentRed,
-                                fontSize: 10,
-                                letterSpacing: 1.2,
-                                fontWeight: FontWeight.bold),
-                          ),
-                      ],
-                    ),
-                  )
-                : const SizedBox.shrink(key: ValueKey('bar-meta-none')),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActivePill extends StatelessWidget {
-  final String title;
-  final Color color;
-  final bool isRunning;
-
-  const _ActivePill({
-    required this.title,
-    required this.color,
-    required this.isRunning,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    Widget dot = Container(width: 6, height: 6, color: color);
-    if (isRunning) {
-      dot = dot
-          .animate(onPlay: (c) => c.repeat(reverse: true))
-          .fade(begin: 1.0, end: 0.35, duration: 800.ms, curve: Curves.easeInOut);
-    }
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppTheme.fhBgDark.withValues(alpha: 0.5),
-        border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.5))),
-      ),
-      child: Row(
-        children: [
-          dot,
-          const SizedBox(width: 8),
-          Text(
-            isRunning ? 'DOING' : 'UP NEXT',
-            style: TextStyle(
-                color: isRunning ? AppTheme.fhAccentGreen : AppTheme.fhTextSecondary,
+            const SizedBox(width: 8),
+            Text(
+              'SMALL STEPS BIG RESULTS —',
+              style: GoogleFonts.rajdhani(
+                color: const Color(0xFF62778D),
                 fontSize: 10,
+                letterSpacing: 2,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 1.5),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              child: Text(
-                title,
-                key: ValueKey(title),
-                style:   TextStyle(
-                    color: AppTheme.fhTextPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Estimate chip that pulses whenever its value changes.
-class _EstimateChip extends StatelessWidget {
-  final int minutes;
-  final bool isCustom;
-  final Color accent;
+class _ValorantMarkPainter extends CustomPainter {
+  final Color color;
+  _ValorantMarkPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final w = size.width;
+    final h = size.height;
+
+    final path1 = Path()
+      ..moveTo(w * 0.15, h)
+      ..lineTo(w * 0.45, 0)
+      ..lineTo(w * 0.55, 0)
+      ..lineTo(w * 0.25, h)
+      ..close();
+    canvas.drawPath(path1, paint);
+
+    final path2 = Path()
+      ..moveTo(w * 0.55, h)
+      ..lineTo(w * 0.85, 0)
+      ..lineTo(w * 0.95, 0)
+      ..lineTo(w * 0.65, h)
+      ..close();
+    canvas.drawPath(path2, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ValorantMarkPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+/// Cyberpunk Tactical Background Art matching the SVG canvas from HTML
+class _TacticalBackgroundPainter extends CustomPainter {
+  const _TacticalBackgroundPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // 1. Dot Grid pattern (24x24, circle at cx: 2, cy: 2, r: 0.8, fill #172433 opacity 0.6)
+    final dotPaint = Paint()
+      ..color = const Color(0xFF172433).withValues(alpha: 0.6)
+      ..style = PaintingStyle.fill;
+    for (double x = 0; x < w; x += 24.0) {
+      for (double y = 0; y < h; y += 24.0) {
+        canvas.drawCircle(Offset(x + 2, y + 2), 0.9, dotPaint);
+      }
+    }
+
+    // Scale factors from reference viewBox 440 x 900
+    final sx = w / 440.0;
+    final sy = h / 900.0;
+
+    // 2. Top Red Slash Gradient Polygon: 340,0 440,0 440,70 370,70
+    final slashPath = Path()
+      ..moveTo(340 * sx, 0)
+      ..lineTo(w, 0)
+      ..lineTo(w, 70 * sy)
+      ..lineTo(370 * sx, 70 * sy)
+      ..close();
+
+    final slashGradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        const Color(0xFFFF2A4B).withValues(alpha: 0.3),
+        const Color(0xFFFF2A4B).withValues(alpha: 0.0),
+      ],
+    );
+    final slashRect = Rect.fromLTRB(340 * sx, 0, w, 70 * sy);
+    final slashPaint = Paint()
+      ..shader = slashGradient.createShader(slashRect)
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(slashPath, slashPaint);
+
+    // 3. Top Stroke Line: M 330 0 L 365 70 L 440 70 (stroke #ff2a4b width 1.5 opacity 0.4)
+    final topStrokePath = Path()
+      ..moveTo(330 * sx, 0)
+      ..lineTo(365 * sx, 70 * sy)
+      ..lineTo(w, 70 * sy);
+    final topStrokePaint = Paint()
+      ..color = const Color(0xFFFF2A4B).withValues(alpha: 0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    canvas.drawPath(topStrokePath, topStrokePaint);
+
+    // 4. Bottom Polygon 1: 160,900 240,820 260,820 180,900 fill rgba(255, 42, 75, 0.15)
+    final bottomPoly1 = Path()
+      ..moveTo(160 * sx, h)
+      ..lineTo(240 * sx, h - 80 * sy)
+      ..lineTo(260 * sx, h - 80 * sy)
+      ..lineTo(180 * sx, h)
+      ..close();
+    final bottomPaint1 = Paint()
+      ..color = const Color(0xFFFF2A4B).withValues(alpha: 0.15)
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(bottomPoly1, bottomPaint1);
+
+    // 5. Bottom Polygon 2: 185,900 250,835 255,835 190,900 fill rgba(255, 42, 75, 0.35)
+    final bottomPoly2 = Path()
+      ..moveTo(185 * sx, h)
+      ..lineTo(250 * sx, h - 65 * sy)
+      ..lineTo(255 * sx, h - 65 * sy)
+      ..lineTo(190 * sx, h)
+      ..close();
+    final bottomPaint2 = Paint()
+      ..color = const Color(0xFFFF2A4B).withValues(alpha: 0.35)
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(bottomPoly2, bottomPaint2);
+
+    // 6. Bottom Line: x1=260 y1=840 x2=340 y2=840 stroke #ff2a4b width 1 opacity 0.3
+    final bottomLinePaint = Paint()
+      ..color = const Color(0xFFFF2A4B).withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawLine(
+      Offset(260 * sx, h - 60 * sy),
+      Offset(340 * sx, h - 60 * sy),
+      bottomLinePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _TacticalBackgroundPainter oldDelegate) => false;
+}
+
+/// Clipper for 4-corner chamfer (Layout 1: Full-width row)
+/// polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px),
+/// calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px)
+class _Chamfer4CornerClipper extends CustomClipper<Path> {
+  final double chamfer;
+  const _Chamfer4CornerClipper({this.chamfer = 10.0});
+
+  @override
+  Path getClip(Size size) {
+    final c = chamfer;
+    final w = size.width;
+    final h = size.height;
+    return Path()
+      ..moveTo(c, 0)
+      ..lineTo(w - c, 0)
+      ..lineTo(w, c)
+      ..lineTo(w, h - c)
+      ..lineTo(w - c, h)
+      ..lineTo(c, h)
+      ..lineTo(0, h - c)
+      ..lineTo(0, c)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant _Chamfer4CornerClipper oldClipper) =>
+      oldClipper.chamfer != chamfer;
+}
+
+/// Tactical border & bracket painter for planned cards (Card 1, Card 2, Card 3)
+class _TacticalCardBorderPainter extends CustomPainter {
+  final Color themeColor;
+  final double chamfer;
+  final double bracketSize;
+
+  const _TacticalCardBorderPainter({
+    required this.themeColor,
+    this.chamfer = 10.0,
+    this.bracketSize = 12.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = chamfer;
+    final w = size.width;
+    final h = size.height;
+
+    final path = Path()
+      ..moveTo(c, 0)
+      ..lineTo(w - c, 0)
+      ..lineTo(w, c)
+      ..lineTo(w, h - c)
+      ..lineTo(w - c, h)
+      ..lineTo(c, h)
+      ..lineTo(0, h - c)
+      ..lineTo(0, c)
+      ..close();
+
+    // 1px border around chamfered path
+    final borderPaint = Paint()
+      ..color = const Color(0xFF1A2736)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawPath(path, borderPaint);
+
+    // 3px solid theme color along left edge
+    final leftEdgePaint = Paint()
+      ..color = themeColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+    canvas.drawLine(Offset(0, c), Offset(0, h - c), leftEdgePaint);
+
+    // Top-left bracket following the chamfer
+    if (bracketSize > 0) {
+      final bracketPaint = Paint()
+        ..color = themeColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+      final bracketPath = Path()
+        ..moveTo(0, c + bracketSize)
+        ..lineTo(0, c)
+        ..lineTo(c, 0)
+        ..lineTo(c + bracketSize, 0);
+      canvas.drawPath(bracketPath, bracketPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TacticalCardBorderPainter oldDelegate) =>
+      oldDelegate.themeColor != themeColor ||
+      oldDelegate.chamfer != chamfer ||
+      oldDelegate.bracketSize != bracketSize;
+}
+
+/// Custom square checkbox matching HTML .custom-check
+class _CustomSquareCheck extends StatelessWidget {
+  final bool checked;
   final VoidCallback onTap;
 
-  const _EstimateChip({
-    required this.minutes,
-    required this.isCustom,
-    required this.accent,
-    required this.onTap,
-  });
+  const _CustomSquareCheck({required this.checked, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        width: 14,
+        height: 14,
         decoration: BoxDecoration(
-          color: AppTheme.fhBgDeepDark,
+          color: checked ? const Color(0xFF00F0FF).withValues(alpha: 0.2) : const Color(0xFF0B1219),
           border: Border.all(
-              color: isCustom
-                  ? accent.withValues(alpha: 0.6)
-                  : AppTheme.fhBorderColor),
-        ),
-        child: Text(formatMinutes(minutes),
-                style: TextStyle(
-                    color: isCustom ? accent : AppTheme.fhTextSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold))
-            .animate(key: ValueKey(minutes))
-            .scaleXY(
-                begin: 0.7,
-                end: 1.0,
-                duration: 250.ms,
-                curve: Curves.easeOutBack),
-      ),
-    );
-  }
-}
-
-class _PlanRow extends StatelessWidget {
-  final String compoundId;
-  final AppProvider provider;
-  final int dragIndex;
-  final int minutes;
-  final bool isCustomEstimate;
-  final bool isDone;
-  final bool hasReminder;
-  final VoidCallback onEditEstimate;
-  final VoidCallback onEditReminder;
-  final VoidCallback onRemove;
-  final VoidCallback onAnoint;
-  final VoidCallback onCheck;
-
-  const _PlanRow({
-    required this.compoundId,
-    required this.provider,
-    required this.dragIndex,
-    required this.minutes,
-    required this.isCustomEstimate,
-    required this.isDone,
-    required this.hasReminder,
-    required this.onEditEstimate,
-    required this.onEditReminder,
-    required this.onRemove,
-    required this.onAnoint,
-    required this.onCheck,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final parts = compoundId.split('|');
-    if (parts.length < 2) return const SizedBox.shrink();
-
-    final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
-    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
-    if (task == null || sub == null || task.isDeleted || sub.isDeleted) {
-      return const SizedBox.shrink();
-    }
-
-    final isCheckpoint = parts.length == 3;
-    SubSubTask? cp;
-    if (isCheckpoint) {
-      cp = sub.findCheckpoint(parts[2]);
-      if (cp == null) return const SizedBox.shrink();
-    }
-
-    final title = isCheckpoint ? cp!.name : sub.name;
-    final parent = isCheckpoint ? '${task.name} > ${_findParentPath(sub, cp!)}' : task.name;
-
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 250),
-      opacity: isDone ? 0.55 : 1.0,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        decoration: BoxDecoration(
-          color: AppTheme.fhBgDark,
-          border: Border(left: BorderSide(color: task.taskColor, width: 3)),
-        ),
-        child: Row(
-          children: [
-            ReorderableDragStartListener(
-              index: dragIndex,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(Icons.drag_indicator,
-                    color: AppTheme.fhTextDisabled, size: 18),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(title,
-                        style: TextStyle(
-                            color: AppTheme.fhTextPrimary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            decoration: isDone
-                                ? TextDecoration.lineThrough
-                                : TextDecoration.none,
-                            decorationColor: AppTheme.fhTextSecondary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                    Text(parent,
-                        style:   TextStyle(
-                            color: AppTheme.fhTextSecondary, fontSize: 10),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                  ],
-                ),
-              ),
-            ),
-            if (isDone) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text('DONE',
-                        style: TextStyle(
-                            color: AppTheme.fhAccentGreen,
-                            fontSize: 9,
-                            letterSpacing: 1.5,
-                            fontWeight: FontWeight.bold))
-                    .animate()
-                    .fadeIn(duration: 250.ms)
-                    .scaleXY(begin: 0.7, curve: Curves.easeOutBack),
-              ),
-            ] else ...[
-              _EstimateChip(
-                minutes: minutes,
-                isCustom: isCustomEstimate,
-                accent: AppTheme.fhAccentTeal,
-                onTap: onEditEstimate,
-              ),
-              IconButton(
-                icon: Icon(MdiIcons.fireCircle,
-                    size: 18, color: AppTheme.fhTextSecondary),
-                onPressed: onAnoint,
-                splashRadius: 18,
-                tooltip: 'Anoint as Phoenix',
-              ),
-              IconButton(
-                icon: Icon(
-                  hasReminder ? MdiIcons.bellRing : MdiIcons.bellOutline,
-                  size: 18,
-                  color: hasReminder ? AppTheme.fhAccentTeal : AppTheme.fhTextSecondary,
-                ),
-                onPressed: onEditReminder,
-                splashRadius: 18,
-                tooltip: 'Reminder',
-              ),
-              IconButton(
-                icon:   Icon(Icons.check, size: 18, color: AppTheme.fhAccentTeal),
-                onPressed: onCheck,
-                splashRadius: 18,
-                tooltip: 'Complete Task',
-              ),
-            ],
-            IconButton(
-              icon:   Icon(Icons.close, size: 18, color: AppTheme.fhAccentRed),
-              onPressed: onRemove,
-              splashRadius: 18,
-              tooltip: 'Remove from plan',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AnointHint extends StatelessWidget {
-  const _AnointHint({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.fhAccentOrange.withValues(alpha: 0.05),
-        border: Border.all(
-            color: AppTheme.fhAccentOrange.withValues(alpha: 0.35),
-            style: BorderStyle.solid),
-      ),
-      child: Row(
-        children: [
-          Icon(MdiIcons.fireCircle, size: 16, color: AppTheme.fhAccentOrange),
-          const SizedBox(width: 10),
-            Expanded(
-            child: Text('Anoint your Phoenix — the one thing that must rise today.',
-                style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11.5)),
+            color: checked ? const Color(0xFF00F0FF) : const Color(0xFF334155),
+            width: 1,
           ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 300.ms);
-  }
-}
-
-class _PhoenixCard extends StatelessWidget {
-  final String compoundId;
-  final AppProvider provider;
-  final int minutes;
-  final bool isCustomEstimate;
-  final bool isDone;
-  final bool hasReminder;
-  final VoidCallback onEditEstimate;
-  final VoidCallback onEditReminder;
-  final VoidCallback onRemove;
-  final VoidCallback onDemote;
-  final VoidCallback onCheck;
-
-  const _PhoenixCard({
-    required this.compoundId,
-    required this.provider,
-    required this.minutes,
-    required this.isCustomEstimate,
-    required this.isDone,
-    required this.hasReminder,
-    required this.onEditEstimate,
-    required this.onEditReminder,
-    required this.onRemove,
-    required this.onDemote,
-    required this.onCheck,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final parts = compoundId.split('|');
-    if (parts.length < 2) return const SizedBox.shrink();
-    final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
-    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
-    if (task == null || sub == null) return const SizedBox.shrink();
-
-    final isCheckpoint = parts.length == 3;
-    SubSubTask? cp;
-    if (isCheckpoint) {
-      cp = sub.findCheckpoint(parts[2]);
-      if (cp == null) return const SizedBox.shrink();
-    }
-    final title = isCheckpoint ? cp!.name : sub.name;
-    final parent = isCheckpoint ? '${task.name} > ${_findParentPath(sub, cp!)}' : task.name;
-
-    final amber = AppTheme.fhAccentOrange;
-
-    final fireIcon = Icon(MdiIcons.fire, size: 13, color: amber)
-        .animate(onPlay: (c) => c.repeat(reverse: true))
-        .scaleXY(
-            begin: 1.0, end: 1.25, duration: 900.ms, curve: Curves.easeInOut);
-
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 250),
-      opacity: isDone ? 0.55 : 1.0,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-        decoration: BoxDecoration(
-          color: amber.withValues(alpha: 0.07),
-          border: Border(left: BorderSide(color: amber, width: 3)),
+          borderRadius: BorderRadius.zero,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Phoenix banner
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 6, 2),
-              child: Row(
-                children: [
-                  fireIcon,
-                  const SizedBox(width: 6),
-                  Text('PHOENIX',
-                      style: GoogleFonts.rajdhani(
-                          color: amber,
-                          fontSize: 10,
-                          letterSpacing: 2,
-                          fontWeight: FontWeight.bold)),
-                  if (isDone) ...[
-                    const SizedBox(width: 8),
-                    Text('· RISEN',
-                            style: TextStyle(
-                                color: AppTheme.fhAccentGreen,
-                                fontSize: 9,
-                                letterSpacing: 1.5,
-                                fontWeight: FontWeight.bold))
-                        .animate()
-                        .fadeIn(duration: 250.ms),
-                  ],
-                  const Spacer(),
-                  InkWell(
-                    onTap: onDemote,
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Text('DEMOTE',
-                          style: TextStyle(
-                              color: AppTheme.fhTextSecondary,
-                              fontSize: 9,
-                              letterSpacing: 1.2,
-                              fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 8, 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(title,
-                            style: TextStyle(
-                                color: AppTheme.fhTextPrimary,
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                decoration: isDone
-                                    ? TextDecoration.lineThrough
-                                    : TextDecoration.none,
-                                decorationColor: AppTheme.fhTextSecondary),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis),
-                        Text(parent,
-                            style:   TextStyle(
-                                color: AppTheme.fhTextSecondary, fontSize: 10),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
-                  ),
+        alignment: Alignment.center,
+        child: checked
+            ? const Text(
+                '✓',
+                style: TextStyle(
+                  fontSize: 10,
+                  height: 1,
+                  color: Color(0xFF00F0FF),
+                  fontWeight: FontWeight.bold,
                 ),
-                if (!isDone) ...[
-                  _EstimateChip(
-                    minutes: minutes,
-                    isCustom: isCustomEstimate,
-                    accent: amber,
-                    onTap: onEditEstimate,
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      hasReminder ? MdiIcons.bellRing : MdiIcons.bellOutline,
-                      size: 18,
-                      color: hasReminder ? amber : AppTheme.fhTextSecondary,
-                    ),
-                    onPressed: onEditReminder,
-                    splashRadius: 18,
-                    tooltip: 'Reminder',
-                  ),
-                  IconButton(
-                    icon:   Icon(Icons.check, size: 18, color: AppTheme.fhAccentTeal),
-                    onPressed: onCheck,
-                    splashRadius: 18,
-                    tooltip: 'Complete Task',
-                  ),
-                ],
-                IconButton(
-                  icon:   Icon(Icons.close, size: 18, color: AppTheme.fhAccentRed),
-                  onPressed: onRemove,
-                  splashRadius: 18,
-                  tooltip: 'Remove from plan',
-                ),
-              ],
-            ),
-          ],
-        ),
+              )
+            : null,
       ),
     );
   }
@@ -2106,7 +3478,6 @@ class _CollapsibleGroupState extends State<_CollapsibleGroup> {
 
 class _AvailableRow extends StatelessWidget {
   final String title;
-  final String? parent;
   final Color color;
   final bool isCheckpoint;
   final int plannedCount;
@@ -2117,7 +3488,6 @@ class _AvailableRow extends StatelessWidget {
 
   const _AvailableRow({
     required this.title,
-    this.parent,
     required this.color,
     required this.isCheckpoint,
     required this.plannedCount,
@@ -2154,7 +3524,7 @@ class _AvailableRow extends StatelessWidget {
                   child: Checkbox(
                     value: isSelected,
                     activeColor: AppTheme.fhAccentTeal,
-                    checkColor: AppTheme.fhBgDark,
+                    checkColor: Colors.black,
                     onChanged: onSelectedChanged,
                   ),
                 ),
@@ -2168,23 +3538,14 @@ class _AvailableRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(title,
-                      style: TextStyle(
-                          color: AppTheme.fhTextPrimary,
-                          fontSize: isCheckpoint ? 12 : 13),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  if (parent != null)
-                    Text(parent!,
-                        style: TextStyle(
-                            color: AppTheme.fhTextDisabled, fontSize: 10),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                ],
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: AppTheme.fhTextPrimary,
+                  fontSize: isCheckpoint ? 12 : 13,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             if (!isSelectionMode && plannedCount > 0) ...[
