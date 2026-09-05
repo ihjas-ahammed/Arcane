@@ -26,30 +26,82 @@ class RunningTaskWidget : HomeWidgetProvider() {
     private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int, prefs: SharedPreferences) {
         val views = RemoteViews(context.packageName, R.layout.widget_running_task)
 
-        val options = mgr.getAppWidgetOptions(widgetId)
-        val minHeight = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT) ?: 0
         val dayPlannerWidgetCheckable = WidgetCommon.getSafeBoolean(prefs, "arcane.task.dayPlannerWidgetCheckable", false)
+        val multitaskCount = WidgetCommon.getSafeInt(prefs, "arcane.task.multitaskCount", 0)
 
-        if (minHeight >= 220) {
-            // Expanded: Show both stacked vertically
-            views.setViewVisibility(R.id.widget_running_layout, View.VISIBLE)
+        if (dayPlannerWidgetCheckable) {
+            views.setViewVisibility(R.id.widget_running_layout, View.GONE)
+            views.setViewVisibility(R.id.widget_multitask_layout, View.GONE)
             views.setViewVisibility(R.id.widget_dayplan_layout, View.VISIBLE)
-            renderRunning(context, views, prefs)
+            views.setInt(R.id.widget_card_container, "setBackgroundResource", R.drawable.widget_bg_tactical_cyan)
             renderDayPlan(context, views, prefs)
+        } else if (multitaskCount > 1) {
+            views.setViewVisibility(R.id.widget_running_layout, View.GONE)
+            views.setViewVisibility(R.id.widget_multitask_layout, View.VISIBLE)
+            views.setViewVisibility(R.id.widget_dayplan_layout, View.GONE)
+            val isRunning = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isRunning", false)
+            val bgRes = if (isRunning) R.drawable.widget_bg_tactical_red else R.drawable.widget_bg_tactical_cyan
+            views.setInt(R.id.widget_card_container, "setBackgroundResource", bgRes)
+            renderMultitask(context, views, prefs, multitaskCount)
         } else {
-            // Standard: Show either one depending on preferences
-            if (dayPlannerWidgetCheckable) {
-                views.setViewVisibility(R.id.widget_running_layout, View.GONE)
-                views.setViewVisibility(R.id.widget_dayplan_layout, View.VISIBLE)
-                renderDayPlan(context, views, prefs)
-            } else {
-                views.setViewVisibility(R.id.widget_running_layout, View.VISIBLE)
-                views.setViewVisibility(R.id.widget_dayplan_layout, View.GONE)
-                renderRunning(context, views, prefs)
-            }
+            views.setViewVisibility(R.id.widget_running_layout, View.VISIBLE)
+            views.setViewVisibility(R.id.widget_multitask_layout, View.GONE)
+            views.setViewVisibility(R.id.widget_dayplan_layout, View.GONE)
+            renderRunning(context, views, prefs)
         }
 
         mgr.updateAppWidget(widgetId, views)
+    }
+
+    private fun renderMultitask(context: Context, views: RemoteViews, prefs: SharedPreferences, count: Int) {
+        val isRunning = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isRunning", false)
+        val bgRes = if (isRunning) R.drawable.widget_bg_tactical_red else R.drawable.widget_bg_tactical_cyan
+        views.setInt(R.id.widget_card_container, "setBackgroundResource", bgRes)
+
+        val statusLabel = "MULTITASK PROTOCOL · [0${count.coerceIn(2, 3)} ACTIVE]"
+        views.setTextViewText(R.id.widget_mt_status_label, statusLabel)
+        views.setViewVisibility(R.id.widget_mt_rec_label, if (isRunning) View.VISIBLE else View.GONE)
+
+        val cardIds = intArrayOf(R.id.widget_mt_card_0, R.id.widget_mt_card_1, R.id.widget_mt_card_2)
+        val titleIds = intArrayOf(R.id.widget_mt_title_0, R.id.widget_mt_title_1, R.id.widget_mt_title_2)
+        val parentIds = intArrayOf(R.id.widget_mt_parent_0, R.id.widget_mt_parent_1, R.id.widget_mt_parent_2)
+        val cpsIds = intArrayOf(R.id.widget_mt_cps_0, R.id.widget_mt_cps_1, R.id.widget_mt_cps_2)
+
+        val openIntent = WidgetCommon.launchIntent(context, "task_open")
+        val openPlanIntent = WidgetCommon.launchIntent(context, "task_open_plan")
+
+        views.setOnClickPendingIntent(R.id.widget_mt_btn_dayplan, openPlanIntent)
+
+        val effectiveCount = count.coerceAtMost(3)
+        for (i in 0 until 3) {
+            if (i < effectiveCount) {
+                views.setViewVisibility(cardIds[i], View.VISIBLE)
+                val title = prefs.getString("arcane.task.mt$i.title", "") ?: ""
+                val parent = prefs.getString("arcane.task.mt$i.parent", "") ?: ""
+                val cps = prefs.getString("arcane.task.mt$i.checkpoints", "") ?: ""
+
+                views.setTextViewText(titleIds[i], title.uppercase())
+                views.setTextViewText(parentIds[i], parent.uppercase())
+                views.setTextViewText(cpsIds[i], if (cps.isNotEmpty()) "✓ $cps" else "0/0")
+                views.setOnClickPendingIntent(cardIds[i], openIntent)
+            } else {
+                views.setViewVisibility(cardIds[i], View.GONE)
+            }
+        }
+
+        if (isRunning) {
+            views.setTextViewText(R.id.widget_mt_btn_engage, "HALT SESSION")
+            views.setInt(R.id.widget_mt_btn_engage, "setBackgroundResource", R.drawable.widget_btn_primary_red)
+            views.setTextColor(R.id.widget_mt_btn_engage, ContextCompat.getColor(context, R.color.widget_text_white))
+        } else {
+            views.setTextViewText(R.id.widget_mt_btn_engage, "ENGAGE ALL")
+            views.setInt(R.id.widget_mt_btn_engage, "setBackgroundResource", R.drawable.widget_btn_primary_amber)
+            views.setTextColor(R.id.widget_mt_btn_engage, ContextCompat.getColor(context, R.color.widget_bg_deep))
+        }
+
+        views.setOnClickPendingIntent(R.id.widget_mt_btn_engage, WidgetCommon.actionIntent(context, "task_toggle", 101))
+        views.setOnClickPendingIntent(R.id.widget_mt_btn_check, WidgetCommon.actionIntent(context, "task_check_next", 102))
+        views.setOnClickPendingIntent(R.id.widget_mt_btn_finish, WidgetCommon.actionIntent(context, "task_finish", 103))
     }
 
     private fun renderRunning(context: Context, views: RemoteViews, prefs: SharedPreferences) {
@@ -71,33 +123,63 @@ class RunningTaskWidget : HomeWidgetProvider() {
             isRunning -> "[ MISSION // ENGAGED ]"
             else -> "[ MISSION // STANDBY ]"
         }
+        val accentColor = when {
+            !hasTask -> ContextCompat.getColor(context, R.color.widget_text_muted)
+            isRunning -> ContextCompat.getColor(context, R.color.widget_accent_red)
+            isCheckpoint -> ContextCompat.getColor(context, R.color.widget_accent_cyan)
+            else -> ContextCompat.getColor(context, R.color.widget_accent_amber)
+        }
+
+        val bgRes = when {
+            !hasTask -> R.drawable.widget_bg_tactical_dim
+            isRunning -> R.drawable.widget_bg_tactical_red
+            isCheckpoint -> R.drawable.widget_bg_tactical_cyan
+            else -> R.drawable.widget_bg_tactical_amber
+        }
+        views.setInt(R.id.widget_card_container, "setBackgroundResource", bgRes)
+
         views.setTextViewText(R.id.widget_status_label, statusLabel)
-        views.setTextViewText(R.id.widget_capacity, capacity)
+        views.setTextColor(R.id.widget_status_label, accentColor)
+        views.setViewVisibility(R.id.widget_rec_label, if (isRunning) View.VISIBLE else View.GONE)
+        views.setTextViewText(R.id.widget_capacity, if (capacity.isNotEmpty()) "CAP $capacity" else "")
 
         if (hasTask) {
             views.setTextViewText(R.id.widget_task_title, title.uppercase())
             views.setTextViewText(R.id.widget_task_subtitle, subtitle.uppercase())
+            views.setViewVisibility(R.id.widget_subtitle_container, if (subtitle.isNotEmpty()) View.VISIBLE else View.GONE)
         } else {
             views.setTextViewText(R.id.widget_task_title, "NO PLAN SET")
             views.setTextViewText(R.id.widget_task_subtitle, "QUEUE STANDBY")
+            views.setViewVisibility(R.id.widget_subtitle_container, View.VISIBLE)
         }
+
+        // Time mode label
+        views.setTextViewText(R.id.widget_time_mode_label, if (isRunning) "SESSION" else "TODAY")
 
         // Time: live chronometer while running, static accumulated total otherwise.
         if (isRunning && sessionStartMs > 0L) {
             views.setViewVisibility(R.id.widget_task_today, View.GONE)
             views.setViewVisibility(R.id.widget_task_chronometer, View.VISIBLE)
+            views.setTextColor(R.id.widget_task_chronometer, accentColor)
             val elapsedSinceSession = System.currentTimeMillis() - sessionStartMs
             val base = SystemClock.elapsedRealtime() - elapsedSinceSession - (accumulatedSec * 1000L)
             views.setChronometer(R.id.widget_task_chronometer, base, null, true)
         } else {
             views.setViewVisibility(R.id.widget_task_chronometer, View.GONE)
             views.setViewVisibility(R.id.widget_task_today, View.VISIBLE)
+            views.setTextColor(R.id.widget_task_today, accentColor)
             views.setTextViewText(R.id.widget_task_today, WidgetCommon.fmtSeconds(accumulatedSec))
         }
 
         // Progress bar reflects the subtask's completion; hidden with no task.
         views.setViewVisibility(R.id.widget_task_progress, if (hasTask) View.VISIBLE else View.INVISIBLE)
         views.setProgressBar(R.id.widget_task_progress, 100, progressPct.coerceIn(0, 100), false)
+
+        val openPlanIntent = WidgetCommon.launchIntent(context, "task_open_plan")
+        val openTaskIntent = WidgetCommon.launchIntent(context, "task_open")
+
+        views.setOnClickPendingIntent(R.id.widget_btn_dayplan, openPlanIntent)
+        views.setOnClickPendingIntent(R.id.widget_task_title, openTaskIntent)
 
         if (hasTask) {
             views.setViewVisibility(R.id.widget_btn_check, View.VISIBLE)
@@ -120,7 +202,6 @@ class RunningTaskWidget : HomeWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_btn_check, WidgetCommon.actionIntent(context, "task_check_next", 102))
             views.setOnClickPendingIntent(R.id.widget_btn_finish, WidgetCommon.actionIntent(context, "task_finish", 103))
         } else {
-            // No task: ENGAGE becomes OPEN PLAN, hide CHECK, FINISH becomes REFRESH.
             views.setViewVisibility(R.id.widget_btn_check, View.GONE)
             views.setViewVisibility(R.id.widget_btn_finish, View.VISIBLE)
             views.setTextViewText(R.id.widget_btn_engage, "OPEN PLAN")
@@ -128,14 +209,16 @@ class RunningTaskWidget : HomeWidgetProvider() {
             views.setTextColor(R.id.widget_btn_engage, ContextCompat.getColor(context, R.color.widget_bg_deep))
             views.setTextViewText(R.id.widget_btn_finish, "OPEN")
 
-            views.setOnClickPendingIntent(R.id.widget_btn_engage, WidgetCommon.launchIntent(context, "task_open_plan"))
-            views.setOnClickPendingIntent(R.id.widget_btn_finish, WidgetCommon.launchIntent(context, "task_open"))
+            views.setOnClickPendingIntent(R.id.widget_btn_engage, openPlanIntent)
+            views.setOnClickPendingIntent(R.id.widget_btn_finish, openTaskIntent)
         }
-
-        views.setOnClickPendingIntent(R.id.widget_task_title, WidgetCommon.launchIntent(context, "task_open"))
     }
 
     private fun renderDayPlan(context: Context, views: RemoteViews, prefs: SharedPreferences) {
+        views.setInt(R.id.widget_card_container, "setBackgroundResource", R.drawable.widget_bg_tactical_cyan)
+        val capacity = prefs.getString("arcane.task.capacity", "") ?: ""
+        views.setTextViewText(R.id.widget_dayplan_capacity, if (capacity.isNotEmpty()) "CAP $capacity" else "")
+
         val rowContainers = intArrayOf(
             R.id.widget_dayplan_row_0, R.id.widget_dayplan_row_1, R.id.widget_dayplan_row_2,
             R.id.widget_dayplan_row_3, R.id.widget_dayplan_row_4,

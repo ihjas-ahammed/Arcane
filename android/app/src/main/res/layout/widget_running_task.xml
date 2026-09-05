@@ -1,27 +1,356 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Fully native (RemoteViews) running-task widget. No rendered bitmap, so text
-     stays crisp and the layout reflows when the widget is resized. -->
+<!-- Fully native (RemoteViews) running-task widget with Tactical HUD styling matching Schedule Hero. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:clipToOutline="true"
-    android:padding="8dp">
+    android:padding="6dp">
 
     <LinearLayout
+        android:id="@+id/widget_card_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@drawable/widget_bg_amber"
+        android:background="@drawable/widget_bg_tactical_cyan"
         android:orientation="vertical"
-        android:paddingStart="14dp"
-        android:paddingEnd="14dp"
-        android:paddingTop="10dp"
-        android:paddingBottom="10dp">
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="9dp"
+        android:paddingBottom="9dp">
+
+        <!-- ===== Multitask layout (2-in-1 / 3-in-1) ===== -->
+        <LinearLayout
+            android:id="@+id/widget_multitask_layout"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <!-- Status bar -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:id="@+id/widget_mt_status_dot"
+                    android:layout_width="6dp"
+                    android:layout_height="6dp"
+                    android:src="@drawable/widget_pip_on" />
+
+                <TextView
+                    android:id="@+id/widget_mt_status_label"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.12"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:text="MULTITASK PROTOCOL · [02 ACTIVE]"
+                    android:textColor="@color/widget_accent_cyan"
+                    android:textSize="9.5sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/widget_mt_rec_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:fontFamily="monospace"
+                    android:text="REC"
+                    android:textColor="@color/widget_accent_red"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:id="@+id/widget_mt_btn_dayplan"
+                    android:layout_width="wrap_content"
+                    android:layout_height="22dp"
+                    android:background="@drawable/widget_btn_dayplan"
+                    android:gravity="center"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:letterSpacing="0.1"
+                        android:text="DAY PLAN"
+                        android:textColor="@color/widget_text_mid"
+                        android:textSize="8.5sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Status divider line -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/widget_border_dim"
+                android:layout_marginTop="5dp"
+                android:layout_marginBottom="6dp" />
+
+            <!-- Mini cards container -->
+            <LinearLayout
+                android:id="@+id/widget_mt_cards_row"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="horizontal">
+
+                <!-- Card 0 -->
+                <LinearLayout
+                    android:id="@+id/widget_mt_card_0"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@drawable/widget_minicard_bg_cyan"
+                    android:orientation="vertical"
+                    android:padding="6dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+                        <TextView
+                            android:id="@+id/widget_mt_parent_0"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:text=""
+                            android:textColor="@color/widget_accent_cyan"
+                            android:textSize="8sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:text="01"
+                            android:textColor="@color/widget_text_muted"
+                            android:textSize="8sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/widget_mt_title_0"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical"
+                        android:fontFamily="monospace"
+                        android:maxLines="2"
+                        android:ellipsize="end"
+                        android:text=""
+                        android:textColor="@color/widget_text_white"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/widget_mt_cps_0"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:maxLines="1"
+                        android:text="✓ 0/0"
+                        android:textColor="@color/widget_accent_cyan"
+                        android:textSize="8.5sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Card 1 -->
+                <LinearLayout
+                    android:id="@+id/widget_mt_card_1"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/widget_minicard_bg_cyan"
+                    android:orientation="vertical"
+                    android:padding="6dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+                        <TextView
+                            android:id="@+id/widget_mt_parent_1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:text=""
+                            android:textColor="@color/widget_accent_cyan"
+                            android:textSize="8sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:text="02"
+                            android:textColor="@color/widget_text_muted"
+                            android:textSize="8sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/widget_mt_title_1"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical"
+                        android:fontFamily="monospace"
+                        android:maxLines="2"
+                        android:ellipsize="end"
+                        android:text=""
+                        android:textColor="@color/widget_text_white"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/widget_mt_cps_1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:maxLines="1"
+                        android:text="✓ 0/0"
+                        android:textColor="@color/widget_accent_cyan"
+                        android:textSize="8.5sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Card 2 -->
+                <LinearLayout
+                    android:id="@+id/widget_mt_card_2"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/widget_minicard_bg_cyan"
+                    android:orientation="vertical"
+                    android:padding="6dp"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+                        <TextView
+                            android:id="@+id/widget_mt_parent_2"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:text=""
+                            android:textColor="@color/widget_accent_cyan"
+                            android:textSize="8sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:text="03"
+                            android:textColor="@color/widget_text_muted"
+                            android:textSize="8sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/widget_mt_title_2"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical"
+                        android:fontFamily="monospace"
+                        android:maxLines="2"
+                        android:ellipsize="end"
+                        android:text=""
+                        android:textColor="@color/widget_text_white"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/widget_mt_cps_2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:maxLines="1"
+                        android:text="✓ 0/0"
+                        android:textColor="@color/widget_accent_cyan"
+                        android:textSize="8.5sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Multitask Buttons -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/widget_mt_btn_engage"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/widget_btn_primary_amber"
+                    android:fontFamily="monospace"
+                    android:gravity="center"
+                    android:letterSpacing="0.1"
+                    android:maxLines="1"
+                    android:text="ENGAGE ALL"
+                    android:textColor="@color/widget_bg_deep"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/widget_mt_btn_check"
+                    android:layout_width="72dp"
+                    android:layout_height="34dp"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/widget_btn_outline_cyan"
+                    android:fontFamily="monospace"
+                    android:gravity="center"
+                    android:letterSpacing="0.1"
+                    android:maxLines="1"
+                    android:text="CHECK"
+                    android:textColor="@color/widget_accent_cyan"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/widget_mt_btn_finish"
+                    android:layout_width="72dp"
+                    android:layout_height="34dp"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/widget_btn_outline_amber"
+                    android:fontFamily="monospace"
+                    android:gravity="center"
+                    android:letterSpacing="0.1"
+                    android:maxLines="1"
+                    android:text="FINISH"
+                    android:textColor="@color/widget_accent_amber"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
 
         <!-- ===== Running / standby layout ===== -->
         <LinearLayout
             android:id="@+id/widget_running_layout"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:orientation="vertical">
 
             <!-- Status row -->
@@ -31,66 +360,119 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
+                <ImageView
+                    android:id="@+id/widget_status_dot"
+                    android:layout_width="6dp"
+                    android:layout_height="6dp"
+                    android:src="@drawable/widget_pip_on" />
+
                 <TextView
                     android:id="@+id/widget_status_label"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:layout_marginStart="6dp"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.12"
                     android:maxLines="1"
                     android:ellipsize="end"
                     android:text="ACTIVE · STANDBY"
                     android:textColor="@color/widget_accent_amber"
-                    android:textSize="9sp" />
+                    android:textSize="9.5sp"
+                    android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/widget_status_clock"
+                    android:id="@+id/widget_rec_label"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
                     android:fontFamily="monospace"
-                    android:text=""
-                    android:textColor="@color/widget_text_muted"
-                    android:textSize="9sp" />
+                    android:text="REC"
+                    android:textColor="@color/widget_accent_red"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:id="@+id/widget_btn_dayplan"
+                    android:layout_width="wrap_content"
+                    android:layout_height="22dp"
+                    android:background="@drawable/widget_btn_dayplan"
+                    android:gravity="center"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:letterSpacing="0.1"
+                        android:text="DAY PLAN"
+                        android:textColor="@color/widget_text_mid"
+                        android:textSize="8.5sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
             </LinearLayout>
 
-            <!-- Title -->
-            <TextView
-                android:id="@+id/widget_task_title"
+            <!-- Status divider line -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/widget_border_dim"
+                android:layout_marginTop="5dp"
+                android:layout_marginBottom="6dp" />
+
+            <!-- Title & Subtitle container -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:gravity="center_vertical"
-                android:layout_marginTop="8dp"
-                android:ellipsize="end"
-                android:maxLines="2"
-                android:text="NO PLAN SET"
-                android:textColor="@color/widget_text_white"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:autoSizeTextType="uniform"
-                android:autoSizeMinTextSize="12sp"
-                android:autoSizeMaxTextSize="22sp"
-                android:autoSizeStepGranularity="1sp" />
+                android:orientation="vertical"
+                android:gravity="center_vertical">
 
-            <TextView
-                android:id="@+id/widget_task_subtitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:ellipsize="end"
-                android:fontFamily="monospace"
-                android:letterSpacing="0.08"
-                android:maxLines="1"
-                android:text="QUEUE STANDBY"
-                android:textColor="@color/widget_text_mid"
-                android:textSize="10sp" />
+                <TextView
+                    android:id="@+id/widget_task_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text="NO PLAN SET"
+                    android:textColor="@color/widget_text_white"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:fontFamily="monospace" />
 
-            <!-- Time row -->
+                <LinearLayout
+                    android:id="@+id/widget_subtitle_container"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:background="@drawable/widget_subtitle_bg"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:paddingTop="1dp"
+                    android:paddingBottom="1dp">
+
+                    <TextView
+                        android:id="@+id/widget_task_subtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:fontFamily="monospace"
+                        android:letterSpacing="0.08"
+                        android:maxLines="1"
+                        android:text="QUEUE STANDBY"
+                        android:textColor="@color/widget_text_mid"
+                        android:textSize="9.5sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Time & Capacity row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="4dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -106,6 +488,17 @@
                     android:text=""
                     android:textColor="@color/widget_text_muted"
                     android:textSize="9sp" />
+
+                <TextView
+                    android:id="@+id/widget_time_mode_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:fontFamily="monospace"
+                    android:text="TODAY"
+                    android:textColor="@color/widget_text_muted"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold" />
 
                 <Chronometer
                     android:id="@+id/widget_task_chronometer"
@@ -134,8 +527,8 @@
                 android:id="@+id/widget_task_progress"
                 style="?android:attr/progressBarStyleHorizontal"
                 android:layout_width="match_parent"
-                android:layout_height="5dp"
-                android:layout_marginTop="8dp"
+                android:layout_height="4dp"
+                android:layout_marginTop="5dp"
                 android:max="100"
                 android:progress="0"
                 android:progressDrawable="@drawable/widget_progress_amber" />
@@ -144,13 +537,13 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="8dp"
                 android:orientation="horizontal">
 
                 <TextView
                     android:id="@+id/widget_btn_engage"
                     android:layout_width="0dp"
-                    android:layout_height="38dp"
+                    android:layout_height="34dp"
                     android:layout_weight="1"
                     android:background="@drawable/widget_btn_primary_amber"
                     android:fontFamily="monospace"
@@ -164,10 +557,9 @@
 
                 <TextView
                     android:id="@+id/widget_btn_check"
-                    android:layout_width="0dp"
-                    android:layout_weight="0.9"
-                    android:layout_height="38dp"
-                    android:layout_marginStart="8dp"
+                    android:layout_width="72dp"
+                    android:layout_height="34dp"
+                    android:layout_marginStart="6dp"
                     android:background="@drawable/widget_btn_outline_cyan"
                     android:fontFamily="monospace"
                     android:gravity="center"
@@ -180,10 +572,9 @@
 
                 <TextView
                     android:id="@+id/widget_btn_finish"
-                    android:layout_width="0dp"
-                    android:layout_weight="0.9"
-                    android:layout_height="38dp"
-                    android:layout_marginStart="8dp"
+                    android:layout_width="72dp"
+                    android:layout_height="34dp"
+                    android:layout_marginStart="6dp"
                     android:background="@drawable/widget_btn_outline_amber"
                     android:fontFamily="monospace"
                     android:gravity="center"
@@ -200,40 +591,78 @@
         <LinearLayout
             android:id="@+id/widget_dayplan_layout"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:orientation="vertical"
             android:visibility="gone">
 
-            <TextView
+            <!-- Status bar -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:fontFamily="monospace"
-                android:letterSpacing="0.12"
-                android:text="TODAY'S PLAN"
-                android:textColor="@color/widget_accent_amber"
-                android:textSize="9sp"
-                android:layout_marginBottom="6dp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="6dp"
+                    android:layout_height="6dp"
+                    android:src="@drawable/widget_pip_on" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.12"
+                    android:text="DAY PLAN // TACTICAL DISPATCH"
+                    android:textColor="@color/widget_accent_cyan"
+                    android:textSize="9.5sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/widget_dayplan_capacity"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.08"
+                    android:text=""
+                    android:textColor="@color/widget_text_muted"
+                    android:textSize="9sp" />
+            </LinearLayout>
+
+            <!-- Status divider line -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/widget_border_dim"
+                android:layout_marginTop="5dp"
+                android:layout_marginBottom="4dp" />
 
             <!-- Rows 0..4 -->
-            <LinearLayout android:id="@+id/widget_dayplan_row_0" android:layout_width="match_parent" android:layout_height="32dp" android:orientation="horizontal" android:gravity="center_vertical">
-                <TextView android:id="@+id/widget_dayplan_row_title_0" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="12sp" />
-                <TextView android:id="@+id/widget_dayplan_btn_check_0" android:layout_width="42dp" android:layout_height="28dp" android:background="@drawable/widget_btn_outline_cyan" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="13sp" />
+            <LinearLayout android:id="@+id/widget_dayplan_row_0" android:layout_width="match_parent" android:layout_height="28dp" android:orientation="horizontal" android:gravity="center_vertical">
+                <View android:layout_width="3dp" android:layout_height="16dp" android:background="@color/widget_accent_cyan" android:layout_marginEnd="6dp" />
+                <TextView android:id="@+id/widget_dayplan_row_title_0" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="monospace" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="11.5sp" />
+                <TextView android:id="@+id/widget_dayplan_btn_check_0" android:layout_width="38dp" android:layout_height="24dp" android:background="@drawable/widget_btn_outline_cyan" android:fontFamily="monospace" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="12sp" />
             </LinearLayout>
-            <LinearLayout android:id="@+id/widget_dayplan_row_1" android:layout_width="match_parent" android:layout_height="32dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
-                <TextView android:id="@+id/widget_dayplan_row_title_1" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="12sp" />
-                <TextView android:id="@+id/widget_dayplan_btn_check_1" android:layout_width="42dp" android:layout_height="28dp" android:background="@drawable/widget_btn_outline_cyan" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="13sp" />
+            <LinearLayout android:id="@+id/widget_dayplan_row_1" android:layout_width="match_parent" android:layout_height="28dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="2dp">
+                <View android:layout_width="3dp" android:layout_height="16dp" android:background="@color/widget_accent_cyan" android:layout_marginEnd="6dp" />
+                <TextView android:id="@+id/widget_dayplan_row_title_1" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="monospace" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="11.5sp" />
+                <TextView android:id="@+id/widget_dayplan_btn_check_1" android:layout_width="38dp" android:layout_height="24dp" android:background="@drawable/widget_btn_outline_cyan" android:fontFamily="monospace" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="12sp" />
             </LinearLayout>
-            <LinearLayout android:id="@+id/widget_dayplan_row_2" android:layout_width="match_parent" android:layout_height="32dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
-                <TextView android:id="@+id/widget_dayplan_row_title_2" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="12sp" />
-                <TextView android:id="@+id/widget_dayplan_btn_check_2" android:layout_width="42dp" android:layout_height="28dp" android:background="@drawable/widget_btn_outline_cyan" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="13sp" />
+            <LinearLayout android:id="@+id/widget_dayplan_row_2" android:layout_width="match_parent" android:layout_height="28dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="2dp">
+                <View android:layout_width="3dp" android:layout_height="16dp" android:background="@color/widget_accent_cyan" android:layout_marginEnd="6dp" />
+                <TextView android:id="@+id/widget_dayplan_row_title_2" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="monospace" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="11.5sp" />
+                <TextView android:id="@+id/widget_dayplan_btn_check_2" android:layout_width="38dp" android:layout_height="24dp" android:background="@drawable/widget_btn_outline_cyan" android:fontFamily="monospace" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="12sp" />
             </LinearLayout>
-            <LinearLayout android:id="@+id/widget_dayplan_row_3" android:layout_width="match_parent" android:layout_height="32dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
-                <TextView android:id="@+id/widget_dayplan_row_title_3" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="12sp" />
-                <TextView android:id="@+id/widget_dayplan_btn_check_3" android:layout_width="42dp" android:layout_height="28dp" android:background="@drawable/widget_btn_outline_cyan" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="13sp" />
+            <LinearLayout android:id="@+id/widget_dayplan_row_3" android:layout_width="match_parent" android:layout_height="28dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="2dp">
+                <View android:layout_width="3dp" android:layout_height="16dp" android:background="@color/widget_accent_cyan" android:layout_marginEnd="6dp" />
+                <TextView android:id="@+id/widget_dayplan_row_title_3" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="monospace" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="11.5sp" />
+                <TextView android:id="@+id/widget_dayplan_btn_check_3" android:layout_width="38dp" android:layout_height="24dp" android:background="@drawable/widget_btn_outline_cyan" android:fontFamily="monospace" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="12sp" />
             </LinearLayout>
-            <LinearLayout android:id="@+id/widget_dayplan_row_4" android:layout_width="match_parent" android:layout_height="32dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
-                <TextView android:id="@+id/widget_dayplan_row_title_4" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="12sp" />
-                <TextView android:id="@+id/widget_dayplan_btn_check_4" android:layout_width="42dp" android:layout_height="28dp" android:background="@drawable/widget_btn_outline_cyan" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="13sp" />
+            <LinearLayout android:id="@+id/widget_dayplan_row_4" android:layout_width="match_parent" android:layout_height="28dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="2dp">
+                <View android:layout_width="3dp" android:layout_height="16dp" android:background="@color/widget_accent_cyan" android:layout_marginEnd="6dp" />
+                <TextView android:id="@+id/widget_dayplan_row_title_4" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="monospace" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="11.5sp" />
+                <TextView android:id="@+id/widget_dayplan_btn_check_4" android:layout_width="38dp" android:layout_height="24dp" android:background="@drawable/widget_btn_outline_cyan" android:fontFamily="monospace" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="12sp" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
