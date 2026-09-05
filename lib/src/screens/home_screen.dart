@@ -25,6 +25,7 @@ import 'package:missions/src/theme/arc/arc_theme.dart';
 import 'package:missions/src/widgets/ui/desktop_floating_timer.dart';
 import 'package:missions/src/widgets/drawers/goals_bottom_drawer.dart';
 import 'package:missions/src/widgets/dialogs/whats_new_update_dialog.dart';
+import 'package:missions/src/services/update_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -95,6 +96,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _checkUpdateOnStartup() async {
+    if (UpdateService.isDebugBuild) {
+      debugPrint('[HomeScreen] Debug build detected. Skipping startup update checks.');
+      return;
+    }
     await Future.delayed(const Duration(seconds: 3));
     if (!mounted) return;
     try {

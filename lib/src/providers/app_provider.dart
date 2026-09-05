@@ -105,6 +105,10 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   List<Map<String, dynamic>> _cachedMonthlyReports = [];
 
   Future<UpdateModel?> checkForAppUpdate({bool forceCheck = false}) async {
+    if (UpdateService.isDebugBuild) {
+      debugPrint("[AppProvider.checkForAppUpdate] Debug APK detected. Skipping update check.");
+      return null;
+    }
     _isCheckingUpdate = true;
     notifyListeners();
     try {
@@ -1464,7 +1468,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       goalsText: goalsStr,
       modelCandidates: settings.heavyModels, 
       liteModelCandidates: settings.liteModels,
-      proTimeout: const Duration(seconds: 30),
+      proTimeout: const Duration(seconds: 60),
       currentApiKeyIndex: apiKeyIndex, 
       customApiKeys: settings.customApiKeys,
       onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 

@@ -13,6 +13,7 @@ import 'package:missions/src/screens/schedule/scheduled_reminders_screen.dart';
 import 'package:missions/src/widgets/settings/ai_providers_manager.dart';
 import 'package:missions/src/widgets/settings/model_configuration_widget.dart';
 import 'package:missions/src/widgets/dialogs/whats_new_update_dialog.dart';
+import 'package:missions/src/services/update_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:missions/src/screens/onboarding/app_tour_screen.dart';
 import 'package:missions/src/screens/settings/homescreen_widgets_preview_screen.dart';
@@ -1298,6 +1299,18 @@ class _SettingsViewState extends State<SettingsView> {
               onPressed: appProvider.isCheckingUpdate
                   ? null
                   : () async {
+                      if (UpdateService.isDebugBuild) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: JweTheme.panel,
+                            content: Text(
+                              'Updates are disabled on debug builds (kDebugMode).',
+                              style: GoogleFonts.jetBrainsMono(color: JweTheme.accentWarn),
+                            ),
+                          ),
+                        );
+                        return;
+                      }
                       final update = await appProvider.checkForAppUpdate(forceCheck: true);
                       if (!mounted) return;
                       final packageInfo = await appProvider.updateService.getLocalPackageInfo();

@@ -111,8 +111,200 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     }
   }
 
-  Future<void> _generateTacticalBriefing(AppProvider provider, List<ReflectionLog> logs) async {
+  Future<bool> _checkTelemetryAndConfirm(AppProvider provider, String dateStr) async {
+    final targetDate = DateTime.tryParse(dateStr) ?? DateTime.now();
+    final healthLog = provider.healthLogs[dateStr];
+
+    final hasMovement = healthLog != null &&
+        healthLog.activityLogs.any((a) => a.walkDistanceKm > 0);
+    final hasWorkout = healthLog != null &&
+        healthLog.activityLogs.any((a) => a.workoutMinutes > 0);
+    final hasActivity = hasMovement || hasWorkout;
+    final hasOtherHealth = healthLog != null &&
+        (healthLog.meals.isNotEmpty ||
+            healthLog.sleepLogs.isNotEmpty ||
+            healthLog.waterGlasses > 0);
+
+    final hasFinance = provider.transactions.any((t) =>
+        t.timestamp.year == targetDate.year &&
+        t.timestamp.month == targetDate.month &&
+        t.timestamp.day == targetDate.day);
+
+    final missingItems = <Map<String, String>>[];
+    if (!hasActivity) {
+      missingItems.add({
+        'title': 'HEALTH & ACTIVITY DATA',
+        'desc': hasOtherHealth
+            ? 'No movement (walking distance) or workout minutes logged for today.'
+            : 'No health telemetry, movement, or workout logged for today.',
+        'icon': 'activity',
+      });
+    }
+
+    if (!hasFinance) {
+      missingItems.add({
+        'title': 'FINANCIAL INPUT',
+        'desc': 'No income or expense transactions recorded for today.',
+        'icon': 'finance',
+      });
+    }
+
+    if (missingItems.isEmpty) return true;
+
+    final proceed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: JweTheme.panel,
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: JweTheme.accentWarn, width: 1.5),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+          contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: JweTheme.accentWarn, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'MISSING DAILY TELEMETRY',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.textWhite,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'The following telemetry has not been recorded for $dateStr:',
+                style: GoogleFonts.inter(
+                  color: JweTheme.textMid,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...missingItems.map((item) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: JweTheme.panel2,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: JweTheme.border),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Icon(
+                          item['icon'] == 'finance'
+                              ? MdiIcons.cashMultiple
+                              : MdiIcons.runFast,
+                          size: 16,
+                          color: JweTheme.accentWarn,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item['title']!,
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.accentWarn,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              item['desc']!,
+                              style: GoogleFonts.inter(
+                                color: JweTheme.textWhite,
+                                fontSize: 11.5,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const SizedBox(height: 6),
+              Text(
+                'Generating the daily briefing without this data will produce incomplete AI summaries and omit your physical and financial performance insights.',
+                style: GoogleFonts.inter(
+                  color: JweTheme.textMuted,
+                  fontSize: 11,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(
+                'LOG DATA FIRST',
+                style: GoogleFonts.jetBrainsMono(
+                  color: JweTheme.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: JweTheme.accentWarn,
+                foregroundColor: JweTheme.onAccent,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(
+                'PROCEED ANYWAY',
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    return proceed == true;
+  }
+
+  Future<void> _generateTacticalBriefing(
+    AppProvider provider,
+    List<ReflectionLog> logs, {
+    bool bypassTelemetryCheck = false,
+  }) async {
     if (_selectedDate == null) return;
+
+    if (!bypassTelemetryCheck) {
+      final canProceed = await _checkTelemetryAndConfirm(provider, _selectedDate!);
+      if (!canProceed) return;
+    }
     
     setState(() {
       _isGeneratingSummary = true;
@@ -567,8 +759,10 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                                       : null,
                                   onDeleteAndRetry: () async {
                                     if (_selectedDate != null) {
+                                      final canProceed = await _checkTelemetryAndConfirm(appProvider, _selectedDate!);
+                                      if (!canProceed) return;
                                       appProvider.deleteTacticalBriefing(_selectedDate!);
-                                      await _generateTacticalBriefing(appProvider, reflectionsForDate);
+                                      await _generateTacticalBriefing(appProvider, reflectionsForDate, bypassTelemetryCheck: true);
                                     }
                                   },
                                 ),

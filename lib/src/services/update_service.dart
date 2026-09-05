@@ -123,8 +123,18 @@ class UpdateService {
 - Complete dark & light theme tactical parity across all views and homescreen widgets.''';
   }
 
+  /// Returns true if running in a debug (Flutter) build.
+  /// Both release and debug APKs are signed with the same key, so this relies
+  /// on Flutter runtime compile-time environment flags (kDebugMode / !kReleaseMode).
+  static bool get isDebugBuild => kDebugMode || !kReleaseMode;
+
   /// Checks whether an update is available on GitHub
   Future<UpdateModel?> checkForUpdate({bool forceCheck = false}) async {
+    if (isDebugBuild) {
+      debugPrint('[UpdateService] Debug build detected (isDebugBuild=true). Skipping update check.');
+      return null;
+    }
+
     final packageInfo = await getLocalPackageInfo();
     final localBuildNumber = int.tryParse(packageInfo.buildNumber) ?? 0;
 

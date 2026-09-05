@@ -1,3 +1,25 @@
+# ⚡ Arcane System Upgrade // v2026.9.5 (Build #2126090507)
+
+### ⚠️ Pre-Flight Daily Telemetry Alert
+- **Movement & Financial Verification**: Integrated intelligent pre-flight data integrity validation prior to generating or regenerating Daily Briefings in `DailySummaryView`.
+- **Missing Telemetry Intercept**: Checks if movement logs (`walkDistanceKm > 0`), workout records (`workoutMinutes > 0`), or financial transactions (`transactions`) exist for the target date.
+- **Tactical Confirmation Modal**: If data is missing, prompts the operator with a high-contrast `MISSING DAILY TELEMETRY` warning detailing what is missing, with options to **"LOG DATA FIRST"** (preventing incomplete summaries) or **"PROCEED ANYWAY"**.
+- **Safe Retry Pipeline**: Telemetry verification runs prior to deleting or overriding existing briefings during manual retries, safeguarding generated records from premature deletion.
+
+### ⏱️ 2x Pro Mode AI Timeouts
+- **Extended Compute Windows**: Doubled execution timeouts across all deep-reasoning AI generation pipelines to accommodate thorough analysis and comprehensive synthesis without premature truncation:
+  - **Daily Briefing & Startup Briefing**: 30s ➔ **60s**
+  - **Weekly Performance Review**: 1m ➔ **2m**
+  - **Monthly Strategic Review**: 2m ➔ **4m**
+- **Synchronized UI Telemetry**: Aligned countdown timers and tactical progress telemetry in `TacticalBriefingIndicator` and AI generation services to reflect the extended compute allowances.
+
+### 🛡️ Debug Build Update-Check Bypass
+- **Compile-Time Environment Isolation**: Configured `UpdateService` to detect debug environments via Flutter's runtime flags (`kDebugMode || !kReleaseMode`), reliably distinguishing debug builds without relying on shared signing keystores.
+- **Suppressed Dev Update Prompts**: Bypasses background and startup update checks on debug APKs, preventing development environments from inadvertently prompting for or downloading production releases.
+- **Tactical Settings Feedback**: Manual "CHECK FOR UPDATES" in Settings cleanly notifies developers that update checks are bypassed in debug builds.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.5 (Build #2126090506)
 
 ### 🥗 Structured Nutrition Logging in Daily Reflections

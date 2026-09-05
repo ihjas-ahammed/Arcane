@@ -44,11 +44,11 @@ extension BriefingTypeExt on BriefingType {
     switch (this) {
       case BriefingType.daily:
       case BriefingType.startup:
-        return const Duration(seconds: 30);
+        return const Duration(seconds: 60);
       case BriefingType.weekly:
-        return const Duration(minutes: 1);
-      case BriefingType.monthly:
         return const Duration(minutes: 2);
+      case BriefingType.monthly:
+        return const Duration(minutes: 4);
     }
   }
 
