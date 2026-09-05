@@ -25,6 +25,7 @@ import 'package:missions/src/theme/arc/arc_theme.dart';
 import 'package:missions/src/widgets/ui/desktop_floating_timer.dart';
 import 'package:missions/src/widgets/drawers/goals_bottom_drawer.dart';
 import 'package:missions/src/widgets/dialogs/whats_new_update_dialog.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -97,15 +98,45 @@ class _HomeScreenState extends State<HomeScreen> {
     await Future.delayed(const Duration(seconds: 3));
     if (!mounted) return;
     try {
+      final packageInfo = await _appProvider.updateService.getLocalPackageInfo();
+      final currentBuild = packageInfo.buildNumber;
+      final currentVersion = packageInfo.version;
+
+      final prefs = await SharedPreferences.getInstance();
+      final lastSeenBuild = prefs.getString('last_seen_build_number');
+      final lastSeenVersion = prefs.getString('last_seen_version');
+
+      // Check if build number (version code) or version string changed since last run
+      if (lastSeenBuild != null && (lastSeenBuild != currentBuild || lastSeenVersion != currentVersion)) {
+        await prefs.setString('last_seen_build_number', currentBuild);
+        await prefs.setString('last_seen_version', currentVersion);
+
+        if (!mounted) return;
+        final changelog = await _appProvider.updateService.getLatestChangelog();
+        if (!mounted) return;
+        WhatsNewUpdateDialog.showUpdated(
+          context,
+          currentVersion: currentVersion,
+          currentBuildNumber: currentBuild,
+          previousBuildNumber: lastSeenBuild,
+          changelogMarkdown: changelog,
+          updateService: _appProvider.updateService,
+        );
+        return;
+      } else if (lastSeenBuild == null) {
+        // First run on this installation: register current build number
+        await prefs.setString('last_seen_build_number', currentBuild);
+        await prefs.setString('last_seen_version', currentVersion);
+      }
+
       final update = await _appProvider.checkForAppUpdate();
       if (!mounted) return;
       if (update != null) {
-        final packageInfo = await _appProvider.updateService.getLocalPackageInfo();
-        if (!mounted) return;
         WhatsNewUpdateDialog.show(
           context,
           update: update,
-          currentVersion: packageInfo.version,
+          currentVersion: currentVersion,
+          currentBuildNumber: currentBuild,
           updateService: _appProvider.updateService,
         );
       }

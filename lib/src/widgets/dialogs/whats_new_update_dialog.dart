@@ -10,19 +10,26 @@ import 'package:missions/src/theme/jwe_theme.dart';
 class WhatsNewUpdateDialog extends StatefulWidget {
   final UpdateModel update;
   final String currentVersion;
+  final String? currentBuildNumber;
   final UpdateService updateService;
+  final bool isPostUpdate;
+  final String? previousBuildNumber;
 
   const WhatsNewUpdateDialog({
     super.key,
     required this.update,
     required this.currentVersion,
+    this.currentBuildNumber,
     required this.updateService,
+    this.isPostUpdate = false,
+    this.previousBuildNumber,
   });
 
   static Future<void> show(
     BuildContext context, {
     required UpdateModel update,
     required String currentVersion,
+    String? currentBuildNumber,
     required UpdateService updateService,
   }) {
     return showDialog(
@@ -31,7 +38,38 @@ class WhatsNewUpdateDialog extends StatefulWidget {
       builder: (ctx) => WhatsNewUpdateDialog(
         update: update,
         currentVersion: currentVersion,
+        currentBuildNumber: currentBuildNumber,
         updateService: updateService,
+      ),
+    );
+  }
+
+  static Future<void> showUpdated(
+    BuildContext context, {
+    required String currentVersion,
+    required String currentBuildNumber,
+    String? previousBuildNumber,
+    String? changelogMarkdown,
+    required UpdateService updateService,
+  }) {
+    final fakeUpdate = UpdateModel(
+      versionCode: int.tryParse(currentBuildNumber) ?? 0,
+      versionName: currentVersion,
+      apkFilename: '',
+      apkUrl: '',
+      changelogUrl: UpdateService.fallbackChangelogUrl,
+      changelogMarkdown: changelogMarkdown,
+    );
+    return showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => WhatsNewUpdateDialog(
+        update: fakeUpdate,
+        currentVersion: currentVersion,
+        currentBuildNumber: currentBuildNumber,
+        updateService: updateService,
+        isPostUpdate: true,
+        previousBuildNumber: previousBuildNumber,
       ),
     );
   }
@@ -52,7 +90,9 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
   @override
   void initState() {
     super.initState();
-    _checkCache();
+    if (!widget.isPostUpdate) {
+      _checkCache();
+    }
   }
 
   Future<void> _checkCache() async {
@@ -158,11 +198,27 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
   @override
   Widget build(BuildContext context) {
     final isLight = JweTheme.isLight;
-    final accentColor = JweTheme.accentAmber;
+    final accentColor = widget.isPostUpdate ? JweTheme.accentTeal : JweTheme.accentAmber;
     final bgDark = isLight ? const Color(0xFFF7F5EE) : const Color(0xFF0F111A);
 
     final changelog = widget.update.changelogMarkdown ??
         '### Version ${widget.update.versionName}\n- General improvements and performance optimizations.\n- Bug fixes and stability upgrades.';
+
+    final titleText = widget.isPostUpdate
+        ? 'SYSTEM UPDATED // WHAT\'S NEW'
+        : ((widget.currentVersion == widget.update.versionName)
+            ? 'BUILD UPDATE AVAILABLE'
+            : 'SYSTEM UPGRADE AVAILABLE');
+
+    final subtitleText = widget.isPostUpdate
+        ? ((widget.previousBuildNumber != null && widget.previousBuildNumber != widget.currentBuildNumber)
+            ? 'v${widget.currentVersion} • Build #${widget.previousBuildNumber} ➔ #${widget.currentBuildNumber}'
+            : 'v${widget.currentVersion} • Build #${widget.currentBuildNumber ?? widget.update.versionCode}')
+        : (widget.currentBuildNumber != null
+            ? ((widget.currentVersion == widget.update.versionName)
+                ? 'v${widget.currentVersion} • Build #${widget.currentBuildNumber} ➔ #${widget.update.versionCode}'
+                : 'v${widget.currentVersion} (#${widget.currentBuildNumber}) ➔ v${widget.update.versionName} (#${widget.update.versionCode})')
+            : 'v${widget.currentVersion} ➔ v${widget.update.versionName}');
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -195,14 +251,18 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
                 ),
                 child: Row(
                   children: [
-                    Icon(MdiIcons.rocketLaunchOutline, size: 20, color: accentColor),
+                    Icon(
+                      widget.isPostUpdate ? MdiIcons.checkDecagramOutline : MdiIcons.rocketLaunchOutline,
+                      size: 20,
+                      color: accentColor,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'SYSTEM UPGRADE AVAILABLE',
+                            titleText,
                             style: GoogleFonts.orbitron(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -212,7 +272,7 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'v${widget.currentVersion}  ➔  v${widget.update.versionName}',
+                            subtitleText,
                             style: GoogleFonts.jetBrainsMono(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w600,
@@ -232,8 +292,31 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
                 ),
               ),
 
+              // ── Post-Update Status Pill ─────────────────────
+              if (widget.isPostUpdate)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  color: JweTheme.accentTeal.withValues(alpha: 0.15),
+                  child: Row(
+                    children: [
+                      Icon(MdiIcons.shieldCheckOutline, size: 16, color: JweTheme.accentTeal),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'ACTIVE BUILD #${widget.currentBuildNumber ?? widget.update.versionCode} INSTALLED & OPERATIONAL',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            color: JweTheme.accentTeal,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               // ── Cached Status Pill (if APK cached) ─────────────
-              if (_cachedFile != null)
+              if (!widget.isPostUpdate && _cachedFile != null)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   color: JweTheme.accentTeal.withValues(alpha: 0.15),
@@ -388,70 +471,95 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
                   color: isLight ? const Color(0xFFEDE9DF) : const Color(0xFF141622),
                   border: Border(top: BorderSide(color: isLight ? Colors.black12 : Colors.white12)),
                 ),
-                child: Row(
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text(
-                        'LATER',
-                        style: GoogleFonts.orbitron(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: isLight ? Colors.black54 : Colors.white54,
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    if (_cachedFile != null) ...[
-                      OutlinedButton.icon(
-                        onPressed: _isDownloading ? null : () => _startDownloadAndInstall(forceRedownload: true),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: accentColor,
-                          side: BorderSide(color: accentColor.withValues(alpha: 0.6)),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        icon: Icon(MdiIcons.refresh, size: 15, color: accentColor),
-                        label: Text(
-                          'REDOWNLOAD',
-                          style: GoogleFonts.orbitron(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.6,
+                child: widget.isPostUpdate
+                    ? Row(
+                        children: [
+                          const Spacer(),
+                          ElevatedButton.icon(
+                            onPressed: () => Navigator.of(context).pop(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: JweTheme.accentTeal,
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.check, size: 16, color: Colors.black),
+                            label: Text(
+                              'ACKNOWLEDGE & CONTINUE',
+                              style: GoogleFonts.orbitron(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.8,
+                                color: Colors.black,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: Text(
+                              'LATER',
+                              style: GoogleFonts.orbitron(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isLight ? Colors.black54 : Colors.white54,
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          if (_cachedFile != null) ...[
+                            OutlinedButton.icon(
+                              onPressed: _isDownloading ? null : () => _startDownloadAndInstall(forceRedownload: true),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: accentColor,
+                                side: BorderSide(color: accentColor.withValues(alpha: 0.6)),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: Icon(MdiIcons.refresh, size: 15, color: accentColor),
+                              label: Text(
+                                'REDOWNLOAD',
+                                style: GoogleFonts.orbitron(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.6,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          ElevatedButton.icon(
+                            onPressed: _isDownloading ? null : () => _startDownloadAndInstall(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _cachedFile != null ? JweTheme.accentTeal : accentColor,
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: Icon(
+                              _cachedFile != null
+                                  ? MdiIcons.packageDown
+                                  : (_isDownloading ? Icons.hourglass_top : MdiIcons.download),
+                              size: 16,
+                              color: Colors.black,
+                            ),
+                            label: Text(
+                              _cachedFile != null
+                                  ? 'INSTALL UPGRADE'
+                                  : (_isDownloading ? 'DOWNLOADING...' : 'DOWNLOAD & INSTALL'),
+                              style: GoogleFonts.orbitron(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.8,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                    ],
-                    ElevatedButton.icon(
-                      onPressed: _isDownloading ? null : () => _startDownloadAndInstall(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _cachedFile != null ? JweTheme.accentTeal : accentColor,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      icon: Icon(
-                        _cachedFile != null
-                            ? MdiIcons.packageDown
-                            : (_isDownloading ? Icons.hourglass_top : MdiIcons.download),
-                        size: 16,
-                        color: Colors.black,
-                      ),
-                      label: Text(
-                        _cachedFile != null
-                            ? 'INSTALL UPGRADE'
-                            : (_isDownloading ? 'DOWNLOADING...' : 'DOWNLOAD & INSTALL'),
-                        style: GoogleFonts.orbitron(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.8,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ],
           ),

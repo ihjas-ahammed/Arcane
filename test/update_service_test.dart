@@ -77,6 +77,41 @@ void main() {
         ),
         isTrue,
       );
+
+      // Same version string (e.g. 2026.9.5) but newer versionCode -> MUST be available
+      expect(
+        UpdateService.isUpdateAvailable(
+          remoteCode: 2126090505,
+          localCode: 2126090504,
+          remoteVersion: '2026.9.5',
+          localVersion: '2026.9.5',
+        ),
+        isTrue,
+      );
+
+      // forceCheck = true with different versionCode -> returns true
+      expect(
+        UpdateService.isUpdateAvailable(
+          remoteCode: 2126090504,
+          localCode: 2126090505,
+          remoteVersion: '2026.9.5',
+          localVersion: '2026.9.5',
+          forceCheck: true,
+        ),
+        isTrue,
+      );
+
+      // forceCheck = true with identical version and versionCode -> returns false
+      expect(
+        UpdateService.isUpdateAvailable(
+          remoteCode: 2126090505,
+          localCode: 2126090505,
+          remoteVersion: '2026.9.5',
+          localVersion: '2026.9.5',
+          forceCheck: true,
+        ),
+        isFalse,
+      );
     });
   });
 }

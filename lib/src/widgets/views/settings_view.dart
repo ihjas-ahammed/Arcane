@@ -1238,7 +1238,7 @@ class _SettingsViewState extends State<SettingsView> {
               future: appProvider.updateService.getLocalPackageInfo(),
               builder: (context, snapshot) {
                 final ver = snapshot.data?.version ?? '2026.9.5';
-                final buildNum = snapshot.data?.buildNumber ?? '2126090501';
+                final buildNum = snapshot.data?.buildNumber ?? '2126090505';
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
@@ -1307,6 +1307,7 @@ class _SettingsViewState extends State<SettingsView> {
                           context,
                           update: update,
                           currentVersion: packageInfo.version,
+                          currentBuildNumber: packageInfo.buildNumber,
                           updateService: appProvider.updateService,
                         );
                       } else {
@@ -1314,7 +1315,7 @@ class _SettingsViewState extends State<SettingsView> {
                           SnackBar(
                             backgroundColor: JweTheme.panel,
                             content: Text(
-                              '✓ You are on the latest build (v${packageInfo.version})!',
+                              '✓ You are on the latest build (v${packageInfo.version} #${packageInfo.buildNumber})!',
                               style: GoogleFonts.jetBrainsMono(color: JweTheme.accentTeal),
                             ),
                           ),
@@ -1326,6 +1327,34 @@ class _SettingsViewState extends State<SettingsView> {
                 backgroundColor: accent,
                 foregroundColor: Colors.black,
               ),
+            ),
+
+            const SizedBox(height: 8),
+
+            OutlinedButton.icon(
+              icon: Icon(MdiIcons.history, size: 16, color: accent),
+              label: Text(
+                "VIEW WHAT'S NEW (BUILD NOTES)",
+                style: GoogleFonts.orbitron(fontSize: 10.5, fontWeight: FontWeight.bold, color: accent),
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 40),
+                side: BorderSide(color: accent.withValues(alpha: 0.5)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () async {
+                final packageInfo = await appProvider.updateService.getLocalPackageInfo();
+                if (!mounted) return;
+                final changelog = await appProvider.updateService.getLatestChangelog();
+                if (!mounted) return;
+                WhatsNewUpdateDialog.showUpdated(
+                  context,
+                  currentVersion: packageInfo.version,
+                  currentBuildNumber: packageInfo.buildNumber,
+                  changelogMarkdown: changelog,
+                  updateService: appProvider.updateService,
+                );
+              },
             ),
           ],
         ),

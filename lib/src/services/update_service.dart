@@ -26,7 +26,7 @@ class UpdateService {
         appName: 'Arcane',
         packageName: 'me.ihjas.missions',
         version: '2026.9.5',
-        buildNumber: '2126090501',
+        buildNumber: '2126090505',
       );
     }
   }
@@ -51,18 +51,76 @@ class UpdateService {
   }
 
   /// Evaluates whether a remote release is strictly newer than the currently installed build.
+  /// If [forceCheck] is true, any differing version code (or newer version) is accepted.
   static bool isUpdateAvailable({
     required int remoteCode,
     required int localCode,
     required String remoteVersion,
     required String localVersion,
+    bool forceCheck = false,
   }) {
+    if (forceCheck && remoteCode > 0 && localCode > 0 && remoteCode != localCode) {
+      return true;
+    }
     if (remoteCode > 0 && localCode > 0) {
       if (remoteCode > localCode) return true;
       if (remoteCode < localCode) return false;
       return isVersionStringNewer(remoteVersion, localVersion);
     }
     return isVersionStringNewer(remoteVersion, localVersion);
+  }
+
+  /// Fetches the latest changelog markdown from remote endpoints or fallback
+  Future<String> getLatestChangelog() async {
+    final client = http.Client();
+    try {
+      for (final url in _updateMetadataUrls) {
+        try {
+          final uri = Uri.parse('$url?t=${DateTime.now().millisecondsSinceEpoch}');
+          final response = await client.get(
+            uri,
+            headers: {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
+          ).timeout(const Duration(seconds: 6));
+
+          if (response.statusCode == 200 && response.body.trim().isNotEmpty) {
+            final json = jsonDecode(response.body) as Map<String, dynamic>;
+            final md = json['changelog_markdown'] as String?;
+            if (md != null && md.trim().isNotEmpty) return md;
+            final clUrl = json['changelog_url'] as String? ?? fallbackChangelogUrl;
+            final clUri = Uri.parse('$clUrl?t=${DateTime.now().millisecondsSinceEpoch}');
+            final clResponse = await client.get(
+              clUri,
+              headers: {'Cache-Control': 'no-cache'},
+            ).timeout(const Duration(seconds: 6));
+            if (clResponse.statusCode == 200 && clResponse.body.trim().isNotEmpty) {
+              return clResponse.body;
+            }
+          }
+        } catch (_) {}
+      }
+
+      // Try direct fallback changelog URL
+      try {
+        final clUri = Uri.parse('$fallbackChangelogUrl?t=${DateTime.now().millisecondsSinceEpoch}');
+        final clResponse = await client.get(
+          clUri,
+          headers: {'Cache-Control': 'no-cache'},
+        ).timeout(const Duration(seconds: 6));
+        if (clResponse.statusCode == 200 && clResponse.body.trim().isNotEmpty) {
+          return clResponse.body;
+        }
+      } catch (_) {}
+    } finally {
+      client.close();
+    }
+
+    return '''# ⚡ Arcane System Upgrade
+### 🎯 Build Enhancements & Tactical Upgrades
+- Mobile touch drag & drop stability optimizations.
+- Dynamic auto-scrolling during plan reorganization.
+- Collapsible checkpoints dropdown panel.
+- Strict version superiority and build update detection.
+- Complete dark & light theme tactical parity across all views and homescreen widgets.''';
   }
 
   /// Checks whether an update is available on GitHub
@@ -130,6 +188,7 @@ class UpdateService {
         localCode: localBuildNumber,
         remoteVersion: updateModel.versionName,
         localVersion: packageInfo.version,
+        forceCheck: forceCheck,
       );
 
       debugPrint(
