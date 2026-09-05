@@ -259,6 +259,10 @@ class SubTask {
   List<SubTaskTemplateSet> templateSets;
   String? activeTemplateSetId;
 
+  /// Maximum hierarchy depth of checkpoints to consider for display and quick-checking.
+  /// Null indicates 'max' (deepest / lowest actionable leaf).
+  int? depth;
+
   SubTask({
     required this.id,
     required this.name,
@@ -285,6 +289,7 @@ class SubTask {
     this.isDeleted = false,
     List<SubTaskTemplateSet>? templateSets,
     this.activeTemplateSetId,
+    this.depth,
   })  : subSubTasks = subSubTasks ?? [],
         sessions = sessions ?? [],
         progressDataPoints = progressDataPoints ?? [],
@@ -318,6 +323,8 @@ class SubTask {
     bool? isDeleted,
     List<SubTaskTemplateSet>? templateSets,
     String? activeTemplateSetId,
+    int? depth,
+    bool clearDepth = false,
   }) {
     return SubTask(
       id: id ?? this.id,
@@ -345,6 +352,7 @@ class SubTask {
       isDeleted: isDeleted ?? this.isDeleted,
       templateSets: templateSets ?? this.templateSets,
       activeTemplateSetId: activeTemplateSetId ?? this.activeTemplateSetId,
+      depth: clearDepth ? null : (depth ?? this.depth),
     );
   }
 
@@ -396,6 +404,7 @@ class SubTask {
               .toList() ??
           [],
       activeTemplateSetId: json['activeTemplateSetId'] as String?,
+      depth: json['depth'] as int?,
     );
   }
 
@@ -426,6 +435,7 @@ class SubTask {
       'progressDataPoints': progressDataPoints.map((p) => p.toJson()).toList(),
       'templateSets': templateSets.map((ts) => ts.toJson()).toList(),
       'activeTemplateSetId': activeTemplateSetId,
+      'depth': depth,
     };
   }
 
@@ -453,6 +463,60 @@ class SubTask {
   }
 
   bool get hasCheckableSubsteps => subSubTasks.any((sst) => sst.type != 'info');
+
+  bool get isMaxDepth => depth == null || depth! <= 0;
+
+  String get depthLabel => isMaxDepth ? 'MAX' : 'L$depth';
+
+  /// Maximum tree depth of checkable checkpoints in this subtask.
+  /// Returns 0 if none, 1 if flat checkpoints, 2 if has children, etc.
+  int get maxCheckpointDepth {
+    if (subSubTasks.isEmpty) return 0;
+    int getDepth(SubSubTask node) {
+      final checkable = node.substeps.where((c) => c.type != 'info').toList();
+      if (checkable.isEmpty) return 1;
+      int maxChild = 0;
+      for (final child in checkable) {
+        final d = getDepth(child);
+        if (d > maxChild) maxChild = d;
+      }
+      return 1 + maxChild;
+    }
+    int maxD = 0;
+    for (final root in subSubTasks.where((s) => s.type != 'info')) {
+      final d = getDepth(root);
+      if (d > maxD) maxD = d;
+    }
+    return maxD;
+  }
+
+  /// Collects checkpoints considering [depth].
+  /// If depth is max (null or <= 0), returns the lowest checkable leaf checkpoints.
+  /// If depth is 1, returns top-level checkpoints (subSubTasks).
+  /// If depth is 2, returns level 2 substeps (or level 1 if no substeps).
+  List<SubSubTask> getCheckpointsAtDepth({int? targetDepth}) {
+    final effectiveDepth = targetDepth ?? depth;
+    final List<SubSubTask> result = [];
+
+    void collect(List<SubSubTask> nodes, int currentDepth) {
+      for (final n in nodes) {
+        if (n.type == 'info') continue;
+        final checkableChildren =
+            n.substeps.where((c) => c.type != 'info').toList();
+        final canDescend = (effectiveDepth == null || effectiveDepth <= 0 || currentDepth < effectiveDepth) &&
+            checkableChildren.isNotEmpty;
+
+        if (canDescend) {
+          collect(n.substeps, currentDepth + 1);
+        } else {
+          result.add(n);
+        }
+      }
+    }
+
+    collect(subSubTasks, 1);
+    return result;
+  }
 
   double calculateProgress() {
     if (progressMode == 'manual') {

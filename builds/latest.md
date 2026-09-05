@@ -1,3 +1,18 @@
+# ⚡ Arcane System Upgrade // v2026.9.5 (Build #2126090508)
+
+### 🎯 Submission Checkpoint Depth Control & Level-Based Quick-Check
+- **Configurable Checkpoint Depth**: Added a `depth` property to Submissions (`SubTask`), defaulting to `MAX` (deepest leaf checkpoint). Operators can configure depth (`MAX`, `L1`, `L2`, `L3`) to target higher-level checkpoints.
+- **Hierarchy-Aware Resolution**:
+  - `TaskCalculations.nextCheckpoint` and day plan resolution now surface checkpoints matching the configured depth level rather than always descending to the lowest leaf.
+  - When `depth` is set (e.g. `L1`), checking off "NEXT STEP" or marking a checkpoint in Today Planner, Schedule Hero, or active timers checks off that checkpoint and cleanly cascades completion to all of its nested child substeps.
+- **Instant Depth Switching**:
+  - Added a tactical depth selector chip (`MAX`, `L1`, `L2`, `L3`) directly on `SubmissionCard` in the list view for rapid level switching.
+  - Added depth selector to `SubmissionDetailScreen` header with quick-access menu.
+  - Integrated full tactical depth picker into `SubtaskConfigDialog` with contextual descriptions explaining each level.
+- **Dual-Theme Tactical Parity**: Styled all depth selector chips, dropdowns, and popup menus using `JweTheme` dynamic tokens for seamless light and dark mode support.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.5 (Build #2126090507)
 
 ### ⚠️ Pre-Flight Daily Telemetry Alert

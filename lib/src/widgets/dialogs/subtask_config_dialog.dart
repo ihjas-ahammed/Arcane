@@ -11,6 +11,7 @@ class SubtaskConfigDialog extends StatefulWidget {
   final bool isRecurring;
   final bool isActive;
   final String initialProgressMode;
+  final int? initialDepth;
 
   const SubtaskConfigDialog({
     super.key,
@@ -19,6 +20,7 @@ class SubtaskConfigDialog extends StatefulWidget {
     this.isRecurring = false,
     this.isActive = true,
     this.initialProgressMode = 'auto',
+    this.initialDepth,
   });
 
   @override
@@ -31,6 +33,7 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
   late bool _isRecurring;
   late bool _isActive;
   late String _progressMode;
+  late int? _depth;
 
   @override
   void initState() {
@@ -40,6 +43,7 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
     _isRecurring = widget.isRecurring;
     _isActive = widget.isActive;
     _progressMode = widget.initialProgressMode;
+    _depth = widget.initialDepth;
   }
 
   @override
@@ -96,6 +100,32 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
 
             const SizedBox(height: 20),
 
+            Text(
+              'CHECKPOINT DEPTH',
+              style: GoogleFonts.jetBrainsMono(
+                color: JweTheme.textMuted,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.4,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _DepthSelector(
+              value: _depth,
+              onChanged: (v) => setState(() => _depth = v),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _depthHint(_depth),
+              style: GoogleFonts.jetBrainsMono(
+                color: JweTheme.textMuted.withValues(alpha: 0.6),
+                fontSize: 9,
+                letterSpacing: 0.8,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
             SwitchListTile(
               title:   Text("ACTIVE STATUS", style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
               subtitle:   Text("Suspend this objective temporarily", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
@@ -131,6 +161,7 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
                 'isRecurring': _isRecurring,
                 'isActive': _isActive,
                 'progressMode': _progressMode,
+                'depth': _depth,
               });
             }
           },
@@ -151,6 +182,70 @@ class _SubtaskConfigDialogState extends State<SubtaskConfigDialog> {
       default:
         return 'Steps if available, otherwise time-based';
     }
+  }
+
+  String _depthHint(int? depth) {
+    switch (depth) {
+      case 1:
+        return 'Level 1: Surface top checkpoints directly under this mission';
+      case 2:
+        return 'Level 2: Surface checkpoints up to level 2 substeps';
+      case 3:
+        return 'Level 3: Surface checkpoints up to level 3 substeps';
+      case null:
+      default:
+        return 'MAX: Always surface lowest actionable leaf checkpoint';
+    }
+  }
+}
+
+class _DepthSelector extends StatelessWidget {
+  final int? value;
+  final void Function(int?) onChanged;
+
+  const _DepthSelector({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    const depths = [
+      (null, 'MAX'),
+      (1, 'L1'),
+      (2, 'L2'),
+      (3, 'L3'),
+    ];
+    return Row(
+      children: depths.map((entry) {
+        final (depth, label) = entry;
+        final selected = value == depth;
+        final color = selected ? JweTheme.accentCyan : JweTheme.textMuted;
+        return Expanded(
+          child: GestureDetector(
+            onTap: () => onChanged(depth),
+            child: Container(
+              margin: const EdgeInsets.only(right: 4),
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              decoration: BoxDecoration(
+                color: selected ? JweTheme.accentCyan.withValues(alpha: 0.12) : Colors.transparent,
+                border: Border.all(
+                  color: selected ? JweTheme.accentCyan : JweTheme.border,
+                  width: selected ? 1.5 : 1,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                label,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 10,
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
   }
 }
 

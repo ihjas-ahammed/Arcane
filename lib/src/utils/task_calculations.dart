@@ -73,21 +73,33 @@ class TaskCalculations {
   }
 
   /// The next checkpoint to tick off for [subTask]: the first (in order)
-  /// incomplete checkable node, descending into nested substeps so the
-  /// *lowest* actionable leaf in the hierarchy is returned. Returns null when
-  /// nothing is left to check.
-  static SubSubTask? nextCheckpoint(SubTask subTask) =>
-      _firstIncompleteLeaf(subTask.subSubTasks);
+  /// incomplete checkable node, descending into nested substeps up to [maxDepth]
+  /// (or [subTask.depth], defaulting to lowest leaf when null/max).
+  /// Returns null when nothing is left to check.
+  static SubSubTask? nextCheckpoint(SubTask subTask, {int? maxDepth}) =>
+      firstIncompleteCheckpoint(subTask.subSubTasks, maxDepth: maxDepth ?? subTask.depth);
 
-  static SubSubTask? _firstIncompleteLeaf(List<SubSubTask> nodes) {
+  static SubSubTask? firstIncompleteCheckpoint(
+    List<SubSubTask> nodes, {
+    int? maxDepth,
+    int currentDepth = 1,
+  }) {
     for (final n in nodes) {
       if (n.type == 'info') continue;
       final checkableChildren =
           n.substeps.where((c) => c.type != 'info').toList();
-      if (checkableChildren.isNotEmpty) {
-        final leaf = _firstIncompleteLeaf(n.substeps);
-        if (leaf != null) return leaf;
-        if (!n.completed) return n; // children done but parent still open
+
+      final canDescend = (maxDepth == null || maxDepth <= 0 || currentDepth < maxDepth) &&
+          checkableChildren.isNotEmpty;
+
+      if (canDescend) {
+        final child = firstIncompleteCheckpoint(
+          n.substeps,
+          maxDepth: maxDepth,
+          currentDepth: currentDepth + 1,
+        );
+        if (child != null) return child;
+        if (!n.completed) return n;
       } else if (!n.completed) {
         return n;
       }
@@ -132,10 +144,11 @@ class TaskCalculations {
         final cp = sTask.findCheckpoint(parts[2]);
         if (cp == null || cp.completed) return null;
 
-        // Resolve nested checkable child
-        final lowestCp = _findLowestIncompleteSubSubTask(cp);
-        final targetCpId = (lowestCp != null && lowestCp.id != cp.id) ? lowestCp.id : null;
-        final displayName = lowestCp?.name ?? cp.name;
+        // Resolve nested checkable child respecting subtask depth
+        final cpDepth = findCheckpointDepth(sTask.subSubTasks, parts[2]) ?? 1;
+        final targetCp = findTargetIncompleteCheckpoint(cp, maxDepth: sTask.depth, currentDepth: cpDepth);
+        final targetCpId = (targetCp != null && targetCp.id != cp.id) ? targetCp.id : null;
+        final displayName = targetCp?.name ?? cp.name;
 
         return ResolvedDayPlanItem(
           compoundId: compoundId,
@@ -149,7 +162,7 @@ class TaskCalculations {
         );
       } else {
         // It's a subtask
-        // Resolve nested checkable child
+        // Resolve nested checkable child respecting subtask depth
         final lowestCp = nextCheckpoint(sTask);
         final targetCpId = lowestCp?.id;
         final displayName = lowestCp?.name ?? sTask.name;
@@ -195,16 +208,17 @@ class TaskCalculations {
       if (mTask == null || sTask == null) continue;
 
       final isRunning = activeTimers?[sTask.id]?.isRunning ?? false;
-      final checkables = sTask.subSubTasks.where((sst) => sst.isActive && sst.type != 'info').toList();
+      final checkables = sTask.getCheckpointsAtDepth();
       final totalCp = checkables.length;
       final completedCp = checkables.where((sst) => sst.completed).length;
 
       if (parts.length == 3) {
         final cp = sTask.findCheckpoint(parts[2]);
         if (cp == null) continue;
-        final lowestCp = _findLowestIncompleteSubSubTask(cp);
-        final targetCpId = (lowestCp != null && lowestCp.id != cp.id) ? lowestCp.id : null;
-        final displayName = lowestCp?.name ?? cp.name;
+        final cpDepth = findCheckpointDepth(sTask.subSubTasks, parts[2]) ?? 1;
+        final targetCp = findTargetIncompleteCheckpoint(cp, maxDepth: sTask.depth, currentDepth: cpDepth);
+        final targetCpId = (targetCp != null && targetCp.id != cp.id) ? targetCp.id : null;
+        final displayName = targetCp?.name ?? cp.name;
 
         resolved.add(ResolvedDayPlanItem(
           compoundId: compoundId,
@@ -241,16 +255,35 @@ class TaskCalculations {
     return resolved;
   }
 
-  static SubSubTask? _findLowestIncompleteSubSubTask(SubSubTask parent) {
+  static SubSubTask? findTargetIncompleteCheckpoint(
+    SubSubTask parent, {
+    int? maxDepth,
+    int currentDepth = 1,
+  }) {
     final checkable = parent.substeps.where((c) => c.type != 'info').toList();
-    if (checkable.isEmpty) {
+    final canDescend = (maxDepth == null || maxDepth <= 0 || currentDepth < maxDepth) &&
+        checkable.isNotEmpty;
+    if (!canDescend) {
       return parent.completed ? null : parent;
     }
     for (final child in checkable) {
-      final leaf = _findLowestIncompleteSubSubTask(child);
-      if (leaf != null) return leaf;
+      final target = findTargetIncompleteCheckpoint(
+        child,
+        maxDepth: maxDepth,
+        currentDepth: currentDepth + 1,
+      );
+      if (target != null) return target;
     }
     return parent.completed ? null : parent;
+  }
+
+  static int? findCheckpointDepth(List<SubSubTask> nodes, String targetId, [int depth = 1]) {
+    for (final n in nodes) {
+      if (n.id == targetId) return depth;
+      final childDepth = findCheckpointDepth(n.substeps, targetId, depth + 1);
+      if (childDepth != null) return childDepth;
+    }
+    return null;
   }
 
   static const int defaultSubtaskMinutes = 30;

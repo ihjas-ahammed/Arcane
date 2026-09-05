@@ -60,6 +60,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
         isRecurring: liveSubTask.isRecurring,
         isActive: liveSubTask.isActive,
         initialProgressMode: liveSubTask.progressMode,
+        initialDepth: liveSubTask.depth,
       ),
     );
     if (result != null) {
@@ -474,7 +475,106 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         ],
                       ),
                     ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
+                  PopupMenuButton<int?>(
+                    tooltip: 'Set Checkpoint Depth',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    color: JweTheme.panel,
+                    initialValue: liveSubTask.depth,
+                    onSelected: (depth) {
+                      provider.taskActions.setSubtaskDepth(
+                        widget.parentTask.id,
+                        liveSubTask.id,
+                        depth,
+                      );
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem<int?>(
+                        value: null,
+                        height: 32,
+                        child: Text(
+                          'MAX (Deepest)',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 11,
+                            color: liveSubTask.depth == null ? activeAccent : JweTheme.textWhite,
+                            fontWeight: liveSubTask.depth == null ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                      PopupMenuItem<int?>(
+                        value: 1,
+                        height: 32,
+                        child: Text(
+                          'LEVEL 1 (Top)',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 11,
+                            color: liveSubTask.depth == 1 ? activeAccent : JweTheme.textWhite,
+                            fontWeight: liveSubTask.depth == 1 ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                      PopupMenuItem<int?>(
+                        value: 2,
+                        height: 32,
+                        child: Text(
+                          'LEVEL 2 (Substeps)',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 11,
+                            color: liveSubTask.depth == 2 ? activeAccent : JweTheme.textWhite,
+                            fontWeight: liveSubTask.depth == 2 ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                      PopupMenuItem<int?>(
+                        value: 3,
+                        height: 32,
+                        child: Text(
+                          'LEVEL 3 (Nested)',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 11,
+                            color: liveSubTask.depth == 3 ? activeAccent : JweTheme.textWhite,
+                            fontWeight: liveSubTask.depth == 3 ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ],
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: liveSubTask.depth != null
+                            ? activeAccent.withValues(alpha: 0.12)
+                            : JweTheme.panel2,
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(
+                          color: liveSubTask.depth != null
+                              ? activeAccent.withValues(alpha: 0.5)
+                              : JweTheme.border,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            liveSubTask.depthLabel,
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 9,
+                              color: liveSubTask.depth != null ? activeAccent : JweTheme.textMid,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          Icon(
+                            MdiIcons.menuDown,
+                            size: 11,
+                            color: liveSubTask.depth != null ? activeAccent : JweTheme.textMid,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () => _showRemindersListDialog(context, provider, liveSubTask),
                     child: Icon(

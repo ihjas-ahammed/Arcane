@@ -945,6 +945,7 @@ class TaskActions {
     if (updates.containsKey('resources')) subtaskToUpdate.resources = updates['resources'] as String; 
     if (updates.containsKey('isActive')) subtaskToUpdate.isActive = updates['isActive'] as bool;
     if (updates.containsKey('subSubTasks')) subtaskToUpdate.subSubTasks = updates['subSubTasks'] as List<SubSubTask>;
+    if (updates.containsKey('depth')) subtaskToUpdate.depth = updates['depth'] as int?;
     
     subtaskToUpdate.updatedAt = DateTime.now();
 
@@ -988,6 +989,10 @@ class TaskActions {
     final newMainTasks = _provider.mainTasks.map((t) => t.id == mainTaskId ? taskToUpdate : t).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
     sanitizeRoutineLists();
+  }
+
+  void setSubtaskDepth(String mainTaskId, String subtaskId, int? depth) {
+    updateSubtask(mainTaskId, subtaskId, {'depth': depth});
   }
 
   bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) {

@@ -245,9 +245,13 @@ class SubmissionCard extends StatelessWidget {
                       ]),
                       if (!isCompleted && current.subSubTasks.isNotEmpty)
                         CheckpointDropdownRow(
-                          steps: current.subSubTasks,
+                          steps: current.getCheckpointsAtDepth(),
                           accent: accent,
                           nextCp: nextCp,
+                          depth: current.depth,
+                          onDepthChanged: (newDepth) {
+                            provider.taskActions.setSubtaskDepth(parentTask.id, current.id, newDepth);
+                          },
                           onCheckNext: () {
                             if (nextCp != null) {
                               provider.taskActions.completeSubSubtask(
@@ -374,6 +378,8 @@ class CheckpointDropdownRow extends StatefulWidget {
   final Color accent;
   final SubSubTask? nextCp;
   final VoidCallback onCheckNext;
+  final int? depth;
+  final ValueChanged<int?>? onDepthChanged;
 
   const CheckpointDropdownRow({
     super.key,
@@ -381,6 +387,8 @@ class CheckpointDropdownRow extends StatefulWidget {
     required this.accent,
     required this.nextCp,
     required this.onCheckNext,
+    this.depth,
+    this.onDepthChanged,
   });
 
   @override
@@ -449,6 +457,99 @@ class _CheckpointDropdownRowState extends State<CheckpointDropdownRow> {
                       ),
                     ),
                   ],
+                  const SizedBox(width: 6),
+                  PopupMenuButton<int?>(
+                    tooltip: 'Set Checkpoint Depth',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    color: JweTheme.panel,
+                    initialValue: widget.depth,
+                    onSelected: widget.onDepthChanged,
+                    itemBuilder: (context) => [
+                      PopupMenuItem<int?>(
+                        value: null,
+                        height: 30,
+                        child: Text(
+                          'MAX (Deepest)',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 10,
+                            color: widget.depth == null ? widget.accent : JweTheme.textWhite,
+                            fontWeight: widget.depth == null ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                      PopupMenuItem<int?>(
+                        value: 1,
+                        height: 30,
+                        child: Text(
+                          'LEVEL 1 (Top Checkpoints)',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 10,
+                            color: widget.depth == 1 ? widget.accent : JweTheme.textWhite,
+                            fontWeight: widget.depth == 1 ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                      PopupMenuItem<int?>(
+                        value: 2,
+                        height: 30,
+                        child: Text(
+                          'LEVEL 2 (Substeps)',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 10,
+                            color: widget.depth == 2 ? widget.accent : JweTheme.textWhite,
+                            fontWeight: widget.depth == 2 ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                      PopupMenuItem<int?>(
+                        value: 3,
+                        height: 30,
+                        child: Text(
+                          'LEVEL 3 (Nested)',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 10,
+                            color: widget.depth == 3 ? widget.accent : JweTheme.textWhite,
+                            fontWeight: widget.depth == 3 ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ],
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: widget.depth != null
+                            ? widget.accent.withValues(alpha: 0.12)
+                            : JweTheme.panel2,
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(
+                          color: widget.depth != null
+                              ? widget.accent.withValues(alpha: 0.4)
+                              : JweTheme.border,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.depth == null ? 'D:MAX' : 'D:L${widget.depth}',
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 7.5,
+                              color: widget.depth != null ? widget.accent : JweTheme.textMuted,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                          const SizedBox(width: 1),
+                          Icon(
+                            MdiIcons.menuDown,
+                            size: 10,
+                            color: widget.depth != null ? widget.accent : JweTheme.textMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   const Spacer(),
                   Icon(
                     _expanded ? MdiIcons.chevronUp : MdiIcons.chevronDown,

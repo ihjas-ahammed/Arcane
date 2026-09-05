@@ -559,8 +559,16 @@ class _ScheduleViewState extends State<ScheduleView> {
           nextQueueId = inPlan;
           final parts = inPlan.split('|');
           if (parts.length == 3) {
-            nextCheckpoint = s.findCheckpoint(parts[2]);
+            final cp = s.findCheckpoint(parts[2]);
+            if (cp != null) {
+              final cpDepth = TaskCalculations.findCheckpointDepth(s.subSubTasks, parts[2]) ?? 1;
+              nextCheckpoint = TaskCalculations.findTargetIncompleteCheckpoint(cp, maxDepth: s.depth, currentDepth: cpDepth) ?? cp;
+            }
+          } else {
+            nextCheckpoint = TaskCalculations.nextCheckpoint(s);
           }
+        } else {
+          nextCheckpoint = TaskCalculations.nextCheckpoint(s);
         }
       }
     }
@@ -578,10 +586,11 @@ class _ScheduleViewState extends State<ScheduleView> {
               // It's a checkpoint
               final cp = sTask.findCheckpoint(parts[2]);
               if (cp != null && !cp.completed) {
+                final cpDepth = TaskCalculations.findCheckpointDepth(sTask.subSubTasks, parts[2]) ?? 1;
                 nextQueueId = idPair;
                 nextMainTask = mTask;
                 nextSubTask = sTask;
-                nextCheckpoint = cp;
+                nextCheckpoint = TaskCalculations.findTargetIncompleteCheckpoint(cp, maxDepth: sTask.depth, currentDepth: cpDepth) ?? cp;
                 break;
               }
             } else {
@@ -589,6 +598,7 @@ class _ScheduleViewState extends State<ScheduleView> {
               nextQueueId = idPair;
               nextMainTask = mTask;
               nextSubTask = sTask;
+              nextCheckpoint = TaskCalculations.nextCheckpoint(sTask);
               break;
             }
           }
@@ -716,8 +726,17 @@ class _ScheduleViewState extends State<ScheduleView> {
           onFinishCheckpoint: () {
             if (nextQueueId != null && nextCheckpoint != null && nextMainTask != null && nextSubTask != null) {
               provider.taskActions.completeSubSubtask(nextMainTask.id, nextSubTask.id, nextCheckpoint.id);
-              final newPlan = List<String>.from(plan)..remove(nextQueueId);
-              provider.taskActions.updateDayPlan(selectedDateStr, newPlan);
+              final parts = nextQueueId.split('|');
+              if (parts.length == 3) {
+                final newPlan = List<String>.from(plan)..remove(nextQueueId);
+                provider.taskActions.updateDayPlan(selectedDateStr, newPlan);
+              } else {
+                final remainingNext = TaskCalculations.nextCheckpoint(nextSubTask);
+                if (remainingNext == null) {
+                  final newPlan = List<String>.from(plan)..remove(nextQueueId);
+                  provider.taskActions.updateDayPlan(selectedDateStr, newPlan);
+                }
+              }
             }
           },
           onFinishSubTask: () {

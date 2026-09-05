@@ -225,7 +225,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
               final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
               final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
               if (sub != null && sub.subSubTasks.isNotEmpty) {
-                entry.checkpoints = sub.subSubTasks.map((sst) => _PlanCheckpoint(
+                entry.checkpoints = sub.getCheckpointsAtDepth().map((sst) => _PlanCheckpoint(
                   id: const Uuid().v4(),
                   name: sst.name,
                   completed: false,
@@ -315,7 +315,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
       final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
       if (sub != null && sub.subSubTasks.isNotEmpty) {
-        newEntry.checkpoints = sub.subSubTasks.map((sst) => _PlanCheckpoint(
+        newEntry.checkpoints = sub.getCheckpointsAtDepth().map((sst) => _PlanCheckpoint(
           id: const Uuid().v4(),
           name: sst.name,
           completed: false,
