@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
@@ -536,12 +537,12 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     final active = _resolveActive(provider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF05080C),
+      backgroundColor: JweTheme.isLight ? JweTheme.bgCanvas : const Color(0xFF05080C),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: Color(0xFF94A3B8)),
+          icon: Icon(Icons.arrow_back_ios_new, size: 20, color: JweTheme.textMid),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Row(
@@ -554,11 +555,11 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                 fontSize: 32,
                 letterSpacing: 4,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: JweTheme.textWhite,
               ),
             ),
             const SizedBox(width: 8),
-            Container(width: 16, height: 2, color: const Color(0xFFFF2A4B)),
+            Container(width: 16, height: 2, color: JweTheme.accentRed),
           ],
         ),
         actions: [
@@ -573,19 +574,19 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                 margin: const EdgeInsets.only(right: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00F0FF).withValues(alpha: 0.1),
-                  border: Border.all(color: const Color(0xFF00F0FF), width: 1),
+                  color: JweTheme.accentCyan.withValues(alpha: JweTheme.isLight ? 0.12 : 0.1),
+                  border: Border.all(color: JweTheme.accentCyan, width: 1),
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.add, size: 14, color: Color(0xFF00F0FF)),
+                    Icon(Icons.add, size: 14, color: JweTheme.accentCyan),
                     const SizedBox(width: 4),
                     Text(
                       'ADD',
                       style: GoogleFonts.rajdhani(
-                        color: const Color(0xFF00F0FF),
+                        color: JweTheme.accentCyan,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.2,
@@ -602,14 +603,14 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
               TextSpan(
                 text: 'DISCIPLINE\nBUILDS\nFREEDOM ',
                 style: GoogleFonts.rajdhani(
-                  color: const Color(0xFF7B8FA3),
+                  color: JweTheme.textMuted,
                   fontSize: 8,
                   letterSpacing: 2,
                   fontWeight: FontWeight.bold,
                   height: 1.2,
                 ),
-                children: const [
-                  TextSpan(text: '—', style: TextStyle(color: Color(0xFFFF2A4B))),
+                children: [
+                  TextSpan(text: '—', style: TextStyle(color: JweTheme.accentRed)),
                 ],
               ),
               textAlign: TextAlign.right,
@@ -653,7 +654,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                               fontSize: 30,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 1,
-                              color: Colors.white,
+                              color: JweTheme.textWhite,
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -663,7 +664,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1,
-                              color: const Color(0xFF7C90A5),
+                              color: JweTheme.textMuted,
                             ),
                           ),
                         ],
@@ -676,10 +677,10 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1,
-                              color: const Color(0xFFCBD5E1),
+                              color: JweTheme.textMid,
                             ),
                           ),
-                          const Icon(Icons.nightlight_round, size: 14, color: Color(0xFFCBD5E1)),
+                          Icon(Icons.nightlight_round, size: 14, color: JweTheme.textMid),
                         ],
                       ),
                     ],
@@ -689,7 +690,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                     width: double.infinity,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF111D28),
+                      color: JweTheme.isLight ? JweTheme.border : const Color(0xFF111D28),
                       borderRadius: BorderRadius.circular(2),
                     ),
                     alignment: Alignment.centerLeft,
@@ -699,10 +700,10 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                           : 0.88,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: const Color(0xFF00F0FF),
+                          color: JweTheme.accentCyan,
                           borderRadius: BorderRadius.circular(2),
-                          boxShadow: const [
-                            BoxShadow(color: Color(0x6600F0FF), blurRadius: 10, spreadRadius: 1),
+                          boxShadow: [
+                            BoxShadow(color: JweTheme.accentCyan.withValues(alpha: 0.4), blurRadius: 10, spreadRadius: 1),
                           ],
                         ),
                       ),
@@ -720,7 +721,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                 children: [
                   Row(
                     children: [
-                      Container(width: 7, height: 7, color: const Color(0xFFFF2A4B)),
+                      Container(width: 7, height: 7, color: JweTheme.accentRed),
                       const SizedBox(width: 8),
                       Text(
                         'UP NEXT',
@@ -728,7 +729,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.5,
-                          color: const Color(0xFF8FA2B6),
+                          color: JweTheme.textMuted,
                         ),
                       ),
                     ],
@@ -738,7 +739,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                     style: GoogleFonts.rajdhani(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFFF1F5F9),
+                      color: JweTheme.textWhite,
                     ),
                   ),
                 ],
@@ -1734,10 +1735,10 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF090F16),
+                color: JweTheme.isLight ? JweTheme.panel : const Color(0xFF090F16),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF00F0FF).withValues(alpha: 0.05),
+                    color: taskColor.withValues(alpha: JweTheme.isLight ? 0.08 : 0.05),
                     blurRadius: 16,
                     spreadRadius: 2,
                   ),
@@ -1757,17 +1758,17 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                             width: 260,
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF090F16),
-                              border: Border.all(color: const Color(0xFF00F0FF)),
+                              color: JweTheme.isLight ? JweTheme.panel : const Color(0xFF090F16),
+                              border: Border.all(color: JweTheme.accentCyan),
                               borderRadius: BorderRadius.circular(4),
-                              boxShadow: const [
-                                BoxShadow(color: Color(0x6600F0FF), blurRadius: 10),
+                              boxShadow: [
+                                BoxShadow(color: JweTheme.accentCyan.withValues(alpha: 0.4), blurRadius: 10),
                               ],
                             ),
                             child: Text(
                               title,
                               style: GoogleFonts.rajdhani(
-                                color: Colors.white,
+                                color: JweTheme.textWhite,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                               ),
@@ -1776,13 +1777,13 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                             ),
                           ),
                         ),
-                        childWhenDragging: const Opacity(
+                        childWhenDragging: Opacity(
                           opacity: 0.3,
-                          child: Icon(Icons.drag_indicator, size: 18, color: Color(0xFF475569)),
+                          child: Icon(Icons.drag_indicator, size: 18, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
                         ),
-                        child: const Padding(
-                          padding: EdgeInsets.only(right: 8),
-                          child: Icon(Icons.drag_indicator, size: 18, color: Color(0xFF475569)),
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Icon(Icons.drag_indicator, size: 18, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
                         ),
                       ),
                       // NO HERO ICON!
@@ -1793,7 +1794,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                             Text(
                               title,
                               style: GoogleFonts.rajdhani(
-                                color: Colors.white,
+                                color: JweTheme.textWhite,
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 1.2,
@@ -1806,7 +1807,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                             Text(
                               parent.toUpperCase(),
                               style: GoogleFonts.rajdhani(
-                                color: const Color(0xFF64748B),
+                                color: JweTheme.textMuted,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -1822,10 +1823,10 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.35),
+                            color: Colors.black.withValues(alpha: JweTheme.isLight ? 0.06 : 0.35),
                             border: Border.all(
                               color: isCustomEstimate
-                                  ? const Color(0xFF00F0FF)
+                                  ? JweTheme.accentCyan
                                   : taskColor,
                             ),
                             borderRadius: BorderRadius.circular(3),
@@ -1834,7 +1835,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                             formatMinutes(minutes),
                             style: GoogleFonts.rajdhani(
                               color: isCustomEstimate
-                                  ? const Color(0xFF00F0FF)
+                                  ? JweTheme.accentCyan
                                   : taskColor,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -1845,9 +1846,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                       const SizedBox(width: 6),
                       InkWell(
                         onTap: () => _removeFromPlan(provider, entry),
-                        child: const Padding(
-                          padding: EdgeInsets.all(4),
-                          child: Icon(Icons.close, color: Color(0xFF64748B), size: 16),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(Icons.close, color: JweTheme.textMuted, size: 16),
                         ),
                       ),
                       _buildCardMenuButton(
@@ -1866,8 +1867,8 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                   Container(
                     margin: const EdgeInsets.only(top: 8),
                     padding: const EdgeInsets.only(top: 6),
-                    decoration: const BoxDecoration(
-                      border: Border(top: BorderSide(color: Color(0xFF14202D), width: 1)),
+                    decoration: BoxDecoration(
+                      border: Border(top: BorderSide(color: JweTheme.lineSoft, width: 1)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1880,7 +1881,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 child: Icon(
                                   hasReminder ? MdiIcons.bellRing : MdiIcons.bellOutline,
-                                  color: hasReminder ? const Color(0xFF00F0FF) : const Color(0xFF64748B),
+                                  color: hasReminder ? JweTheme.accentCyan : JweTheme.textMuted,
                                   size: 18,
                                 ),
                               ),
@@ -1893,7 +1894,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             child: Icon(
                               Icons.check,
-                              color: isDone ? const Color(0xFF10B981) : const Color(0xFF00F0FF),
+                              color: isDone ? (JweTheme.isLight ? JweTheme.accentTeal : const Color(0xFF10B981)) : JweTheme.accentCyan,
                               size: 20,
                             ),
                           ),
@@ -1958,8 +1959,8 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
               height: double.infinity,
               constraints: const BoxConstraints(minHeight: 84),
               padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                color: Color(0xFF090F16),
+              decoration: BoxDecoration(
+                color: JweTheme.isLight ? JweTheme.panel : const Color(0xFF090F16),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1976,14 +1977,14 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                             width: 170,
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF090F16),
-                              border: Border.all(color: const Color(0xFF00F0FF)),
+                              color: JweTheme.isLight ? JweTheme.panel : const Color(0xFF090F16),
+                              border: Border.all(color: JweTheme.accentCyan),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               title,
                               style: GoogleFonts.rajdhani(
-                                color: Colors.white,
+                                color: JweTheme.textWhite,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
                               ),
@@ -1992,13 +1993,13 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                             ),
                           ),
                         ),
-                        childWhenDragging: const Opacity(
+                        childWhenDragging: Opacity(
                           opacity: 0.3,
-                          child: Icon(Icons.drag_indicator, size: 14, color: Color(0xFF475569)),
+                          child: Icon(Icons.drag_indicator, size: 14, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
                         ),
-                        child: const Padding(
-                          padding: EdgeInsets.only(right: 5, top: 1),
-                          child: Icon(Icons.drag_indicator, size: 14, color: Color(0xFF475569)),
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 5, top: 1),
+                          child: Icon(Icons.drag_indicator, size: 14, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
                         ),
                       ),
                       // NO HERO ICON!
@@ -2009,7 +2010,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                             Text(
                               title,
                               style: GoogleFonts.rajdhani(
-                                color: Colors.white,
+                                color: JweTheme.textWhite,
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.5,
@@ -2021,7 +2022,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                             Text(
                               parent.toUpperCase(),
                               style: GoogleFonts.rajdhani(
-                                color: const Color(0xFF64748B),
+                                color: JweTheme.textMuted,
                                 fontSize: 9,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.4,
@@ -2038,13 +2039,13 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                                   Icon(
                                     Icons.checklist_rounded,
                                     size: 12,
-                                    color: totalCps > 0 ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                    color: totalCps > 0 ? (JweTheme.isLight ? JweTheme.textMid : const Color(0xFF94A3B8)) : JweTheme.textMuted,
                                   ),
                                   const SizedBox(width: 3),
                                   Text(
                                     totalCps > 0 ? '$completedCps/$totalCps' : '0/0',
                                     style: GoogleFonts.rajdhani(
-                                      color: totalCps > 0 ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                      color: totalCps > 0 ? (JweTheme.isLight ? JweTheme.textMid : const Color(0xFF94A3B8)) : JweTheme.textMuted,
                                       fontSize: 9,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -2061,16 +2062,16 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.35),
+                            color: Colors.black.withValues(alpha: JweTheme.isLight ? 0.06 : 0.35),
                             border: Border.all(
-                              color: isCustomEstimate ? const Color(0xFF00F0FF) : taskColor,
+                              color: isCustomEstimate ? JweTheme.accentCyan : taskColor,
                             ),
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: Text(
                             formatMinutes(minutes),
                             style: GoogleFonts.rajdhani(
-                              color: isCustomEstimate ? const Color(0xFF00F0FF) : taskColor,
+                              color: isCustomEstimate ? JweTheme.accentCyan : taskColor,
                               fontSize: 9,
                               fontWeight: FontWeight.bold,
                             ),
@@ -2082,8 +2083,8 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                   const SizedBox(height: 6),
                   Container(
                     padding: const EdgeInsets.only(top: 4),
-                    decoration: const BoxDecoration(
-                      border: Border(top: BorderSide(color: Color(0xFF14202D), width: 1)),
+                    decoration: BoxDecoration(
+                      border: Border(top: BorderSide(color: JweTheme.lineSoft, width: 1)),
                     ),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
@@ -2097,7 +2098,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                               padding: const EdgeInsets.all(3),
                               child: Icon(
                                 hasReminder ? MdiIcons.bellRing : MdiIcons.bellOutline,
-                                color: hasReminder ? const Color(0xFF00F0FF) : const Color(0xFF64748B),
+                                color: hasReminder ? JweTheme.accentCyan : JweTheme.textMuted,
                                 size: 13,
                               ),
                             ),
@@ -2109,7 +2110,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                               padding: const EdgeInsets.all(3),
                               child: Icon(
                                 Icons.check,
-                                color: isDone ? const Color(0xFF10B981) : const Color(0xFF00F0FF),
+                                color: isDone ? (JweTheme.isLight ? JweTheme.accentTeal : const Color(0xFF10B981)) : JweTheme.accentCyan,
                                 size: 14,
                               ),
                             ),
@@ -2117,9 +2118,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                           const SizedBox(width: 4),
                           InkWell(
                             onTap: () => _removeFromPlan(provider, entry),
-                            child: const Padding(
-                              padding: EdgeInsets.all(3),
-                              child: Icon(Icons.close, color: Color(0xFFFF2A4B), size: 13),
+                            child: Padding(
+                              padding: const EdgeInsets.all(3),
+                              child: Icon(Icons.close, color: JweTheme.isLight ? JweTheme.accentRed : const Color(0xFFFF2A4B), size: 13),
                             ),
                           ),
                           const SizedBox(width: 4),
@@ -2193,8 +2194,8 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
               height: double.infinity,
               constraints: const BoxConstraints(minHeight: 80),
               padding: const EdgeInsets.fromLTRB(5, 6, 5, 5),
-              decoration: const BoxDecoration(
-                color: Color(0xFF090F16),
+              decoration: BoxDecoration(
+                color: JweTheme.isLight ? JweTheme.panel : const Color(0xFF090F16),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2211,14 +2212,14 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                             width: 140,
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF090F16),
-                              border: Border.all(color: const Color(0xFF00F0FF)),
+                              color: JweTheme.isLight ? JweTheme.panel : const Color(0xFF090F16),
+                              border: Border.all(color: JweTheme.accentCyan),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               title,
                               style: GoogleFonts.rajdhani(
-                                color: Colors.white,
+                                color: JweTheme.textWhite,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 11,
                               ),
@@ -2227,13 +2228,13 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                             ),
                           ),
                         ),
-                        childWhenDragging: const Opacity(
+                        childWhenDragging: Opacity(
                           opacity: 0.3,
-                          child: Icon(Icons.drag_indicator, size: 11, color: Color(0xFF475569)),
+                          child: Icon(Icons.drag_indicator, size: 11, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
                         ),
-                        child: const Padding(
-                          padding: EdgeInsets.only(right: 2, top: 1),
-                          child: Icon(Icons.drag_indicator, size: 11, color: Color(0xFF475569)),
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 2, top: 1),
+                          child: Icon(Icons.drag_indicator, size: 11, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
                         ),
                       ),
                       // NO HERO ICON!
@@ -2244,7 +2245,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                             Text(
                               title,
                               style: GoogleFonts.rajdhani(
-                                color: Colors.white,
+                                color: JweTheme.textWhite,
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.2,
@@ -2256,7 +2257,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                             Text(
                               parent.toUpperCase(),
                               style: GoogleFonts.rajdhani(
-                                color: const Color(0xFF64748B),
+                                color: JweTheme.textMuted,
                                 fontSize: 7.5,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -2272,13 +2273,13 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                                   Icon(
                                     Icons.checklist_rounded,
                                     size: 10,
-                                    color: totalCps > 0 ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                    color: totalCps > 0 ? (JweTheme.isLight ? JweTheme.textMid : const Color(0xFF94A3B8)) : JweTheme.textMuted,
                                   ),
                                   const SizedBox(width: 2),
                                   Text(
                                     totalCps > 0 ? '$completedCps/$totalCps' : '0/0',
                                     style: GoogleFonts.rajdhani(
-                                      color: totalCps > 0 ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                      color: totalCps > 0 ? (JweTheme.isLight ? JweTheme.textMid : const Color(0xFF94A3B8)) : JweTheme.textMuted,
                                       fontSize: 8,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -2295,16 +2296,16 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.35),
+                            color: Colors.black.withValues(alpha: JweTheme.isLight ? 0.06 : 0.35),
                             border: Border.all(
-                              color: isCustomEstimate ? const Color(0xFF00F0FF) : taskColor,
+                              color: isCustomEstimate ? JweTheme.accentCyan : taskColor,
                             ),
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: Text(
                             formatMinutes(minutes),
                             style: GoogleFonts.rajdhani(
-                              color: isCustomEstimate ? const Color(0xFF00F0FF) : taskColor,
+                              color: isCustomEstimate ? JweTheme.accentCyan : taskColor,
                               fontSize: 8.5,
                               fontWeight: FontWeight.bold,
                             ),
@@ -2316,8 +2317,8 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                   const SizedBox(height: 5),
                   Container(
                     padding: const EdgeInsets.only(top: 3),
-                    decoration: const BoxDecoration(
-                      border: Border(top: BorderSide(color: Color(0xFF14202D), width: 1)),
+                    decoration: BoxDecoration(
+                      border: Border(top: BorderSide(color: JweTheme.lineSoft, width: 1)),
                     ),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
@@ -2331,7 +2332,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                               padding: const EdgeInsets.all(2),
                               child: Icon(
                                 hasReminder ? MdiIcons.bellRing : MdiIcons.bellOutline,
-                                color: hasReminder ? const Color(0xFF00F0FF) : const Color(0xFF64748B),
+                                color: hasReminder ? JweTheme.accentCyan : JweTheme.textMuted,
                                 size: 11,
                               ),
                             ),
@@ -2343,7 +2344,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                               padding: const EdgeInsets.all(2),
                               child: Icon(
                                 Icons.check,
-                                color: isDone ? const Color(0xFF10B981) : const Color(0xFF00F0FF),
+                                color: isDone ? (JweTheme.isLight ? JweTheme.accentTeal : const Color(0xFF10B981)) : JweTheme.accentCyan,
                                 size: 11,
                               ),
                             ),
@@ -2351,9 +2352,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                           const SizedBox(width: 2),
                           InkWell(
                             onTap: () => _removeFromPlan(provider, entry),
-                            child: const Padding(
-                              padding: EdgeInsets.all(2),
-                              child: Icon(Icons.close, color: Color(0xFFFF2A4B), size: 11),
+                            child: Padding(
+                              padding: const EdgeInsets.all(2),
+                              child: Icon(Icons.close, color: JweTheme.isLight ? JweTheme.accentRed : const Color(0xFFFF2A4B), size: 11),
                             ),
                           ),
                           const SizedBox(width: 2),
@@ -2428,8 +2429,8 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
               borderRadius: BorderRadius.circular(2),
               child: LinearProgressIndicator(
                 value: progress,
-                backgroundColor: const Color(0xFF1E293B),
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00F0FF)),
+                backgroundColor: JweTheme.isLight ? JweTheme.border : const Color(0xFF1E293B),
+                valueColor: AlwaysStoppedAnimation<Color>(JweTheme.accentCyan),
                 minHeight: 3,
               ),
             ),
@@ -2450,7 +2451,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                       child: Text(
                         cp.name,
                         style: GoogleFonts.rajdhani(
-                          color: cp.completed ? const Color(0xFF64748B) : const Color(0xFFCBD5E1),
+                          color: cp.completed ? JweTheme.textMuted : JweTheme.textWhite,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           decoration: cp.completed ? TextDecoration.lineThrough : null,
@@ -2463,7 +2464,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                     Text(
                       '${cp.durationMinutes}m',
                       style: GoogleFonts.rajdhani(
-                        color: const Color(0xFF94A3B8),
+                        color: JweTheme.textMuted,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -2471,11 +2472,11 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                     const SizedBox(width: 6),
                     InkWell(
                       onTap: () => _removeCheckpoint(provider, entry, cp),
-                      child: const Padding(
-                        padding: EdgeInsets.all(2),
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
                         child: Text(
                           '✕',
-                          style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                          style: TextStyle(color: JweTheme.textMuted, fontSize: 11),
                         ),
                       ),
                     ),
@@ -2490,18 +2491,18 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 6),
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF1E293B), style: BorderStyle.solid),
+                border: Border.all(color: JweTheme.lineSoft, style: BorderStyle.solid),
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.add, size: 12, color: Color(0xFF00F0FF)),
+                  Icon(Icons.add, size: 12, color: JweTheme.accentCyan),
                   const SizedBox(width: 4),
                   Text(
                     '+ ADD SUB TASK',
                     style: GoogleFonts.rajdhani(
-                      color: const Color(0xFF00F0FF),
+                      color: JweTheme.accentCyan,
                       fontSize: 11,
                       letterSpacing: 1.5,
                       fontWeight: FontWeight.bold,
@@ -2519,10 +2520,10 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   void _showSubtasksModal(AppProvider provider, _PlanEntry entry, String subTaskName) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF090F16),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-        side: BorderSide(color: Color(0xFF182533), width: 1.5),
+      backgroundColor: JweTheme.isLight ? JweTheme.panel : const Color(0xFF090F16),
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+        side: BorderSide(color: JweTheme.border, width: 1.5),
       ),
       builder: (ctx) {
         return StatefulBuilder(
@@ -2547,7 +2548,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                               Text(
                                 'CHECKPOINTS',
                                 style: GoogleFonts.rajdhani(
-                                  color: const Color(0xFF00F0FF),
+                                  color: JweTheme.accentCyan,
                                   fontSize: 11,
                                   letterSpacing: 2,
                                   fontWeight: FontWeight.bold,
@@ -2556,7 +2557,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                               Text(
                                 subTaskName,
                                 style: GoogleFonts.rajdhani(
-                                  color: Colors.white,
+                                  color: JweTheme.textWhite,
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -2569,14 +2570,14 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF111D28),
+                            color: JweTheme.isLight ? JweTheme.panel2 : const Color(0xFF111D28),
                             borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: const Color(0xFF182533)),
+                            border: Border.all(color: JweTheme.border),
                           ),
                           child: Text(
                             '$completedCount / ${checkpoints.length}',
                             style: GoogleFonts.rajdhani(
-                              color: const Color(0xFF00F0FF),
+                              color: JweTheme.accentCyan,
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
                             ),
@@ -2585,7 +2586,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const Divider(color: Color(0xFF182533), height: 1),
+                    Divider(color: JweTheme.lineSoft, height: 1),
                     const SizedBox(height: 8),
                     if (checkpoints.isEmpty)
                       Padding(
@@ -2593,7 +2594,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                         child: Center(
                           child: Text(
                             'No checkpoints attached yet.',
-                            style: GoogleFonts.rajdhani(color: const Color(0xFF64748B), fontSize: 14),
+                            style: GoogleFonts.rajdhani(color: JweTheme.textMuted, fontSize: 14),
                           ),
                         ),
                       )
@@ -2608,9 +2609,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                               margin: const EdgeInsets.symmetric(vertical: 4),
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF05080C),
+                                color: JweTheme.isLight ? JweTheme.panel2 : const Color(0xFF05080C),
                                 border: Border.all(
-                                  color: cp.completed ? const Color(0xFF182533) : const Color(0xFF1F2F40),
+                                  color: cp.completed ? JweTheme.border : (JweTheme.isLight ? JweTheme.border : const Color(0xFF1F2F40)),
                                 ),
                                 borderRadius: BorderRadius.circular(4),
                               ),
@@ -2628,7 +2629,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                                     child: Text(
                                       cp.name,
                                       style: GoogleFonts.rajdhani(
-                                        color: cp.completed ? const Color(0xFF64748B) : Colors.white,
+                                        color: cp.completed ? JweTheme.textMuted : JweTheme.textWhite,
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
                                         decoration: cp.completed ? TextDecoration.lineThrough : null,
@@ -2638,7 +2639,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                                   Text(
                                     '${cp.durationMinutes}m',
                                     style: GoogleFonts.rajdhani(
-                                      color: const Color(0xFF94A3B8),
+                                      color: JweTheme.textMuted,
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -2649,11 +2650,11 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                                       _removeCheckpoint(provider, entry, cp);
                                       setModalState(() {});
                                     },
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(4),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4),
                                       child: Text(
                                         '✕',
-                                        style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                                        style: TextStyle(color: JweTheme.textMuted, fontSize: 13),
                                       ),
                                     ),
                                   ),
@@ -2669,18 +2670,18 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                         await _promptAddSubtask(provider, entry);
                         setModalState(() {});
                       },
-                      icon: const Icon(Icons.add, size: 16, color: Color(0xFF00F0FF)),
+                      icon: Icon(Icons.add, size: 16, color: JweTheme.accentCyan),
                       label: Text(
                         'ADD CHECKPOINT',
                         style: GoogleFonts.rajdhani(
-                          color: const Color(0xFF00F0FF),
+                          color: JweTheme.accentCyan,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.5,
                           fontSize: 13,
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFF00F0FF)),
+                        side: BorderSide(color: JweTheme.accentCyan),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
@@ -2702,19 +2703,19 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDlgState) => AlertDialog(
-          backgroundColor: const Color(0xFF090F16),
+          backgroundColor: JweTheme.isLight ? JweTheme.panel : const Color(0xFF090F16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(4),
-            side: const BorderSide(color: Color(0xFF00F0FF), width: 1.5),
+            side: BorderSide(color: JweTheme.accentCyan, width: 1.5),
           ),
           title: Row(
             children: [
-              const Icon(Icons.add_task, color: Color(0xFF00F0FF), size: 20),
+              Icon(Icons.add_task, color: JweTheme.accentCyan, size: 20),
               const SizedBox(width: 8),
               Text(
                 'ADD CHECKPOINT',
                 style: GoogleFonts.rajdhani(
-                  color: const Color(0xFF00F0FF),
+                  color: JweTheme.accentCyan,
                   fontSize: 16,
                   letterSpacing: 2,
                   fontWeight: FontWeight.bold,
@@ -2729,15 +2730,15 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
               TextField(
                 controller: nameCtrl,
                 autofocus: true,
-                style: GoogleFonts.rajdhani(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 15, fontWeight: FontWeight.bold),
                 decoration: InputDecoration(
                   hintText: 'Checkpoint title…',
-                  hintStyle: GoogleFonts.rajdhani(color: const Color(0xFF62778D)),
-                  enabledBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF182533)),
+                  hintStyle: GoogleFonts.rajdhani(color: JweTheme.textMuted),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: JweTheme.border),
                   ),
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00F0FF)),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: JweTheme.accentCyan),
                   ),
                 ),
               ),
@@ -2745,7 +2746,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
               Text(
                 'ESTIMATED DURATION',
                 style: GoogleFonts.rajdhani(
-                  color: const Color(0xFF7C90A5),
+                  color: JweTheme.textMuted,
                   fontSize: 11,
                   letterSpacing: 1.5,
                   fontWeight: FontWeight.bold,
@@ -2759,12 +2760,12 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                   return ChoiceChip(
                     label: Text('${m}m',
                         style: GoogleFonts.rajdhani(
-                          color: isSel ? const Color(0xFF05080C) : const Color(0xFFCBD5E1),
+                          color: isSel ? JweTheme.onAccent : JweTheme.textWhite,
                           fontWeight: FontWeight.bold,
                         )),
                     selected: isSel,
-                    selectedColor: const Color(0xFF00F0FF),
-                    backgroundColor: const Color(0xFF111D28),
+                    selectedColor: JweTheme.accentCyan,
+                    backgroundColor: JweTheme.isLight ? JweTheme.panel2 : const Color(0xFF111D28),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
                     onSelected: (_) => setDlgState(() => selectedMinutes = m),
                   );
@@ -2775,12 +2776,12 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text('CANCEL', style: GoogleFonts.rajdhani(color: const Color(0xFF62778D), fontWeight: FontWeight.bold)),
+              child: Text('CANCEL', style: GoogleFonts.rajdhani(color: JweTheme.textMuted, fontWeight: FontWeight.bold)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00F0FF),
-                foregroundColor: const Color(0xFF05080C),
+                backgroundColor: JweTheme.accentCyan,
+                foregroundColor: JweTheme.onAccent,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
               ),
               onPressed: () {
@@ -2811,11 +2812,11 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     required bool isInMultiRow,
   }) {
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert, size: 16, color: Color(0xFF62778D)),
-      color: const Color(0xFF090F16),
+      icon: Icon(Icons.more_vert, size: 16, color: JweTheme.textMuted),
+      color: JweTheme.isLight ? JweTheme.panel : const Color(0xFF090F16),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(4),
-        side: const BorderSide(color: Color(0xFF182533)),
+        side: BorderSide(color: JweTheme.border),
       ),
       padding: EdgeInsets.zero,
       onSelected: (action) => _onCardMenuSelected(
@@ -2832,9 +2833,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
           value: 'duplicate_mission',
           child: Row(
             children: [
-              const Icon(Icons.copy, size: 16, color: Color(0xFF00F0FF)),
+              Icon(Icons.copy, size: 16, color: JweTheme.accentCyan),
               const SizedBox(width: 8),
-              Text('DUPLICATE MISSION', style: GoogleFonts.rajdhani(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+              Text('DUPLICATE MISSION', style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -2842,9 +2843,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
           value: 'add_subtask',
           child: Row(
             children: [
-              const Icon(Icons.add, size: 16, color: Color(0xFF00F0FF)),
+              Icon(Icons.add, size: 16, color: JweTheme.accentCyan),
               const SizedBox(width: 8),
-              Text('ADD CHECKPOINT', style: GoogleFonts.rajdhani(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+              Text('ADD CHECKPOINT', style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -2852,9 +2853,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
           value: 'view_subtasks',
           child: Row(
             children: [
-              const Icon(Icons.checklist, size: 16, color: Color(0xFF00F0FF)),
+              Icon(Icons.checklist, size: 16, color: JweTheme.accentCyan),
               const SizedBox(width: 8),
-              Text('VIEW CHECKPOINTS', style: GoogleFonts.rajdhani(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+              Text('VIEW CHECKPOINTS', style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -3073,13 +3074,15 @@ class _TacticalFooter extends StatelessWidget {
           children: [
             CustomPaint(
               size: const Size(14, 14),
-              painter: _ValorantMarkPainter(color: const Color(0xFFFF2A4B)),
+              painter: _ValorantMarkPainter(
+                color: JweTheme.isLight ? JweTheme.accentRed : const Color(0xFFFF2A4B),
+              ),
             ),
             const SizedBox(width: 8),
             Text(
               'SMALL STEPS BIG RESULTS —',
               style: GoogleFonts.rajdhani(
-                color: const Color(0xFF62778D),
+                color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF62778D),
                 fontSize: 10,
                 letterSpacing: 2,
                 fontWeight: FontWeight.bold,
@@ -3135,10 +3138,15 @@ class _TacticalBackgroundPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
+    final isLight = JweTheme.isLight;
+    final accentRed = isLight ? JweTheme.accentRed : const Color(0xFFFF2A4B);
 
-    // 1. Dot Grid pattern (24x24, circle at cx: 2, cy: 2, r: 0.8, fill #172433 opacity 0.6)
+    // 1. Dot Grid pattern (24x24, circle at cx: 2, cy: 2, r: 0.8)
+    final dotColor = isLight
+        ? const Color(0xFFC5BCAC).withValues(alpha: 0.45)
+        : const Color(0xFF172433).withValues(alpha: 0.6);
     final dotPaint = Paint()
-      ..color = const Color(0xFF172433).withValues(alpha: 0.6)
+      ..color = dotColor
       ..style = PaintingStyle.fill;
     for (double x = 0; x < w; x += 24.0) {
       for (double y = 0; y < h; y += 24.0) {
@@ -3162,8 +3170,8 @@ class _TacticalBackgroundPainter extends CustomPainter {
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [
-        const Color(0xFFFF2A4B).withValues(alpha: 0.3),
-        const Color(0xFFFF2A4B).withValues(alpha: 0.0),
+        accentRed.withValues(alpha: isLight ? 0.2 : 0.3),
+        accentRed.withValues(alpha: 0.0),
       ],
     );
     final slashRect = Rect.fromLTRB(340 * sx, 0, w, 70 * sy);
@@ -3172,18 +3180,18 @@ class _TacticalBackgroundPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
     canvas.drawPath(slashPath, slashPaint);
 
-    // 3. Top Stroke Line: M 330 0 L 365 70 L 440 70 (stroke #ff2a4b width 1.5 opacity 0.4)
+    // 3. Top Stroke Line: M 330 0 L 365 70 L 440 70
     final topStrokePath = Path()
       ..moveTo(330 * sx, 0)
       ..lineTo(365 * sx, 70 * sy)
       ..lineTo(w, 70 * sy);
     final topStrokePaint = Paint()
-      ..color = const Color(0xFFFF2A4B).withValues(alpha: 0.4)
+      ..color = accentRed.withValues(alpha: isLight ? 0.35 : 0.4)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
     canvas.drawPath(topStrokePath, topStrokePaint);
 
-    // 4. Bottom Polygon 1: 160,900 240,820 260,820 180,900 fill rgba(255, 42, 75, 0.15)
+    // 4. Bottom Polygon 1: 160,900 240,820 260,820 180,900
     final bottomPoly1 = Path()
       ..moveTo(160 * sx, h)
       ..lineTo(240 * sx, h - 80 * sy)
@@ -3191,11 +3199,11 @@ class _TacticalBackgroundPainter extends CustomPainter {
       ..lineTo(180 * sx, h)
       ..close();
     final bottomPaint1 = Paint()
-      ..color = const Color(0xFFFF2A4B).withValues(alpha: 0.15)
+      ..color = accentRed.withValues(alpha: isLight ? 0.12 : 0.15)
       ..style = PaintingStyle.fill;
     canvas.drawPath(bottomPoly1, bottomPaint1);
 
-    // 5. Bottom Polygon 2: 185,900 250,835 255,835 190,900 fill rgba(255, 42, 75, 0.35)
+    // 5. Bottom Polygon 2: 185,900 250,835 255,835 190,900
     final bottomPoly2 = Path()
       ..moveTo(185 * sx, h)
       ..lineTo(250 * sx, h - 65 * sy)
@@ -3203,13 +3211,13 @@ class _TacticalBackgroundPainter extends CustomPainter {
       ..lineTo(190 * sx, h)
       ..close();
     final bottomPaint2 = Paint()
-      ..color = const Color(0xFFFF2A4B).withValues(alpha: 0.35)
+      ..color = accentRed.withValues(alpha: isLight ? 0.25 : 0.35)
       ..style = PaintingStyle.fill;
     canvas.drawPath(bottomPoly2, bottomPaint2);
 
-    // 6. Bottom Line: x1=260 y1=840 x2=340 y2=840 stroke #ff2a4b width 1 opacity 0.3
+    // 6. Bottom Line: x1=260 y1=840 x2=340 y2=840
     final bottomLinePaint = Paint()
-      ..color = const Color(0xFFFF2A4B).withValues(alpha: 0.3)
+      ..color = accentRed.withValues(alpha: isLight ? 0.25 : 0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
     canvas.drawLine(
@@ -3283,14 +3291,16 @@ class _TacticalCardBorderPainter extends CustomPainter {
 
     // 1px border around chamfered path
     final borderPaint = Paint()
-      ..color = const Color(0xFF1A2736)
+      ..color = JweTheme.isLight ? JweTheme.border : const Color(0xFF1A2736)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
     canvas.drawPath(path, borderPaint);
 
+    final resolvedColor = JweTheme.calibrate(themeColor);
+
     // 3px solid theme color along left edge
     final leftEdgePaint = Paint()
-      ..color = themeColor
+      ..color = resolvedColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0;
     canvas.drawLine(Offset(0, c), Offset(0, h - c), leftEdgePaint);
@@ -3298,7 +3308,7 @@ class _TacticalCardBorderPainter extends CustomPainter {
     // Top-left bracket following the chamfer
     if (bracketSize > 0) {
       final bracketPaint = Paint()
-        ..color = themeColor
+        ..color = resolvedColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.0;
       final bracketPath = Path()
@@ -3326,27 +3336,30 @@ class _CustomSquareCheck extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cyan = JweTheme.accentCyan;
     return InkWell(
       onTap: onTap,
       child: Container(
         width: 14,
         height: 14,
         decoration: BoxDecoration(
-          color: checked ? const Color(0xFF00F0FF).withValues(alpha: 0.2) : const Color(0xFF0B1219),
+          color: checked
+              ? cyan.withValues(alpha: JweTheme.isLight ? 0.15 : 0.2)
+              : (JweTheme.isLight ? JweTheme.panel2 : const Color(0xFF0B1219)),
           border: Border.all(
-            color: checked ? const Color(0xFF00F0FF) : const Color(0xFF334155),
+            color: checked ? cyan : (JweTheme.isLight ? JweTheme.border : const Color(0xFF334155)),
             width: 1,
           ),
           borderRadius: BorderRadius.zero,
         ),
         alignment: Alignment.center,
         child: checked
-            ? const Text(
+            ? Text(
                 '✓',
                 style: TextStyle(
                   fontSize: 10,
                   height: 1,
-                  color: Color(0xFF00F0FF),
+                  color: cyan,
                   fontWeight: FontWeight.bold,
                 ),
               )

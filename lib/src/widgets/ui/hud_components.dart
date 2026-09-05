@@ -830,14 +830,14 @@ class TacticalCardBorderPainter extends CustomPainter {
   final double chamfer;
   final double bracketSize;
   final double leftBarWidth;
-  final Color borderColor;
+  final Color? borderColor;
 
   const TacticalCardBorderPainter({
     required this.themeColor,
     this.chamfer = 10.0,
     this.bracketSize = 12.0,
     this.leftBarWidth = 3.0,
-    this.borderColor = const Color(0xFF1A2736),
+    this.borderColor,
   });
 
   @override
@@ -845,6 +845,7 @@ class TacticalCardBorderPainter extends CustomPainter {
     final c = chamfer;
     final w = size.width;
     final h = size.height;
+    final isLight = JweTheme.isLight;
 
     final path = Path()
       ..moveTo(c, 0)
@@ -859,15 +860,17 @@ class TacticalCardBorderPainter extends CustomPainter {
 
     // 1px border around chamfered path
     final borderPaint = Paint()
-      ..color = borderColor
+      ..color = borderColor ?? (isLight ? JweTheme.border : const Color(0xFF1A2736))
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
     canvas.drawPath(path, borderPaint);
 
+    final effectiveThemeColor = isLight ? JweTheme.calibrate(themeColor) : themeColor;
+
     // Solid theme color along left edge
     if (leftBarWidth > 0) {
       final leftEdgePaint = Paint()
-        ..color = themeColor
+        ..color = effectiveThemeColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = leftBarWidth;
       canvas.drawLine(Offset(0, c), Offset(0, h - c), leftEdgePaint);
@@ -876,7 +879,7 @@ class TacticalCardBorderPainter extends CustomPainter {
     // Top-left bracket following the chamfer
     if (bracketSize > 0) {
       final bracketPaint = Paint()
-        ..color = themeColor
+        ..color = effectiveThemeColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.0;
       final bracketPath = Path()

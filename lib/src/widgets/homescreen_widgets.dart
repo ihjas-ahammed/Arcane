@@ -28,9 +28,9 @@ class RunningTaskHomeWidget extends StatelessWidget {
   final List<ResolvedDayPlanItem> topFiveTasks;
   final List<ResolvedDayPlanItem> multitaskTasks;
 
-  static const Color _neonCyan = Color(0xFF00F0FF);
-  static const Color _neonRed = Color(0xFFFF2A4B);
-  static const Color _textMuted = Color(0xFF62778D);
+  static Color get _neonCyan => JweTheme.isLight ? JweTheme.accentCyan : const Color(0xFF00F0FF);
+  static Color get _neonRed => JweTheme.isLight ? JweTheme.accentRed : const Color(0xFFFF2A4B);
+  static Color get _textMuted => JweTheme.textMuted;
 
   const RunningTaskHomeWidget({
     super.key,
@@ -74,8 +74,8 @@ class RunningTaskHomeWidget extends StatelessWidget {
     required Color accent,
     double? width,
   }) {
-    final bg = primary ? accent : accent.withValues(alpha: 0.12);
-    final fg = primary ? const Color(0xFF05080C) : accent;
+    final bg = primary ? accent : accent.withValues(alpha: JweTheme.isLight ? 0.08 : 0.12);
+    final fg = primary ? JweTheme.onAccent : accent;
     final border = Border.all(color: accent, width: 1.2);
 
     return Container(
@@ -116,13 +116,13 @@ class RunningTaskHomeWidget extends StatelessWidget {
         child: ClipPath(
           clipper: const Chamfer4CornerClipper(chamfer: 10.0),
           child: CustomPaint(
-            foregroundPainter: const TacticalCardBorderPainter(
+            foregroundPainter: TacticalCardBorderPainter(
               themeColor: _neonCyan,
               chamfer: 10.0,
               bracketSize: 12.0,
             ),
             child: Container(
-              color: const Color(0xFF090F16),
+              color: JweTheme.isLight ? JweTheme.panel : const Color(0xFF090F16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -207,7 +207,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: GoogleFonts.rajdhani(
-                                            color: Colors.white,
+                                            color: JweTheme.textWhite,
                                             fontSize: 12,
                                             fontWeight: FontWeight.bold,
                                           ),
@@ -279,7 +279,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
               bracketSize: 12.0,
             ),
             child: Container(
-              color: const Color(0xFF090F16),
+              color: JweTheme.isLight ? JweTheme.panel : const Color(0xFF090F16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -364,7 +364,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                         label: anyRunning ? 'HALT SESSION' : 'ENGAGE ALL',
                         icon: anyRunning ? MdiIcons.pause : MdiIcons.play,
                         primary: !anyRunning,
-                        accent: anyRunning ? const Color(0xFFFF2A4B) : const Color(0xFF00F0FF),
+                        accent: anyRunning ? _neonRed : _neonCyan,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -372,7 +372,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                       label: 'CHECK',
                       icon: Icons.check,
                       primary: false,
-                      accent: const Color(0xFF00F0FF),
+                      accent: _neonCyan,
                       width: 80,
                     ),
                     const SizedBox(width: 8),
@@ -397,8 +397,8 @@ class RunningTaskHomeWidget extends StatelessWidget {
 
   Widget _buildMiniCard(ResolvedDayPlanItem item, int index) {
     final itemBorderColor = item.isRunning
-        ? const Color(0xFFFF2A4B)
-        : item.color;
+        ? _neonRed
+        : JweTheme.calibrate(item.color);
 
     return ClipPath(
       clipper: const Chamfer4CornerClipper(chamfer: 6.0),
@@ -411,7 +411,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
         child: Container(
           height: double.infinity,
           padding: const EdgeInsets.all(7),
-          color: const Color(0xFF05080C),
+          color: JweTheme.isLight ? JweTheme.panel2 : const Color(0xFF05080C),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -427,7 +427,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.rajdhani(
-                            color: item.color,
+                            color: JweTheme.calibrate(item.color),
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.8,
@@ -450,7 +450,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.rajdhani(
-                      color: Colors.white,
+                      color: JweTheme.textWhite,
                       fontSize: 11.5,
                       fontWeight: FontWeight.bold,
                       height: 1.15,
@@ -465,7 +465,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                         size: 10,
                         color: item.totalCheckpoints > 0
                             ? _neonCyan
-                            : const Color(0xFF64748B),
+                            : (JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF64748B)),
                       ),
                       const SizedBox(width: 3),
                       Text(
@@ -475,7 +475,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                         style: GoogleFonts.rajdhani(
                           color: item.totalCheckpoints > 0
                               ? _neonCyan
-                              : const Color(0xFF64748B),
+                              : (JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF64748B)),
                           fontSize: 8.5,
                           fontWeight: FontWeight.bold,
                         ),
@@ -522,7 +522,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
               bracketSize: 12.0,
             ),
             child: Container(
-              color: const Color(0xFF090F16),
+              color: JweTheme.isLight ? JweTheme.panel : const Color(0xFF090F16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -681,7 +681,9 @@ class RunningTaskHomeWidget extends StatelessWidget {
                               Text(
                                 isRunning ? 'REC LIVE TICKING' : 'STANDBY IDLE',
                                 style: GoogleFonts.rajdhani(
-                                  color: isRunning ? const Color(0xFF10B981) : JweTheme.textMuted,
+                                  color: isRunning
+                                      ? (JweTheme.isLight ? const Color(0xFF047857) : const Color(0xFF10B981))
+                                      : JweTheme.textMuted,
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -707,7 +709,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                         label: hasTask ? (isRunning ? 'HALT SESSION' : 'ENGAGE') : 'OPEN PLAN',
                         icon: isRunning ? MdiIcons.pause : MdiIcons.play,
                         primary: !isRunning && hasTask,
-                        accent: isRunning ? const Color(0xFFFF2A4B) : const Color(0xFF00F0FF),
+                        accent: isRunning ? _neonRed : _neonCyan,
                       ),
                     ),
                     if (hasTask && isCheckpoint) ...[
@@ -716,7 +718,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
                         label: 'CHECK',
                         icon: Icons.check,
                         primary: false,
-                        accent: const Color(0xFF00F0FF),
+                        accent: _neonCyan,
                         width: 80,
                       ),
                     ],

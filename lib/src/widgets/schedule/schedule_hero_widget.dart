@@ -177,10 +177,10 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
               ),
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF090F16),
+                  color: JweTheme.isLight ? JweTheme.panel : const Color(0xFF090F16),
                   boxShadow: [
                     BoxShadow(
-                      color: accent.withValues(alpha: 0.05),
+                      color: accent.withValues(alpha: JweTheme.isLight ? 0.08 : 0.05),
                       blurRadius: 16,
                       spreadRadius: 2,
                     ),
@@ -319,7 +319,7 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                                       : 'NO TARGET ESTIMATES SET',
                                   style: GoogleFonts.rajdhani(
                                     color: widget.plannedMinutes > widget.realisticMinutes
-                                        ? const Color(0xFFFF2A4B)
+                                        ? (JweTheme.isLight ? JweTheme.accentRed : const Color(0xFFFF2A4B))
                                         : JweTheme.textWhite,
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -339,7 +339,9 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                                 Text(
                                   widget.isRunning ? 'REC LIVE TICKING' : 'STANDBY IDLE',
                                   style: GoogleFonts.rajdhani(
-                                    color: widget.isRunning ? const Color(0xFF10B981) : JweTheme.textMuted,
+                                    color: widget.isRunning
+                                        ? (JweTheme.isLight ? JweTheme.accentTeal : const Color(0xFF10B981))
+                                        : JweTheme.textMuted,
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -463,7 +465,9 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                       label: widget.isRunning ? 'HALT SESSION' : 'ENGAGE',
                       icon: widget.isRunning ? MdiIcons.pause : MdiIcons.play,
                       primary: !widget.isRunning,
-                      accent: widget.isRunning ? const Color(0xFFFF2A4B) : const Color(0xFF00F0FF),
+                      accent: widget.isRunning
+                          ? (JweTheme.isLight ? JweTheme.accentRed : const Color(0xFFFF2A4B))
+                          : (JweTheme.isLight ? JweTheme.accentCyan : const Color(0xFF00F0FF)),
                       onTap: widget.onPlayPause,
                     ),
                   ),
@@ -497,8 +501,8 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: widget.multitaskItems.map((item) {
                 final itemBorderColor = item.isRunning
-                    ? const Color(0xFFFF2A4B)
-                    : item.color;
+                    ? (JweTheme.isLight ? JweTheme.accentRed : const Color(0xFFFF2A4B))
+                    : (JweTheme.isLight ? JweTheme.calibrate(item.color) : item.color);
                 return Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 3),
@@ -513,7 +517,7 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                         child: Container(
                           height: double.infinity,
                           padding: const EdgeInsets.all(8),
-                          color: const Color(0xFF05080C),
+                          color: JweTheme.isLight ? JweTheme.panel2 : const Color(0xFF05080C),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -529,7 +533,7 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: GoogleFonts.rajdhani(
-                                            color: item.color,
+                                            color: JweTheme.isLight ? JweTheme.calibrate(item.color) : item.color,
                                             fontSize: 9.5,
                                             letterSpacing: 1.2,
                                             fontWeight: FontWeight.bold,
@@ -544,7 +548,7 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.rajdhani(
-                                      color: Colors.white,
+                                      color: JweTheme.textWhite,
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.bold,
                                       height: 1.15,
@@ -558,8 +562,8 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                                         Icons.checklist_rounded,
                                         size: 11,
                                         color: item.totalCheckpoints > 0
-                                            ? const Color(0xFF00F0FF)
-                                            : const Color(0xFF64748B),
+                                            ? JweTheme.accentCyan
+                                            : JweTheme.textMuted,
                                       ),
                                       const SizedBox(width: 3),
                                       Text(
@@ -568,8 +572,8 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                                             : '0/0',
                                         style: GoogleFonts.rajdhani(
                                           color: item.totalCheckpoints > 0
-                                              ? const Color(0xFF00F0FF)
-                                              : const Color(0xFF64748B),
+                                              ? JweTheme.accentCyan
+                                              : JweTheme.textMuted,
                                           fontSize: 9.5,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -587,7 +591,7 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                                     decoration: BoxDecoration(
                                       border: Border.all(
-                                        color: const Color(0xFF00F0FF).withValues(alpha: 0.6),
+                                        color: JweTheme.accentCyan.withValues(alpha: JweTheme.isLight ? 0.7 : 0.6),
                                         width: 1,
                                       ),
                                       borderRadius: BorderRadius.circular(2),
@@ -595,12 +599,12 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(Icons.check, size: 12, color: Color(0xFF00F0FF)),
+                                        Icon(Icons.check, size: 12, color: JweTheme.accentCyan),
                                         const SizedBox(width: 3),
                                         Text(
                                           'DONE',
                                           style: GoogleFonts.rajdhani(
-                                            color: const Color(0xFF00F0FF),
+                                            color: JweTheme.accentCyan,
                                             fontSize: 9.5,
                                             fontWeight: FontWeight.bold,
                                             letterSpacing: 1,
@@ -633,8 +637,8 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
                     : 'TARGET CAPACITY',
                 style: GoogleFonts.rajdhani(
                   color: widget.plannedMinutes > widget.realisticMinutes
-                      ? const Color(0xFFFF2A4B)
-                      : const Color(0xFF8FA2B6),
+                      ? (JweTheme.isLight ? JweTheme.accentRed : const Color(0xFFFF2A4B))
+                      : JweTheme.textMid,
                   fontSize: 11,
                   letterSpacing: 1.2,
                   fontWeight: FontWeight.bold,
@@ -643,7 +647,9 @@ class _ScheduleHeroWidgetState extends State<ScheduleHeroWidget> {
               Text(
                 widget.isRunning ? 'REC LIVE TICKING' : 'STANDBY IDLE',
                 style: GoogleFonts.rajdhani(
-                  color: widget.isRunning ? const Color(0xFF10B981) : const Color(0xFF62778D),
+                  color: widget.isRunning
+                      ? (JweTheme.isLight ? JweTheme.accentTeal : const Color(0xFF10B981))
+                      : JweTheme.textMuted,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1,
@@ -674,7 +680,7 @@ class _HudActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = primary ? JweTheme.bgDeep : accent;
+    final fg = primary ? JweTheme.onAccent : accent;
     final bg = primary ? accent : Colors.transparent;
     return InkWell(
       onTap: onTap,

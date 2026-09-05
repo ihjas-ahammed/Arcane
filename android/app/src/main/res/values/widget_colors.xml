@@ -1,23 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="widget_bg_deep">#FF05080C</color>
-    <color name="widget_bg_panel">#FF090F16</color>
-    <color name="widget_bg_card">#FF05080C</color>
-    <color name="widget_bg_elev">#FF111B27</color>
-    <color name="widget_accent_amber">#FFFFB547</color>
-    <color name="widget_accent_cyan">#FF00F0FF</color>
-    <color name="widget_accent_teal">#FF4AF3C2</color>
-    <color name="widget_accent_red">#FFFF2A4B</color>
-    <color name="widget_text_white">#FFF0F4F8</color>
-    <color name="widget_text_mid">#FFA8B3C7</color>
-    <color name="widget_text_muted">#FF62778D</color>
-    <color name="widget_border">#FF182533</color>
-    <color name="widget_border_dim">#FF182533</color>
-    <color name="widget_border_cyan">#4000F0FF</color>
-    <color name="widget_amber_glow">#8CFFB547</color>
-    <color name="widget_amber_soft">#24FFB547</color>
-    <color name="widget_cyan_glow">#8C00F0FF</color>
-    <color name="widget_cyan_soft">#1A00F0FF</color>
-    <color name="widget_red_glow">#8CFF2A4B</color>
-    <color name="widget_red_soft">#24FF2A4B</color>
+    <!-- Tactical Light Mode (Warm Paper/Stone System) -->
+    <color name="widget_bg_deep">#FFFFFFFF</color>
+    <color name="widget_bg_panel">#FFFAF8F5</color>
+    <color name="widget_bg_card">#FFF3EFE7</color>
+    <color name="widget_bg_elev">#FFDFD9CE</color>
+    <color name="widget_accent_amber">#FFB45309</color>
+    <color name="widget_accent_cyan">#FF0F766E</color>
+    <color name="widget_accent_teal">#FF047857</color>
+    <color name="widget_accent_red">#FFBE123C</color>
+    <color name="widget_text_white">#FF211D18</color>
+    <color name="widget_text_mid">#FF4A443C</color>
+    <color name="widget_text_muted">#FF7A7266</color>
+    <color name="widget_border">#FFD4CDC0</color>
+    <color name="widget_border_dim">#FFE2DDD2</color>
+    <color name="widget_border_cyan">#330F766E</color>
+    <color name="widget_amber_glow">#33B45309</color>
+    <color name="widget_amber_soft">#1EB45309</color>
+    <color name="widget_cyan_glow">#330F766E</color>
+    <color name="widget_cyan_soft">#1A0F766E</color>
+    <color name="widget_red_glow">#33BE123C</color>
+    <color name="widget_red_soft">#1ABE123C</color>
 </resources>
