@@ -1205,6 +1205,9 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
     final totalProtein = mealsWithFood.fold<double>(0.0, (sum, entry) => sum + (entry.value?.protein ?? 0.0));
     final totalCarbs = mealsWithFood.fold<double>(0.0, (sum, entry) => sum + (entry.value?.carbs ?? 0.0));
     final totalFat = mealsWithFood.fold<double>(0.0, (sum, entry) => sum + (entry.value?.fat ?? 0.0));
+    final totalFiber = mealsWithFood.fold<double>(0.0, (sum, entry) => sum + (entry.value?.fiber ?? 0.0));
+    final totalSugar = mealsWithFood.fold<double>(0.0, (sum, entry) => sum + (entry.value?.sugar ?? 0.0));
+    final totalSodium = mealsWithFood.fold<double>(0.0, (sum, entry) => sum + (entry.value?.sodium ?? 0.0));
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPadding + 60),
@@ -1283,13 +1286,34 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
             accent: JweTheme.accentCyan,
             brackets: true,
             allBrackets: false,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: _buildMacrosColumn("CALORIES", "$totalCalories kcal", JweTheme.textWhite)),
-                Expanded(child: _buildMacrosColumn("PROTEIN", "${totalProtein.toStringAsFixed(1)}g", JweTheme.accentTeal)),
-                Expanded(child: _buildMacrosColumn("CARBS", "${totalCarbs.toStringAsFixed(1)}g", JweTheme.accentCyan)),
-                Expanded(child: _buildMacrosColumn("FAT", "${totalFat.toStringAsFixed(1)}g", JweTheme.accentAmber)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    Expanded(child: _buildMacrosColumn("CALORIES", "$totalCalories kcal", JweTheme.textWhite)),
+                    Expanded(child: _buildMacrosColumn("PROTEIN", "${totalProtein.toStringAsFixed(1)}g", JweTheme.accentTeal)),
+                    Expanded(child: _buildMacrosColumn("CARBS", "${totalCarbs.toStringAsFixed(1)}g", JweTheme.accentCyan)),
+                    Expanded(child: _buildMacrosColumn("FAT", "${totalFat.toStringAsFixed(1)}g", JweTheme.accentAmber)),
+                  ],
+                ),
+                if (totalFiber > 0 || totalSugar > 0 || totalSodium > 0) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    height: 1,
+                    color: JweTheme.border.withValues(alpha: 0.3),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Expanded(child: _buildMacrosColumn("FIBER", "${totalFiber.toStringAsFixed(1)}g", JweTheme.accentTeal)),
+                      Expanded(child: _buildMacrosColumn("SUGAR", "${totalSugar.toStringAsFixed(1)}g", JweTheme.accentAmber)),
+                      Expanded(child: _buildMacrosColumn("SODIUM", "${totalSodium.toStringAsFixed(0)}mg", JweTheme.accentCyan)),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -1364,6 +1388,25 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                                 ),
                               ),
                             ),
+                            if (food.amount != null && food.amount!.isNotEmpty) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                margin: const EdgeInsets.only(right: 8),
+                                decoration: BoxDecoration(
+                                  color: JweTheme.panel2,
+                                  border: Border.all(color: JweTheme.border),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  food.amount!,
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: JweTheme.accentAmber,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
                             Text(
                               DateFormat('HH:mm').format(meal.timestamp),
                               style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.5),
@@ -1396,6 +1439,12 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                                 Text('P: ${food.protein.toStringAsFixed(1)}g', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentTeal, fontSize: 10.5, fontWeight: FontWeight.bold)),
                                 Text('C: ${food.carbs.toStringAsFixed(1)}g', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentCyan, fontSize: 10.5, fontWeight: FontWeight.bold)),
                                 Text('F: ${food.fat.toStringAsFixed(1)}g', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentAmber, fontSize: 10.5, fontWeight: FontWeight.bold)),
+                                if (food.fiber > 0)
+                                  Text('FIBER: ${food.fiber.toStringAsFixed(1)}g', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentTeal, fontSize: 10, fontWeight: FontWeight.w600)),
+                                if (food.sugar > 0)
+                                  Text('SUGAR: ${food.sugar.toStringAsFixed(1)}g', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentAmber, fontSize: 10, fontWeight: FontWeight.w600)),
+                                if (food.sodium > 0)
+                                  Text('SODIUM: ${food.sodium.toStringAsFixed(0)}mg', style: GoogleFonts.jetBrainsMono(color: JweTheme.accentCyan, fontSize: 10, fontWeight: FontWeight.w600)),
                               ],
                             ),
                             if (food.description != null && food.description!.isNotEmpty) ...[
@@ -1403,6 +1452,24 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                               Text(
                                 food.description!,
                                 style: GoogleFonts.inter(color: JweTheme.textMuted, fontSize: 11.5),
+                              ),
+                            ],
+                            if (food.micronutrients != null && food.micronutrients!.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'MICRONUTRIENTS & MINERALS',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: JweTheme.accentCyan,
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: food.micronutrients!.map((m) => HudChip(label: m, tone: HudTone.cyan)).toList(),
                               ),
                             ],
                             if (food.benefits != null && food.benefits!.isNotEmpty) ...[
@@ -1498,6 +1565,15 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
     double totalFat = 0;
     int fatDays = 0;
 
+    double totalFiber = 0;
+    int fiberDays = 0;
+
+    double totalSugar = 0;
+    int sugarDays = 0;
+
+    double totalSodium = 0;
+    int sodiumDays = 0;
+
     double totalWalkKm = 0;
     int walkDays = 0;
 
@@ -1547,6 +1623,9 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
         final dayProtein = mealsWithFood.fold(0.0, (sum, item) => sum + item.protein);
         final dayCarbs = mealsWithFood.fold(0.0, (sum, item) => sum + item.carbs);
         final dayFat = mealsWithFood.fold(0.0, (sum, item) => sum + item.fat);
+        final dayFiber = mealsWithFood.fold(0.0, (sum, item) => sum + item.fiber);
+        final daySugar = mealsWithFood.fold(0.0, (sum, item) => sum + item.sugar);
+        final daySodium = mealsWithFood.fold(0.0, (sum, item) => sum + item.sodium);
 
         if (dayCalories > 0) {
           totalCalories += dayCalories;
@@ -1564,6 +1643,18 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
           totalFat += dayFat;
           fatDays++;
         }
+        if (dayFiber > 0) {
+          totalFiber += dayFiber;
+          fiberDays++;
+        }
+        if (daySugar > 0) {
+          totalSugar += daySugar;
+          sugarDays++;
+        }
+        if (daySodium > 0) {
+          totalSodium += daySodium;
+          sodiumDays++;
+        }
       }
     }
 
@@ -1574,6 +1665,9 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
     final avgProtein = avgOver(totalProtein, proteinDays);
     final avgCarbs = avgOver(totalCarbs, carbDays);
     final avgFat = avgOver(totalFat, fatDays);
+    final avgFiber = avgOver(totalFiber, fiberDays);
+    final avgSugar = avgOver(totalSugar, sugarDays);
+    final avgSodium = avgOver(totalSodium, sodiumDays);
     final avgWalkKm = avgOver(totalWalkKm, walkDays);
     final avgWorkoutMins = avgOver(totalWorkoutMins, workoutDays);
 
@@ -1775,6 +1869,52 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                     HudProgressBar(value: (avgFat / 70 * 100).clamp(0.0, 100.0), tone: HudTone.amber),
                   ],
                 ),
+                if (avgFiber > 0 || avgSugar > 0 || avgSodium > 0) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    height: 1,
+                    color: JweTheme.border.withValues(alpha: 0.3),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      if (fiberDays > 0)
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('FIBER (AVG)', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8.5, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 2),
+                              Text('${avgFiber.toStringAsFixed(1)}g', style: GoogleFonts.chakraPetch(color: JweTheme.accentTeal, fontSize: 13, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      if (sugarDays > 0)
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('SUGAR (AVG)', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8.5, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 2),
+                              Text('${avgSugar.toStringAsFixed(1)}g', style: GoogleFonts.chakraPetch(color: JweTheme.accentAmber, fontSize: 13, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      if (sodiumDays > 0)
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('SODIUM (AVG)', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8.5, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 2),
+                              Text('${avgSodium.toStringAsFixed(0)}mg', style: GoogleFonts.chakraPetch(color: JweTheme.accentCyan, fontSize: 13, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

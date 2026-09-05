@@ -7,6 +7,11 @@ class FoodItem {
   double protein;
   double carbs;
   double fat;
+  double fiber;
+  double sugar;
+  double sodium; // in mg
+  String? amount; // portion/amount or duration consumed
+  List<String>? micronutrients; // vitamins and minerals
   String? description;
   List<String>? benefits;
   List<String>? warnings;
@@ -18,6 +23,11 @@ class FoodItem {
     required this.protein,
     required this.carbs,
     required this.fat,
+    this.fiber = 0.0,
+    this.sugar = 0.0,
+    this.sodium = 0.0,
+    this.amount,
+    this.micronutrients,
     this.description,
     this.benefits,
     this.warnings,
@@ -31,6 +41,11 @@ class FoodItem {
       protein: (json['protein'] as num? ?? 0).toDouble(),
       carbs: (json['carbs'] as num? ?? 0).toDouble(),
       fat: (json['fat'] as num? ?? 0).toDouble(),
+      fiber: (json['fiber'] as num? ?? 0).toDouble(),
+      sugar: (json['sugar'] as num? ?? 0).toDouble(),
+      sodium: (json['sodium'] as num? ?? 0).toDouble(),
+      amount: json['amount'] as String?,
+      micronutrients: (json['micronutrients'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
       description: json['description'] as String?,
       benefits: (json['benefits'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
       warnings: (json['warnings'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
@@ -45,6 +60,11 @@ class FoodItem {
       'protein': protein,
       'carbs': carbs,
       'fat': fat,
+      'fiber': fiber,
+      'sugar': sugar,
+      'sodium': sodium,
+      if (amount != null) 'amount': amount,
+      if (micronutrients != null) 'micronutrients': micronutrients,
       'description': description,
       'benefits': benefits,
       'warnings': warnings,

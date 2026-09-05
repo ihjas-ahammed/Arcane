@@ -1053,11 +1053,14 @@ class TaskActions {
         return task.copyWith(
           subTasks: task.subTasks.map((st) {
             if (st.id == subtaskId) {
+              final updatedSubSubTasks = st.subSubTasks.map((child) => _markAllDescendantsUncompleted(child)).toList();
               return st.copyWith(
                 completed: false, 
                 completedDate: null, 
                 lastCompletedDate: null, 
                 updatedAt: DateTime.now(),
+                currentCount: st.isCountable ? 0 : st.currentCount,
+                subSubTasks: updatedSubSubTasks,
               );
             }
             return st;

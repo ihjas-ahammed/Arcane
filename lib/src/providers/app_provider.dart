@@ -2534,17 +2534,21 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   Future<FoodItem> analyzeFoodWithAI(String foodName, String amount) async {
     try {
       final prompt = """
-      You are an expert nutritionist and health AI. Analyze the following food item and approximate amount:
+      You are an expert clinical nutritionist and sports dietician AI. Analyze the following food item and approximate amount/duration:
       Food: "$foodName"
-      Amount: "$amount"
+      Amount/Duration: "$amount"
 
-      Provide the estimated nutritional profile in JSON format.
+      Provide the estimated comprehensive nutritional profile in JSON format.
       Output MUST be a JSON object matching this schema:
       {
         "calories": 250,
         "protein": 12.5,
         "carbs": 30.0,
         "fat": 8.0,
+        "fiber": 4.5,
+        "sugar": 3.0,
+        "sodium": 280.0,
+        "micronutrients": ["Vitamin C: 25mg", "Iron: 2.1mg", "Potassium: 350mg"],
         "description": "Short explanation of the food's nutritional value.",
         "benefits": ["Benefit 1", "Benefit 2"],
         "warnings": ["Warning 1"]
@@ -2555,7 +2559,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
       final response = await _aiService.makeRawTextAICall(
         prompt: prompt,
-        modelCandidates: settings.liteModels, // use settings.liteModels as default candidates
+        modelCandidates: settings.liteModels,
         customApiKeys: settings.customApiKeys,
         currentApiKeyIndex: apiKeyIndex,
         onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
@@ -2567,11 +2571,16 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
       return FoodItem(
         id: const Uuid().v4(),
-        name: '$foodName ($amount)',
+        name: foodName,
+        amount: amount.isNotEmpty ? amount : null,
         calories: (data['calories'] as num? ?? 0).toInt(),
         protein: (data['protein'] as num? ?? 0.0).toDouble(),
         carbs: (data['carbs'] as num? ?? 0.0).toDouble(),
         fat: (data['fat'] as num? ?? 0.0).toDouble(),
+        fiber: (data['fiber'] as num? ?? 0.0).toDouble(),
+        sugar: (data['sugar'] as num? ?? 0.0).toDouble(),
+        sodium: (data['sodium'] as num? ?? 0.0).toDouble(),
+        micronutrients: (data['micronutrients'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
         description: data['description'] as String?,
         benefits: (data['benefits'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
         warnings: (data['warnings'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
@@ -2580,15 +2589,144 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       debugPrint("AI food analysis failed: $e. Using fallback values.");
       return FoodItem(
         id: const Uuid().v4(),
-        name: '$foodName ($amount)',
+        name: foodName,
+        amount: amount.isNotEmpty ? amount : null,
         calories: 150,
         protein: 5.0,
         carbs: 20.0,
         fat: 4.0,
+        fiber: 2.0,
+        sugar: 2.0,
+        sodium: 120.0,
         description: "Estimated offline. Connect your Gemini API Key in Settings to get detailed AI nutritional profiles.",
-        benefits: ["Source of energy"],
+        benefits: ["Source of energy and daily sustenance"],
         warnings: ["Nutrition values are generic estimates"],
       );
+    }
+  }
+
+  /// Analyzes structured food items (item name + duration/amount)
+  /// and automatically updates nutrition details in today's DailyHealthLog / Bio.
+  Future<void> logNutritionFromStructuredItems(
+    String dateStr,
+    List<Map<String, String>> items,
+  ) async {
+    final validItems = items.where((e) => (e['name'] ?? '').trim().isNotEmpty).toList();
+    if (validItems.isEmpty) return;
+
+    final formattedItems = validItems.asMap().entries.map((entry) {
+      final idx = entry.key + 1;
+      final name = entry.value['name']!.trim();
+      final amount = (entry.value['amount'] ?? '').trim();
+      return amount.isNotEmpty ? '$idx. Item: "$name", Portion/Duration/Amount: "$amount"' : '$idx. Item: "$name"';
+    }).join('\n');
+
+    try {
+      final prompt = """
+You are an expert clinical nutritionist and sports dietician AI.
+Analyze the following logged food and meal items with their specified portion sizes, amounts, or duration/timing:
+
+$formattedItems
+
+Calculate a precise, comprehensive nutritional profile for EACH item based on its portion/amount.
+Include ALL vital nutritional metrics:
+- calories: integer (kcal)
+- protein: float (grams)
+- carbs: float (grams)
+- fat: float (grams)
+- fiber: float (grams)
+- sugar: float (grams)
+- sodium: float (milligrams)
+- micronutrients: list of key vitamins, minerals, and electrolytes with estimated amounts (e.g. ["Vitamin C: 30mg", "Iron: 2.5mg", "Potassium: 420mg", "Calcium: 180mg", "Magnesium: 45mg"])
+- benefits: list of 1-3 physiological or health benefits
+- warnings: list of dietary cautions if applicable (e.g., high saturated fat, high sugar, high sodium, allergens) or empty list
+- description: concise 1-2 sentence nutritional appraisal
+
+Output MUST be a raw JSON array of objects with the schema:
+[
+  {
+    "name": "Food item name",
+    "amount": "Portion or duration specified",
+    "calories": 250,
+    "protein": 15.0,
+    "carbs": 25.0,
+    "fat": 6.5,
+    "fiber": 4.0,
+    "sugar": 3.0,
+    "sodium": 280.0,
+    "micronutrients": ["Vitamin C: 15mg", "Iron: 1.8mg", "Potassium: 300mg"],
+    "description": "Nutrient-dense whole food source supporting sustained energy.",
+    "benefits": ["Sustained glycemic release", "Promotes gut satiety"],
+    "warnings": []
+  }
+]
+
+Do NOT wrap the output in markdown block indicators like ```json. Output ONLY the raw valid JSON array.
+""";
+
+      final response = await _aiService.makeRawTextAICall(
+        prompt: prompt,
+        modelCandidates: settings.liteModels,
+        customApiKeys: settings.customApiKeys,
+        currentApiKeyIndex: apiKeyIndex,
+        onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
+        onLog: (log) => debugPrint("AI NUTRITION LOG: $log"),
+      );
+
+      final cleanJson = response.replaceFirst(RegExp(r'^```json\s*'), '').replaceFirst(RegExp(r'\s*```$'), '').trim();
+      final List<dynamic> parsedList = jsonDecode(cleanJson) as List<dynamic>;
+
+      for (var item in parsedList) {
+        if (item is Map<String, dynamic>) {
+          final foodItem = FoodItem(
+            id: const Uuid().v4(),
+            name: item['name'] as String? ?? 'Meal Log',
+            amount: item['amount'] as String?,
+            calories: (item['calories'] as num? ?? 150).toInt(),
+            protein: (item['protein'] as num? ?? 5.0).toDouble(),
+            carbs: (item['carbs'] as num? ?? 20.0).toDouble(),
+            fat: (item['fat'] as num? ?? 4.0).toDouble(),
+            fiber: (item['fiber'] as num? ?? 0.0).toDouble(),
+            sugar: (item['sugar'] as num? ?? 0.0).toDouble(),
+            sodium: (item['sodium'] as num? ?? 0.0).toDouble(),
+            micronutrients: (item['micronutrients'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
+            description: item['description'] as String?,
+            benefits: (item['benefits'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
+            warnings: (item['warnings'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
+          );
+
+          addFoodItem(foodItem);
+          final mealLog = MealLog(
+            id: const Uuid().v4(),
+            foodItemId: foodItem.id,
+            timestamp: DateTime.now(),
+          );
+          addMealLog(dateStr, mealLog);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error parsing structured nutrition items: $e. Creating fallback logs.");
+      for (var entry in validItems) {
+        final name = entry['name']!.trim();
+        final amount = (entry['amount'] ?? '').trim();
+        final foodItem = FoodItem(
+          id: const Uuid().v4(),
+          name: name,
+          amount: amount.isNotEmpty ? amount : null,
+          calories: 200,
+          protein: 8.0,
+          carbs: 25.0,
+          fat: 5.0,
+          fiber: 2.0,
+          sugar: 2.0,
+          sodium: 150.0,
+          description: amount.isNotEmpty ? '$name ($amount)' : name,
+          benefits: ["Source of energy and daily nourishment"],
+          warnings: ["Nutrition values estimated offline"],
+        );
+        addFoodItem(foodItem);
+        addMealLog(dateStr, MealLog(id: const Uuid().v4(), foodItemId: foodItem.id, timestamp: DateTime.now()));
+      }
     }
   }
 
@@ -2600,19 +2738,26 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
     try {
       final prompt = """
-      You are an expert nutritionist AI. Analyze the following food intake log and identify all distinct meals or food items consumed:
+      You are an expert clinical nutritionist AI. Analyze the following food intake log and identify all distinct meals or food items consumed:
       "$text"
 
-      Extract each food item and estimate its nutritional breakdown per portion eaten.
+      Extract each food item and estimate its comprehensive nutritional breakdown per portion eaten.
       Output MUST be a raw JSON array of objects with the following schema:
       [
         {
           "name": "Food Item Name",
+          "amount": "Portion eaten or duration",
           "calories": 250,
           "protein": 15.0,
           "carbs": 20.0,
           "fat": 8.0,
-          "description": "Short summary of nutritional value"
+          "fiber": 4.0,
+          "sugar": 3.0,
+          "sodium": 220.0,
+          "micronutrients": ["Vitamin C: 12mg", "Iron: 1.5mg", "Potassium: 280mg"],
+          "description": "Short summary of nutritional value",
+          "benefits": ["Benefit 1"],
+          "warnings": []
         }
       ]
 
@@ -2636,11 +2781,18 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
           final foodItem = FoodItem(
             id: const Uuid().v4(),
             name: item['name'] as String? ?? 'Meal Log',
+            amount: item['amount'] as String?,
             calories: (item['calories'] as num? ?? 150).toInt(),
             protein: (item['protein'] as num? ?? 5.0).toDouble(),
             carbs: (item['carbs'] as num? ?? 20.0).toDouble(),
             fat: (item['fat'] as num? ?? 4.0).toDouble(),
+            fiber: (item['fiber'] as num? ?? 0.0).toDouble(),
+            sugar: (item['sugar'] as num? ?? 0.0).toDouble(),
+            sodium: (item['sodium'] as num? ?? 0.0).toDouble(),
+            micronutrients: (item['micronutrients'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
             description: item['description'] as String?,
+            benefits: (item['benefits'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
+            warnings: (item['warnings'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
           );
 
           addFoodItem(foodItem);
@@ -2661,6 +2813,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         protein: 15.0,
         carbs: 35.0,
         fat: 10.0,
+        fiber: 3.0,
+        sugar: 4.0,
+        sodium: 200.0,
         description: text,
       );
       addFoodItem(foodItem);

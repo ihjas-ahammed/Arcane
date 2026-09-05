@@ -1,4 +1,30 @@
-# ⚡ Arcane System Upgrade // v2026.9.5
+# ⚡ Arcane System Upgrade // v2026.9.5 (Build #2126090506)
+
+### 🥗 Structured Nutrition Logging in Daily Reflections
+- **Dynamic Structured Food List View**: Replaced the single freeform nutrition textfield in the Daily Reflection editor with a dynamic list view asking for **Item Name** and **(Duration / Amount)** per item.
+- **Dynamic Row Management**: Easily add and remove food items dynamically with high-contrast tactical indexing badges (`01`, `02`, etc.) and instant row deletion controls.
+- **Dual-Theme Adaptive Styling**: Seamless warm tactical paper/stone palette in light mode and operator midnight contrast in dark mode via `JweTheme` dynamic tokens.
+
+### 🧠 Clinical AI Nutrition Engine & Multi-Metric Breakdown
+- **Comprehensive Nutritional Metrics**: Upgraded AI nutrition prompts to compute full clinical nutrient profiles:
+  - Macro energy: `Calories` (kcal), `Protein` (g), `Carbohydrates` (g), `Lipids / Fat` (g)
+  - Key micro-nutrients: `Fiber` (g), `Sugar` (g), and `Sodium` (mg)
+  - Trace micronutrients: dynamic vitamin, mineral, and electrolyte estimates (e.g., Vitamin C, Iron, Potassium, Calcium, Magnesium)
+  - Physiological appraisal: Health benefits, clinical dietary warnings/allergens, and concise nutritional description.
+- **Portion & Duration Awareness**: The AI model now analyzes nutritional values tailored specifically to the user's portion amount or consumption duration.
+- **Offline Fallback Reliability**: Graceful offline fallback logging ensures meals are always logged to Bio and Daily Health logs even without an internet connection or AI key configured.
+
+### 📊 Extended Health Telemetry & Bio Dashboard
+- **Nutritional Summary Secondary Row**: Added a dedicated secondary telemetry row in the Health Dashboard Nutrition tab summarizing daily totals for **Fiber**, **Sugar**, and **Sodium**.
+- **Meal Protocol Card Overhaul**: Logged meal protocol cards now showcase:
+  - Approximate portion amount badge in header.
+  - Energy, Protein, Carbs, Fat, Fiber, Sugar, and Sodium breakdown.
+  - Cyan `HudChip` badges for identified vitamins, minerals, and micronutrients.
+  - Benefit tags and highlighted dietary warning callouts.
+- **30-Day Health Stats Averages**: Aggregated 30-day running averages for daily fiber, sugar, and sodium intake in the Health Telemetry & Longevity tab.
+
+### 🔄 Checkpoint Uncomplete Cascading Fix
+- **Hierarchical Checkpoint Uncomplete**: Restored cascading uncomplete logic in `TaskActions.uncompleteSubtask` so that unchecking a parent subtask cleanly unchecks all of its descendant checkpoints and nested substeps.
 
 ### 📐 Tactical Multi-Plan Height Consistency & Dynamic Layout
 - **Multi-Task Row Height Parity**: Wrapped multi-task rows (2-in-1 and 3-in-1 planner & hero cards) with `IntrinsicHeight` and vertical cross-axis stretch, guaranteeing consistent card heights between tasks with and without subtasks or checkpoints.

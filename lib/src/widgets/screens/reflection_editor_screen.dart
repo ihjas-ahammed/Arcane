@@ -24,13 +24,30 @@ class ReflectionEditorScreen extends StatefulWidget {
   State<ReflectionEditorScreen> createState() => _ReflectionEditorScreenState();
 }
 
+class FoodLogEntry {
+  final TextEditingController nameController;
+  final TextEditingController amountController;
+
+  FoodLogEntry({String name = '', String amount = ''})
+      : nameController = TextEditingController(text: name),
+        amountController = TextEditingController(text: amount);
+
+  void dispose() {
+    nameController.dispose();
+    amountController.dispose();
+  }
+
+  bool get isNotEmpty =>
+      nameController.text.trim().isNotEmpty || amountController.text.trim().isNotEmpty;
+}
+
 class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
   late TextEditingController _triggerController;
   late TextEditingController _emotionController;
   late TextEditingController _reasonController;
   late TextEditingController _actionController;
   late TextEditingController _wholeWritingController;
-  late TextEditingController _foodDetailsController;
+  final List<FoodLogEntry> _foodEntries = [];
   late DateTime _selectedDateTime;
   bool _isWholeWriting = false;
 
@@ -39,7 +56,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     super.initState();
 
     _wholeWritingController = TextEditingController();
-    _foodDetailsController = TextEditingController();
+    _foodEntries.add(FoodLogEntry());
 
     // If editing an existing log, populate from log
     if (widget.initialLog != null) {
@@ -87,7 +104,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
 
   bool get _hasContent =>
       _wholeWritingController.text.trim().isNotEmpty ||
-      _foodDetailsController.text.trim().isNotEmpty ||
+      _foodEntries.any((e) => e.isNotEmpty) ||
       _triggerController.text.trim().isNotEmpty ||
       _emotionController.text.trim().isNotEmpty ||
       _reasonController.text.trim().isNotEmpty ||
@@ -113,7 +130,9 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     _reasonController.dispose();
     _actionController.dispose();
     _wholeWritingController.dispose();
-    _foodDetailsController.dispose();
+    for (final entry in _foodEntries) {
+      entry.dispose();
+    }
     super.dispose();
   }
 
@@ -166,9 +185,17 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         ? _wholeWritingController.text.trim()
         : _triggerController.text.trim();
 
-    if (triggerText.isEmpty && _foodDetailsController.text.trim().isEmpty) {
+    final validFoodEntries = _foodEntries
+        .where((e) => e.nameController.text.trim().isNotEmpty)
+        .map((e) => {
+              'name': e.nameController.text.trim(),
+              'amount': e.amountController.text.trim(),
+            })
+        .toList();
+
+    if (triggerText.isEmpty && validFoodEntries.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please write your reflection or food details before saving.")),
+        const SnackBar(content: Text("Please write your reflection or food items before saving.")),
       );
       return;
     }
@@ -177,8 +204,8 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDateTime);
 
     // If food details were entered, automatically analyze & log nutrition to bio
-    if (_foodDetailsController.text.trim().isNotEmpty) {
-      appProvider.logNutritionFromFreeText(dateStr, _foodDetailsController.text.trim());
+    if (validFoodEntries.isNotEmpty) {
+      appProvider.logNutritionFromStructuredItems(dateStr, validFoodEntries);
     }
 
     // If only food details were entered (no reflection text), pop with notification
@@ -186,7 +213,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
       appProvider.clearReflectionDraft();
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text("Nutrition details logged to Bio & Health Dashboard!"),
+        content: Text("Nutrition items logged to Bio & Health Dashboard!"),
         duration: Duration(seconds: 2),
       ));
       return;
@@ -439,7 +466,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                     Divider(color: SpideyTheme.border, height: 1),
                     const SizedBox(height: 20),
 
-                    // Food / Nutrition Log Box in Both Modes
+                    // Food / Nutrition Log Box in Both Modes (Structured List View)
                     Row(
                       children: [
                         Icon(MdiIcons.silverwareForkKnife, size: 14, color: JweTheme.accentAmber),
@@ -449,11 +476,10 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
                         ),
                       ],
                     ),
-                    GrowingTextField(
-                      controller: _foodDetailsController,
-                      hint: "e.g., 2 eggs & avocado toast for breakfast, chicken salad for lunch, protein shake...",
-                      minLines: 2,
-                    ),
+                    const SizedBox(height: 8),
+                    ..._foodEntries.asMap().entries.map((entry) => _buildFoodItemRow(entry.key, entry.value)),
+                    const SizedBox(height: 6),
+                    _buildAddFoodItemButton(),
 
                     const SizedBox(height: 32),
 
@@ -544,7 +570,167 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
     );
   }
 
+  Widget _buildFoodItemRow(int index, FoodLogEntry entry) {
+    final isLight = JweTheme.isLight;
+    final borderCol = isLight ? Colors.black12 : JweTheme.border.withValues(alpha: 0.35);
+    final bgCol = isLight ? const Color(0xFFF1EFE8) : const Color(0xFF10131B);
 
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: bgCol,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderCol),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: JweTheme.accentAmber.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              '${index + 1}',
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 9.5,
+                fontWeight: FontWeight.bold,
+                color: JweTheme.accentAmber,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 3,
+            child: TextField(
+              controller: entry.nameController,
+              style: GoogleFonts.inter(
+                color: isLight ? const Color(0xFF1E293B) : Colors.white,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+              ),
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                hintText: "Item name (e.g. Eggs)",
+                hintStyle: GoogleFonts.inter(
+                  color: isLight ? Colors.black38 : Colors.white38,
+                  fontSize: 11.5,
+                ),
+                filled: true,
+                fillColor: isLight ? Colors.white : const Color(0xFF161A26),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(color: borderCol),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(color: borderCol),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(color: JweTheme.accentAmber),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 2,
+            child: TextField(
+              controller: entry.amountController,
+              style: GoogleFonts.inter(
+                color: isLight ? const Color(0xFF1E293B) : Colors.white,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+              ),
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                hintText: "Amount (e.g. 2 pcs)",
+                hintStyle: GoogleFonts.inter(
+                  color: isLight ? Colors.black38 : Colors.white38,
+                  fontSize: 11,
+                ),
+                filled: true,
+                fillColor: isLight ? Colors.white : const Color(0xFF161A26),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(color: borderCol),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(color: borderCol),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(color: JweTheme.accentAmber),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            icon: Icon(Icons.close, size: 16, color: JweTheme.accentRed.withValues(alpha: 0.8)),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            tooltip: 'Remove item',
+            onPressed: () {
+              setState(() {
+                if (_foodEntries.length > 1) {
+                  final removed = _foodEntries.removeAt(index);
+                  removed.dispose();
+                } else {
+                  _foodEntries[0].nameController.clear();
+                  _foodEntries[0].amountController.clear();
+                }
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddFoodItemButton() {
+    final isLight = JweTheme.isLight;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _foodEntries.add(FoodLogEntry());
+        });
+      },
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.4)),
+          borderRadius: BorderRadius.circular(6),
+          color: JweTheme.accentAmber.withValues(alpha: isLight ? 0.08 : 0.12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add, size: 15, color: JweTheme.accentAmber),
+            const SizedBox(width: 6),
+            Text(
+              "+ ADD FOOD ITEM",
+              style: GoogleFonts.orbitron(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.8,
+                color: JweTheme.accentAmber,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _SpideyActionButton extends StatelessWidget {
