@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -140,6 +141,69 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   int _activeAddTab = 0; // 0 for Missions, 1 for Routines
   int? _multitaskTargetRowIndex;
 
+  final ScrollController _planScrollController = ScrollController();
+  final GlobalKey _planListKey = GlobalKey();
+  bool _isDraggingPlan = false;
+  Timer? _autoScrollTimer;
+  double _autoScrollVelocity = 0.0;
+  final Set<String> _expandedCheckpointEntries = {};
+
+  void _startAutoScroll(double velocity) {
+    _autoScrollVelocity = velocity;
+    if (_autoScrollTimer != null && _autoScrollTimer!.isActive) return;
+    _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
+      if (!_planScrollController.hasClients) return;
+      final maxScroll = _planScrollController.position.maxScrollExtent;
+      final current = _planScrollController.offset;
+      final target = (current + _autoScrollVelocity).clamp(0.0, maxScroll);
+      if ((target - current).abs() > 0.1) {
+        _planScrollController.jumpTo(target);
+      }
+    });
+  }
+
+  void _stopAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = null;
+    _autoScrollVelocity = 0.0;
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    if (!_isDraggingPlan) return;
+    final renderBox = _planListKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) return;
+
+    final localPos = renderBox.globalToLocal(event.position);
+    final height = renderBox.size.height;
+    const edgeThreshold = 90.0;
+    const maxSpeed = 15.0;
+
+    if (localPos.dy < edgeThreshold && localPos.dy >= -40) {
+      final factor = ((edgeThreshold - localPos.dy.clamp(0.0, edgeThreshold)) / edgeThreshold).clamp(0.1, 1.0);
+      _startAutoScroll(-maxSpeed * factor);
+    } else if (localPos.dy > height - edgeThreshold && localPos.dy <= height + 40) {
+      final factor = (((localPos.dy - (height - edgeThreshold)).clamp(0.0, edgeThreshold)) / edgeThreshold).clamp(0.1, 1.0);
+      _startAutoScroll(maxSpeed * factor);
+    } else {
+      _stopAutoScroll();
+    }
+  }
+
+  void _onPlanDragStarted() {
+    setState(() {
+      _isDraggingPlan = true;
+    });
+  }
+
+  void _onPlanDragEnded() {
+    _stopAutoScroll();
+    if (_isDraggingPlan) {
+      setState(() {
+        _isDraggingPlan = false;
+      });
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -181,6 +245,8 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _planScrollController.dispose();
+    _stopAutoScroll();
     super.dispose();
   }
 
@@ -809,22 +875,29 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 24),
-      itemCount: _rows.length * 2 + 2,
-      itemBuilder: (context, index) {
-        if (index == _rows.length * 2 + 1) {
-          return const _TacticalFooter();
-        }
+    return Listener(
+      onPointerMove: _handlePointerMove,
+      onPointerUp: (_) => _onPlanDragEnded(),
+      onPointerCancel: (_) => _onPlanDragEnded(),
+      child: ListView.builder(
+        key: _planListKey,
+        controller: _planScrollController,
+        padding: const EdgeInsets.only(bottom: 24),
+        itemCount: _rows.length * 2 + 2,
+        itemBuilder: (context, index) {
+          if (index == _rows.length * 2 + 1) {
+            return const _TacticalFooter();
+          }
 
-        if (index.isEven) {
-          final dividerIdx = index ~/ 2;
-          return _buildDropDivider(provider, dividerIdx);
-        } else {
-          final rowIdx = index ~/ 2;
-          return _buildTaskRow(provider, _rows[rowIdx], rowIdx);
-        }
-      },
+          if (index.isEven) {
+            final dividerIdx = index ~/ 2;
+            return _buildDropDivider(provider, dividerIdx);
+          } else {
+            final rowIdx = index ~/ 2;
+            return _buildTaskRow(provider, _rows[rowIdx], rowIdx);
+          }
+        },
+      ),
     );
   }
 
@@ -1563,8 +1636,19 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
 
   Widget _buildDropDivider(AppProvider provider, int dividerIdx) {
     return DragTarget<_PlanEntryDragData>(
-      onWillAcceptWithDetails: (details) => true,
+      onWillAcceptWithDetails: (details) {
+        final dragData = details.data;
+        if (dragData.sourceRowIndex < 0 || dragData.sourceRowIndex >= _rows.length) return false;
+        final sourceRow = _rows[dragData.sourceRowIndex];
+        if (sourceRow.entries.length == 1) {
+          if (dividerIdx == dragData.sourceRowIndex || dividerIdx == dragData.sourceRowIndex + 1) {
+            return false;
+          }
+        }
+        return true;
+      },
       onAcceptWithDetails: (details) {
+        _onPlanDragEnded();
         final dragData = details.data;
         setState(() {
           final sourceRow = _rows[dragData.sourceRowIndex];
@@ -1585,36 +1669,39 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       },
       builder: (context, candidateData, rejectedData) {
         final isHovered = candidateData.isNotEmpty;
-        if (isHovered) {
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF00F0FF).withValues(alpha: 0.1),
-              border: Border.all(color: const Color(0xFF00F0FF), width: 1.5),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.add_circle_outline, size: 14, color: Color(0xFF00F0FF)),
-                  const SizedBox(width: 6),
-                  Text(
-                    'DROP HERE TO CREATE NEW ROW',
-                    style: GoogleFonts.rajdhani(
-                      color: const Color(0xFF00F0FF),
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                    ),
+        return Container(
+          height: 18,
+          margin: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          child: isHovered
+              ? Container(
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: JweTheme.accentCyan.withValues(alpha: JweTheme.isLight ? 0.12 : 0.18),
+                    border: Border.all(color: JweTheme.accentCyan, width: 1.5),
+                    borderRadius: BorderRadius.circular(3),
                   ),
-                ],
-              ),
-            ),
-          );
-        }
-        return const SizedBox(height: 6);
+                  alignment: Alignment.center,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, size: 10, color: JweTheme.accentCyan),
+                      const SizedBox(width: 4),
+                      Text(
+                        'INSERT NEW ROW',
+                        style: GoogleFonts.rajdhani(
+                          color: JweTheme.accentCyan,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
+        );
       },
     );
   }
@@ -1650,8 +1737,14 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     }
 
     return DragTarget<_PlanEntryDragData>(
-      onWillAcceptWithDetails: (details) => true,
+      onWillAcceptWithDetails: (details) {
+        final dragData = details.data;
+        if (dragData.sourceRowIndex == rowIndex) return false;
+        if (rowData.entries.length >= 3) return false;
+        return true;
+      },
       onAcceptWithDetails: (details) {
+        _onPlanDragEnded();
         final dragData = details.data;
         if (dragData.sourceRowIndex == rowIndex) {
           return;
@@ -1673,15 +1766,14 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       },
       builder: (context, candidateData, rejectedData) {
         final isHovered = candidateData.isNotEmpty;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+        return Container(
           margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
           decoration: isHovered
               ? BoxDecoration(
-                  border: Border.all(color: const Color(0xFF00F0FF), width: 1.5),
+                  border: Border.all(color: JweTheme.accentCyan, width: 1.5),
                   borderRadius: BorderRadius.circular(4),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x3300F0FF), blurRadius: 8, spreadRadius: 1),
+                  boxShadow: [
+                    BoxShadow(color: JweTheme.accentCyan.withValues(alpha: 0.25), blurRadius: 8, spreadRadius: 1),
                   ],
                 )
               : null,
@@ -1752,6 +1844,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                     children: [
                       Draggable<_PlanEntryDragData>(
                         data: _PlanEntryDragData(entry: entry, sourceRowIndex: rowIndex),
+                        onDragStarted: _onPlanDragStarted,
+                        onDragEnd: (_) => _onPlanDragEnded(),
+                        onDraggableCanceled: (_, __) => _onPlanDragEnded(),
                         feedback: Material(
                           color: Colors.transparent,
                           child: Container(
@@ -1779,10 +1874,15 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                         ),
                         childWhenDragging: Opacity(
                           opacity: 0.3,
-                          child: Icon(Icons.drag_indicator, size: 18, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
+                          child: Container(
+                            color: Colors.transparent,
+                            padding: const EdgeInsets.fromLTRB(2, 6, 8, 6),
+                            child: Icon(Icons.drag_indicator, size: 18, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
+                          ),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 8),
+                        child: Container(
+                          color: Colors.transparent,
+                          padding: const EdgeInsets.fromLTRB(2, 6, 8, 6),
                           child: Icon(Icons.drag_indicator, size: 18, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
                         ),
                       ),
@@ -1971,6 +2071,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                     children: [
                       Draggable<_PlanEntryDragData>(
                         data: _PlanEntryDragData(entry: entry, sourceRowIndex: rowIndex),
+                        onDragStarted: _onPlanDragStarted,
+                        onDragEnd: (_) => _onPlanDragEnded(),
+                        onDraggableCanceled: (_, __) => _onPlanDragEnded(),
                         feedback: Material(
                           color: Colors.transparent,
                           child: Container(
@@ -1995,10 +2098,15 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                         ),
                         childWhenDragging: Opacity(
                           opacity: 0.3,
-                          child: Icon(Icons.drag_indicator, size: 14, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
+                          child: Container(
+                            color: Colors.transparent,
+                            padding: const EdgeInsets.fromLTRB(1, 4, 6, 4),
+                            child: Icon(Icons.drag_indicator, size: 14, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
+                          ),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 5, top: 1),
+                        child: Container(
+                          color: Colors.transparent,
+                          padding: const EdgeInsets.fromLTRB(1, 4, 6, 4),
                           child: Icon(Icons.drag_indicator, size: 14, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
                         ),
                       ),
@@ -2206,6 +2314,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                     children: [
                       Draggable<_PlanEntryDragData>(
                         data: _PlanEntryDragData(entry: entry, sourceRowIndex: rowIndex),
+                        onDragStarted: _onPlanDragStarted,
+                        onDragEnd: (_) => _onPlanDragEnded(),
+                        onDraggableCanceled: (_, __) => _onPlanDragEnded(),
                         feedback: Material(
                           color: Colors.transparent,
                           child: Container(
@@ -2230,10 +2341,15 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                         ),
                         childWhenDragging: Opacity(
                           opacity: 0.3,
-                          child: Icon(Icons.drag_indicator, size: 11, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
+                          child: Container(
+                            color: Colors.transparent,
+                            padding: const EdgeInsets.fromLTRB(1, 3, 5, 3),
+                            child: Icon(Icons.drag_indicator, size: 11, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
+                          ),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 2, top: 1),
+                        child: Container(
+                          color: Colors.transparent,
+                          padding: const EdgeInsets.fromLTRB(1, 3, 5, 3),
                           child: Icon(Icons.drag_indicator, size: 11, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
                         ),
                       ),
@@ -2389,128 +2505,178 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     final totalCount = checkpoints.length;
     final totalMinutes = checkpoints.fold<int>(0, (sum, c) => sum + c.durationMinutes);
     final progress = totalCount > 0 ? completedCount / totalCount : 0.0;
+    final isExpanded = _expandedCheckpointEntries.contains(entry.key);
 
     return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(10),
+      margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF060A0F),
+        color: JweTheme.isLight ? JweTheme.panel2 : const Color(0xFF060A0F),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFF14202D)),
+        border: Border.all(color: JweTheme.isLight ? JweTheme.border : const Color(0xFF14202D)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'SUB TASKS ($completedCount/$totalCount)',
-                style: GoogleFonts.rajdhani(
-                  color: const Color(0xFF64748B),
-                  fontSize: 10,
-                  letterSpacing: 1.2,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                'Total: ${totalMinutes}m',
-                style: GoogleFonts.rajdhani(
-                  color: const Color(0xFF64748B),
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          if (totalCount > 0) ...[
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(2),
-              child: LinearProgressIndicator(
-                value: progress,
-                backgroundColor: JweTheme.isLight ? JweTheme.border : const Color(0xFF1E293B),
-                valueColor: AlwaysStoppedAnimation<Color>(JweTheme.accentCyan),
-                minHeight: 3,
-              ),
-            ),
-          ],
-          const SizedBox(height: 8),
-          if (checkpoints.isNotEmpty)
-            ...checkpoints.map((cp) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: Row(
-                  children: [
-                    _CustomSquareCheck(
-                      checked: cp.completed,
-                      onTap: () => _toggleCheckpoint(provider, entry, cp),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        cp.name,
-                        style: GoogleFonts.rajdhani(
-                          color: cp.completed ? JweTheme.textMuted : JweTheme.textWhite,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          decoration: cp.completed ? TextDecoration.lineThrough : null,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${cp.durationMinutes}m',
-                      style: GoogleFonts.rajdhani(
-                        color: JweTheme.textMuted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    InkWell(
-                      onTap: () => _removeCheckpoint(provider, entry, cp),
-                      child: Padding(
-                        padding: const EdgeInsets.all(2),
-                        child: Text(
-                          '✕',
-                          style: TextStyle(color: JweTheme.textMuted, fontSize: 11),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          const SizedBox(height: 6),
           InkWell(
-            onTap: () => _promptAddSubtask(provider, entry),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              decoration: BoxDecoration(
-                border: Border.all(color: JweTheme.lineSoft, style: BorderStyle.solid),
-                borderRadius: BorderRadius.circular(2),
-              ),
+            onTap: () {
+              setState(() {
+                if (isExpanded) {
+                  _expandedCheckpointEntries.remove(entry.key);
+                } else {
+                  _expandedCheckpointEntries.add(entry.key);
+                }
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.add, size: 12, color: JweTheme.accentCyan),
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.25 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.chevron_right,
+                      size: 14,
+                      color: JweTheme.isLight ? JweTheme.textMid : const Color(0xFF64748B),
+                    ),
+                  ),
                   const SizedBox(width: 4),
+                  Icon(
+                    Icons.checklist_rounded,
+                    size: 13,
+                    color: totalCount > 0
+                        ? (completedCount == totalCount ? JweTheme.accentTeal : JweTheme.accentCyan)
+                        : JweTheme.textMuted,
+                  ),
+                  const SizedBox(width: 6),
                   Text(
-                    '+ ADD SUB TASK',
+                    'CHECKPOINTS ($completedCount/$totalCount)',
                     style: GoogleFonts.rajdhani(
-                      color: JweTheme.accentCyan,
-                      fontSize: 11,
-                      letterSpacing: 1.5,
+                      color: JweTheme.isLight ? JweTheme.textWhite : const Color(0xFFEAECF3),
+                      fontSize: 10.5,
+                      letterSpacing: 1.2,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  const Spacer(),
+                  if (totalMinutes > 0)
+                    Text(
+                      'Total: ${totalMinutes}m',
+                      style: GoogleFonts.rajdhani(
+                        color: JweTheme.textMuted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                 ],
               ),
             ),
+          ),
+          if (totalCount > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(1),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: JweTheme.isLight ? JweTheme.border : const Color(0xFF1E293B),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    completedCount == totalCount ? JweTheme.accentTeal : JweTheme.accentCyan,
+                  ),
+                  minHeight: 2,
+                ),
+              ),
+            ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: isExpanded
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (checkpoints.isNotEmpty)
+                          ...checkpoints.map((cp) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 3),
+                              child: Row(
+                                children: [
+                                  _CustomSquareCheck(
+                                    checked: cp.completed,
+                                    onTap: () => _toggleCheckpoint(provider, entry, cp),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      cp.name,
+                                      style: GoogleFonts.rajdhani(
+                                        color: cp.completed ? JweTheme.textMuted : JweTheme.textWhite,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        decoration: cp.completed ? TextDecoration.lineThrough : null,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${cp.durationMinutes}m',
+                                    style: GoogleFonts.rajdhani(
+                                      color: JweTheme.textMuted,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  InkWell(
+                                    onTap: () => _removeCheckpoint(provider, entry, cp),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(2),
+                                      child: Text(
+                                        '✕',
+                                        style: TextStyle(color: JweTheme.textMuted, fontSize: 11),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        const SizedBox(height: 6),
+                        InkWell(
+                          onTap: () => _promptAddSubtask(provider, entry),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: JweTheme.lineSoft, style: BorderStyle.solid),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add, size: 12, color: JweTheme.accentCyan),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '+ ADD CHECKPOINT',
+                                  style: GoogleFonts.rajdhani(
+                                    color: JweTheme.accentCyan,
+                                    fontSize: 11,
+                                    letterSpacing: 1.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox(width: double.infinity, height: 4),
           ),
         ],
       ),
