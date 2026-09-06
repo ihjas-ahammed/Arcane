@@ -1,5 +1,6 @@
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/timeline_models.dart';
+import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -23,10 +24,10 @@ class ScheduleActions {
     // Use Pro AI models first (heavyModels), with fallback to liteModels
     final proModels = _provider.settings.heavyModels.isNotEmpty
         ? _provider.settings.heavyModels
-        : const ['gemini-2.0-pro-exp-02-05', 'gemini-1.5-pro'];
+        : AppSettings.defaultHeavyModels;
     final liteModels = _provider.settings.liteModels.isNotEmpty
         ? _provider.settings.liteModels
-        : const ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash'];
+        : AppSettings.defaultLiteModels;
     final modelCandidates = <String>[
       ...proModels,
       ...liteModels.where((m) => !proModels.contains(m)),

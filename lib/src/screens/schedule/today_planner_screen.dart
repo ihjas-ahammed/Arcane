@@ -112,11 +112,6 @@ class _PlanRowData {
   int get count => entries.length.clamp(1, 3);
 }
 
-class _PlanEntryDragData {
-  final _PlanEntry entry;
-  final int sourceRowIndex;
-  _PlanEntryDragData({required this.entry, required this.sourceRowIndex});
-}
 
 enum _LeaveKind { removed, completed }
 
@@ -143,66 +138,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
 
   final ScrollController _planScrollController = ScrollController();
   final GlobalKey _planListKey = GlobalKey();
-  bool _isDraggingPlan = false;
-  Timer? _autoScrollTimer;
-  double _autoScrollVelocity = 0.0;
   final Set<String> _expandedCheckpointEntries = {};
-
-  void _startAutoScroll(double velocity) {
-    _autoScrollVelocity = velocity;
-    if (_autoScrollTimer != null && _autoScrollTimer!.isActive) return;
-    _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
-      if (!_planScrollController.hasClients) return;
-      final maxScroll = _planScrollController.position.maxScrollExtent;
-      final current = _planScrollController.offset;
-      final target = (current + _autoScrollVelocity).clamp(0.0, maxScroll);
-      if ((target - current).abs() > 0.1) {
-        _planScrollController.jumpTo(target);
-      }
-    });
-  }
-
-  void _stopAutoScroll() {
-    _autoScrollTimer?.cancel();
-    _autoScrollTimer = null;
-    _autoScrollVelocity = 0.0;
-  }
-
-  void _handlePointerMove(PointerMoveEvent event) {
-    if (!_isDraggingPlan) return;
-    final renderBox = _planListKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null || !renderBox.hasSize) return;
-
-    final localPos = renderBox.globalToLocal(event.position);
-    final height = renderBox.size.height;
-    const edgeThreshold = 90.0;
-    const maxSpeed = 15.0;
-
-    if (localPos.dy < edgeThreshold && localPos.dy >= -40) {
-      final factor = ((edgeThreshold - localPos.dy.clamp(0.0, edgeThreshold)) / edgeThreshold).clamp(0.1, 1.0);
-      _startAutoScroll(-maxSpeed * factor);
-    } else if (localPos.dy > height - edgeThreshold && localPos.dy <= height + 40) {
-      final factor = (((localPos.dy - (height - edgeThreshold)).clamp(0.0, edgeThreshold)) / edgeThreshold).clamp(0.1, 1.0);
-      _startAutoScroll(maxSpeed * factor);
-    } else {
-      _stopAutoScroll();
-    }
-  }
-
-  void _onPlanDragStarted() {
-    setState(() {
-      _isDraggingPlan = true;
-    });
-  }
-
-  void _onPlanDragEnded() {
-    _stopAutoScroll();
-    if (_isDraggingPlan) {
-      setState(() {
-        _isDraggingPlan = false;
-      });
-    }
-  }
 
   @override
   void didChangeDependencies() {
@@ -246,7 +182,6 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   void dispose() {
     _searchCtrl.dispose();
     _planScrollController.dispose();
-    _stopAutoScroll();
     super.dispose();
   }
 
@@ -875,29 +810,31 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       );
     }
 
-    return Listener(
-      onPointerMove: _handlePointerMove,
-      onPointerUp: (_) => _onPlanDragEnded(),
-      onPointerCancel: (_) => _onPlanDragEnded(),
-      child: ListView.builder(
-        key: _planListKey,
-        controller: _planScrollController,
-        padding: const EdgeInsets.only(bottom: 24),
-        itemCount: _rows.length * 2 + 2,
-        itemBuilder: (context, index) {
-          if (index == _rows.length * 2 + 1) {
-            return const _TacticalFooter();
-          }
-
-          if (index.isEven) {
-            final dividerIdx = index ~/ 2;
-            return _buildDropDivider(provider, dividerIdx);
-          } else {
-            final rowIdx = index ~/ 2;
-            return _buildTaskRow(provider, _rows[rowIdx], rowIdx);
-          }
-        },
-      ),
+    return ReorderableListView.builder(
+      key: _planListKey,
+      scrollController: _planScrollController,
+      buildDefaultDragHandles: false,
+      padding: const EdgeInsets.only(bottom: 24),
+      itemCount: _rows.length,
+      onReorderItem: (oldIndex, newIndex) {
+        setState(() {
+          final item = _rows.removeAt(oldIndex);
+          _rows.insert(newIndex.clamp(0, _rows.length), item);
+        });
+        _persistPlan(provider);
+      },
+      proxyDecorator: (child, index, animation) {
+        return Material(
+          color: Colors.transparent,
+          elevation: 6,
+          shadowColor: Colors.black.withValues(alpha: JweTheme.isLight ? 0.2 : 0.6),
+          child: child,
+        );
+      },
+      footer: const _TacticalFooter(),
+      itemBuilder: (context, index) {
+        return _buildTaskRow(provider, _rows[index], index);
+      },
     );
   }
 
@@ -1634,78 +1571,6 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     );
   }
 
-  Widget _buildDropDivider(AppProvider provider, int dividerIdx) {
-    return DragTarget<_PlanEntryDragData>(
-      onWillAcceptWithDetails: (details) {
-        final dragData = details.data;
-        if (dragData.sourceRowIndex < 0 || dragData.sourceRowIndex >= _rows.length) return false;
-        final sourceRow = _rows[dragData.sourceRowIndex];
-        if (sourceRow.entries.length == 1) {
-          if (dividerIdx == dragData.sourceRowIndex || dividerIdx == dragData.sourceRowIndex + 1) {
-            return false;
-          }
-        }
-        return true;
-      },
-      onAcceptWithDetails: (details) {
-        _onPlanDragEnded();
-        final dragData = details.data;
-        setState(() {
-          final sourceRow = _rows[dragData.sourceRowIndex];
-          sourceRow.entries.removeWhere((e) => e.key == dragData.entry.key);
-
-          int insertIdx = dividerIdx;
-          if (sourceRow.entries.isEmpty) {
-            _rows.removeAt(dragData.sourceRowIndex);
-            if (dragData.sourceRowIndex < dividerIdx) {
-              insertIdx = (insertIdx - 1).clamp(0, _rows.length);
-            }
-          }
-          insertIdx = insertIdx.clamp(0, _rows.length);
-          _rows.insert(insertIdx, _PlanRowData([dragData.entry]));
-        });
-        _persistPlan(provider);
-        showGlobalToast('Moved to new tactical row');
-      },
-      builder: (context, candidateData, rejectedData) {
-        final isHovered = candidateData.isNotEmpty;
-        return Container(
-          height: 18,
-          margin: const EdgeInsets.symmetric(horizontal: 14),
-          alignment: Alignment.center,
-          child: isHovered
-              ? Container(
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: JweTheme.accentCyan.withValues(alpha: JweTheme.isLight ? 0.12 : 0.18),
-                    border: Border.all(color: JweTheme.accentCyan, width: 1.5),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  alignment: Alignment.center,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add, size: 10, color: JweTheme.accentCyan),
-                      const SizedBox(width: 4),
-                      Text(
-                        'INSERT NEW ROW',
-                        style: GoogleFonts.rajdhani(
-                          color: JweTheme.accentCyan,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : const SizedBox.shrink(),
-        );
-      },
-    );
-  }
-
   Widget _buildTaskRow(AppProvider provider, _PlanRowData rowData, int rowIndex) {
     Widget content;
     if (rowData.entries.length == 1) {
@@ -1736,50 +1601,13 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       );
     }
 
-    return DragTarget<_PlanEntryDragData>(
-      onWillAcceptWithDetails: (details) {
-        final dragData = details.data;
-        if (dragData.sourceRowIndex == rowIndex) return false;
-        if (rowData.entries.length >= 3) return false;
-        return true;
-      },
-      onAcceptWithDetails: (details) {
-        _onPlanDragEnded();
-        final dragData = details.data;
-        if (dragData.sourceRowIndex == rowIndex) {
-          return;
-        }
-        if (rowData.entries.length >= 3) {
-          showGlobalToast('TACTICAL OVERLOAD: Maximum 3 missions allowed per row!');
-          return;
-        }
-        setState(() {
-          final sourceRow = _rows[dragData.sourceRowIndex];
-          sourceRow.entries.removeWhere((e) => e.key == dragData.entry.key);
-          if (sourceRow.entries.isEmpty) {
-            _rows.removeAt(dragData.sourceRowIndex);
-          }
-          rowData.entries.add(dragData.entry);
-        });
-        _persistPlan(provider);
-        showGlobalToast('Multitasking linked');
-      },
-      builder: (context, candidateData, rejectedData) {
-        final isHovered = candidateData.isNotEmpty;
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          decoration: isHovered
-              ? BoxDecoration(
-                  border: Border.all(color: JweTheme.accentCyan, width: 1.5),
-                  borderRadius: BorderRadius.circular(4),
-                  boxShadow: [
-                    BoxShadow(color: JweTheme.accentCyan.withValues(alpha: 0.25), blurRadius: 8, spreadRadius: 1),
-                  ],
-                )
-              : null,
-          child: content,
-        );
-      },
+    return Container(
+      key: ValueKey(rowData.key),
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      child: ReorderableDelayedDragStartListener(
+        index: rowIndex,
+        child: content,
+      ),
     );
   }
 
@@ -1842,48 +1670,15 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Draggable<_PlanEntryDragData>(
-                        data: _PlanEntryDragData(entry: entry, sourceRowIndex: rowIndex),
-                        onDragStarted: _onPlanDragStarted,
-                        onDragEnd: (_) => _onPlanDragEnded(),
-                        onDraggableCanceled: (_, __) => _onPlanDragEnded(),
-                        feedback: Material(
-                          color: Colors.transparent,
-                          child: Container(
-                            width: 260,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: JweTheme.isLight ? JweTheme.panel : const Color(0xFF090F16),
-                              border: Border.all(color: JweTheme.accentCyan),
-                              borderRadius: BorderRadius.circular(4),
-                              boxShadow: [
-                                BoxShadow(color: JweTheme.accentCyan.withValues(alpha: 0.4), blurRadius: 10),
-                              ],
-                            ),
-                            child: Text(
-                              title,
-                              style: GoogleFonts.rajdhani(
-                                color: JweTheme.textWhite,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Opacity(
-                          opacity: 0.3,
+                      ReorderableDragStartListener(
+                        index: rowIndex,
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.grab,
                           child: Container(
                             color: Colors.transparent,
                             padding: const EdgeInsets.fromLTRB(2, 6, 8, 6),
                             child: Icon(Icons.drag_indicator, size: 18, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
                           ),
-                        ),
-                        child: Container(
-                          color: Colors.transparent,
-                          padding: const EdgeInsets.fromLTRB(2, 6, 8, 6),
-                          child: Icon(Icons.drag_indicator, size: 18, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
                         ),
                       ),
                       // NO HERO ICON!
@@ -2069,45 +1864,15 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Draggable<_PlanEntryDragData>(
-                        data: _PlanEntryDragData(entry: entry, sourceRowIndex: rowIndex),
-                        onDragStarted: _onPlanDragStarted,
-                        onDragEnd: (_) => _onPlanDragEnded(),
-                        onDraggableCanceled: (_, __) => _onPlanDragEnded(),
-                        feedback: Material(
-                          color: Colors.transparent,
-                          child: Container(
-                            width: 170,
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: JweTheme.isLight ? JweTheme.panel : const Color(0xFF090F16),
-                              border: Border.all(color: JweTheme.accentCyan),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              title,
-                              style: GoogleFonts.rajdhani(
-                                color: JweTheme.textWhite,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Opacity(
-                          opacity: 0.3,
+                      ReorderableDragStartListener(
+                        index: rowIndex,
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.grab,
                           child: Container(
                             color: Colors.transparent,
                             padding: const EdgeInsets.fromLTRB(1, 4, 6, 4),
                             child: Icon(Icons.drag_indicator, size: 14, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
                           ),
-                        ),
-                        child: Container(
-                          color: Colors.transparent,
-                          padding: const EdgeInsets.fromLTRB(1, 4, 6, 4),
-                          child: Icon(Icons.drag_indicator, size: 14, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
                         ),
                       ),
                       // NO HERO ICON!
@@ -2312,45 +2077,15 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Draggable<_PlanEntryDragData>(
-                        data: _PlanEntryDragData(entry: entry, sourceRowIndex: rowIndex),
-                        onDragStarted: _onPlanDragStarted,
-                        onDragEnd: (_) => _onPlanDragEnded(),
-                        onDraggableCanceled: (_, __) => _onPlanDragEnded(),
-                        feedback: Material(
-                          color: Colors.transparent,
-                          child: Container(
-                            width: 140,
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: JweTheme.isLight ? JweTheme.panel : const Color(0xFF090F16),
-                              border: Border.all(color: JweTheme.accentCyan),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              title,
-                              style: GoogleFonts.rajdhani(
-                                color: JweTheme.textWhite,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Opacity(
-                          opacity: 0.3,
+                      ReorderableDragStartListener(
+                        index: rowIndex,
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.grab,
                           child: Container(
                             color: Colors.transparent,
                             padding: const EdgeInsets.fromLTRB(1, 3, 5, 3),
                             child: Icon(Icons.drag_indicator, size: 11, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
                           ),
-                        ),
-                        child: Container(
-                          color: Colors.transparent,
-                          padding: const EdgeInsets.fromLTRB(1, 3, 5, 3),
-                          child: Icon(Icons.drag_indicator, size: 11, color: JweTheme.isLight ? JweTheme.textMuted : const Color(0xFF475569)),
                         ),
                       ),
                       // NO HERO ICON!

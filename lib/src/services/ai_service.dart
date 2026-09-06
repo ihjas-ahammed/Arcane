@@ -10,6 +10,7 @@ import 'package:missions/src/config/api_keys.dart';
 import 'package:missions/src/services/secrets_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:missions/src/utils/json_utils.dart';
+import 'package:missions/src/models/app_state_models.dart';
 
 class AIService {
 
@@ -385,26 +386,42 @@ class AIService {
       throw Exception("OFFLINE_MOCK_DATA");
     }
 
-    for (final model in modelCandidates) {
+    final effectiveCandidates = modelCandidates
+        .map((m) => m.trim())
+        .where((m) => m.isNotEmpty)
+        .toList();
+
+    final modelsToTry = effectiveCandidates.isNotEmpty
+        ? effectiveCandidates
+        : AppSettings.defaultLiteModels;
+
+    for (int modelIdx = 0; modelIdx < modelsToTry.length; modelIdx++) {
+      final model = modelsToTry[modelIdx];
+      final isFallback = modelIdx > 0;
+      final roleLabel = isFallback ? "Fallback Model #$modelIdx" : "Primary Model";
+
       for (int i = 0; i < apiKeysToTry.length; i++) {
         int effectiveIndex = (currentApiKeyIndex + i) % apiKeysToTry.length;
         String effectiveKey = apiKeysToTry[effectiveIndex];
 
         try {
-          if (kDebugMode) {
-            onLog("Trying Model: $model with Key Index: $effectiveIndex");
-          }
+          onLog("Engaging $roleLabel [$model] (Key Index: $effectiveIndex)...");
           final result = await requestFn(effectiveKey, model);
           onNewApiKeyIndex(effectiveIndex);
-          onLog("Model $model succeeded with Key Index: $effectiveIndex");
+          onLog("<span style=\"color:var(--fh-accent-green);\">$roleLabel [$model] succeeded with Key Index: $effectiveIndex</span>");
           return result;
         } catch (e) {
           if (e is FormatException && e.message.contains("JSON Decode Failed")) {
-             onLog("<span style=\"color:var(--fh-accent-red);\">JSON ERROR: ${e.toString()}</span>");
-             debugPrint("AI JSON PARSE ERROR:\n${e.message}");
+            onLog("<span style=\"color:var(--fh-accent-red);\">JSON ERROR on [$model]: ${e.toString()}</span>");
+            debugPrint("AI JSON PARSE ERROR [$model]:\n${e.message}");
           }
+          final bool hasMoreKeys = i < apiKeysToTry.length - 1;
+          final bool hasMoreModels = modelIdx < modelsToTry.length - 1;
+          String nextStepHint = hasMoreKeys 
+              ? "trying next key..." 
+              : (hasMoreModels ? "rolling to next fallback model..." : "exhausted all Gemini models.");
           onLog(
-              "<span style=\"color:var(--fh-accent-orange);\">Model $model + Key $effectiveIndex failed: ${e.toString()}</span>");
+              "<span style=\"color:var(--fh-accent-orange);\">$roleLabel [$model] + Key $effectiveIndex failed: ${e.toString()} ($nextStepHint)</span>");
         }
       }
     }
@@ -496,19 +513,25 @@ class AIService {
     required Function(String) onLog,
     Function(String status)? onStatusUpdate,
   }) async {
-    final proList = proModels.isNotEmpty
+    final proList = (proModels.isNotEmpty
         ? proModels
         : (liteModels != null && liteModels.isNotEmpty
             ? liteModels
-            : const ['gemini-2.0-flash']);
-    final liteList = liteModels != null && liteModels.isNotEmpty
+            : AppSettings.defaultHeavyModels))
+        .map((m) => m.trim())
+        .where((m) => m.isNotEmpty)
+        .toList();
+    final liteList = (liteModels != null && liteModels.isNotEmpty
         ? liteModels
-        : const ['gemini-2.0-flash', 'gemini-1.5-flash'];
+        : AppSettings.defaultLiteModels)
+        .map((m) => m.trim())
+        .where((m) => m.isNotEmpty)
+        .toList();
 
     final proName = proList.first.replaceAll('models/', '');
     final liteName = liteList.first.replaceAll('models/', '');
 
-    onStatusUpdate?.call('SYNTHESIZING WITH PRO MODEL [$proName] (TIMEOUT: ${proTimeout.inSeconds}s)...');
+    onStatusUpdate?.call('SYNTHESIZING WITH PRO MODELS (PRIMARY: $proName, TIMEOUT: ${proTimeout.inSeconds}s)...');
 
     try {
       final result = await makeAICall(
@@ -527,13 +550,13 @@ class AIService {
     } catch (e) {
       final isTimeout = e is TimeoutException;
       final errorDetail = isTimeout
-          ? 'Pro model [$proName] timed out after ${proTimeout.inSeconds}s'
-          : 'Pro model [$proName] error: ${e.toString()}';
+          ? 'Pro models timed out after ${proTimeout.inSeconds}s'
+          : 'Pro models failed: ${e.toString()}';
 
-      onLog('<span style="color:var(--fh-accent-orange);">$errorDetail. Retrying with Lite model [$liteName]...</span>');
+      onLog('<span style="color:var(--fh-accent-orange);">$errorDetail. Retrying with Lite models rolling fallback (${liteList.length} candidates, primary: $liteName)...</span>');
       onStatusUpdate?.call(isTimeout
-          ? 'PRO MODEL TIMEOUT (${proTimeout.inSeconds}s) → RETRYING WITH LITE MODEL [$liteName]...'
-          : 'PRO MODEL FAILED → RETRYING WITH LITE MODEL [$liteName]...');
+          ? 'PRO MODEL TIMEOUT (${proTimeout.inSeconds}s) → RETRYING WITH LITE MODELS (PRIMARY: $liteName, ${liteList.length} CANDIDATES)...'
+          : 'PRO MODELS FAILED → RETRYING WITH LITE MODELS (PRIMARY: $liteName, ${liteList.length} CANDIDATES)...');
 
       try {
         final liteResult = await makeAICall(

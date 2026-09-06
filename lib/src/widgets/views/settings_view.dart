@@ -40,9 +40,12 @@ class _SettingsViewState extends State<SettingsView> {
   bool _regeneratingStyleMap = false;
 
   List<String> _availableModels = [
+    'gemini-2.0-flash-lite',
     'gemini-2.0-flash',
+    'gemini-2.0-pro-exp-02-05',
     'gemini-1.5-flash',
     'gemini-1.5-pro',
+    'gemini-3.1-flash-live-preview',
     'gemini-pro',
   ];
   bool _fetchingModels = false;

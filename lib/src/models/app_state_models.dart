@@ -278,6 +278,20 @@ class AppSettings {
   // Theme settings ('system', 'light', 'dark')
   String themeMode;
 
+  static const List<String> defaultLiteModels = [
+    'gemini-2.0-flash-lite',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+  ];
+  static const List<String> defaultHeavyModels = [
+    'gemini-2.0-flash',
+    'gemini-2.0-pro-exp-02-05',
+    'gemini-1.5-pro',
+  ];
+  static const List<String> defaultLiveModels = [
+    'gemini-3.1-flash-live-preview',
+  ];
+
   AppSettings({
     this.descriptionsVisible = true,
     this.dailyAutoGenerateContent = true,
@@ -285,19 +299,9 @@ class AppSettings {
     this.dayPlannerWidgetCheckable = false,
     this.wakeupTimeHour = 7,
     this.wakeupTimeMinute = 0,
-    this.liteModels = const [
-      'gemini-2.0-flash-lite',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash'
-    ],
-    this.heavyModels = const [
-      'gemini-2.0-flash',
-      'gemini-2.0-pro-exp-02-05',
-      'gemini-1.5-pro'
-    ],
-    this.liveModels = const [
-      'gemini-3.1-flash-live-preview',
-    ],
+    this.liteModels = defaultLiteModels,
+    this.heavyModels = defaultHeavyModels,
+    this.liveModels = defaultLiveModels,
     this.customApiKeys = const [],
     this.customChatbotPrompt,
     this.customReflectionPrompt,
@@ -373,18 +377,27 @@ class AppSettings {
       dayPlannerWidgetCheckable: json['dayPlannerWidgetCheckable'] as bool? ?? false,
       wakeupTimeHour: json['wakeupTimeHour'] as int? ?? 7,
       wakeupTimeMinute: json['wakeupTimeMinute'] as int? ?? 0,
-      liteModels: (json['liteModels'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash'],
-      heavyModels: (json['heavyModels'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          ['gemini-2.0-flash', 'gemini-2.0-pro-exp-02-05', 'gemini-1.5-pro'],
-      liveModels: (json['liveModels'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          ['gemini-3.1-flash-live-preview'],
+      liteModels: () {
+        final parsed = (json['liteModels'] as List<dynamic>?)
+            ?.map((e) => (e as String).trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+        return (parsed != null && parsed.isNotEmpty) ? parsed : List<String>.from(defaultLiteModels);
+      }(),
+      heavyModels: () {
+        final parsed = (json['heavyModels'] as List<dynamic>?)
+            ?.map((e) => (e as String).trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+        return (parsed != null && parsed.isNotEmpty) ? parsed : List<String>.from(defaultHeavyModels);
+      }(),
+      liveModels: () {
+        final parsed = (json['liveModels'] as List<dynamic>?)
+            ?.map((e) => (e as String).trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+        return (parsed != null && parsed.isNotEmpty) ? parsed : List<String>.from(defaultLiveModels);
+      }(),
       customApiKeys: keys,
       customChatbotPrompt: json['customChatbotPrompt'] as String?,
       customReflectionPrompt: json['customReflectionPrompt'] as String?,
