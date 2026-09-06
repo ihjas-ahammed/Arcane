@@ -288,42 +288,6 @@ class RunningTaskWidget : HomeWidgetProvider() {
     }
 
     private fun renderDayPlan(context: Context, views: RemoteViews, prefs: SharedPreferences) {
-        views.setImageViewResource(R.id.widget_bg_art, R.drawable.widget_bg_art_cyan)
-        val capacity = prefs.getString("arcane.task.capacity", "") ?: ""
-        views.setTextViewText(R.id.widget_dayplan_capacity, if (capacity.isNotEmpty()) "CAP $capacity" else "")
-
-        val rowContainers = intArrayOf(
-            R.id.widget_dayplan_row_0, R.id.widget_dayplan_row_1, R.id.widget_dayplan_row_2,
-            R.id.widget_dayplan_row_3, R.id.widget_dayplan_row_4,
-        )
-        val titleIds = intArrayOf(
-            R.id.widget_dayplan_row_title_0, R.id.widget_dayplan_row_title_1, R.id.widget_dayplan_row_title_2,
-            R.id.widget_dayplan_row_title_3, R.id.widget_dayplan_row_title_4,
-        )
-        val checkIds = intArrayOf(
-            R.id.widget_dayplan_btn_check_0, R.id.widget_dayplan_btn_check_1, R.id.widget_dayplan_btn_check_2,
-            R.id.widget_dayplan_btn_check_3, R.id.widget_dayplan_btn_check_4,
-        )
-        val checkActions = arrayOf("task_check_0", "task_check_1", "task_check_2", "task_check_3", "task_check_4")
-        val openPlanIntent = WidgetCommon.launchIntent(context, "task_open")
-
-        var visibleCount = 0
-        for (i in 0 until 5) {
-            val title = prefs.getString("arcane.task.dp$i.title", "") ?: ""
-            if (title.isBlank()) {
-                views.setViewVisibility(rowContainers[i], View.GONE)
-            } else {
-                views.setViewVisibility(rowContainers[i], View.VISIBLE)
-                views.setTextViewText(titleIds[i], title.uppercase())
-                views.setOnClickPendingIntent(titleIds[i], openPlanIntent)
-                views.setOnClickPendingIntent(checkIds[i], WidgetCommon.actionIntent(context, checkActions[i], 110 + i))
-                visibleCount++
-            }
-        }
-
-        views.setViewVisibility(R.id.widget_dayplan_empty, if (visibleCount == 0) View.VISIBLE else View.GONE)
-        views.setOnClickPendingIntent(R.id.widget_dayplan_btn_open, openPlanIntent)
-        views.setOnClickPendingIntent(R.id.widget_dayplan_btn_task, WidgetCommon.launchIntent(context, "task_open"))
-        views.setOnClickPendingIntent(R.id.widget_dayplan_status_badge, openPlanIntent)
+        DayPlanWidget.renderDayPlanLayout(context, views, prefs)
     }
 }

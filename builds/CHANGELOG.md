@@ -1,6 +1,12 @@
 # ⚡ Arcane System Changelog & Release Notes
 
 ## [v2026.9.6] — 2026-09-06
+### 📋 Day Plan Homescreen Widget Overhaul & Widgets Studio Integration
+- **Lightweight Card Architecture**: Replaced the fragile 335-line, 5-row checklist layout in `widget_dayplan.xml` with the proven lightweight single-card tactical architecture (17 elements, depth 5), matching Bus, Finance, and Journal widgets and completely eliminating launcher RemoteViews inflation crashes.
+- **Defensive Android Lifecycle & Logging**: Added comprehensive `try/catch` error logging to `DayPlanWidget.kt` and extracted `renderDayPlanLayout` to cleanly bind the active queue, next in line, and quick action intents (`OPEN PLAN`, `CHECK`, `ENGAGE`).
+- **Instant Check Feedback**: Wired `task_check_0` and `task_check_` action intents in `WidgetActionReceiver.kt` to trigger immediate visual updates and haptic confirmation on `DayPlanWidget` instances.
+- **1:1 Flutter Day Plan Widget**: Introduced `DayPlanHomeWidget` with complete dual-theme compliance (`JweTheme.panel`, `JweTheme.accentCyan`, `JweTheme.textWhite`, etc.), mirroring the native 4x2 tactical card in-app.
+- **Widgets Studio Live Preview**: Integrated `DayPlanHomeWidget` into `HomescreenWidgetsPreviewScreen` ("Widgets Studio") in the DAY PLAN tab for real-time state inspection and homescreen pinning.
 ### 🗂️ Smooth Reorderable Planner & Drag Glitch Elimination
 - **Submission-Engine Reordering**: Migrated `TodayPlannerScreen` task and mission reordering to Flutter's native `ReorderableListView.builder` paired with `ReorderableDragStartListener` and `ReorderableDelayedDragStartListener`, mirroring the rock-solid submission reordering in `task_details_view.dart`.
 - **Zero Jitter & Auto-Adjust Elimination**: Removed oscillating hover-expand drop dividers and custom manual scroll listeners that previously triggered rapid 10x/sec layout fighting during drag gestures.

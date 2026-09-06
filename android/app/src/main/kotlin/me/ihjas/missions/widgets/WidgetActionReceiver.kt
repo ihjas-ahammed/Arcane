@@ -45,47 +45,33 @@ class WidgetActionReceiver : BroadcastReceiver() {
             val runningIds = appWidgetManager.getAppWidgetIds(
                 android.content.ComponentName(context, RunningTaskWidget::class.java)
             )
-            if (runningIds.isEmpty()) return
-
-            val views = RemoteViews(context.packageName, R.layout.widget_running_task)
-
-            when {
-                action == "task_toggle" -> {
-                    val prefs = context.getSharedPreferences("HomeWidgetPrefs", Context.MODE_PRIVATE)
-                    val isRunning = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isRunning", false)
-                    if (isRunning) {
-                        views.setTextViewText(R.id.widget_btn_engage, "HALTING...")
-                    } else {
-                        views.setTextViewText(R.id.widget_btn_engage, "ENGAGING...")
+            if (runningIds.isNotEmpty()) {
+                val views = RemoteViews(context.packageName, R.layout.widget_running_task)
+                when (action) {
+                    "task_toggle" -> {
+                        val prefs = context.getSharedPreferences("HomeWidgetPrefs", Context.MODE_PRIVATE)
+                        val isRunning = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isRunning", false)
+                        views.setTextViewText(R.id.widget_btn_engage, if (isRunning) "HALTING..." else "ENGAGING...")
                     }
+                    "task_check_next" -> views.setTextViewText(R.id.widget_btn_check, "CHECKING...")
+                    "task_finish" -> views.setTextViewText(R.id.widget_btn_finish, "FINISHING...")
                 }
-                action == "task_check_next" -> {
-                    views.setTextViewText(R.id.widget_btn_check, "CHECKING...")
+                for (id in runningIds) {
+                    appWidgetManager.partiallyUpdateAppWidget(id, views)
                 }
-                action == "task_finish" -> {
-                    views.setTextViewText(R.id.widget_btn_finish, "FINISHING...")
-                }
-                action.startsWith("task_check_") -> {
-                    val idx = action.split("_").last().toIntOrNull() ?: return
-                    val checkIds = intArrayOf(
-                        R.id.widget_dayplan_btn_check_0, R.id.widget_dayplan_btn_check_1, R.id.widget_dayplan_btn_check_2,
-                        R.id.widget_dayplan_btn_check_3, R.id.widget_dayplan_btn_check_4
-                    )
-                    val titleIds = intArrayOf(
-                        R.id.widget_dayplan_row_title_0, R.id.widget_dayplan_row_title_1, R.id.widget_dayplan_row_title_2,
-                        R.id.widget_dayplan_row_title_3, R.id.widget_dayplan_row_title_4
-                    )
-                    if (idx in 0..4) {
-                        views.setTextViewText(checkIds[idx], "✓")
-                        views.setTextColor(checkIds[idx], ContextCompat.getColor(context, R.color.widget_text_muted))
-                        views.setTextColor(titleIds[idx], ContextCompat.getColor(context, R.color.widget_text_muted))
-                    }
-                }
-                else -> return
             }
 
-            for (id in runningIds) {
-                appWidgetManager.partiallyUpdateAppWidget(id, views)
+            if (action.startsWith("task_check_") || action == "task_check_0") {
+                val dayPlanIds = appWidgetManager.getAppWidgetIds(
+                    android.content.ComponentName(context, DayPlanWidget::class.java)
+                )
+                if (dayPlanIds.isNotEmpty()) {
+                    val viewsDp = RemoteViews(context.packageName, R.layout.widget_dayplan)
+                    viewsDp.setTextViewText(R.id.widget_dayplan_btn_check, "CHECKING...")
+                    for (id in dayPlanIds) {
+                        appWidgetManager.partiallyUpdateAppWidget(id, viewsDp)
+                    }
+                }
             }
         } catch (_: Exception) {
             // Safe fallback if update fails

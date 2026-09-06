@@ -998,16 +998,10 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
             title: "ANDROID HOMESCREEN PREVIEW (4x2)",
             isLive: !_overrideDayPlan,
             child: Center(
-              child: RunningTaskHomeWidget(
-                hasTask: true,
-                title: "",
-                subtitle: "",
-                isRunning: false,
-                isCheckpoint: false,
-                accumulatedSeconds: 0,
+              child: DayPlanHomeWidget(
+                tasks: displayTasks,
                 capacity: capacity,
-                dayPlannerWidgetCheckable: true,
-                topFiveTasks: displayTasks,
+                progress: liveTask.progress,
               ),
             ),
           ),

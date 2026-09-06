@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Fully native Day Plan checklist widget — crisp text, rounded borders, background art -->
+<!-- Fully native Day Plan dispatch widget — crisp text, tactical HUD styling, rounded borders -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_dayplan_root"
     android:layout_width="match_parent"
@@ -47,6 +47,7 @@
                     android:fontFamily="monospace"
                     android:letterSpacing="0.12"
                     android:maxLines="1"
+                    android:ellipsize="end"
                     android:text="[ DAY PLAN // DISPATCH ]"
                     android:textColor="@color/widget_accent_cyan"
                     android:textSize="9sp" />
@@ -60,240 +61,85 @@
                     android:maxLines="1"
                     android:text=""
                     android:textColor="@color/widget_text_muted"
-                    android:textSize="9sp" />
+                    android:textSize="8.5sp" />
             </LinearLayout>
 
-            <!-- Checklist Rows Container -->
-            <LinearLayout
-                android:id="@+id/widget_dayplan_list_container"
+            <!-- Primary Planned Mission (Hero Title) -->
+            <TextView
+                android:id="@+id/widget_dayplan_primary_title"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:layout_marginTop="4dp"
-                android:orientation="vertical"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:fontFamily="monospace"
+                android:text="NO MISSIONS PLANNED"
+                android:textColor="@color/widget_text_white"
+                android:textSize="19sp"
+                android:textStyle="bold" />
 
-                <!-- Row 0 -->
-                <LinearLayout
-                    android:id="@+id/widget_dayplan_row_0"
-                    android:layout_width="match_parent"
-                    android:layout_height="26dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+            <!-- Telemetry / Next Mission Row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-                    <View
-                        android:layout_width="3dp"
-                        android:layout_height="14dp"
-                        android:layout_marginEnd="8dp"
-                        android:background="@color/widget_accent_cyan" />
-
-                    <TextView
-                        android:id="@+id/widget_dayplan_row_title_0"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:fontFamily="monospace"
-                        android:maxLines="1"
-                        android:text=""
-                        android:textColor="@color/widget_text_white"
-                        android:textSize="11.5sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/widget_dayplan_btn_check_0"
-                        android:layout_width="34dp"
-                        android:layout_height="22dp"
-                        android:background="@drawable/widget_btn_outline_cyan"
-                        android:fontFamily="monospace"
-                        android:gravity="center"
-                        android:text="✓"
-                        android:textColor="@color/widget_accent_cyan"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <!-- Row 1 -->
-                <LinearLayout
-                    android:id="@+id/widget_dayplan_row_1"
-                    android:layout_width="match_parent"
-                    android:layout_height="26dp"
-                    android:layout_marginTop="2dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <View
-                        android:layout_width="3dp"
-                        android:layout_height="14dp"
-                        android:layout_marginEnd="8dp"
-                        android:background="@color/widget_accent_cyan" />
-
-                    <TextView
-                        android:id="@+id/widget_dayplan_row_title_1"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:fontFamily="monospace"
-                        android:maxLines="1"
-                        android:text=""
-                        android:textColor="@color/widget_text_white"
-                        android:textSize="11.5sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/widget_dayplan_btn_check_1"
-                        android:layout_width="34dp"
-                        android:layout_height="22dp"
-                        android:background="@drawable/widget_btn_outline_cyan"
-                        android:fontFamily="monospace"
-                        android:gravity="center"
-                        android:text="✓"
-                        android:textColor="@color/widget_accent_cyan"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <!-- Row 2 -->
-                <LinearLayout
-                    android:id="@+id/widget_dayplan_row_2"
-                    android:layout_width="match_parent"
-                    android:layout_height="26dp"
-                    android:layout_marginTop="2dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <View
-                        android:layout_width="3dp"
-                        android:layout_height="14dp"
-                        android:layout_marginEnd="8dp"
-                        android:background="@color/widget_accent_cyan" />
-
-                    <TextView
-                        android:id="@+id/widget_dayplan_row_title_2"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:fontFamily="monospace"
-                        android:maxLines="1"
-                        android:text=""
-                        android:textColor="@color/widget_text_white"
-                        android:textSize="11.5sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/widget_dayplan_btn_check_2"
-                        android:layout_width="34dp"
-                        android:layout_height="22dp"
-                        android:background="@drawable/widget_btn_outline_cyan"
-                        android:fontFamily="monospace"
-                        android:gravity="center"
-                        android:text="✓"
-                        android:textColor="@color/widget_accent_cyan"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <!-- Row 3 -->
-                <LinearLayout
-                    android:id="@+id/widget_dayplan_row_3"
-                    android:layout_width="match_parent"
-                    android:layout_height="26dp"
-                    android:layout_marginTop="2dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <View
-                        android:layout_width="3dp"
-                        android:layout_height="14dp"
-                        android:layout_marginEnd="8dp"
-                        android:background="@color/widget_accent_cyan" />
-
-                    <TextView
-                        android:id="@+id/widget_dayplan_row_title_3"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:fontFamily="monospace"
-                        android:maxLines="1"
-                        android:text=""
-                        android:textColor="@color/widget_text_white"
-                        android:textSize="11.5sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/widget_dayplan_btn_check_3"
-                        android:layout_width="34dp"
-                        android:layout_height="22dp"
-                        android:background="@drawable/widget_btn_outline_cyan"
-                        android:fontFamily="monospace"
-                        android:gravity="center"
-                        android:text="✓"
-                        android:textColor="@color/widget_accent_cyan"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <!-- Row 4 -->
-                <LinearLayout
-                    android:id="@+id/widget_dayplan_row_4"
-                    android:layout_width="match_parent"
-                    android:layout_height="26dp"
-                    android:layout_marginTop="2dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <View
-                        android:layout_width="3dp"
-                        android:layout_height="14dp"
-                        android:layout_marginEnd="8dp"
-                        android:background="@color/widget_accent_cyan" />
-
-                    <TextView
-                        android:id="@+id/widget_dayplan_row_title_4"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:fontFamily="monospace"
-                        android:maxLines="1"
-                        android:text=""
-                        android:textColor="@color/widget_text_white"
-                        android:textSize="11.5sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/widget_dayplan_btn_check_4"
-                        android:layout_width="34dp"
-                        android:layout_height="22dp"
-                        android:background="@drawable/widget_btn_outline_cyan"
-                        android:fontFamily="monospace"
-                        android:gravity="center"
-                        android:text="✓"
-                        android:textColor="@color/widget_accent_cyan"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <!-- Empty state -->
                 <TextView
-                    android:id="@+id/widget_dayplan_empty"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
+                    android:id="@+id/widget_dayplan_next_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     android:fontFamily="monospace"
-                    android:letterSpacing="0.1"
-                    android:text="NO ACTIVE PLAN · QUEUE STANDBY"
+                    android:letterSpacing="0.08"
+                    android:maxLines="1"
+                    android:text="NEXT:"
                     android:textColor="@color/widget_text_muted"
+                    android:textSize="9sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/widget_dayplan_next_title"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:fontFamily="monospace"
+                    android:text="QUEUE STANDBY"
+                    android:textColor="@color/widget_accent_cyan"
                     android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:visibility="gone" />
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/widget_dayplan_items_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:fontFamily="monospace"
+                    android:text=""
+                    android:textColor="@color/widget_accent_amber"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
             </LinearLayout>
+
+            <!-- Progress Bar -->
+            <ProgressBar
+                android:id="@+id/widget_dayplan_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:layout_marginTop="5dp"
+                android:max="100"
+                android:progress="0"
+                android:progressDrawable="@drawable/widget_progress_cyan" />
 
             <!-- Action Buttons Row -->
             <LinearLayout
+                android:id="@+id/widget_dayplan_buttons_layout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
@@ -303,7 +149,7 @@
                     android:id="@+id/widget_dayplan_btn_open"
                     android:layout_width="0dp"
                     android:layout_height="34dp"
-                    android:layout_weight="1"
+                    android:layout_weight="1.2"
                     android:background="@drawable/widget_btn_primary_amber"
                     android:fontFamily="monospace"
                     android:gravity="center"
@@ -311,22 +157,39 @@
                     android:maxLines="1"
                     android:text="OPEN PLAN"
                     android:textColor="@color/widget_bg_deep"
-                    android:textSize="11sp"
+                    android:textSize="10.5sp"
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/widget_dayplan_btn_task"
-                    android:layout_width="100dp"
+                    android:id="@+id/widget_dayplan_btn_check"
+                    android:layout_width="0dp"
                     android:layout_height="34dp"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="0.9"
                     android:background="@drawable/widget_btn_outline_cyan"
                     android:fontFamily="monospace"
                     android:gravity="center"
                     android:letterSpacing="0.08"
                     android:maxLines="1"
-                    android:text="ACTIVE TASK"
+                    android:text="CHECK"
                     android:textColor="@color/widget_accent_cyan"
-                    android:textSize="11sp"
+                    android:textSize="10.5sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/widget_dayplan_btn_task"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="0.9"
+                    android:background="@drawable/widget_btn_outline_amber"
+                    android:fontFamily="monospace"
+                    android:gravity="center"
+                    android:letterSpacing="0.08"
+                    android:maxLines="1"
+                    android:text="ENGAGE"
+                    android:textColor="@color/widget_accent_amber"
+                    android:textSize="10.5sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
