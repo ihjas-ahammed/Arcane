@@ -587,77 +587,7 @@
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
-
-        <!-- ===== Day-planner checklist layout ===== -->
-        <LinearLayout
-            android:id="@+id/widget_dayplan_layout"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <!-- Status bar -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <ImageView
-                    android:layout_width="6dp"
-                    android:layout_height="6dp"
-                    android:src="@drawable/widget_pip_on" />
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="6dp"
-                    android:fontFamily="monospace"
-                    android:letterSpacing="0.12"
-                    android:text="DAY PLAN // TACTICAL DISPATCH"
-                    android:textColor="@color/widget_accent_cyan"
-                    android:textSize="9.5sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/widget_dayplan_capacity"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="monospace"
-                    android:letterSpacing="0.08"
-                    android:text=""
-                    android:textColor="@color/widget_text_muted"
-                    android:textSize="9sp" />
-            </LinearLayout>
-
-            <!-- Rows 0..4 -->
-            <LinearLayout android:id="@+id/widget_dayplan_row_0" android:layout_width="match_parent" android:layout_height="28dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
-                <View android:layout_width="3dp" android:layout_height="16dp" android:background="@color/widget_accent_cyan" android:layout_marginEnd="6dp" />
-                <TextView android:id="@+id/widget_dayplan_row_title_0" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="monospace" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="11.5sp" />
-                <TextView android:id="@+id/widget_dayplan_btn_check_0" android:layout_width="38dp" android:layout_height="24dp" android:background="@drawable/widget_btn_outline_cyan" android:fontFamily="monospace" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="12sp" />
-            </LinearLayout>
-            <LinearLayout android:id="@+id/widget_dayplan_row_1" android:layout_width="match_parent" android:layout_height="28dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="2dp">
-                <View android:layout_width="3dp" android:layout_height="16dp" android:background="@color/widget_accent_cyan" android:layout_marginEnd="6dp" />
-                <TextView android:id="@+id/widget_dayplan_row_title_1" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="monospace" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="11.5sp" />
-                <TextView android:id="@+id/widget_dayplan_btn_check_1" android:layout_width="38dp" android:layout_height="24dp" android:background="@drawable/widget_btn_outline_cyan" android:fontFamily="monospace" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="12sp" />
-            </LinearLayout>
-            <LinearLayout android:id="@+id/widget_dayplan_row_2" android:layout_width="match_parent" android:layout_height="28dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="2dp">
-                <View android:layout_width="3dp" android:layout_height="16dp" android:background="@color/widget_accent_cyan" android:layout_marginEnd="6dp" />
-                <TextView android:id="@+id/widget_dayplan_row_title_2" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="monospace" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="11.5sp" />
-                <TextView android:id="@+id/widget_dayplan_btn_check_2" android:layout_width="38dp" android:layout_height="24dp" android:background="@drawable/widget_btn_outline_cyan" android:fontFamily="monospace" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="12sp" />
-            </LinearLayout>
-            <LinearLayout android:id="@+id/widget_dayplan_row_3" android:layout_width="match_parent" android:layout_height="28dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="2dp">
-                <View android:layout_width="3dp" android:layout_height="16dp" android:background="@color/widget_accent_cyan" android:layout_marginEnd="6dp" />
-                <TextView android:id="@+id/widget_dayplan_row_title_3" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="monospace" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="11.5sp" />
-                <TextView android:id="@+id/widget_dayplan_btn_check_3" android:layout_width="38dp" android:layout_height="24dp" android:background="@drawable/widget_btn_outline_cyan" android:fontFamily="monospace" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="12sp" />
-            </LinearLayout>
-            <LinearLayout android:id="@+id/widget_dayplan_row_4" android:layout_width="match_parent" android:layout_height="28dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="2dp">
-                <View android:layout_width="3dp" android:layout_height="16dp" android:background="@color/widget_accent_cyan" android:layout_marginEnd="6dp" />
-                <TextView android:id="@+id/widget_dayplan_row_title_4" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="monospace" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="11.5sp" />
-                <TextView android:id="@+id/widget_dayplan_btn_check_4" android:layout_width="38dp" android:layout_height="24dp" android:background="@drawable/widget_btn_outline_cyan" android:fontFamily="monospace" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="12sp" />
-            </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
+    </FrameLayout>
 </FrameLayout>
-</FrameLayout>
+

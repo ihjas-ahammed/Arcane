@@ -24,36 +24,32 @@ class RunningTaskWidget : HomeWidgetProvider() {
     }
 
     private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int, prefs: SharedPreferences) {
-        val views = RemoteViews(context.packageName, R.layout.widget_running_task)
-
         val dayPlannerWidgetCheckable = WidgetCommon.getSafeBoolean(prefs, "arcane.task.dayPlannerWidgetCheckable", false)
         val multitaskCount = WidgetCommon.getSafeInt(prefs, "arcane.task.multitaskCount", 0)
         val isOnBus = WidgetCommon.getSafeBoolean(prefs, "arcane.bus.isOnBus", false)
         val isTaskRunning = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isRunning", false)
 
+        val views: RemoteViews
         if (isOnBus && !isTaskRunning) {
+            views = RemoteViews(context.packageName, R.layout.widget_running_task)
             views.setViewVisibility(R.id.widget_running_layout, View.VISIBLE)
             views.setViewVisibility(R.id.widget_multitask_layout, View.GONE)
-            views.setViewVisibility(R.id.widget_dayplan_layout, View.GONE)
             renderBusTransit(context, views, prefs)
         } else if (dayPlannerWidgetCheckable) {
-            views.setViewVisibility(R.id.widget_running_layout, View.GONE)
-            views.setViewVisibility(R.id.widget_multitask_layout, View.GONE)
-            views.setViewVisibility(R.id.widget_dayplan_layout, View.VISIBLE)
-            views.setImageViewResource(R.id.widget_bg_art, R.drawable.widget_bg_art_cyan)
+            views = RemoteViews(context.packageName, R.layout.widget_dayplan)
             renderDayPlan(context, views, prefs)
         } else if (multitaskCount > 1) {
+            views = RemoteViews(context.packageName, R.layout.widget_running_task)
             views.setViewVisibility(R.id.widget_running_layout, View.GONE)
             views.setViewVisibility(R.id.widget_multitask_layout, View.VISIBLE)
-            views.setViewVisibility(R.id.widget_dayplan_layout, View.GONE)
             val isRunning = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isRunning", false)
             val artRes = if (isRunning) R.drawable.widget_bg_art_red else R.drawable.widget_bg_art_cyan
             views.setImageViewResource(R.id.widget_bg_art, artRes)
             renderMultitask(context, views, prefs, multitaskCount)
         } else {
+            views = RemoteViews(context.packageName, R.layout.widget_running_task)
             views.setViewVisibility(R.id.widget_running_layout, View.VISIBLE)
             views.setViewVisibility(R.id.widget_multitask_layout, View.GONE)
-            views.setViewVisibility(R.id.widget_dayplan_layout, View.GONE)
             renderRunning(context, views, prefs)
         }
 
@@ -291,16 +287,23 @@ class RunningTaskWidget : HomeWidgetProvider() {
         val checkActions = arrayOf("task_check_0", "task_check_1", "task_check_2", "task_check_3", "task_check_4")
         val openPlanIntent = WidgetCommon.launchIntent(context, "task_open")
 
+        var visibleCount = 0
         for (i in 0 until 5) {
             val title = prefs.getString("arcane.task.dp$i.title", "") ?: ""
             if (title.isBlank()) {
                 views.setViewVisibility(rowContainers[i], View.GONE)
-                continue
+            } else {
+                views.setViewVisibility(rowContainers[i], View.VISIBLE)
+                views.setTextViewText(titleIds[i], title.uppercase())
+                views.setOnClickPendingIntent(titleIds[i], openPlanIntent)
+                views.setOnClickPendingIntent(checkIds[i], WidgetCommon.actionIntent(context, checkActions[i], 110 + i))
+                visibleCount++
             }
-            views.setViewVisibility(rowContainers[i], View.VISIBLE)
-            views.setTextViewText(titleIds[i], title.uppercase())
-            views.setOnClickPendingIntent(titleIds[i], openPlanIntent)
-            views.setOnClickPendingIntent(checkIds[i], WidgetCommon.actionIntent(context, checkActions[i], 110 + i))
         }
+
+        views.setViewVisibility(R.id.widget_dayplan_empty, if (visibleCount == 0) View.VISIBLE else View.GONE)
+        views.setOnClickPendingIntent(R.id.widget_dayplan_btn_open, openPlanIntent)
+        views.setOnClickPendingIntent(R.id.widget_dayplan_btn_task, WidgetCommon.launchIntent(context, "task_open"))
+        views.setOnClickPendingIntent(R.id.widget_dayplan_status_badge, openPlanIntent)
     }
 }

@@ -21,6 +21,7 @@ class HomeWidgetService {
   static final HomeWidgetService instance = HomeWidgetService._();
 
   static const String _providerRunning = 'me.ihjas.missions.widgets.RunningTaskWidget';
+  static const String _providerDayPlan = 'me.ihjas.missions.widgets.DayPlanWidget';
   static const String _providerFinance = 'me.ihjas.missions.widgets.FinanceWidget';
   static const String _providerJournal = 'me.ihjas.missions.widgets.JournalWidget';
   static const String _providerBus = 'me.ihjas.missions.widgets.BusWidget';
@@ -86,6 +87,7 @@ class HomeWidgetService {
 
   Future<bool> requestPinBus() => requestPinWidget(_providerBus);
   Future<bool> requestPinTask() => requestPinWidget(_providerRunning);
+  Future<bool> requestPinDayPlan() => requestPinWidget(_providerDayPlan);
   Future<bool> requestPinFinance() => requestPinWidget(_providerFinance);
   Future<bool> requestPinJournal() => requestPinWidget(_providerJournal);
 
@@ -97,11 +99,11 @@ class HomeWidgetService {
     required String subtitle,
     required bool isRunning,
     required bool isCheckpoint,
+    bool isPhoenix = false,
+    String capacity = '',
     required int accumulatedSeconds,
     double progress = 0.0,
     DateTime? sessionStart,
-    bool isPhoenix = false,
-    String capacity = '',
     bool dayPlannerWidgetCheckable = false,
     List<ResolvedDayPlanItem> topFiveTasks = const [],
     List<ResolvedDayPlanItem> multitaskTasks = const [],
@@ -140,6 +142,7 @@ class HomeWidgetService {
     }
     await _setAll(data);
     await _refresh(_providerRunning);
+    await _refresh(_providerDayPlan);
   }
 
   Future<void> publishFinance({

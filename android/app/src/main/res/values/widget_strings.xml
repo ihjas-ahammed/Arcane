@@ -4,4 +4,5 @@
     <string name="widget_finance_desc">Arcane — Liquid balance, today/MTD spend, budget trajectory.</string>
     <string name="widget_journal_desc">Arcane — Quick reflection log + latest entry.</string>
     <string name="widget_bus_desc">Arcane — Bus schedule, live sub-stops, and transit ETA.</string>
+    <string name="widget_dayplan_desc">Arcane — Daily mission checklist with one-tap checkoffs.</string>
 </resources>

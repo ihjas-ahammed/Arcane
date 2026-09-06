@@ -68,6 +68,18 @@
         </receiver>
 
         <receiver
+            android:name="me.ihjas.missions.widgets.DayPlanWidget"
+            android:label="Arcane — Day Plan"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_dayplan_info"/>
+        </receiver>
+
+        <receiver
             android:name="me.ihjas.missions.widgets.FinanceWidget"
             android:label="Arcane — Finance"
             android:exported="true">
