@@ -21,6 +21,7 @@ import 'package:missions/src/models/finance_models.dart';
 import 'package:missions/src/models/project_models.dart';
 import 'package:missions/src/models/health_models.dart';
 import 'package:missions/src/models/update_model.dart';
+import 'package:missions/src/services/bus_location_service.dart';
 import 'package:missions/src/services/update_service.dart';
 import 'package:missions/src/services/nora_agent_engine.dart';
 import 'package:intl/intl.dart';
@@ -147,6 +148,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       } else if (payload.startsWith('undo_check:')) {
         _handleNotificationCheck(payload.substring('undo_check:'.length),
             undo: true);
+      } else if (payload.startsWith('stop_bus_transit') || payload == 'stop_bus_transit') {
+        BusLocationService.instance.stopManualCommute();
+        showGlobalToast('Bus commute ended');
       } else if (payload.startsWith('log_low_energy') || payload == 'log_low_energy') {
         final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
         addEnergyLog(

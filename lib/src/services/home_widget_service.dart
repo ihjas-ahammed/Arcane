@@ -191,6 +191,7 @@ class HomeWidgetService {
     bool isOnBus = false,
     int speedKmh = 0,
     int minutesRemaining = -1,
+    int progressPct = 0,
   }) async {
     if (!_supported) return;
 
@@ -202,9 +203,13 @@ class HomeWidgetService {
       'arcane.bus.isOnBus': isOnBus,
       'arcane.bus.speedKmh': speedKmh,
       'arcane.bus.minutesRemaining': minutesRemaining,
+      'arcane.bus.progressPct': progressPct,
       'arcane.bus.updatedAtMs': DateTime.now().millisecondsSinceEpoch,
     });
     await _refresh(_providerBus);
+    // When transit state changes or active, also refresh RunningTaskWidget so
+    // it can show the travel if placed on user's homescreen
+    await _refresh(_providerRunning);
   }
 
   Future<void> _setAll(Map<String, Object> values) async {

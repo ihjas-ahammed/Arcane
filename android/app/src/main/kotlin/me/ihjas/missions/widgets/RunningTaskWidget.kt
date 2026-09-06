@@ -28,20 +28,27 @@ class RunningTaskWidget : HomeWidgetProvider() {
 
         val dayPlannerWidgetCheckable = WidgetCommon.getSafeBoolean(prefs, "arcane.task.dayPlannerWidgetCheckable", false)
         val multitaskCount = WidgetCommon.getSafeInt(prefs, "arcane.task.multitaskCount", 0)
+        val isOnBus = WidgetCommon.getSafeBoolean(prefs, "arcane.bus.isOnBus", false)
+        val isTaskRunning = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isRunning", false)
 
-        if (dayPlannerWidgetCheckable) {
+        if (isOnBus && !isTaskRunning) {
+            views.setViewVisibility(R.id.widget_running_layout, View.VISIBLE)
+            views.setViewVisibility(R.id.widget_multitask_layout, View.GONE)
+            views.setViewVisibility(R.id.widget_dayplan_layout, View.GONE)
+            renderBusTransit(context, views, prefs)
+        } else if (dayPlannerWidgetCheckable) {
             views.setViewVisibility(R.id.widget_running_layout, View.GONE)
             views.setViewVisibility(R.id.widget_multitask_layout, View.GONE)
             views.setViewVisibility(R.id.widget_dayplan_layout, View.VISIBLE)
-            views.setInt(R.id.widget_card_container, "setBackgroundResource", R.drawable.widget_bg_tactical_cyan)
+            views.setImageViewResource(R.id.widget_bg_art, R.drawable.widget_bg_art_cyan)
             renderDayPlan(context, views, prefs)
         } else if (multitaskCount > 1) {
             views.setViewVisibility(R.id.widget_running_layout, View.GONE)
             views.setViewVisibility(R.id.widget_multitask_layout, View.VISIBLE)
             views.setViewVisibility(R.id.widget_dayplan_layout, View.GONE)
             val isRunning = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isRunning", false)
-            val bgRes = if (isRunning) R.drawable.widget_bg_tactical_red else R.drawable.widget_bg_tactical_cyan
-            views.setInt(R.id.widget_card_container, "setBackgroundResource", bgRes)
+            val artRes = if (isRunning) R.drawable.widget_bg_art_red else R.drawable.widget_bg_art_cyan
+            views.setImageViewResource(R.id.widget_bg_art, artRes)
             renderMultitask(context, views, prefs, multitaskCount)
         } else {
             views.setViewVisibility(R.id.widget_running_layout, View.VISIBLE)
@@ -55,8 +62,8 @@ class RunningTaskWidget : HomeWidgetProvider() {
 
     private fun renderMultitask(context: Context, views: RemoteViews, prefs: SharedPreferences, count: Int) {
         val isRunning = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isRunning", false)
-        val bgRes = if (isRunning) R.drawable.widget_bg_tactical_red else R.drawable.widget_bg_tactical_cyan
-        views.setInt(R.id.widget_card_container, "setBackgroundResource", bgRes)
+        val artRes = if (isRunning) R.drawable.widget_bg_art_red else R.drawable.widget_bg_art_cyan
+        views.setImageViewResource(R.id.widget_bg_art, artRes)
 
         val statusLabel = "MULTITASK PROTOCOL · [0${count.coerceIn(2, 3)} ACTIVE]"
         views.setTextViewText(R.id.widget_mt_status_label, statusLabel)
@@ -130,13 +137,13 @@ class RunningTaskWidget : HomeWidgetProvider() {
             else -> ContextCompat.getColor(context, R.color.widget_accent_amber)
         }
 
-        val bgRes = when {
-            !hasTask -> R.drawable.widget_bg_tactical_dim
-            isRunning -> R.drawable.widget_bg_tactical_red
-            isCheckpoint -> R.drawable.widget_bg_tactical_cyan
-            else -> R.drawable.widget_bg_tactical_amber
+        val artRes = when {
+            !hasTask -> R.drawable.widget_bg_art_dim
+            isRunning -> R.drawable.widget_bg_art_red
+            isCheckpoint -> R.drawable.widget_bg_art_cyan
+            else -> R.drawable.widget_bg_art_amber
         }
-        views.setInt(R.id.widget_card_container, "setBackgroundResource", bgRes)
+        views.setImageViewResource(R.id.widget_bg_art, artRes)
 
         views.setTextViewText(R.id.widget_status_label, statusLabel)
         views.setTextColor(R.id.widget_status_label, accentColor)
@@ -214,8 +221,58 @@ class RunningTaskWidget : HomeWidgetProvider() {
         }
     }
 
+    private fun renderBusTransit(context: Context, views: RemoteViews, prefs: SharedPreferences) {
+        val busOrigin = prefs.getString("arcane.bus.origin", "S.S COLLEGE") ?: "S.S COLLEGE"
+        val busDestination = prefs.getString("arcane.bus.destination", "EDAVANNAPPARA") ?: "EDAVANNAPPARA"
+        val busProgressPct = WidgetCommon.getSafeInt(prefs, "arcane.bus.progressPct", 0)
+        val busMinutesRemaining = WidgetCommon.getSafeInt(prefs, "arcane.bus.minutesRemaining", -1)
+        val speedKmh = WidgetCommon.getSafeInt(prefs, "arcane.bus.speedKmh", 20)
+        val displaySpeed = if (speedKmh > 0) speedKmh else 20
+
+        val accentColor = ContextCompat.getColor(context, R.color.widget_accent_amber)
+        views.setImageViewResource(R.id.widget_bg_art, R.drawable.widget_bg_art_amber)
+
+        views.setTextViewText(R.id.widget_status_label, "[ IN THE BUS // TRANSIT ACTIVE ]")
+        views.setTextColor(R.id.widget_status_label, accentColor)
+        views.setViewVisibility(R.id.widget_rec_label, View.VISIBLE)
+        views.setTextViewText(R.id.widget_rec_label, "● $displaySpeed KM/H")
+        views.setTextColor(R.id.widget_rec_label, accentColor)
+        views.setTextViewText(R.id.widget_capacity, if (busMinutesRemaining >= 0) "ETA ~${busMinutesRemaining}M" else "$displaySpeed KM/H")
+
+        views.setTextViewText(R.id.widget_task_title, "${busOrigin.uppercase()} → ${busDestination.uppercase()}")
+        views.setTextViewText(R.id.widget_task_subtitle, "IN TRANSIT @ $displaySpeed KM/H · $busProgressPct%")
+        views.setViewVisibility(R.id.widget_subtitle_container, View.VISIBLE)
+
+        views.setTextViewText(R.id.widget_time_mode_label, "REMAINING")
+        views.setViewVisibility(R.id.widget_task_chronometer, View.GONE)
+        views.setViewVisibility(R.id.widget_task_today, View.VISIBLE)
+        views.setTextColor(R.id.widget_task_today, accentColor)
+        views.setTextViewText(R.id.widget_task_today, if (busMinutesRemaining >= 0) "~$busMinutesRemaining MIN" else "$busProgressPct%")
+
+        views.setViewVisibility(R.id.widget_task_progress, View.VISIBLE)
+        views.setProgressBar(R.id.widget_task_progress, 100, busProgressPct.coerceIn(0, 100), false)
+
+        val busOpenIntent = WidgetCommon.launchIntent(context, "bus_open")
+        views.setOnClickPendingIntent(R.id.widget_btn_dayplan, busOpenIntent)
+        views.setOnClickPendingIntent(R.id.widget_task_title, busOpenIntent)
+
+        views.setViewVisibility(R.id.widget_btn_check, View.VISIBLE)
+        views.setViewVisibility(R.id.widget_btn_finish, View.VISIBLE)
+
+        views.setTextViewText(R.id.widget_btn_engage, "END TRIP")
+        views.setInt(R.id.widget_btn_engage, "setBackgroundResource", R.drawable.widget_btn_primary_red)
+        views.setTextColor(R.id.widget_btn_engage, ContextCompat.getColor(context, R.color.widget_text_white))
+        views.setOnClickPendingIntent(R.id.widget_btn_engage, WidgetCommon.actionIntent(context, "bus_end_trip", 201))
+
+        views.setTextViewText(R.id.widget_btn_check, "RADAR")
+        views.setOnClickPendingIntent(R.id.widget_btn_check, busOpenIntent)
+
+        views.setTextViewText(R.id.widget_btn_finish, "ROUTE")
+        views.setOnClickPendingIntent(R.id.widget_btn_finish, busOpenIntent)
+    }
+
     private fun renderDayPlan(context: Context, views: RemoteViews, prefs: SharedPreferences) {
-        views.setInt(R.id.widget_card_container, "setBackgroundResource", R.drawable.widget_bg_tactical_cyan)
+        views.setImageViewResource(R.id.widget_bg_art, R.drawable.widget_bg_art_cyan)
         val capacity = prefs.getString("arcane.task.capacity", "") ?: ""
         views.setTextViewText(R.id.widget_dayplan_capacity, if (capacity.isNotEmpty()) "CAP $capacity" else "")
 

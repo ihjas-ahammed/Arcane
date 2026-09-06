@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 import 'package:missions/src/models/bus_models.dart';
+import 'package:missions/src/services/home_widget_service.dart';
+import 'package:missions/src/services/notification_service.dart';
 
 class BusTransitLiveState {
   final bool isTracking;
@@ -15,6 +18,10 @@ class BusTransitLiveState {
   final DateTime? commuteStartTime;
   final DateTime? commuteExpectedFinishTime;
   final BusRoute? activeRoute;
+  final String? originName;
+  final String? destinationName;
+  final double? routeDistanceKm;
+  final String? selectedDepartureTime;
   final BusSubStop? currentSubStop;
   final BusSubStop? nextSubStop;
   final double? progressAlongRoute; // 0.0 .. 1.0
@@ -33,6 +40,10 @@ class BusTransitLiveState {
     this.commuteStartTime,
     this.commuteExpectedFinishTime,
     this.activeRoute,
+    this.originName,
+    this.destinationName,
+    this.routeDistanceKm,
+    this.selectedDepartureTime,
     this.currentSubStop,
     this.nextSubStop,
     this.progressAlongRoute,
@@ -216,38 +227,70 @@ class BusLocationService {
     _emitState(_currentState);
   }
 
-  /// Manual On-Bus Commute Tracker: computes progress and ETAs from start time and finish time
+  /// Manual On-Bus Commute Tracker: computes progress and ETAs from start time and finish time.
+  /// Defaults to 20 km/h assumed speed per user instruction.
   void startManualCommute({
     required BusRoute route,
     DateTime? startTime,
     DateTime? expectedFinishTime,
-    double assumedSpeedKmh = 30.0,
+    double assumedSpeedKmh = 20.0,
+    String? originName,
+    String? destinationName,
+    double? customDistanceKm,
+    String? departureTime,
   }) {
     _currentRoute = route;
     final now = DateTime.now();
     final start = startTime ?? now;
-    final durationMins = route.baseDurationMinutes > 0 ? route.baseDurationMinutes : 28;
+    final distanceKm = customDistanceKm ?? (route.distanceKm > 0 ? route.distanceKm : 10.0);
+    // Speed assumption = 20 km/h -> Duration (mins) = (distance / 20) * 60
+    final durationMins = math.max(1, (distanceKm / assumedSpeedKmh * 60).round());
     final finish = expectedFinishTime ?? start.add(Duration(minutes: durationMins));
 
-    _manualCommuteTimer?.cancel();
-    _tickManualCommute(route, start, finish, assumedSpeedKmh);
+    final orig = originName ?? DefaultBusNetwork.formatPlaceName(route.originId);
+    final dest = destinationName ?? DefaultBusNetwork.formatPlaceName(route.destinationId);
 
-    _manualCommuteTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      _tickManualCommute(route, start, finish, assumedSpeedKmh);
+    _manualCommuteTimer?.cancel();
+    _tickManualCommute(
+      route: route,
+      start: start,
+      finish: finish,
+      assumedSpeedKmh: assumedSpeedKmh,
+      distanceKm: distanceKm,
+      origin: orig,
+      destination: dest,
+      departureTime: departureTime,
+    );
+
+    _manualCommuteTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      _tickManualCommute(
+        route: route,
+        start: start,
+        finish: finish,
+        assumedSpeedKmh: assumedSpeedKmh,
+        distanceKm: distanceKm,
+        origin: orig,
+        destination: dest,
+        departureTime: departureTime,
+      );
     });
   }
 
-  void _tickManualCommute(
-    BusRoute route,
-    DateTime start,
-    DateTime finish,
-    double assumedSpeedKmh,
-  ) {
+  void _tickManualCommute({
+    required BusRoute route,
+    required DateTime start,
+    required DateTime finish,
+    required double assumedSpeedKmh,
+    required double distanceKm,
+    required String origin,
+    required String destination,
+    String? departureTime,
+  }) {
     final now = DateTime.now();
     final totalSec = math.max(1, finish.difference(start).inSeconds);
     final elapsedSec = now.difference(start).inSeconds.clamp(0, totalSec);
     final progress = (elapsedSec / totalSec).clamp(0.0, 1.0);
-    final remainingMins = math.max(0, (totalSec - elapsedSec) ~/ 60);
+    final remainingMins = math.max(0, ((totalSec - elapsedSec) / 60).ceil());
 
     // Resolve intermediate sub-stop according to progress ratio
     BusSubStop? currSubStop;
@@ -256,7 +299,7 @@ class BusLocationService {
 
     if (route.subStops.isNotEmpty) {
       final subStops = route.subStops;
-      final totalKm = route.distanceKm > 0 ? route.distanceKm : 1.0;
+      final totalKm = distanceKm > 0 ? distanceKm : 1.0;
       final currentTraveledKm = totalKm * progress;
 
       int curIdx = 0;
@@ -276,27 +319,63 @@ class BusLocationService {
       }
     }
 
+    final isOnBus = progress < 1.0;
+    final progressPct = (progress * 100).round();
+
     _currentState = BusTransitLiveState(
       isTracking: true,
-      isOnBus: progress < 1.0,
+      isOnBus: isOnBus,
       isManualCommute: true,
       commuteStartTime: start,
       commuteExpectedFinishTime: finish,
-      speedKmh: progress < 1.0 ? assumedSpeedKmh : 0.0,
+      speedKmh: isOnBus ? assumedSpeedKmh : 0.0,
       activeRoute: route,
+      originName: origin,
+      destinationName: destination,
+      routeDistanceKm: distanceKm,
+      selectedDepartureTime: departureTime,
       currentSubStop: currSubStop,
       nextSubStop: nextSubStop,
       progressAlongRoute: progress,
       predictedMinutesToNextStop: minsToNext,
       predictedMinutesToDestination: remainingMins,
-      locationStatusMessage: progress < 1.0 ? 'Manual Commute Active (~${remainingMins}m remaining)' : 'Arrived at destination',
+      locationStatusMessage: isOnBus
+          ? 'In the Bus (~${remainingMins}m remaining)'
+          : 'Arrived at $destination',
     );
     _emitState(_currentState);
+
+    // Update ongoing notification
+    if (isOnBus) {
+      NotificationService.instance.showBusTransitNotification(
+        origin: origin,
+        destination: destination,
+        progress: progress,
+        minutesRemaining: remainingMins,
+        speedKmh: assumedSpeedKmh,
+      );
+    } else {
+      NotificationService.instance.cancelBusTransitNotification();
+    }
+
+    // Update homescreen widget
+    HomeWidgetService.instance.publishBus(
+      origin: origin,
+      destination: destination,
+      nextTime: departureTime ?? DateFormat('hh:mm a').format(start),
+      nextSubStop: nextSubStop?.name ?? '',
+      isOnBus: isOnBus,
+      speedKmh: isOnBus ? assumedSpeedKmh.round() : 0,
+      minutesRemaining: remainingMins,
+      progressPct: progressPct,
+    );
   }
 
   void stopManualCommute() {
     _manualCommuteTimer?.cancel();
     _manualCommuteTimer = null;
+    final prevOrigin = _currentState.originName ?? _currentRoute?.originId ?? 'S.S College';
+    final prevDest = _currentState.destinationName ?? _currentRoute?.destinationId ?? 'Edavannappara';
     _currentState = BusTransitLiveState(
       isTracking: _currentState.isTracking,
       currentPosition: _currentState.currentPosition,
@@ -307,6 +386,17 @@ class BusLocationService {
       locationStatusMessage: 'Commute ended',
     );
     _emitState(_currentState);
+
+    NotificationService.instance.cancelBusTransitNotification();
+    HomeWidgetService.instance.publishBus(
+      origin: DefaultBusNetwork.formatPlaceName(prevOrigin),
+      destination: DefaultBusNetwork.formatPlaceName(prevDest),
+      nextTime: _currentRoute?.departures.firstOrNull ?? '08:15 AM',
+      isOnBus: false,
+      speedKmh: 0,
+      minutesRemaining: -1,
+      progressPct: 0,
+    );
   }
 
   void _processPosition(Position pos) {

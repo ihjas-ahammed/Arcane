@@ -10,8 +10,10 @@ import 'package:missions/src/models/bus_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/screens/settings/homescreen_widgets_preview_screen.dart';
 import 'package:missions/src/screens/settings/bus_network_editor_screen.dart';
+import 'package:missions/src/services/bus_location_service.dart';
 import 'package:missions/src/services/home_widget_service.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/widgets/bus/bus_next_card.dart';
 import 'package:missions/src/widgets/bus/bus_route_timeline.dart';
 import 'package:missions/src/widgets/bus/bus_schedule_grid.dart';
@@ -27,6 +29,8 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
   late String _origin;
   late String _destination;
   late Timer _clockTimer;
+  StreamSubscription<BusTransitLiveState>? _transitSub;
+  String? _selectedTime;
   bool _isEditMode = false;
   bool _isLoading = true;
   String _filterMode = "ALL"; // "ALL" or "UPCOMING"
@@ -42,6 +46,9 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
     _loadSchedules();
     _updateTime();
     _clockTimer = Timer.periodic(const Duration(seconds: 15), (_) => _updateTime());
+    _transitSub = BusLocationService.instance.stateStream.listen((state) {
+      if (mounted) setState(() {});
+    });
   }
 
   bool _matchesRoute(BusRoute r, String origin, String dest) {
@@ -256,6 +263,9 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
   }
 
   void _syncWidget() {
+    final liveState = BusLocationService.instance.currentState;
+    if (liveState.isOnBus) return; // Do not overwrite active transit in widget!
+
     final nextBus = _findNextBus();
     HomeWidgetService.instance.publishBus(
       origin: DefaultBusNetwork.formatPlaceName(_origin),
@@ -265,6 +275,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       isOnBus: false,
       speedKmh: 0,
       minutesRemaining: nextBus?['minutes'] ?? -1,
+      progressPct: 0,
     );
   }
 
@@ -278,6 +289,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
   @override
   void dispose() {
     _clockTimer.cancel();
+    _transitSub?.cancel();
     super.dispose();
   }
 
@@ -526,6 +538,565 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
               }
             },
             child: Text("SAVE & BROADCAST", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Asks the user for transit distance if not specified
+  Future<double?> _askDistanceDialog([double? currentDistance]) async {
+    final controller = TextEditingController(
+      text: (currentDistance != null && currentDistance > 0)
+          ? currentDistance.toStringAsFixed(1)
+          : '',
+    );
+
+    return showDialog<double>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: JweTheme.panel,
+        title: Row(
+          children: [
+            Icon(MdiIcons.mapMarkerDistance, color: JweTheme.accentAmber, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                "ENTER ROUTE DISTANCE",
+                style: GoogleFonts.chakraPetch(
+                  color: JweTheme.accentAmber,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Route distance between ${DefaultBusNetwork.formatPlaceName(_origin)} and ${DefaultBusNetwork.formatPlaceName(_destination)} is needed to calculate travel progress at 20 km/h speed.",
+              style: GoogleFonts.rajdhani(
+                color: JweTheme.textMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: GoogleFonts.jetBrainsMono(
+                color: JweTheme.textWhite,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+              decoration: InputDecoration(
+                labelText: "DISTANCE (KM)",
+                labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 11),
+                hintText: "e.g. 10.5",
+                hintStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted.withValues(alpha: 0.5)),
+                suffixText: "km",
+                suffixStyle: GoogleFonts.jetBrainsMono(color: JweTheme.accentAmber, fontWeight: FontWeight.bold),
+                filled: true,
+                fillColor: JweTheme.bgBase,
+                border: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber, width: 1.5)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: Text("CANCEL", style: GoogleFonts.rajdhani(color: JweTheme.textMuted, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: JweTheme.accentAmber,
+              foregroundColor: JweTheme.onAccent,
+            ),
+            onPressed: () {
+              final val = double.tryParse(controller.text.trim());
+              if (val != null && val > 0) {
+                Navigator.pop(ctx, val);
+              }
+            },
+            child: Text("CONFIRM & BOARD", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _startInTheBus(String time) async {
+    final route = _getActiveRoute();
+    double distanceKm = (route?.distanceKm != null && route!.distanceKm > 0) ? route.distanceKm : 0.0;
+
+    // If distance is not given, ask user
+    if (distanceKm <= 0.0) {
+      final asked = await _askDistanceDialog(null);
+      if (asked == null || asked <= 0) return;
+      distanceKm = asked;
+      if (route != null) {
+        final updated = route.copyWith(distanceKm: distanceKm);
+        final idx = _allRoutes.indexWhere((r) => _matchesRoute(r, _origin, _destination));
+        if (idx >= 0) {
+          _allRoutes[idx] = updated;
+        } else {
+          _allRoutes.add(updated);
+        }
+        await _saveSchedules();
+      }
+    }
+
+    final now = DateTime.now();
+    final depMin = _timeToMinutes(time);
+    final nowMin = now.hour * 60 + now.minute;
+    final totalDurationMins = (distanceKm / 20.0 * 60).round();
+
+    DateTime startTime;
+    if (nowMin >= depMin && (nowMin - depMin) < totalDurationMins) {
+      startTime = DateTime(now.year, now.month, now.day, depMin ~/ 60, depMin % 60);
+    } else {
+      startTime = now;
+    }
+
+    final activeRoute = route ?? _buildFallbackDerivedRoute(_origin, _destination);
+    BusLocationService.instance.startManualCommute(
+      route: activeRoute,
+      startTime: startTime,
+      assumedSpeedKmh: 20.0,
+      originName: DefaultBusNetwork.formatPlaceName(_origin),
+      destinationName: DefaultBusNetwork.formatPlaceName(_destination),
+      customDistanceKm: distanceKm,
+      departureTime: time,
+    );
+
+    if (mounted) {
+      setState(() {
+        _selectedTime = time;
+      });
+      showGlobalToast('In the bus! Traveling to ${DefaultBusNetwork.formatPlaceName(_destination)} @ 20 km/h');
+    }
+  }
+
+  void _handleTimeSelected(String time) {
+    setState(() => _selectedTime = time);
+    final route = _getActiveRoute();
+    final distKm = (route != null && route.distanceKm > 0) ? route.distanceKm : 0.0;
+    final estDurationMins = distKm > 0 ? (distKm / 20.0 * 60).round() : 0;
+    final liveState = BusLocationService.instance.currentState;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: JweTheme.panel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(MdiIcons.busClock, size: 20, color: JweTheme.accentAmber),
+                      const SizedBox(width: 8),
+                      Text(
+                        'DISPATCH: $time',
+                        style: GoogleFonts.rajdhani(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                          color: JweTheme.textWhite,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              Text(
+                'ROUTE: ${DefaultBusNetwork.formatPlaceName(_origin)} → ${DefaultBusNetwork.formatPlaceName(_destination)}',
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: JweTheme.textMuted,
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Route distance and estimated transit duration
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: JweTheme.bgBase,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: JweTheme.border),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(MdiIcons.mapMarkerDistance, size: 15, color: JweTheme.accentCyan),
+                        const SizedBox(width: 6),
+                        Text(
+                          distKm > 0
+                              ? '${distKm.toStringAsFixed(1)} km · ~$estDurationMins min @ 20 km/h'
+                              : 'Distance: Not set (20 km/h)',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 10.5,
+                            color: JweTheme.textWhite,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    InkWell(
+                      onTap: () async {
+                        final newDist = await _askDistanceDialog(distKm > 0 ? distKm : null);
+                        if (newDist != null && newDist > 0 && route != null) {
+                          final updated = route.copyWith(distanceKm: newDist);
+                          final idx = _allRoutes.indexWhere((r) => _matchesRoute(r, _origin, _destination));
+                          if (idx >= 0) {
+                            _allRoutes[idx] = updated;
+                          } else {
+                            _allRoutes.add(updated);
+                          }
+                          await _saveSchedules();
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          _handleTimeSelected(time);
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Text(
+                          distKm > 0 ? 'CHANGE' : 'SET DISTANCE',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            color: JweTheme.accentAmber,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Option 1: IN THE BUS (Hero Action)
+              if (liveState.isOnBus) ...[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: JweTheme.accentRed.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(MdiIcons.busStop, color: JweTheme.accentRed, size: 22),
+                  ),
+                  title: Text(
+                    'END TRANSIT TRIP',
+                    style: GoogleFonts.rajdhani(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                      color: JweTheme.accentRed,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Trip in progress to ${liveState.destinationName ?? _destination}. Tap to complete / end trip.',
+                    style: GoogleFonts.rajdhani(fontSize: 11.5, color: JweTheme.textMuted),
+                  ),
+                  onTap: () {
+                    BusLocationService.instance.stopManualCommute();
+                    Navigator.pop(ctx);
+                    showGlobalToast('Trip completed / ended');
+                  },
+                ),
+              ] else ...[
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _startInTheBus(time);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: JweTheme.accentAmber.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: JweTheme.accentAmber, width: 1.5),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: JweTheme.accentAmber,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Icon(MdiIcons.bus, color: JweTheme.onAccent, size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'IN THE BUS',
+                                  style: GoogleFonts.chakraPetch(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.5,
+                                    color: JweTheme.accentAmber,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Board this run · Track live travel @ 20 km/h on HUD, notification & widgets',
+                                  style: GoogleFonts.rajdhani(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: JweTheme.textWhite,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.arrow_forward_ios, size: 14, color: JweTheme.accentAmber),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+
+              const Divider(height: 24),
+
+              // Option 2: Edit Time
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(MdiIcons.pencilOutline, color: JweTheme.accentCyan, size: 20),
+                title: Text(
+                  'Edit Departure Time',
+                  style: GoogleFonts.rajdhani(fontSize: 13, fontWeight: FontWeight.bold, color: JweTheme.textWhite),
+                ),
+                subtitle: Text('Change this timetable run', style: GoogleFonts.rajdhani(fontSize: 11, color: JweTheme.textMuted)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _addOrEditTime(time);
+                },
+              ),
+
+              // Option 3: Remove Time
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(MdiIcons.trashCanOutline, color: JweTheme.accentRed, size: 20),
+                title: Text(
+                  'Remove Departure Time',
+                  style: GoogleFonts.rajdhani(fontSize: 13, fontWeight: FontWeight.bold, color: JweTheme.accentRed),
+                ),
+                subtitle: Text('Delete this run from timetable', style: GoogleFonts.rajdhani(fontSize: 11, color: JweTheme.textMuted)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _removeTime(time);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInTheBusCard(BusTransitLiveState liveState) {
+    final progress = liveState.progressAlongRoute ?? 0.0;
+    final pct = (progress * 100).round();
+    final remainingMins = liveState.predictedMinutesToDestination ?? 0;
+    final totalKm = liveState.routeDistanceKm ?? liveState.activeRoute?.distanceKm ?? 10.0;
+    final coveredKm = totalKm * progress;
+    final origin = liveState.originName ?? _origin;
+    final dest = liveState.destinationName ?? _destination;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: JweTheme.panel,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: JweTheme.accentAmber, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: JweTheme.accentAmber.withValues(alpha: 0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: JweTheme.accentAmber,
+                      boxShadow: [
+                        BoxShadow(
+                          color: JweTheme.accentAmber.withValues(alpha: 0.6),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '[ IN THE BUS // TRANSIT ACTIVE ]',
+                    style: GoogleFonts.chakraPetch(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                      color: JweTheme.accentAmber,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: JweTheme.accentAmber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '20 KM/H',
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    color: JweTheme.accentAmber,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${DefaultBusNetwork.formatPlaceName(origin)} → ${DefaultBusNetwork.formatPlaceName(dest)}',
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: JweTheme.textWhite,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0),
+              minHeight: 8,
+              backgroundColor: JweTheme.bgBase,
+              valueColor: AlwaysStoppedAnimation<Color>(JweTheme.accentAmber),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'ETA: ~$remainingMins MIN ($pct%)',
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: JweTheme.accentAmber,
+                ),
+              ),
+              Text(
+                '${coveredKm.toStringAsFixed(1)} / ${totalKm.toStringAsFixed(1)} KM',
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: JweTheme.textMid,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: JweTheme.accentRed,
+                    side: BorderSide(color: JweTheme.accentRed.withValues(alpha: 0.6)),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  onPressed: () {
+                    BusLocationService.instance.stopManualCommute();
+                    showGlobalToast('Bus commute ended');
+                  },
+                  icon: Icon(MdiIcons.busStop, size: 16, color: JweTheme.accentRed),
+                  label: Text('END TRIP', style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: JweTheme.accentCyan,
+                  side: BorderSide(color: JweTheme.accentCyan.withValues(alpha: 0.6)),
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                ),
+                onPressed: () async {
+                  final newDist = await _askDistanceDialog(totalKm);
+                  if (newDist != null && newDist > 0) {
+                    final route = _getActiveRoute();
+                    if (route != null) {
+                      final updated = route.copyWith(distanceKm: newDist);
+                      final idx = _allRoutes.indexWhere((r) => _matchesRoute(r, _origin, _destination));
+                      if (idx >= 0) {
+                        _allRoutes[idx] = updated;
+                      }
+                      await _saveSchedules();
+                      BusLocationService.instance.startManualCommute(
+                        route: updated,
+                        startTime: liveState.commuteStartTime,
+                        assumedSpeedKmh: 20.0,
+                        originName: origin,
+                        destinationName: dest,
+                        customDistanceKm: newDist,
+                        departureTime: liveState.selectedDepartureTime,
+                      );
+                    }
+                  }
+                },
+                icon: Icon(MdiIcons.mapMarkerDistance, size: 16, color: JweTheme.accentCyan),
+                label: Text('DISTANCE', style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+              ),
+            ],
           ),
         ],
       ),
@@ -992,6 +1563,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
   Widget build(BuildContext context) {
     final nextBus = _findNextBus();
     final activeRoute = _getActiveRoute();
+    final liveState = BusLocationService.instance.currentState;
     final allDepartures = activeRoute?.departures ?? _getDeparturesForRoute(_origin, _destination);
 
     final now = DateTime.now();
@@ -1097,6 +1669,12 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
 
                       const SizedBox(height: 14),
 
+                      // ── In Transit Live HUD Card ────────────────────────
+                      if (liveState.isOnBus) ...[
+                        _buildInTheBusCard(liveState),
+                        const SizedBox(height: 14),
+                      ],
+
                       // ── Interactive Stop Selector ───────────────────────
                       _buildSelectorHub(),
 
@@ -1108,6 +1686,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                         routeInfo: '${DefaultBusNetwork.formatPlaceName(_origin)} → ${DefaultBusNetwork.formatPlaceName(_destination)}',
                         activeRoute: activeRoute,
                         onSwap: _swapLocations,
+                        onInTheBus: nextBus != null ? () => _handleTimeSelected(nextBus['time']) : null,
                       ),
 
                       const SizedBox(height: 14),
@@ -1234,9 +1813,11 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                         BusScheduleGrid(
                           scheduleList: filteredDepartures,
                           nextBusTime: nextBus?['time'],
+                          selectedTime: _selectedTime,
                           isEditMode: _isEditMode,
                           onRemove: _removeTime,
                           onEdit: _addOrEditTime,
+                          onSelectTime: _handleTimeSelected,
                           timeToMinutes: _timeToMinutes,
                         ),
 

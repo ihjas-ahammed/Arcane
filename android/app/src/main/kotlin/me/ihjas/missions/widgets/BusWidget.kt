@@ -34,27 +34,65 @@ class BusWidget : HomeWidgetProvider() {
         val isOnBus = WidgetCommon.getSafeBoolean(prefs, "arcane.bus.isOnBus", false)
         val speedKmh = WidgetCommon.getSafeInt(prefs, "arcane.bus.speedKmh", 0)
         val minutesRemaining = WidgetCommon.getSafeInt(prefs, "arcane.bus.minutesRemaining", -1)
+        val progressPct = WidgetCommon.getSafeInt(prefs, "arcane.bus.progressPct", 0)
+        val displaySpeed = if (speedKmh > 0) speedKmh else 20
 
-        val statusBadge = if (isOnBus) "[ ON BUS // TRANSIT ACTIVE ]" else "[ BUS RADAR // STANDBY ]"
-        val speedLabel = if (isOnBus && speedKmh > 0) "SPEED: $speedKmh KM/H" else "GPS: ACTIVE"
+        if (isOnBus) {
+            views.setViewVisibility(R.id.widget_bus_progress, View.VISIBLE)
+            views.setProgressBar(R.id.widget_bus_progress, 100, progressPct.coerceIn(0, 100), false)
+            views.setTextViewText(R.id.widget_bus_status_badge, "[ IN THE BUS // TRANSIT ACTIVE ]")
+            views.setTextViewText(R.id.widget_bus_speed_label, "SPEED: $displaySpeed KM/H")
+            views.setTextViewText(R.id.widget_bus_route, "${origin.uppercase()} → ${destination.uppercase()}")
 
-        views.setTextViewText(R.id.widget_bus_status_badge, statusBadge)
-        views.setTextViewText(R.id.widget_bus_speed_label, speedLabel)
-        views.setTextViewText(R.id.widget_bus_route, "${origin.uppercase()} → ${destination.uppercase()}")
+            val mainTimeText = if (minutesRemaining >= 0) {
+                "ETA ~${minutesRemaining}M ($progressPct%)"
+            } else {
+                "IN TRANSIT ($progressPct%)"
+            }
+            views.setTextViewText(R.id.widget_bus_main_time, mainTimeText)
 
-        val mainTimeText = if (isOnBus && minutesRemaining >= 0) {
-            "ETA ~${minutesRemaining}M TO $destination"
+            val subStopInfo = if (nextSubStop.isNotEmpty()) {
+                "NEXT: ${nextSubStop.uppercase()} · $displaySpeed KM/H"
+            } else {
+                "IN TRANSIT @ $displaySpeed KM/H → ${destination.uppercase()}"
+            }
+            views.setTextViewText(R.id.widget_bus_substop_info, subStopInfo)
+
+            views.setTextViewText(R.id.widget_bus_btn_swap, "END TRIP")
+            views.setOnClickPendingIntent(
+                R.id.widget_bus_btn_swap,
+                WidgetCommon.actionIntent(context, "bus_end_trip", 302),
+            )
+            views.setTextViewText(R.id.widget_bus_btn_open, "VIEW TRIP")
+            views.setOnClickPendingIntent(
+                R.id.widget_bus_btn_open,
+                WidgetCommon.launchIntent(context, "bus_open"),
+            )
         } else {
-            nextTime
-        }
-        views.setTextViewText(R.id.widget_bus_main_time, mainTimeText)
+            views.setViewVisibility(R.id.widget_bus_progress, View.GONE)
+            views.setTextViewText(R.id.widget_bus_status_badge, "[ BUS RADAR // STANDBY ]")
+            views.setTextViewText(R.id.widget_bus_speed_label, "GPS: ACTIVE")
+            views.setTextViewText(R.id.widget_bus_route, "${origin.uppercase()} → ${destination.uppercase()}")
+            views.setTextViewText(R.id.widget_bus_main_time, nextTime)
 
-        val subStopInfo = if (nextSubStop.isNotEmpty()) {
-            if (isOnBus) "NEXT STOP: ${nextSubStop.uppercase()}" else "VIA: ${nextSubStop.uppercase()}"
-        } else {
-            if (minutesRemaining >= 0) "DEPARTS IN $minutesRemaining MIN" else "CHECK SCHEDULE"
+            val subStopInfo = if (nextSubStop.isNotEmpty()) {
+                "VIA: ${nextSubStop.uppercase()}"
+            } else {
+                if (minutesRemaining >= 0) "DEPARTS IN $minutesRemaining MIN" else "CHECK SCHEDULE"
+            }
+            views.setTextViewText(R.id.widget_bus_substop_info, subStopInfo)
+
+            views.setTextViewText(R.id.widget_bus_btn_swap, "⇄ SWAP")
+            views.setOnClickPendingIntent(
+                R.id.widget_bus_btn_swap,
+                WidgetCommon.actionIntent(context, "bus_swap", 301),
+            )
+            views.setTextViewText(R.id.widget_bus_btn_open, "TIMETABLE")
+            views.setOnClickPendingIntent(
+                R.id.widget_bus_btn_open,
+                WidgetCommon.launchIntent(context, "bus_open"),
+            )
         }
-        views.setTextViewText(R.id.widget_bus_substop_info, subStopInfo)
 
         if (minHeight > 0 && minHeight < 100) {
             views.setViewVisibility(R.id.widget_bus_buttons_layout, View.GONE)
@@ -65,14 +103,6 @@ class BusWidget : HomeWidgetProvider() {
         // Taps
         views.setOnClickPendingIntent(
             R.id.widget_bus_root,
-            WidgetCommon.launchIntent(context, "bus_open"),
-        )
-        views.setOnClickPendingIntent(
-            R.id.widget_bus_btn_swap,
-            WidgetCommon.actionIntent(context, "bus_swap", 301),
-        )
-        views.setOnClickPendingIntent(
-            R.id.widget_bus_btn_open,
             WidgetCommon.launchIntent(context, "bus_open"),
         )
 

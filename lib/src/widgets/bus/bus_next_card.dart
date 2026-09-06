@@ -10,6 +10,7 @@ class BusNextCard extends StatelessWidget {
   final BusRoute? activeRoute;
   final VoidCallback? onSwap;
   final VoidCallback? onOpenSchedule;
+  final VoidCallback? onInTheBus;
 
   const BusNextCard({
     super.key,
@@ -18,6 +19,7 @@ class BusNextCard extends StatelessWidget {
     this.activeRoute,
     this.onSwap,
     this.onOpenSchedule,
+    this.onInTheBus,
   });
 
   String _formatTimeRemaining(int minutes) {
@@ -111,6 +113,35 @@ class BusNextCard extends StatelessWidget {
                     ),
                   ),
                 ),
+              if (onInTheBus != null && hasBus) ...[
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: onInTheBus,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: activeColor.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: activeColor, width: 1.0),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(MdiIcons.bus, size: 12, color: activeColor),
+                        const SizedBox(width: 4),
+                        Text(
+                          'IN THE BUS',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.bold,
+                            color: activeColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
 

@@ -1,102 +1,114 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Fully native journal widget — crisp text, reflows on resize. -->
+<!-- Fully native journal widget — crisp text, rounded borders, background art -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_journal_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:clipToOutline="true"
-    android:padding="8dp">
+    android:padding="4dp">
 
-    <LinearLayout
+    <FrameLayout
+        android:id="@+id/widget_journal_card"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@drawable/widget_bg_cyan"
-        android:orientation="vertical"
-        android:paddingStart="14dp"
-        android:paddingEnd="14dp"
-        android:paddingTop="10dp"
-        android:paddingBottom="10dp">
+        android:background="@drawable/widget_bg"
+        android:clipToOutline="true">
 
-        <TextView
+        <ImageView
+            android:id="@+id/widget_bg_art"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:fontFamily="monospace"
-            android:letterSpacing="0.12"
-            android:maxLines="1"
-            android:text="REFLECTION LOG"
-            android:textColor="@color/widget_accent_cyan"
-            android:textSize="9sp" />
-
-        <TextView
-            android:id="@+id/widget_journal_count"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:gravity="center_vertical"
-            android:layout_marginTop="4dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:text="0 ENTRIES"
-            android:textColor="@color/widget_text_white"
-            android:textSize="24sp"
-            android:textStyle="bold"
-            android:autoSizeTextType="uniform"
-            android:autoSizeMinTextSize="13sp"
-            android:autoSizeMaxTextSize="26sp"
-            android:autoSizeStepGranularity="1sp" />
-
-        <!-- Time-of-day cadence pips -->
-        <LinearLayout
-            android:id="@+id/widget_journal_pips_layout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="4dp">
-
-            <TextView android:id="@+id/widget_journal_pip_wake" android:layout_width="0dp" android:layout_height="24dp" android:layout_weight="1" android:background="@drawable/widget_pip_off" android:gravity="center" android:fontFamily="monospace" android:maxLines="1" android:text="WAKE" android:textColor="@color/widget_text_muted" android:textSize="8sp" />
-            <TextView android:id="@+id/widget_journal_pip_morn" android:layout_width="0dp" android:layout_height="24dp" android:layout_weight="1" android:layout_marginStart="4dp" android:background="@drawable/widget_pip_off" android:gravity="center" android:fontFamily="monospace" android:maxLines="1" android:text="MORN" android:textColor="@color/widget_text_muted" android:textSize="8sp" />
-            <TextView android:id="@+id/widget_journal_pip_aft" android:layout_width="0dp" android:layout_height="24dp" android:layout_weight="1" android:layout_marginStart="4dp" android:background="@drawable/widget_pip_off" android:gravity="center" android:fontFamily="monospace" android:maxLines="1" android:text="AFT" android:textColor="@color/widget_text_muted" android:textSize="8sp" />
-            <TextView android:id="@+id/widget_journal_pip_eve" android:layout_width="0dp" android:layout_height="24dp" android:layout_weight="1" android:layout_marginStart="4dp" android:background="@drawable/widget_pip_off" android:gravity="center" android:fontFamily="monospace" android:maxLines="1" android:text="EVE" android:textColor="@color/widget_text_muted" android:textSize="8sp" />
-            <TextView android:id="@+id/widget_journal_pip_night" android:layout_width="0dp" android:layout_height="24dp" android:layout_weight="1" android:layout_marginStart="4dp" android:background="@drawable/widget_pip_off" android:gravity="center" android:fontFamily="monospace" android:maxLines="1" android:text="NIGHT" android:textColor="@color/widget_text_muted" android:textSize="8sp" />
-        </LinearLayout>
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/widget_bg_art_cyan"
+            android:contentDescription="@null" />
 
         <LinearLayout
-            android:id="@+id/widget_journal_buttons_layout"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:orientation="horizontal">
+            android:layout_height="match_parent"
+            android:background="@android:color/transparent"
+            android:orientation="vertical"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp">
 
             <TextView
-                android:id="@+id/widget_journal_btn_new"
-                android:layout_width="0dp"
-                android:layout_height="36dp"
-                android:layout_weight="1"
-                android:background="@drawable/widget_btn_primary_amber"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:fontFamily="monospace"
-                android:gravity="center"
-                android:letterSpacing="0.08"
+                android:letterSpacing="0.12"
                 android:maxLines="1"
-                android:text="+ NEW ENTRY"
-                android:textColor="@color/widget_bg_deep"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/widget_journal_btn_open"
-                android:layout_width="0dp"
-                android:layout_weight="0.7"
-                android:layout_height="36dp"
-                android:layout_marginStart="8dp"
-                android:background="@drawable/widget_btn_outline_cyan"
-                android:fontFamily="monospace"
-                android:gravity="center"
-                android:letterSpacing="0.08"
-                android:maxLines="1"
-                android:text="ARCHIVE"
+                android:text="REFLECTION LOG"
                 android:textColor="@color/widget_accent_cyan"
-                android:textSize="11sp"
+                android:textSize="9sp" />
+
+            <TextView
+                android:id="@+id/widget_journal_count"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
+                android:layout_marginTop="4dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="0 ENTRIES"
+                android:textColor="@color/widget_text_white"
+                android:textSize="24sp"
                 android:textStyle="bold" />
+
+            <!-- Time-of-day cadence pips -->
+            <LinearLayout
+                android:id="@+id/widget_journal_pips_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="4dp">
+
+                <TextView android:id="@+id/widget_journal_pip_wake" android:layout_width="0dp" android:layout_height="24dp" android:layout_weight="1" android:background="@drawable/widget_pip_off" android:gravity="center" android:fontFamily="monospace" android:maxLines="1" android:text="WAKE" android:textColor="@color/widget_text_muted" android:textSize="8sp" />
+                <TextView android:id="@+id/widget_journal_pip_morn" android:layout_width="0dp" android:layout_height="24dp" android:layout_weight="1" android:layout_marginStart="4dp" android:background="@drawable/widget_pip_off" android:gravity="center" android:fontFamily="monospace" android:maxLines="1" android:text="MORN" android:textColor="@color/widget_text_muted" android:textSize="8sp" />
+                <TextView android:id="@+id/widget_journal_pip_aft" android:layout_width="0dp" android:layout_height="24dp" android:layout_weight="1" android:layout_marginStart="4dp" android:background="@drawable/widget_pip_off" android:gravity="center" android:fontFamily="monospace" android:maxLines="1" android:text="AFT" android:textColor="@color/widget_text_muted" android:textSize="8sp" />
+                <TextView android:id="@+id/widget_journal_pip_eve" android:layout_width="0dp" android:layout_height="24dp" android:layout_weight="1" android:layout_marginStart="4dp" android:background="@drawable/widget_pip_off" android:gravity="center" android:fontFamily="monospace" android:maxLines="1" android:text="EVE" android:textColor="@color/widget_text_muted" android:textSize="8sp" />
+                <TextView android:id="@+id/widget_journal_pip_night" android:layout_width="0dp" android:layout_height="24dp" android:layout_weight="1" android:layout_marginStart="4dp" android:background="@drawable/widget_pip_off" android:gravity="center" android:fontFamily="monospace" android:maxLines="1" android:text="NIGHT" android:textColor="@color/widget_text_muted" android:textSize="8sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/widget_journal_buttons_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/widget_journal_btn_new"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/widget_btn_primary_amber"
+                    android:fontFamily="monospace"
+                    android:gravity="center"
+                    android:letterSpacing="0.08"
+                    android:maxLines="1"
+                    android:text="+ NEW ENTRY"
+                    android:textColor="@color/widget_bg_deep"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/widget_journal_btn_open"
+                    android:layout_width="0dp"
+                    android:layout_weight="0.7"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/widget_btn_outline_cyan"
+                    android:fontFamily="monospace"
+                    android:gravity="center"
+                    android:letterSpacing="0.08"
+                    android:maxLines="1"
+                    android:text="ARCHIVE"
+                    android:textColor="@color/widget_accent_cyan"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
+    </FrameLayout>
 </FrameLayout>

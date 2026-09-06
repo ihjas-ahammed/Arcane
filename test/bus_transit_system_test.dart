@@ -1,8 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:missions/src/models/bus_models.dart';
 import 'package:missions/src/models/app_state_models.dart';
+import 'package:missions/src/services/bus_location_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('Pristine Bus Transit Network Tests', () {
     test('Default locations and routes have no pre-added intermediate subStops and use Title Case', () {
       final stops = DefaultBusNetwork.stops;
@@ -97,6 +100,63 @@ void main() {
       final reconstructed = AppSettings.fromJson(json);
       expect(reconstructed.lastSelectedBusOrigin, 'Edavannappara');
       expect(reconstructed.lastSelectedBusDestination, 'Manjeri');
+    });
+
+    test('In the bus mode assumes 20 km/h speed for duration and ETA calculations', () {
+      const speedKmh = 20.0;
+
+      // 10 km distance -> (10 / 20) * 60 = 30 minutes
+      const dist1 = 10.0;
+      final duration1 = (dist1 / speedKmh * 60).round();
+      expect(duration1, 30);
+
+      // 15 km distance -> (15 / 20) * 60 = 45 minutes
+      const dist2 = 15.0;
+      final duration2 = (dist2 / speedKmh * 60).round();
+      expect(duration2, 45);
+
+      // 6 km distance -> (6 / 20) * 60 = 18 minutes
+      const dist3 = 6.0;
+      final duration3 = (dist3 / speedKmh * 60).round();
+      expect(duration3, 18);
+    });
+
+    test('BusLocationService correctly initiates and terminates 20 km/h In The Bus transit', () {
+      final route = BusRoute(
+        id: 'route_test',
+        originId: 'S.S College',
+        destinationId: 'Edavannappara',
+        name: 'S.S College → Edavannappara',
+        distanceKm: 10.0,
+        baseDurationMinutes: 30,
+      );
+
+      final service = BusLocationService.instance;
+      final startTime = DateTime.now();
+
+      service.startManualCommute(
+        route: route,
+        startTime: startTime,
+        assumedSpeedKmh: 20.0,
+        originName: 'S.S College',
+        destinationName: 'Edavannappara',
+        customDistanceKm: 10.0,
+        departureTime: '08:15 AM',
+      );
+
+      final state = service.currentState;
+      expect(state.isOnBus, isTrue);
+      expect(state.isManualCommute, isTrue);
+      expect(state.speedKmh, 20.0);
+      expect(state.routeDistanceKm, 10.0);
+      expect(state.originName, 'S.S College');
+      expect(state.destinationName, 'Edavannappara');
+      expect(state.selectedDepartureTime, '08:15 AM');
+      expect(state.predictedMinutesToDestination, inInclusiveRange(28, 30));
+
+      service.stopManualCommute();
+      expect(service.currentState.isOnBus, isFalse);
+      expect(service.currentState.isManualCommute, isFalse);
     });
   });
 }

@@ -138,5 +138,149 @@ void main() {
       expect(advisor.napWindowStart.hour, 16);
       expect(advisor.napWindowStart.minute, 0);
     });
+
+    test('dynamically recalibrates bedtime to 4 cycles when 5-cycle window is missed', () {
+      final provider = AppProvider.forTest();
+      final today = DateTime(2026, 9, 4);
+      // Simulated current time: 11:45 PM tonight (23:45)
+      // Ideal 5-cycle bedtime was 23:15 (465m before 07:00 AM wake)
+      final currentTime = DateTime(2026, 9, 4, 23, 45);
+
+      final advisor = SleepAdvisorHelper.calculate(provider, today, currentTime: currentTime);
+
+      expect(advisor.isBedtimeRecalibrated, isTrue);
+      expect(advisor.targetSleepCycles, 4);
+      // Next bedtime must be in the future! 4 cycles = 375m before 07:00 = 00:45 AM tomorrow
+      expect(advisor.nextBedtime.isAfter(currentTime), isTrue);
+      expect(advisor.nextBedtime.hour, 0);
+      expect(advisor.nextBedtime.minute, 45);
+      expect(advisor.nextWakeTime.hour, 7);
+      expect(advisor.bedtimeReasoning, contains('5-cycle window'));
+      expect(advisor.bedtimeReasoning, contains('4 complete 90m cycles'));
+    });
+
+    test('dynamically recalibrates bedtime to 3 cycles when 4-cycle window is missed', () {
+      final provider = AppProvider.forTest();
+      final today = DateTime(2026, 9, 4);
+      // Simulated current time: 01:15 AM (after 00:45 4-cycle gate)
+      final currentTime = DateTime(2026, 9, 4, 1, 15);
+
+      final advisor = SleepAdvisorHelper.calculate(provider, today, currentTime: currentTime);
+
+      expect(advisor.isBedtimeRecalibrated, isTrue);
+      expect(advisor.targetSleepCycles, 3);
+      // Next bedtime must be in the future! 3 cycles = 285m before 07:00 = 02:15 AM
+      expect(advisor.nextBedtime.isAfter(currentTime), isTrue);
+      expect(advisor.nextBedtime.hour, 2);
+      expect(advisor.nextBedtime.minute, 15);
+      expect(advisor.nextWakeTime.hour, 7);
+      expect(advisor.bedtimeReasoning, contains('3 complete cycles'));
+    });
+
+    test('dynamically recalibrates bedtime to 2 cycles when 3-cycle window is missed', () {
+      final provider = AppProvider.forTest();
+      final today = DateTime(2026, 9, 4);
+      // Simulated current time: 02:30 AM (after 02:15 3-cycle gate)
+      final currentTime = DateTime(2026, 9, 4, 2, 30);
+
+      final advisor = SleepAdvisorHelper.calculate(provider, today, currentTime: currentTime);
+
+      expect(advisor.isBedtimeRecalibrated, isTrue);
+      expect(advisor.targetSleepCycles, 2);
+      // Next bedtime must be in the future! 2 cycles = 195m before 07:00 = 03:45 AM
+      expect(advisor.nextBedtime.isAfter(currentTime), isTrue);
+      expect(advisor.nextBedtime.hour, 3);
+      expect(advisor.nextBedtime.minute, 45);
+      expect(advisor.nextWakeTime.hour, 7);
+      expect(advisor.bedtimeReasoning, contains('2 complete cycles'));
+    });
+
+    test('dynamically recalibrates power nap window when primary post-lunch window is missed', () {
+      final provider = AppProvider.forTest();
+      final today = DateTime(2026, 9, 4);
+      // Primary window: 14:15 - 14:45.
+      // Simulated current time: 15:15 (primary window missed, but before 16:30 cutoff)
+      final currentTime = DateTime(2026, 9, 4, 15, 15);
+
+      final advisor = SleepAdvisorHelper.calculate(provider, today, currentTime: currentTime);
+
+      expect(advisor.napStatus, NapWindowStatus.recalibrated);
+      // Must NEVER be in the past! Recalibrated window starts in future (now + 5m)
+      expect(advisor.napWindowStart.isAfter(currentTime), isTrue);
+      expect(advisor.napWindowStart.hour, 15);
+      expect(advisor.napWindowStart.minute, 20);
+      expect(advisor.napWindowEnd.hour, 15);
+      expect(advisor.napWindowEnd.minute, 40);
+      expect(advisor.napReasoning, contains('Primary circadian window missed'));
+      expect(advisor.napReasoning, contains('Recalibrated opportunistic power nap'));
+    });
+
+    test('schedules nap for tomorrow when afternoon cutoff is passed to protect tonight sleep', () {
+      final provider = AppProvider.forTest();
+      final today = DateTime(2026, 9, 4);
+      // Simulated current time: 17:00 (5:00 PM - past 16:30 cutoff)
+      final currentTime = DateTime(2026, 9, 4, 17, 0);
+
+      final advisor = SleepAdvisorHelper.calculate(provider, today, currentTime: currentTime);
+
+      expect(advisor.napStatus, NapWindowStatus.tomorrowScheduled);
+      // Must NEVER be in the past! Next nap is tomorrow afternoon
+      expect(advisor.napWindowStart.isAfter(currentTime), isTrue);
+      expect(advisor.napWindowStart.day, today.day + 1);
+      expect(advisor.napWindowStart.hour, 14);
+      expect(advisor.napWindowStart.minute, 15);
+      expect(advisor.napReasoning, contains("Today's nap window closed"));
+    });
+
+    test('scheduled nap points to tomorrow when nap is already completed today', () {
+      final provider = AppProvider.forTest();
+      final today = DateTime(2026, 9, 4);
+      const dateKey = '2026-09-04';
+
+      // Log a 20-minute power nap at 13:00
+      provider.addSleepLog(
+        dateKey,
+        SleepLog(
+          id: 'nap_today',
+          startTime: DateTime(2026, 9, 4, 13, 0),
+          endTime: DateTime(2026, 9, 4, 13, 20),
+          isNapExplicit: true,
+        ),
+      );
+
+      final currentTime = DateTime(2026, 9, 4, 14, 0);
+      final advisor = SleepAdvisorHelper.calculate(provider, today, currentTime: currentTime);
+
+      expect(advisor.napStatus, NapWindowStatus.completedToday);
+      expect(advisor.napWindowStart.isAfter(currentTime), isTrue);
+      expect(advisor.napWindowStart.day, today.day + 1);
+      expect(advisor.napReasoning, contains('Power nap logged today'));
+    });
+
+    test('SleepLog correctly identifies naps vs night sleep', () {
+      final nightSleep = SleepLog(
+        id: 'night',
+        startTime: DateTime(2026, 9, 3, 23, 0),
+        endTime: DateTime(2026, 9, 4, 7, 0),
+      );
+      expect(nightSleep.isNap, isFalse);
+      expect(nightSleep.durationMinutes, 480);
+
+      final powerNap = SleepLog(
+        id: 'nap',
+        startTime: DateTime(2026, 9, 4, 14, 0),
+        endTime: DateTime(2026, 9, 4, 14, 20),
+      );
+      expect(powerNap.isNap, isTrue);
+      expect(powerNap.durationMinutes, 20);
+
+      final explicitNap = SleepLog(
+        id: 'explicit',
+        startTime: DateTime(2026, 9, 4, 21, 0),
+        endTime: DateTime(2026, 9, 4, 21, 30),
+        isNapExplicit: true,
+      );
+      expect(explicitNap.isNap, isTrue);
+    });
   });
 }

@@ -6,16 +6,31 @@
     android:clipToOutline="true"
     android:padding="6dp">
 
-    <LinearLayout
-        android:id="@+id/widget_card_container"
+    <FrameLayout
+        android:id="@+id/widget_root_card"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@drawable/widget_bg_tactical_cyan"
-        android:orientation="vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="9dp"
-        android:paddingBottom="9dp">
+        android:background="@drawable/widget_bg"
+        android:clipToOutline="true">
+
+        <ImageView
+            android:id="@+id/widget_bg_art"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/widget_bg_art_cyan"
+            android:contentDescription="@null" />
+
+        <LinearLayout
+            android:id="@+id/widget_card_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@android:color/transparent"
+            android:orientation="vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="9dp"
+            android:paddingBottom="9dp">
 
         <!-- ===== Multitask layout (2-in-1 / 3-in-1) ===== -->
         <LinearLayout
@@ -86,20 +101,13 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Status divider line -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@color/widget_border_dim"
-                android:layout_marginTop="5dp"
-                android:layout_marginBottom="6dp" />
-
             <!-- Mini cards container -->
             <LinearLayout
                 android:id="@+id/widget_mt_cards_row"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
+                android:layout_marginTop="6dp"
                 android:orientation="horizontal">
 
                 <!-- Card 0 -->
@@ -414,19 +422,12 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Status divider line -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@color/widget_border_dim"
-                android:layout_marginTop="5dp"
-                android:layout_marginBottom="6dp" />
-
             <!-- Title & Subtitle container -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
+                android:layout_marginTop="4dp"
                 android:orientation="vertical"
                 android:gravity="center_vertical">
 
@@ -630,16 +631,8 @@
                     android:textSize="9sp" />
             </LinearLayout>
 
-            <!-- Status divider line -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@color/widget_border_dim"
-                android:layout_marginTop="5dp"
-                android:layout_marginBottom="4dp" />
-
             <!-- Rows 0..4 -->
-            <LinearLayout android:id="@+id/widget_dayplan_row_0" android:layout_width="match_parent" android:layout_height="28dp" android:orientation="horizontal" android:gravity="center_vertical">
+            <LinearLayout android:id="@+id/widget_dayplan_row_0" android:layout_width="match_parent" android:layout_height="28dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="4dp">
                 <View android:layout_width="3dp" android:layout_height="16dp" android:background="@color/widget_accent_cyan" android:layout_marginEnd="6dp" />
                 <TextView android:id="@+id/widget_dayplan_row_title_0" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="monospace" android:maxLines="1" android:ellipsize="end" android:text="" android:textColor="@color/widget_text_white" android:textSize="11.5sp" />
                 <TextView android:id="@+id/widget_dayplan_btn_check_0" android:layout_width="38dp" android:layout_height="24dp" android:background="@drawable/widget_btn_outline_cyan" android:fontFamily="monospace" android:gravity="center" android:text="✓" android:textColor="@color/widget_accent_cyan" android:textSize="12sp" />
@@ -666,4 +659,5 @@
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
+</FrameLayout>
 </FrameLayout>

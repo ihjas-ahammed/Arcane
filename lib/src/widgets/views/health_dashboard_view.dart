@@ -45,14 +45,22 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
   }
 
   // --- Sleep Logging Dialog ---
-  void _showSleepDialog(BuildContext context, AppProvider provider, String dateStr) {
-    TimeOfDay bedTime = const TimeOfDay(hour: 23, minute: 0);
-    TimeOfDay wakeTime = const TimeOfDay(hour: 7, minute: 0);
+  // --- Sleep & Nap Logging Dialog ---
+  void _showSleepDialog(BuildContext context, AppProvider provider, String dateStr, {bool isNapDefault = false}) {
+    bool isNap = isNapDefault;
+    final nowTime = TimeOfDay.now();
+    TimeOfDay bedTime = isNapDefault
+        ? nowTime
+        : const TimeOfDay(hour: 23, minute: 0);
+    TimeOfDay wakeTime = isNapDefault
+        ? TimeOfDay(hour: (nowTime.hour + (nowTime.minute + 20) ~/ 60) % 24, minute: (nowTime.minute + 20) % 60)
+        : const TimeOfDay(hour: 7, minute: 0);
 
     Widget buildTimePickerRow({
       required BuildContext ctx,
       required String label,
       required TimeOfDay time,
+      required Color accent,
       required void Function(TimeOfDay picked) onSelected,
     }) {
       return InkWell(
@@ -63,7 +71,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
             builder: (pickerCtx, child) => Theme(
               data: Theme.of(pickerCtx).copyWith(
                 colorScheme: JweTheme.pickerScheme(
-                  accent: JweTheme.accentCyan,
+                  accent: accent,
                   surface: JweTheme.panel,
                 ),
               ),
@@ -99,7 +107,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                   Text(
                     time.format(ctx),
                     style: GoogleFonts.jetBrainsMono(
-                      color: JweTheme.accentCyan,
+                      color: accent,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -109,7 +117,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
               Icon(
                 MdiIcons.clockOutline,
                 size: 20,
-                color: JweTheme.accentCyan.withValues(alpha: 0.8),
+                color: accent.withValues(alpha: 0.8),
               ),
             ],
           ),
@@ -121,31 +129,212 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (dialogCtx, setDialogState) {
-          final now = DateTime.tryParse(dateStr) ?? DateTime.now();
-          final start = DateTime(now.year, now.month, now.day, bedTime.hour, bedTime.minute);
-          var end = DateTime(now.year, now.month, now.day, wakeTime.hour, wakeTime.minute);
+          final targetDate = DateTime.tryParse(dateStr) ?? DateTime.now();
+          final start = DateTime(targetDate.year, targetDate.month, targetDate.day, bedTime.hour, bedTime.minute);
+          var end = DateTime(targetDate.year, targetDate.month, targetDate.day, wakeTime.hour, wakeTime.minute);
           if (end.isBefore(start)) end = end.add(const Duration(days: 1));
           final diff = end.difference(start);
+          final activeAccent = isNap ? JweTheme.accentAmber : JweTheme.accentCyan;
+
+          void applyPresetMinutes(int mins) {
+            setDialogState(() {
+              final newEnd = start.add(Duration(minutes: mins));
+              wakeTime = TimeOfDay(hour: newEnd.hour, minute: newEnd.minute);
+            });
+          }
 
           return AlertDialog(
             backgroundColor: JweTheme.panel,
             scrollable: true,
             shape: RoundedRectangleBorder(
-              side: BorderSide(color: JweTheme.accentCyan, width: 2),
+              side: BorderSide(color: activeAccent, width: 2),
               borderRadius: BorderRadius.zero,
             ),
-            title: Text(
-              'LOG SLEEP RECORD',
-              style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold),
+            title: Row(
+              children: [
+                Icon(
+                  isNap ? MdiIcons.batteryChargingOutline : MdiIcons.weatherNight,
+                  size: 20,
+                  color: activeAccent,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isNap ? 'LOG POWER NAP' : 'LOG SLEEP RECORD',
+                  style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Mode Selector: Night Sleep vs Power Nap
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          setDialogState(() {
+                            isNap = false;
+                            bedTime = const TimeOfDay(hour: 23, minute: 0);
+                            wakeTime = const TimeOfDay(hour: 7, minute: 0);
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: !isNap ? JweTheme.accentCyan.withValues(alpha: 0.2) : JweTheme.bgCanvas.withValues(alpha: 0.3),
+                            border: Border.all(
+                              color: !isNap ? JweTheme.accentCyan : JweTheme.border,
+                              width: !isNap ? 1.5 : 1,
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            'NIGHT SLEEP',
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: !isNap ? JweTheme.accentCyan : JweTheme.textMuted,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          setDialogState(() {
+                            isNap = true;
+                            final current = TimeOfDay.now();
+                            bedTime = current;
+                            wakeTime = TimeOfDay(
+                              hour: (current.hour + (current.minute + 20) ~/ 60) % 24,
+                              minute: (current.minute + 20) % 60,
+                            );
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isNap ? JweTheme.accentAmber.withValues(alpha: 0.2) : JweTheme.bgCanvas.withValues(alpha: 0.3),
+                            border: Border.all(
+                              color: isNap ? JweTheme.accentAmber : JweTheme.border,
+                              width: isNap ? 1.5 : 1,
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            'POWER NAP',
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: isNap ? JweTheme.accentAmber : JweTheme.textMuted,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Quick Nap Presets if in Nap mode
+                if (isNap) ...[
+                  Text(
+                    'QUICK DURATION PRESETS',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.textMuted,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: JweTheme.accentAmber,
+                            side: BorderSide(
+                              color: diff.inMinutes == 20
+                                  ? JweTheme.accentAmber
+                                  : JweTheme.border,
+                            ),
+                            backgroundColor: diff.inMinutes == 20
+                                ? JweTheme.accentAmber.withValues(alpha: 0.15)
+                                : null,
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            shape: const BeveledRectangleBorder(),
+                          ),
+                          onPressed: () => applyPresetMinutes(20),
+                          child: Text(
+                            '20M\nNASA',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.jetBrainsMono(fontSize: 9, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: JweTheme.accentAmber,
+                            side: BorderSide(
+                              color: diff.inMinutes == 30
+                                  ? JweTheme.accentAmber
+                                  : JweTheme.border,
+                            ),
+                            backgroundColor: diff.inMinutes == 30
+                                ? JweTheme.accentAmber.withValues(alpha: 0.15)
+                                : null,
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            shape: const BeveledRectangleBorder(),
+                          ),
+                          onPressed: () => applyPresetMinutes(30),
+                          child: Text(
+                            '30M\nREST',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.jetBrainsMono(fontSize: 9, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: JweTheme.accentAmber,
+                            side: BorderSide(
+                              color: diff.inMinutes == 90
+                                  ? JweTheme.accentAmber
+                                  : JweTheme.border,
+                            ),
+                            backgroundColor: diff.inMinutes == 90
+                                ? JweTheme.accentAmber.withValues(alpha: 0.15)
+                                : null,
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            shape: const BeveledRectangleBorder(),
+                          ),
+                          onPressed: () => applyPresetMinutes(90),
+                          child: Text(
+                            '90M\nCYCLE',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.jetBrainsMono(fontSize: 9, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
                 buildTimePickerRow(
                   ctx: dialogCtx,
-                  label: 'BED TIME',
+                  label: isNap ? 'NAP ONSET TIME' : 'BED TIME',
                   time: bedTime,
+                  accent: activeAccent,
                   onSelected: (picked) {
                     setDialogState(() {
                       bedTime = picked;
@@ -155,8 +344,9 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                 const SizedBox(height: 12),
                 buildTimePickerRow(
                   ctx: dialogCtx,
-                  label: 'WAKE TIME',
+                  label: isNap ? 'NAP WAKE TIME' : 'WAKE TIME',
                   time: wakeTime,
+                  accent: activeAccent,
                   onSelected: (picked) {
                     setDialogState(() {
                       wakeTime = picked;
@@ -167,18 +357,24 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
-                    color: JweTheme.accentCyan.withValues(alpha: 0.1),
-                    border: Border.all(color: JweTheme.accentCyan.withValues(alpha: 0.25)),
+                    color: activeAccent.withValues(alpha: 0.1),
+                    border: Border.all(color: activeAccent.withValues(alpha: 0.25)),
                   ),
                   child: Row(
                     children: [
-                      Icon(MdiIcons.informationOutline, size: 14, color: JweTheme.accentCyan),
+                      Icon(
+                        isNap ? MdiIcons.batteryChargingOutline : MdiIcons.informationOutline,
+                        size: 14,
+                        color: activeAccent,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          end.day != start.day
-                              ? "Crosses midnight • ${diff.inHours}h ${diff.inMinutes % 60}m duration"
-                              : "Same day • ${diff.inHours}h ${diff.inMinutes % 60}m duration",
+                          isNap
+                              ? "Power Nap • ${diff.inHours > 0 ? '${diff.inHours}h ' : ''}${diff.inMinutes % 60}m duration"
+                              : (end.day != start.day
+                                  ? "Crosses midnight • ${diff.inHours}h ${diff.inMinutes % 60}m duration"
+                                  : "Same day • ${diff.inHours}h ${diff.inMinutes % 60}m duration"),
                           style: GoogleFonts.jetBrainsMono(
                             color: JweTheme.textMid,
                             fontSize: 10.5,
@@ -197,7 +393,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: JweTheme.accentCyan,
+                  backgroundColor: activeAccent,
                   foregroundColor: JweTheme.onAccent,
                   shape: const BeveledRectangleBorder(),
                 ),
@@ -208,11 +404,15 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                       id: const Uuid().v4(),
                       startTime: start,
                       endTime: end,
+                      isNapExplicit: isNap,
                     ),
                   );
                   Navigator.pop(ctx);
                 },
-                child: Text('LOG', style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.bold)),
+                child: Text(
+                  isNap ? 'LOG NAP' : 'LOG SLEEP',
+                  style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           );
@@ -612,11 +812,23 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
         badgeText = JweTheme.accentTeal;
         badgeLabel = 'ACTIVE WINDOW';
         break;
+      case NapWindowStatus.recalibrated:
+        badgeBg = JweTheme.accentAmber.withValues(alpha: 0.2);
+        badgeBorder = JweTheme.accentAmber;
+        badgeText = JweTheme.accentAmber;
+        badgeLabel = 'RECALIBRATED';
+        break;
       case NapWindowStatus.upcoming:
         badgeBg = JweTheme.accentAmber.withValues(alpha: 0.15);
         badgeBorder = JweTheme.accentAmber.withValues(alpha: 0.5);
         badgeText = JweTheme.accentAmber;
         badgeLabel = 'RECOMMENDED';
+        break;
+      case NapWindowStatus.tomorrowScheduled:
+        badgeBg = JweTheme.accentCyan.withValues(alpha: 0.15);
+        badgeBorder = JweTheme.accentCyan.withValues(alpha: 0.5);
+        badgeText = JweTheme.accentCyan;
+        badgeLabel = 'SCHEDULED TOMORROW';
         break;
       case NapWindowStatus.completedToday:
         badgeBg = JweTheme.accentCyan.withValues(alpha: 0.15);
@@ -631,6 +843,11 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
         badgeLabel = 'WINDOW CONCLUDED';
         break;
     }
+
+    final isTomorrowNap = advisor.napStatus == NapWindowStatus.tomorrowScheduled ||
+        advisor.napWindowStart.day != refDate.day;
+    final napTimeText = "${DateFormat('h:mm a').format(advisor.napWindowStart)} — ${DateFormat('h:mm a').format(advisor.napWindowEnd)}";
+    final bedtimeAccent = advisor.isBedtimeRecalibrated ? JweTheme.accentAmber : JweTheme.accentCyan;
 
     return HudPanel(
       clip: HudClip.br,
@@ -707,10 +924,10 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                   spacing: 6,
                   children: [
                     Text(
-                      "${DateFormat('h:mm a').format(advisor.napWindowStart)} — ${DateFormat('h:mm a').format(advisor.napWindowEnd)}",
+                      isTomorrowNap ? "Tomorrow: $napTimeText" : napTimeText,
                       style: GoogleFonts.chakraPetch(
                         color: JweTheme.accentAmber,
-                        fontSize: 17,
+                        fontSize: isTomorrowNap ? 15 : 17,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.5,
                       ),
@@ -771,6 +988,75 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
             ),
           ),
 
+          // Quick Power Nap Action Buttons when window is active or upcoming
+          if (advisor.napStatus == NapWindowStatus.activeNow ||
+              advisor.napStatus == NapWindowStatus.recalibrated ||
+              advisor.napStatus == NapWindowStatus.upcoming) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: Icon(MdiIcons.batteryChargingOutline, size: 14, color: JweTheme.accentAmber),
+                    label: Text(
+                      advisor.napStatus == NapWindowStatus.activeNow
+                          ? 'LOG 20M NAP NOW'
+                          : 'QUICK LOG 20M NAP',
+                      style: GoogleFonts.rajdhani(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: JweTheme.accentAmber,
+                      side: BorderSide(color: JweTheme.accentAmber.withValues(alpha: 0.5)),
+                      shape: const BeveledRectangleBorder(),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    onPressed: () {
+                      final start = DateTime.now();
+                      final end = start.add(const Duration(minutes: 20));
+                      provider.addSleepLog(
+                        dateStr,
+                        SleepLog(
+                          id: const Uuid().v4(),
+                          startTime: start,
+                          endTime: end,
+                          isNapExplicit: true,
+                        ),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Power nap logged (20m). Refreshing alertness and working memory!',
+                            style: GoogleFonts.jetBrainsMono(fontSize: 12),
+                          ),
+                          backgroundColor: JweTheme.panel,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: JweTheme.textMid,
+                    side: BorderSide(color: JweTheme.border),
+                    shape: const BeveledRectangleBorder(),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  ),
+                  onPressed: () => _showSleepDialog(context, provider, dateStr, isNapDefault: true),
+                  child: Text(
+                    'CUSTOM...',
+                    style: GoogleFonts.rajdhani(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
           // Divider
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -795,13 +1081,22 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                 ),
               ),
               const SizedBox(width: 6),
-              Text(
-                'TARGET: ${advisor.targetSleepCycles} CYCLES (7.5H)',
-                style: GoogleFonts.jetBrainsMono(
-                  color: JweTheme.accentCyan,
-                  fontSize: 8.5,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.6,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: bedtimeAccent.withValues(alpha: 0.15),
+                  border: Border.all(color: bedtimeAccent.withValues(alpha: 0.5)),
+                ),
+                child: Text(
+                  advisor.isBedtimeRecalibrated
+                      ? 'RECALIBRATED: ${advisor.targetSleepCycles} CYCLES (${(advisor.targetSleepCycles * 1.5).toStringAsFixed(1)}H)'
+                      : 'TARGET: ${advisor.targetSleepCycles} CYCLES (7.5H)',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: bedtimeAccent,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.6,
+                  ),
                 ),
               ),
             ],
@@ -826,9 +1121,11 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                       ),
                     ),
                     Text(
-                      advisor.nextBedtime.day == refDate.day ? "TONIGHT" : "LATE TONIGHT",
+                      advisor.nextBedtime.day == refDate.day
+                          ? "TONIGHT"
+                          : (advisor.nextBedtime.difference(DateTime.now()).inHours.abs() < 8 ? "LATE TONIGHT" : "TOMORROW NIGHT"),
                       style: GoogleFonts.jetBrainsMono(
-                        color: JweTheme.accentCyan,
+                        color: bedtimeAccent,
                         fontSize: 9.5,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.0,
@@ -867,7 +1164,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
               children: [
                 Row(
                   children: [
-                    Icon(MdiIcons.weatherSunset, size: 14, color: JweTheme.accentCyan),
+                    Icon(MdiIcons.weatherSunset, size: 14, color: bedtimeAccent),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -913,6 +1210,8 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
   // ==========================================
   Widget _buildLogsTab(BuildContext context, AppProvider provider, DailyHealthLog log, String dateStr, Color accent, double bottomPadding) {
     final totalSleepMinutes = log.sleepLogs.fold(0, (sum, item) => sum + item.durationMinutes);
+    final nightSleepMinutes = log.sleepLogs.where((s) => !s.isNap).fold(0, (sum, item) => sum + item.durationMinutes);
+    final napMinutes = log.sleepLogs.where((s) => s.isNap).fold(0, (sum, item) => sum + item.durationMinutes);
     final workoutMinutes = log.activityLogs.fold(0, (sum, item) => sum + item.workoutMinutes);
     final distanceKm = log.activityLogs.fold(0.0, (sum, item) => sum + item.walkDistanceKm);
 
@@ -1039,6 +1338,31 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                     ),
                   ],
                 ),
+                if (napMinutes > 0) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'BREAKDOWN',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: JweTheme.textMuted,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      Text(
+                        "Night: ${(nightSleepMinutes / 60).floor()}h ${nightSleepMinutes % 60}m • Nap: ${napMinutes}m",
+                        style: GoogleFonts.jetBrainsMono(
+                          color: JweTheme.textMid,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 12),
                 if (log.sleepLogs.isEmpty)
                   Padding(
@@ -1053,41 +1377,86 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                     ),
                   )
                 else
-                  ...log.sleepLogs.map((s) => Padding(
-                        padding: const EdgeInsets.only(bottom: 6.0),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          color: JweTheme.bgCanvas.withValues(alpha: 0.3),
-                          child: Row(
-                            children: [
-                              Icon(MdiIcons.bedOutline, size: 14, color: JweTheme.accentCyan),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  "${DateFormat('HH:mm').format(s.startTime)} — ${DateFormat('HH:mm').format(s.endTime)} (${(s.durationMinutes / 60).floor()}h ${s.durationMinutes % 60}m)",
-                                  style: GoogleFonts.jetBrainsMono(color: JweTheme.textMid, fontSize: 10.5),
+                  ...log.sleepLogs.map((s) {
+                    final isNap = s.isNap;
+                    final rowAccent = isNap ? JweTheme.accentAmber : JweTheme.accentCyan;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6.0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        color: JweTheme.bgCanvas.withValues(alpha: 0.3),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isNap ? MdiIcons.batteryChargingOutline : MdiIcons.bedOutline,
+                              size: 14,
+                              color: rowAccent,
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              margin: const EdgeInsets.only(right: 6),
+                              decoration: BoxDecoration(
+                                color: rowAccent.withValues(alpha: 0.15),
+                                border: Border.all(color: rowAccent.withValues(alpha: 0.4)),
+                              ),
+                              child: Text(
+                                isNap ? 'NAP' : 'NIGHT',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: rowAccent,
+                                  fontSize: 7.5,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              IconButton(
-                                icon:  Icon(Icons.close, color: JweTheme.accentRed, size: 14),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: () => provider.deleteSleepLog(dateStr, s.id),
+                            ),
+                            Expanded(
+                              child: Text(
+                                "${DateFormat('HH:mm').format(s.startTime)} — ${DateFormat('HH:mm').format(s.endTime)} (${(s.durationMinutes / 60).floor()}h ${s.durationMinutes % 60}m)",
+                                style: GoogleFonts.jetBrainsMono(color: JweTheme.textMid, fontSize: 10.5),
                               ),
-                            ],
-                          ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.close, color: JweTheme.accentRed, size: 14),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () => provider.deleteSleepLog(dateStr, s.id),
+                            ),
+                          ],
                         ),
-                      )),
+                      ),
+                    );
+                  }),
                 const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.add, size: 14),
-                  label: const Text('RECORD SLEEP SESSION'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: JweTheme.accentCyan,
-                    side: BorderSide(color: JweTheme.accentCyan.withValues(alpha: 0.5)),
-                    shape: const BeveledRectangleBorder(),
-                  ),
-                  onPressed: () => _showSleepDialog(context, provider, dateStr),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.add, size: 14),
+                        label: const Text('RECORD SLEEP'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: JweTheme.accentCyan,
+                          side: BorderSide(color: JweTheme.accentCyan.withValues(alpha: 0.5)),
+                          shape: const BeveledRectangleBorder(),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        ),
+                        onPressed: () => _showSleepDialog(context, provider, dateStr, isNapDefault: false),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: Icon(MdiIcons.batteryChargingOutline, size: 14, color: JweTheme.accentAmber),
+                        label: const Text('LOG NAP'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: JweTheme.accentAmber,
+                          side: BorderSide(color: JweTheme.accentAmber.withValues(alpha: 0.5)),
+                          shape: const BeveledRectangleBorder(),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        ),
+                        onPressed: () => _showSleepDialog(context, provider, dateStr, isNapDefault: true),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

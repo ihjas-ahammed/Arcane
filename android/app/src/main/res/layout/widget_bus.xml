@@ -1,138 +1,162 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Fully native bus transit widget — crisp text, tactical HUD styling -->
+<!-- Fully native bus transit widget — crisp text, tactical HUD styling, rounded borders -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_bus_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:clipToOutline="true"
-    android:padding="8dp">
+    android:padding="4dp">
 
-    <LinearLayout
+    <FrameLayout
+        android:id="@+id/widget_bus_card"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@drawable/widget_bg_amber"
-        android:orientation="vertical"
-        android:paddingStart="14dp"
-        android:paddingEnd="14dp"
-        android:paddingTop="10dp"
-        android:paddingBottom="10dp">
+        android:background="@drawable/widget_bg"
+        android:clipToOutline="true">
 
-        <!-- Header Row -->
+        <ImageView
+            android:id="@+id/widget_bg_art"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/widget_bg_art_amber"
+            android:contentDescription="@null" />
+
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:layout_height="match_parent"
+            android:background="@android:color/transparent"
+            android:orientation="vertical"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp">
 
-            <TextView
-                android:id="@+id/widget_bus_status_badge"
-                android:layout_width="0dp"
+            <!-- Header Row -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:fontFamily="monospace"
-                android:letterSpacing="0.12"
-                android:maxLines="1"
-                android:text="[ BUS TIMETABLE // RADAR ]"
-                android:textColor="@color/widget_accent_amber"
-                android:textSize="9sp" />
+                android:orientation="horizontal">
 
+                <TextView
+                    android:id="@+id/widget_bus_status_badge"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.12"
+                    android:maxLines="1"
+                    android:text="[ BUS TIMETABLE // RADAR ]"
+                    android:textColor="@color/widget_accent_amber"
+                    android:textSize="9sp" />
+
+                <TextView
+                    android:id="@+id/widget_bus_speed_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.1"
+                    android:maxLines="1"
+                    android:text="GPS: ACTIVE"
+                    android:textColor="@color/widget_text_muted"
+                    android:textSize="8.5sp" />
+            </LinearLayout>
+
+            <!-- Route Name -->
             <TextView
-                android:id="@+id/widget_bus_speed_label"
-                android:layout_width="wrap_content"
+                android:id="@+id/widget_bus_route"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
                 android:fontFamily="monospace"
-                android:letterSpacing="0.1"
+                android:letterSpacing="0.08"
                 android:maxLines="1"
-                android:text="GPS: ACTIVE"
+                android:ellipsize="end"
+                android:text="S.S COLLEGE → EDAVANNAPPARA"
                 android:textColor="@color/widget_text_muted"
-                android:textSize="8.5sp" />
-        </LinearLayout>
+                android:textSize="10sp" />
 
-        <!-- Route Name -->
-        <TextView
-            android:id="@+id/widget_bus_route"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:fontFamily="monospace"
-            android:letterSpacing="0.08"
-            android:maxLines="1"
-            android:ellipsize="end"
-            android:text="S.S COLLEGE → EDAVANNAPPARA"
-            android:textColor="@color/widget_text_muted"
-            android:textSize="10sp" />
-
-        <!-- Main Time / Next Stop ETA -->
-        <TextView
-            android:id="@+id/widget_bus_main_time"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:gravity="center_vertical"
-            android:layout_marginTop="2dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:text="08:15 AM"
-            android:textColor="@color/widget_text_white"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:autoSizeTextType="uniform"
-            android:autoSizeMinTextSize="12sp"
-            android:autoSizeMaxTextSize="24sp"
-            android:autoSizeStepGranularity="1sp" />
-
-        <!-- Sub-stop / Countdown Telemetry -->
-        <TextView
-            android:id="@+id/widget_bus_substop_info"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:fontFamily="monospace"
-            android:letterSpacing="0.06"
-            android:maxLines="1"
-            android:ellipsize="end"
-            android:text="NEXT: CHEEKKODE (IN 12 MIN)"
-            android:textColor="@color/widget_accent_cyan"
-            android:textSize="9.5sp"
-            android:textStyle="bold" />
-
-        <!-- Action Buttons -->
-        <LinearLayout
-            android:id="@+id/widget_bus_buttons_layout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal">
-
+            <!-- Main Time / Next Stop ETA -->
             <TextView
-                android:id="@+id/widget_bus_btn_swap"
-                android:layout_width="0dp"
-                android:layout_height="34dp"
+                android:id="@+id/widget_bus_main_time"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
                 android:layout_weight="1"
-                android:background="@drawable/widget_btn_outline_amber"
-                android:fontFamily="monospace"
-                android:gravity="center"
-                android:letterSpacing="0.08"
+                android:gravity="center_vertical"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
                 android:maxLines="1"
-                android:text="⇄ SWAP"
-                android:textColor="@color/widget_accent_amber"
-                android:textSize="10.5sp"
+                android:text="08:15 AM"
+                android:textColor="@color/widget_text_white"
+                android:textSize="22sp"
                 android:textStyle="bold" />
 
+            <!-- Sub-stop / Countdown Telemetry -->
             <TextView
-                android:id="@+id/widget_bus_btn_open"
-                android:layout_width="0dp"
-                android:layout_weight="1.4"
-                android:layout_height="34dp"
-                android:layout_marginStart="8dp"
-                android:background="@drawable/widget_btn_primary_amber"
+                android:id="@+id/widget_bus_substop_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
                 android:fontFamily="monospace"
-                android:gravity="center"
-                android:letterSpacing="0.08"
+                android:letterSpacing="0.06"
                 android:maxLines="1"
-                android:text="TIMETABLE"
-                android:textColor="@color/widget_bg_deep"
-                android:textSize="10.5sp"
+                android:ellipsize="end"
+                android:text="NEXT: CHEEKKODE (IN 12 MIN)"
+                android:textColor="@color/widget_accent_cyan"
+                android:textSize="9.5sp"
                 android:textStyle="bold" />
+
+            <!-- Progress bar (Visible when in the bus) -->
+            <ProgressBar
+                android:id="@+id/widget_bus_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:layout_marginTop="5dp"
+                android:max="100"
+                android:progress="0"
+                android:visibility="gone"
+                android:progressDrawable="@drawable/widget_progress_amber" />
+
+            <!-- Action Buttons -->
+            <LinearLayout
+                android:id="@+id/widget_bus_buttons_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/widget_bus_btn_swap"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/widget_btn_outline_amber"
+                    android:fontFamily="monospace"
+                    android:gravity="center"
+                    android:letterSpacing="0.08"
+                    android:maxLines="1"
+                    android:text="⇄ SWAP"
+                    android:textColor="@color/widget_accent_amber"
+                    android:textSize="10.5sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/widget_bus_btn_open"
+                    android:layout_width="0dp"
+                    android:layout_weight="1.4"
+                    android:layout_height="34dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/widget_btn_primary_amber"
+                    android:fontFamily="monospace"
+                    android:gravity="center"
+                    android:letterSpacing="0.08"
+                    android:maxLines="1"
+                    android:text="TIMETABLE"
+                    android:textColor="@color/widget_bg_deep"
+                    android:textSize="10.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
+    </FrameLayout>
 </FrameLayout>

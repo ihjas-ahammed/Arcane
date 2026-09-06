@@ -1,30 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="400dp"
-    android:height="200dp"
-    android:viewportWidth="400"
-    android:viewportHeight="200">
-    <!-- Tactical chamfered panel body -->
-    <path
-        android:fillColor="@color/widget_bg_panel"
-        android:strokeColor="@color/widget_accent_cyan"
-        android:strokeWidth="1.2"
-        android:pathData="M 12,0 L 388,0 L 400,12 L 400,188 L 388,200 L 12,200 L 0,188 L 0,12 Z" />
-    <!-- Reinforced corner bracket accents -->
-    <path
-        android:strokeColor="@color/widget_accent_cyan"
-        android:strokeWidth="2.5"
-        android:pathData="M 0,22 L 0,12 L 12,0 L 22,0" />
-    <path
-        android:strokeColor="@color/widget_accent_cyan"
-        android:strokeWidth="2.5"
-        android:pathData="M 378,0 L 388,0 L 400,12 L 400,22" />
-    <path
-        android:strokeColor="@color/widget_accent_cyan"
-        android:strokeWidth="2.5"
-        android:pathData="M 400,178 L 400,188 L 388,200 L 378,200" />
-    <path
-        android:strokeColor="@color/widget_accent_cyan"
-        android:strokeWidth="2.5"
-        android:pathData="M 22,200 L 12,200 L 0,188 L 0,178" />
-</vector>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/widget_bg_panel" />
+            <corners android:radius="20dp" />
+        </shape>
+    </item>
+    <item>
+        <bitmap
+            android:src="@drawable/widget_bg_art_cyan"
+            android:gravity="fill" />
+    </item>
+</layer-list>

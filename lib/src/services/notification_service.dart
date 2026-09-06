@@ -35,8 +35,13 @@ class NotificationService {
   static const String _reminderChannelName = 'Reminders';
   static const String _reminderChannelDesc = 'Submission and reflection reminders';
 
+  static const String _transitChannelId = 'bus_transit';
+  static const String _transitChannelName = 'Bus Transit';
+  static const String _transitChannelDesc = 'Live updates and progress while in the bus';
+
   // --- Notification IDs ---
   static const int _timerNotifId = 2001;
+  static const int _transitNotifId = 2002;
   static const int reflectionReminderId = 3001;
   static const int financeReminderId = 3002;
   static const int healthReminderId = 3003;
@@ -151,6 +156,15 @@ class NotificationService {
           description: _reminderChannelDesc,
           importance: Importance.high,
         ));
+        // Transit channel (low importance for silent ongoing progress updates)
+        await android.createNotificationChannel(const AndroidNotificationChannel(
+          _transitChannelId,
+          _transitChannelName,
+          description: _transitChannelDesc,
+          importance: Importance.low,
+          playSound: false,
+          enableVibration: false,
+        ));
         try {
           await android.requestNotificationsPermission();
         } catch (_) {}
@@ -198,6 +212,9 @@ class NotificationService {
         break;
       case 'undo_check':
         _onTap?.call('undo_check:$payload');
+        break;
+      case 'stop_bus_transit':
+        _onTap?.call('stop_bus_transit');
         break;
       case 'log_low_energy':
         _onTap?.call('log_low_energy');
@@ -483,6 +500,80 @@ class NotificationService {
     _linuxTimerUpdater?.cancel();
     _linuxTimerUpdater = null;
     if (!kIsWeb) await _plugin.cancel(_timerNotifId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Bus Transit ongoing notification
+  // ---------------------------------------------------------------------------
+
+  /// Show / update the persistent ongoing bus transit notification.
+  Future<void> showBusTransitNotification({
+    required String origin,
+    required String destination,
+    required double progress,
+    required int minutesRemaining,
+    double speedKmh = 20.0,
+  }) async {
+    if (!_initialized || kIsWeb) return;
+
+    final pct = (progress.clamp(0.0, 1.0) * 100).round();
+    final title = 'IN THE BUS · $origin → $destination';
+    final body = 'ETA ~$minutesRemaining min ($pct%) · ${speedKmh.toStringAsFixed(0)} km/h';
+
+    if (_isAndroid) {
+      final details = AndroidNotificationDetails(
+        _transitChannelId,
+        _transitChannelName,
+        channelDescription: _transitChannelDesc,
+        importance: Importance.low,
+        priority: Priority.low,
+        ongoing: true,
+        autoCancel: false,
+        playSound: false,
+        enableVibration: false,
+        onlyAlertOnce: true,
+        showProgress: true,
+        maxProgress: 100,
+        progress: pct,
+        icon: '@mipmap/ic_launcher',
+        color: const Color(0xFFFFB547), // tactical amber
+        actions: const [
+          AndroidNotificationAction(
+            'stop_bus_transit',
+            'END TRIP',
+            cancelNotification: true,
+            showsUserInterface: true,
+          ),
+        ],
+      );
+
+      await _plugin.show(
+        _transitNotifId,
+        '🚌 $title',
+        body,
+        NotificationDetails(android: details),
+        payload: 'bus_transit',
+      );
+    } else if (_isLinux) {
+      await _plugin.show(
+        _transitNotifId,
+        '🚌 $title ($pct%)',
+        body,
+        const NotificationDetails(
+          linux: LinuxNotificationDetails(
+            urgency: LinuxNotificationUrgency.low,
+            resident: true,
+          ),
+        ),
+        payload: 'bus_transit',
+      );
+    }
+  }
+
+  Future<void> cancelBusTransitNotification() async {
+    if (!kIsWeb) {
+      await _plugin.cancel(_transitNotifId);
+    }
   }
 
   // ---------------------------------------------------------------------------

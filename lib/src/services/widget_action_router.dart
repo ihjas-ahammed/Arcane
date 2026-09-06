@@ -10,6 +10,7 @@ import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/screens/bus_schedule_screen.dart';
 import 'package:missions/src/screens/journaling/quick_therapy_screen.dart';
 import 'package:missions/src/screens/reflections_archive_screen.dart';
+import 'package:missions/src/services/bus_location_service.dart';
 import 'package:missions/src/widgets/dialogs/add_transaction_dialog.dart';
 import 'package:missions/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
@@ -150,6 +151,11 @@ class WidgetActionRouter {
         if (!silent) {
           _push((_) => const BusScheduleScreen());
         }
+        break;
+      case 'bus_end_trip':
+      case 'stop_bus_transit':
+        BusLocationService.instance.stopManualCommute();
+        showGlobalToast('Bus commute ended');
         break;
       case 'bus_locate':
         if (!silent) {

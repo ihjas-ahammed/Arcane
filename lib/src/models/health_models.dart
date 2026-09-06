@@ -106,21 +106,32 @@ class SleepLog {
   String id;
   DateTime startTime;
   DateTime endTime;
+  bool? isNapExplicit;
 
   SleepLog({
     required this.id,
     required this.startTime,
     required this.endTime,
+    this.isNapExplicit,
   });
 
   int get durationMinutes => endTime.difference(startTime).inMinutes;
 
+  /// True if explicitly marked as a nap, or inferred from duration (< 120m)
+  /// and daytime timing (starts between 07:00 and 20:00).
+  bool get isNap {
+    if (isNapExplicit != null) return isNapExplicit!;
+    return durationMinutes > 0 && durationMinutes < 120 && startTime.hour >= 7 && startTime.hour <= 20;
+  }
+
   factory SleepLog.fromJson(Map<String, dynamic> json) {
+    final explicitNap = json['isNap'] as bool?;
     if (json['startTime'] != null && json['endTime'] != null) {
       return SleepLog(
         id: json['id'] as String? ?? const Uuid().v4(),
         startTime: DateTime.parse(json['startTime']),
         endTime: DateTime.parse(json['endTime']),
+        isNapExplicit: explicitNap,
       );
     } else {
       // Legacy migration from 'minutes' and 'timestamp'
@@ -131,6 +142,7 @@ class SleepLog {
         id: json['id'] as String? ?? const Uuid().v4(),
         startTime: start,
         endTime: end,
+        isNapExplicit: explicitNap,
       );
     }
   }
@@ -140,6 +152,7 @@ class SleepLog {
       'id': id,
       'startTime': startTime.toIso8601String(),
       'endTime': endTime.toIso8601String(),
+      if (isNapExplicit != null) 'isNap': isNapExplicit,
     };
   }
 }

@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="@color/widget_bg_panel" />
-    <stroke
-        android:width="1.2dp"
-        android:color="@color/widget_accent_cyan" />
-    <corners android:radius="4dp" />
-</shape>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/widget_bg_panel" />
+            <corners android:radius="20dp" />
+        </shape>
+    </item>
+    <item>
+        <bitmap
+            android:src="@drawable/widget_bg_art_cyan"
+            android:gravity="fill" />
+    </item>
+</layer-list>
