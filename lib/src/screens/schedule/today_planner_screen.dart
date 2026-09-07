@@ -154,23 +154,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       } else {
         final rowLists = provider.taskActions.getDayPlanRows(_date);
         _rows = rowLists.map((row) {
-          return _PlanRowData(row.map((id) {
-            final entry = _PlanEntry(id);
-            final parts = id.split('|');
-            if (parts.length >= 2) {
-              final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
-              final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
-              if (sub != null && sub.subSubTasks.isNotEmpty) {
-                entry.checkpoints = sub.getCheckpointsAtDepth().map((sst) => _PlanCheckpoint(
-                  id: const Uuid().v4(),
-                  name: sst.name,
-                  completed: false,
-                  durationMinutes: sst.timeSpentMinutes > 0 ? sst.timeSpentMinutes : 15,
-                )).toList();
-              }
-            }
-            return entry;
-          }).toList());
+          return _PlanRowData(row.map((id) => _PlanEntry(id)).toList());
         }).toList();
       }
       _estimates = provider.taskActions.getDayPlanEstimates(_date);
@@ -245,19 +229,6 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
   void _addToPlan(AppProvider provider, String compoundId, [int? targetRowIdx]) {
     final target = targetRowIdx ?? _multitaskTargetRowIndex;
     final newEntry = _PlanEntry(compoundId, addedAtRuntime: true);
-    final parts = compoundId.split('|');
-    if (parts.length >= 2) {
-      final task = provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0]);
-      final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parts[1]);
-      if (sub != null && sub.subSubTasks.isNotEmpty) {
-        newEntry.checkpoints = sub.getCheckpointsAtDepth().map((sst) => _PlanCheckpoint(
-          id: const Uuid().v4(),
-          name: sst.name,
-          completed: false,
-          durationMinutes: sst.timeSpentMinutes > 0 ? sst.timeSpentMinutes : 15,
-        )).toList();
-      }
-    }
 
     setState(() {
       if (target != null && target >= 0 && target < _rows.length && _rows[target].entries.length < 3) {
@@ -1757,7 +1728,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                       ),
                     ],
                   ),
-                  if (!isCheckpoint)
+                  if (!isCheckpoint && entry.checkpoints.isNotEmpty)
                     _buildTacticalSubtasksPanel(provider, entry),
                   Container(
                     margin: const EdgeInsets.only(top: 8),
@@ -1903,29 +1874,31 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 2),
-                            InkWell(
-                              onTap: () => _showSubtasksModal(provider, entry, sub.name),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.checklist_rounded,
-                                    size: 12,
-                                    color: totalCps > 0 ? (JweTheme.isLight ? JweTheme.textMid : const Color(0xFF94A3B8)) : JweTheme.textMuted,
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    totalCps > 0 ? '$completedCps/$totalCps' : '0/0',
-                                    style: GoogleFonts.rajdhani(
-                                      color: totalCps > 0 ? (JweTheme.isLight ? JweTheme.textMid : const Color(0xFF94A3B8)) : JweTheme.textMuted,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
+                            if (totalCps > 0) ...[
+                              const SizedBox(height: 2),
+                              InkWell(
+                                onTap: () => _showSubtasksModal(provider, entry, sub.name),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.checklist_rounded,
+                                      size: 12,
+                                      color: JweTheme.isLight ? JweTheme.textMid : const Color(0xFF94A3B8),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      '$completedCps/$totalCps',
+                                      style: GoogleFonts.rajdhani(
+                                        color: JweTheme.isLight ? JweTheme.textMid : const Color(0xFF94A3B8),
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),
@@ -2115,29 +2088,31 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 2),
-                            InkWell(
-                              onTap: () => _showSubtasksModal(provider, entry, sub.name),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.checklist_rounded,
-                                    size: 10,
-                                    color: totalCps > 0 ? (JweTheme.isLight ? JweTheme.textMid : const Color(0xFF94A3B8)) : JweTheme.textMuted,
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    totalCps > 0 ? '$completedCps/$totalCps' : '0/0',
-                                    style: GoogleFonts.rajdhani(
-                                      color: totalCps > 0 ? (JweTheme.isLight ? JweTheme.textMid : const Color(0xFF94A3B8)) : JweTheme.textMuted,
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.bold,
+                            if (totalCps > 0) ...[
+                              const SizedBox(height: 2),
+                              InkWell(
+                                onTap: () => _showSubtasksModal(provider, entry, sub.name),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.checklist_rounded,
+                                      size: 10,
+                                      color: JweTheme.isLight ? JweTheme.textMid : const Color(0xFF94A3B8),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      '$completedCps/$totalCps',
+                                      style: GoogleFonts.rajdhani(
+                                        color: JweTheme.isLight ? JweTheme.textMid : const Color(0xFF94A3B8),
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),
@@ -2236,6 +2211,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
     _PlanEntry entry,
   ) {
     final checkpoints = entry.checkpoints;
+    if (checkpoints.isEmpty) {
+      return const SizedBox.shrink();
+    }
     final completedCount = checkpoints.where((c) => c.completed).length;
     final totalCount = checkpoints.length;
     final totalMinutes = checkpoints.fold<int>(0, (sum, c) => sum + c.durationMinutes);
@@ -2760,6 +2738,26 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
             ],
           ),
         ),
+        PopupMenuItem(
+          value: 'merge_top_row',
+          child: Row(
+            children: [
+              Icon(Icons.vertical_align_top_rounded, size: 16, color: JweTheme.accentCyan),
+              const SizedBox(width: 8),
+              Text('MERGE TO TOP ROW', style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'merge_bottom_row',
+          child: Row(
+            children: [
+              Icon(Icons.vertical_align_bottom_rounded, size: 16, color: JweTheme.accentCyan),
+              const SizedBox(width: 8),
+              Text('MERGE TO BOTTOM ROW', style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
         if (isInMultiRow)
           PopupMenuItem(
             value: 'move_own_row',
@@ -2767,7 +2765,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
               children: [
                 const Icon(Icons.table_rows_outlined, size: 16, color: Color(0xFFF59E0B)),
                 const SizedBox(width: 8),
-                Text('MOVE TO OWN ROW', style: GoogleFonts.rajdhani(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                Text('MOVE TO OWN ROW', style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -2777,7 +2775,7 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
             children: [
               const Icon(Icons.view_column_outlined, size: 16, color: Color(0xFF10B981)),
               const SizedBox(width: 8),
-              Text('MULTITASK / ADD TO ROW', style: GoogleFonts.rajdhani(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+              Text('MULTITASK / ADD TO ROW', style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -2785,9 +2783,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
           value: 'adjust_duration',
           child: Row(
             children: [
-              const Icon(Icons.timer_outlined, size: 16, color: Color(0xFFCBD5E1)),
+              Icon(Icons.timer_outlined, size: 16, color: JweTheme.textMid),
               const SizedBox(width: 8),
-              Text('ADJUST DURATION', style: GoogleFonts.rajdhani(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+              Text('ADJUST DURATION', style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -2795,9 +2793,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
           value: 'reminder',
           child: Row(
             children: [
-              const Icon(Icons.notifications_outlined, size: 16, color: Color(0xFFCBD5E1)),
+              Icon(Icons.notifications_outlined, size: 16, color: JweTheme.textMid),
               const SizedBox(width: 8),
-              Text('SET REMINDER', style: GoogleFonts.rajdhani(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+              Text('SET REMINDER', style: GoogleFonts.rajdhani(color: JweTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -2835,6 +2833,12 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       case 'view_subtasks':
         _showSubtasksModal(provider, entry, subTaskName);
         break;
+      case 'merge_top_row':
+        _mergeToRow(provider, entry, rowIndex, -1);
+        break;
+      case 'merge_bottom_row':
+        _mergeToRow(provider, entry, rowIndex, 1);
+        break;
       case 'move_own_row':
         setState(() {
           if (rowIndex >= 0 && rowIndex < _rows.length) {
@@ -2870,6 +2874,40 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
         _removeFromPlan(provider, entry);
         break;
     }
+  }
+
+  void _mergeToRow(AppProvider provider, _PlanEntry entry, int currentRowIndex, int direction) {
+    int actualRowIndex = _rows.indexWhere((r) => r.entries.any((e) => e.key == entry.key));
+    if (actualRowIndex == -1) actualRowIndex = currentRowIndex;
+    if (actualRowIndex < 0 || actualRowIndex >= _rows.length) return;
+
+    final targetRowIndex = actualRowIndex + direction;
+    if (targetRowIndex < 0) {
+      showGlobalToast('No row above to merge into');
+      return;
+    }
+    if (targetRowIndex >= _rows.length) {
+      showGlobalToast('No row below to merge into');
+      return;
+    }
+
+    final targetRow = _rows[targetRowIndex];
+    if (targetRow.entries.length >= 3) {
+      showGlobalToast('TACTICAL OVERLOAD: Maximum 3 missions allowed per row!');
+      return;
+    }
+
+    setState(() {
+      final currentRow = _rows[actualRowIndex];
+      currentRow.entries.removeWhere((e) => e.key == entry.key);
+      targetRow.entries.add(entry);
+      if (currentRow.entries.isEmpty) {
+        _rows.removeAt(actualRowIndex);
+      }
+    });
+
+    _persistPlan(provider);
+    showGlobalToast(direction < 0 ? 'Merged to top row' : 'Merged to bottom row');
   }
 }
 

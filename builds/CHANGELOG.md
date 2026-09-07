@@ -1,5 +1,16 @@
 # ⚡ Arcane System Changelog & Release Notes
 
+## [v2026.9.7] — 2026-09-07
+### 🎯 Manual-Only Checkpoints & Cleaner Planner Cards
+- **Eliminated Automatic Checkpoint Population**: Removed all auto-generation and automatic inheritance of subtask checkpoints when adding missions to the day plan or initializing planner rows. All checkpoints in the planner are now strictly manual.
+- **Dynamic Checkpoint View Suppression**: Single plan cards and multitask (2-in-1 / 3-in-1) cards now completely hide the checkpoint dropdown panel and checkpoint ratio indicators when an item has zero checkpoints, eliminating visual clutter.
+- **On-Demand Manual Checkpoint Creation**: Operators can still manually attach checkpoints anytime via the `ADD CHECKPOINT` option in the card action menu or checkpoint modal.
+
+### 📐 Tactical Row Merging (Merge to Top & Bottom Rows)
+- **Direct Row Merge Controls**: Added `MERGE TO TOP ROW` and `MERGE TO BOTTOM ROW` options directly to the mission card action menu across single, dual, and triple cards.
+- **Fluid Multitask Row Assembly**: Move single or multi-column missions directly into adjacent rows with automatic empty row cleanup, bounds checking, and strict 3-mission maximum enforcement (`TACTICAL OVERLOAD`).
+- **Seamless State Persistence & Dual-Theme Parity**: Automatically persists merged row layouts to day plan history with theme-adaptive action icons and typography (`JweTheme`).
+
 ## [v2026.9.6] — 2026-09-06
 ### 📋 Day Plan Homescreen Widget Overhaul & Widgets Studio Integration
 - **Lightweight Card Architecture**: Replaced the fragile 335-line, 5-row checklist layout in `widget_dayplan.xml` with the proven lightweight single-card tactical architecture (17 elements, depth 5), matching Bus, Finance, and Journal widgets and completely eliminating launcher RemoteViews inflation crashes.
