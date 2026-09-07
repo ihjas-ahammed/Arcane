@@ -1,6 +1,10 @@
 # ⚡ Arcane System Changelog & Release Notes
 
 ## [v2026.9.7] — 2026-09-07
+### 📱 Responsive Mobile Layout & Overflow Elimination
+- **AI Model Selection & Rolling Fallback Shield**: Compact density and bounded constraints (`minWidth: 28, minHeight: 28`) on priority items, text ellipsis, dropdown menu overflow protections, fitted fallback action buttons, and responsive dialog constraints (`maxWidth: 460`).
+- **Update Alert Window Responsive Overhaul**: Dynamically clamped dialog height (`MediaQuery.size.height * 0.85`), responsive 2-tier stacked action footer on mobile screens (`< 360px`), and text truncation shields across HUD headers and status pills.
+
 ### 🎯 Manual-Only Checkpoints & Cleaner Planner Cards
 - **Eliminated Automatic Checkpoint Population**: Removed all auto-generation and automatic inheritance of subtask checkpoints when adding missions to the day plan or initializing planner rows. All checkpoints in the planner are now strictly manual.
 - **Dynamic Checkpoint View Suppression**: Single plan cards and multitask (2-in-1 / 3-in-1) cards now completely hide the checkpoint dropdown panel and checkpoint ratio indicators when an item has zero checkpoints, eliminating visual clutter.

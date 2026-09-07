@@ -220,11 +220,14 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
                 : 'v${widget.currentVersion} (#${widget.currentBuildNumber}) ➔ v${widget.update.versionName} (#${widget.update.versionCode})')
             : 'v${widget.currentVersion} ➔ v${widget.update.versionName}');
 
+    final screenHeight = MediaQuery.of(context).size.height;
+    final maxDialogHeight = (screenHeight * 0.85).clamp(380.0, 640.0);
+
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 480, maxHeight: 620),
+        constraints: BoxConstraints(maxWidth: 480, maxHeight: maxDialogHeight),
         decoration: BoxDecoration(
           color: bgDark,
           borderRadius: BorderRadius.circular(16),
@@ -263,6 +266,8 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
                         children: [
                           Text(
                             titleText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.orbitron(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -273,6 +278,8 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
                           const SizedBox(height: 2),
                           Text(
                             subtitleText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.jetBrainsMono(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w600,
@@ -327,6 +334,8 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
                       Expanded(
                         child: Text(
                           'APK v${widget.update.versionName} CACHED (${_cachedFileSize != null ? _formatBytes(_cachedFileSize!) : 'READY'})',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.jetBrainsMono(
                             fontSize: 9.5,
                             fontWeight: FontWeight.bold,
@@ -334,6 +343,7 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 6),
                       InkWell(
                         onTap: _isDownloading ? null : () => _startDownloadAndInstall(forceRedownload: true),
                         borderRadius: BorderRadius.circular(4),
@@ -419,14 +429,19 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'DOWNLOADING APK... ${(_downloadProgress * 100).toInt()}%',
-                            style: GoogleFonts.orbitron(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: accentColor,
+                          Expanded(
+                            child: Text(
+                              'DOWNLOADING APK... ${(_downloadProgress * 100).toInt()}%',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.orbitron(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: accentColor,
+                              ),
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Text(
                             '${_formatBytes(_receivedBytes)} / ${_formatBytes(_totalBytes)}',
                             style: GoogleFonts.jetBrainsMono(
@@ -471,56 +486,89 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
                   color: isLight ? const Color(0xFFEDE9DF) : const Color(0xFF141622),
                   border: Border(top: BorderSide(color: isLight ? Colors.black12 : Colors.white12)),
                 ),
-                child: widget.isPostUpdate
-                    ? Row(
+                child: LayoutBuilder(
+                  builder: (context, footerConstraints) {
+                    if (widget.isPostUpdate) {
+                      final btn = ElevatedButton.icon(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: JweTheme.accentTeal,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.check, size: 16, color: Colors.black),
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'ACKNOWLEDGE & CONTINUE',
+                            style: GoogleFonts.orbitron(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.8,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                      );
+
+                      if (footerConstraints.maxWidth < 340) {
+                        return SizedBox(width: double.infinity, child: btn);
+                      }
+                      return Row(
                         children: [
                           const Spacer(),
-                          ElevatedButton.icon(
-                            onPressed: () => Navigator.of(context).pop(),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: JweTheme.accentTeal,
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          btn,
+                        ],
+                      );
+                    }
+
+                    final isNarrow = footerConstraints.maxWidth < 360;
+
+                    final primaryBtn = ElevatedButton.icon(
+                      onPressed: _isDownloading ? null : () => _startDownloadAndInstall(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _cachedFile != null ? JweTheme.accentTeal : accentColor,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: Icon(
+                        _cachedFile != null
+                            ? MdiIcons.packageDown
+                            : (_isDownloading ? Icons.hourglass_top : MdiIcons.download),
+                        size: 16,
+                        color: Colors.black,
+                      ),
+                      label: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          _cachedFile != null
+                              ? 'INSTALL UPGRADE'
+                              : (_isDownloading ? 'DOWNLOADING...' : 'DOWNLOAD & INSTALL'),
+                          style: GoogleFonts.orbitron(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.8,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    );
+
+                    final redownloadBtn = _cachedFile != null
+                        ? OutlinedButton.icon(
+                            onPressed: _isDownloading ? null : () => _startDownloadAndInstall(forceRedownload: true),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: accentColor,
+                              side: BorderSide(color: accentColor.withValues(alpha: 0.6)),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
-                            icon: const Icon(Icons.check, size: 16, color: Colors.black),
-                            label: Text(
-                              'ACKNOWLEDGE & CONTINUE',
-                              style: GoogleFonts.orbitron(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.8,
-                                color: Colors.black,
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    : Row(
-                        children: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: Text(
-                              'LATER',
-                              style: GoogleFonts.orbitron(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: isLight ? Colors.black54 : Colors.white54,
-                              ),
-                            ),
-                          ),
-                          const Spacer(),
-                          if (_cachedFile != null) ...[
-                            OutlinedButton.icon(
-                              onPressed: _isDownloading ? null : () => _startDownloadAndInstall(forceRedownload: true),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: accentColor,
-                                side: BorderSide(color: accentColor.withValues(alpha: 0.6)),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              icon: Icon(MdiIcons.refresh, size: 15, color: accentColor),
-                              label: Text(
+                            icon: Icon(MdiIcons.refresh, size: 14, color: accentColor),
+                            label: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
                                 'REDOWNLOAD',
                                 style: GoogleFonts.orbitron(
                                   fontSize: 9.5,
@@ -529,37 +577,55 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                          ],
-                          ElevatedButton.icon(
-                            onPressed: _isDownloading ? null : () => _startDownloadAndInstall(),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _cachedFile != null ? JweTheme.accentTeal : accentColor,
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            icon: Icon(
-                              _cachedFile != null
-                                  ? MdiIcons.packageDown
-                                  : (_isDownloading ? Icons.hourglass_top : MdiIcons.download),
-                              size: 16,
-                              color: Colors.black,
-                            ),
-                            label: Text(
-                              _cachedFile != null
-                                  ? 'INSTALL UPGRADE'
-                                  : (_isDownloading ? 'DOWNLOADING...' : 'DOWNLOAD & INSTALL'),
-                              style: GoogleFonts.orbitron(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.8,
-                                color: Colors.black,
-                              ),
-                            ),
+                          )
+                        : null;
+
+                    final laterBtn = TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                      child: Text(
+                        'LATER',
+                        style: GoogleFonts.orbitron(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: isLight ? Colors.black54 : Colors.white54,
+                        ),
+                      ),
+                    );
+
+                    if (isNarrow) {
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          primaryBtn,
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              laterBtn,
+                              const Spacer(),
+                              if (redownloadBtn != null) redownloadBtn,
+                            ],
                           ),
                         ],
-                      ),
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        laterBtn,
+                        const Spacer(),
+                        if (redownloadBtn != null) ...[
+                          redownloadBtn,
+                          const SizedBox(width: 8),
+                        ],
+                        primaryBtn,
+                      ],
+                    );
+                  },
+                ),
               ),
             ],
           ),

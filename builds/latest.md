@@ -1,3 +1,19 @@
+# ⚡ Arcane System Upgrade // v2026.9.7 (Build #2126090702)
+
+### 📱 Responsive Mobile Layout & Overflow Elimination
+- **AI Model Selection & Rolling Fallback Shield**:
+  - Replaced unconstrained priority button rows with `VisualDensity.compact` and bounded constraints (`minWidth: 28, minHeight: 28`) with zero padding, eliminating RenderFlex horizontal overflows on narrow screens (<360px).
+  - Added ellipsis truncation (`maxLines: 1`) to model priority slot titles inside `Expanded` blocks.
+  - Wrapped custom model prompt menu item inside `Expanded` with text ellipsis to prevent dropdown popup menu overflows.
+  - Scaled action button labels (`ADD $prefix FALLBACK` and `REFETCH AVAILABLE GEMINI MODELS`) dynamically with `FittedBox` to guarantee clean rendering on all screen widths.
+  - Replaced fixed-width dialog constraints with responsive `maxWidth: 460` and `EdgeInsets.symmetric(horizontal: 16, vertical: 24)` inset paddings in model identifier dialogs.
+- **Update Alert Window Responsive Overhaul**:
+  - Bound update dialog height dynamically via `(MediaQuery.of(context).size.height * 0.85).clamp(380.0, 640.0)` with responsive inset padding, completely preventing vertical screen clipping and overflows on compact phones or landscape orientations.
+  - Implemented responsive 2-tier footer via `LayoutBuilder`: on mobile widths (`< 360px`), primary download/install actions expand to full width while secondary actions (`LATER` and `REDOWNLOAD`) nest gracefully below.
+  - Added text overflow shields and ellipsis to header HUD title, subtitle, cached APK status pill, and download percentage indicators.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.7 (Build #2126090701)
 
 ### 🎯 Manual-Only Checkpoints & Cleaner Planner Cards

@@ -51,6 +51,7 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
       builder: (ctx) {
         return AlertDialog(
           backgroundColor: isLight ? JweTheme.panel : AppTheme.fhBgMedium,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           title: Row(
             children: [
               Icon(MdiIcons.robotOutline, color: JweTheme.accentAmber, size: 22),
@@ -58,6 +59,8 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
               Expanded(
                 child: Text(
                   title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary,
                     fontSize: 16,
@@ -69,8 +72,10 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
           ),
           content: SingleChildScrollView(
             child: SizedBox(
-              width: 460,
-              child: Column(
+              width: double.maxFinite,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -125,6 +130,7 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
               ),
             ),
           ),
+        ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
@@ -169,77 +175,85 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
       builder: (ctx) {
         return AlertDialog(
           backgroundColor: isLight ? JweTheme.panel : AppTheme.fhBgMedium,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           title: Row(
             children: [
               Icon(MdiIcons.plusCircleOutline, color: JweTheme.accentAmber, size: 22),
               const SizedBox(width: 10),
-              Text(
-                "Add $prefix Fallback Model",
-                style: TextStyle(
-                  color: isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  "Add $prefix Fallback Model",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
           ),
           content: SingleChildScrollView(
             child: SizedBox(
-              width: 460,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Type any custom model identifier or choose an available model from below to add to the rolling fallback ladder:",
-                    style: TextStyle(
-                      color: isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: controller,
-                    autofocus: true,
-                    style: TextStyle(
-                      color: isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary,
-                      fontFamily: AppTheme.fontDisplay,
-                      fontSize: 14,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: "Model Name / Identifier",
-                      hintText: "e.g. gemini-2.5-pro",
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
-                  ),
-                  if (candidateModels.isNotEmpty) ...[
-                    const SizedBox(height: 16),
+              width: double.maxFinite,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      "AVAILABLE MODELS:",
+                      "Type any custom model identifier or choose an available model from below to add to the rolling fallback ladder:",
                       style: TextStyle(
-                        color: JweTheme.accentAmber,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.8,
+                        color: isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
+                        fontSize: 12,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: candidateModels.map((m) {
-                        return ActionChip(
-                          label: Text(m, style: const TextStyle(fontSize: 11)),
-                          backgroundColor: isLight ? JweTheme.bgDeep : AppTheme.fhBgDark,
-                          onPressed: () {
-                            controller.text = m;
-                          },
-                        );
-                      }).toList(),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      style: TextStyle(
+                        color: isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary,
+                        fontFamily: AppTheme.fontDisplay,
+                        fontSize: 14,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: "Model Name / Identifier",
+                        hintText: "e.g. gemini-2.5-pro",
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
                     ),
+                    if (candidateModels.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        "AVAILABLE MODELS:",
+                        style: TextStyle(
+                          color: JweTheme.accentAmber,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: candidateModels.map((m) {
+                          return ActionChip(
+                            label: Text(m, style: const TextStyle(fontSize: 11)),
+                            backgroundColor: isLight ? JweTheme.bgDeep : AppTheme.fhBgDark,
+                            onPressed: () {
+                              controller.text = m;
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -337,6 +351,8 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
                     Expanded(
                       child: Text(
                         fieldLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -348,7 +364,8 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
                     IconButton(
                       icon: const Icon(Icons.arrow_upward_rounded, size: 18),
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      visualDensity: VisualDensity.compact,
                       tooltip: "Move Up in Priority",
                       onPressed: index > 0
                           ? () {
@@ -363,7 +380,8 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
                     IconButton(
                       icon: const Icon(Icons.arrow_downward_rounded, size: 18),
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      visualDensity: VisualDensity.compact,
                       tooltip: "Move Down in Priority",
                       onPressed: index < list.length - 1
                           ? () {
@@ -378,7 +396,8 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
                     IconButton(
                       icon: Icon(MdiIcons.pencilOutline, size: 18),
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      visualDensity: VisualDensity.compact,
                       tooltip: "Type / Edit Custom Model Name",
                       onPressed: () {
                         _showCustomModelDialog(
@@ -398,7 +417,8 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
                         icon: const Icon(Icons.delete_outline_rounded, size: 18),
                         color: AppTheme.fhAccentRed,
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                        visualDensity: VisualDensity.compact,
                         tooltip: "Remove from Fallbacks",
                         onPressed: () {
                           final newList = List<String>.from(list);
@@ -433,14 +453,20 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
                             ),
                           ),
                         )),
-                    const DropdownMenuItem(
+                    DropdownMenuItem(
                       value: '__enter_custom__',
                       child: Row(
-                        children: [
+                        children: const [
                           Icon(Icons.edit_note_rounded, size: 16),
                           SizedBox(width: 6),
-                          Text("✍️ Enter custom model name...",
-                              style: TextStyle(fontStyle: FontStyle.italic, fontSize: 13)),
+                          Expanded(
+                            child: Text(
+                              "✍️ Enter custom model name...",
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              style: TextStyle(fontStyle: FontStyle.italic, fontSize: 13),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -473,14 +499,17 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
             Expanded(
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
-                label: Text(
-                  "ADD $prefix FALLBACK MODEL",
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                label: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    "ADD $prefix FALLBACK",
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: accentColor,
                   side: BorderSide(color: accentColor.withValues(alpha: 0.5)),
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 onPressed: () {
@@ -501,6 +530,8 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
               label: const Text("RESET (3)", style: TextStyle(fontSize: 11)),
               style: TextButton.styleFrom(
                 foregroundColor: isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                visualDensity: VisualDensity.compact,
               ),
               onPressed: () {
                 onUpdate(List.from(defaultModels));
@@ -713,11 +744,14 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : Icon(MdiIcons.refresh, size: 18),
-                label: const Text("REFETCH AVAILABLE GEMINI MODELS"),
+                label: const FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text("REFETCH AVAILABLE GEMINI MODELS"),
+                ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.fhAccentTeal,
                   side: BorderSide(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 onPressed: widget.isFetching ? null : widget.onFetch,
