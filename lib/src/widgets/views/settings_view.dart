@@ -1095,6 +1095,27 @@ class _SettingsViewState extends State<SettingsView> {
                   appProvider.rescheduleReminders();
                 },
               ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: JweTheme.isLight ? Colors.black.withValues(alpha: 0.04) : Colors.white.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: JweTheme.lineSoft),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.watch_outlined, size: 16, color: accent),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Direct inline reply & Wearable auto-reply active ("yes" / "no" / voice). Replies are processed by AI with automatic feedback notifications.',
+                        style: TextStyle(fontSize: 11, color: JweTheme.textMid, height: 1.3),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 12),
               Text(
                 'DAILY REMINDER TIMINGS (${s.energyNotificationTimes.length} Active)',

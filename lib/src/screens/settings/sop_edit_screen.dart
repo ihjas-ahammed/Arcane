@@ -12,8 +12,15 @@ import 'package:missions/src/widgets/dialogs/sop_task_selection_modal.dart';
 
 class SopEditScreen extends StatefulWidget {
   final SopModel? sop;
+  final String? initialTitle;
+  final String? initialSituation;
 
-  const SopEditScreen({super.key, this.sop});
+  const SopEditScreen({
+    super.key,
+    this.sop,
+    this.initialTitle,
+    this.initialSituation,
+  });
 
   @override
   State<SopEditScreen> createState() => _SopEditScreenState();
@@ -33,8 +40,8 @@ class _SopEditScreenState extends State<SopEditScreen> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.sop?.title ?? '');
-    _situationController = TextEditingController(text: widget.sop?.situation ?? '');
+    _titleController = TextEditingController(text: widget.sop?.title ?? widget.initialTitle ?? '');
+    _situationController = TextEditingController(text: widget.sop?.situation ?? widget.initialSituation ?? '');
     _outcomesController = TextEditingController(text: widget.sop?.expectedOutcomes ?? '');
     _steps = List<String>.from(widget.sop?.steps ?? []);
     _executionLogs = List<SopExecutionLog>.from(widget.sop?.executionLogs ?? []);

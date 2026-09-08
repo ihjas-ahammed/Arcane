@@ -35,6 +35,24 @@ class MainActivity : FlutterActivity() {
             }
             return true
         }
+
+        /**
+         * Deliver an energy reply from notification or wearable to Flutter isolate.
+         */
+        fun dispatchEnergyReply(reply: String, notificationId: Int): Boolean {
+            val ch = channel
+            if (!engineAlive || ch == null) return false
+            Handler(Looper.getMainLooper()).post {
+                try {
+                    ch.invokeMethod(
+                        "energyReply",
+                        mapOf("reply" to reply, "notificationId" to notificationId)
+                    )
+                } catch (_: Exception) {
+                }
+            }
+            return true
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

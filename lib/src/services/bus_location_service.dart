@@ -228,12 +228,12 @@ class BusLocationService {
   }
 
   /// Manual On-Bus Commute Tracker: computes progress and ETAs from start time and finish time.
-  /// Defaults to 20 km/h assumed speed per user instruction.
+  /// Defaults to route.speedKmh or DefaultBusNetwork.defaultSpeedKmh (50 km/h).
   void startManualCommute({
     required BusRoute route,
     DateTime? startTime,
     DateTime? expectedFinishTime,
-    double assumedSpeedKmh = 20.0,
+    double? assumedSpeedKmh,
     String? originName,
     String? destinationName,
     double? customDistanceKm,
@@ -243,8 +243,10 @@ class BusLocationService {
     final now = DateTime.now();
     final start = startTime ?? now;
     final distanceKm = customDistanceKm ?? (route.distanceKm > 0 ? route.distanceKm : 10.0);
-    // Speed assumption = 20 km/h -> Duration (mins) = (distance / 20) * 60
-    final durationMins = math.max(1, (distanceKm / assumedSpeedKmh * 60).round());
+    final speed = (assumedSpeedKmh != null && assumedSpeedKmh > 0)
+        ? assumedSpeedKmh
+        : (route.speedKmh > 0 ? route.speedKmh : DefaultBusNetwork.defaultSpeedKmh);
+    final durationMins = math.max(1, (distanceKm / speed * 60).round());
     final finish = expectedFinishTime ?? start.add(Duration(minutes: durationMins));
 
     final orig = originName ?? DefaultBusNetwork.formatPlaceName(route.originId);
@@ -255,7 +257,7 @@ class BusLocationService {
       route: route,
       start: start,
       finish: finish,
-      assumedSpeedKmh: assumedSpeedKmh,
+      assumedSpeedKmh: speed,
       distanceKm: distanceKm,
       origin: orig,
       destination: dest,
@@ -267,7 +269,7 @@ class BusLocationService {
         route: route,
         start: start,
         finish: finish,
-        assumedSpeedKmh: assumedSpeedKmh,
+        assumedSpeedKmh: speed,
         distanceKm: distanceKm,
         origin: orig,
         destination: dest,

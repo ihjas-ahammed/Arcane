@@ -136,6 +136,7 @@ class BusRoute {
   final String name;
   final double distanceKm;
   final int baseDurationMinutes;
+  final double speedKmh;
   final List<BusSubStop> subStops;
   final List<String> departures;
 
@@ -146,6 +147,7 @@ class BusRoute {
     required this.name,
     required this.distanceKm,
     required this.baseDurationMinutes,
+    this.speedKmh = DefaultBusNetwork.defaultSpeedKmh,
     this.subStops = const [],
     this.departures = const [],
   });
@@ -157,6 +159,7 @@ class BusRoute {
     String? name,
     double? distanceKm,
     int? baseDurationMinutes,
+    double? speedKmh,
     List<BusSubStop>? subStops,
     List<String>? departures,
   }) {
@@ -167,6 +170,7 @@ class BusRoute {
       name: name ?? this.name,
       distanceKm: distanceKm ?? this.distanceKm,
       baseDurationMinutes: baseDurationMinutes ?? this.baseDurationMinutes,
+      speedKmh: speedKmh ?? this.speedKmh,
       subStops: subStops ?? this.subStops,
       departures: departures ?? this.departures,
     );
@@ -179,6 +183,7 @@ class BusRoute {
         'name': name,
         'distanceKm': distanceKm,
         'baseDurationMinutes': baseDurationMinutes,
+        'speedKmh': speedKmh,
         'subStops': subStops.map((s) => s.toJson()).toList(),
         'departures': departures,
       };
@@ -198,6 +203,7 @@ class BusRoute {
       name: formattedName.isNotEmpty ? formattedName : '${DefaultBusNetwork.formatPlaceName(origId)} → ${DefaultBusNetwork.formatPlaceName(destId)}',
       distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 10.0,
       baseDurationMinutes: json['baseDurationMinutes'] as int? ?? 25,
+      speedKmh: (json['speedKmh'] as num?)?.toDouble() ?? DefaultBusNetwork.defaultSpeedKmh,
       subStops: (json['subStops'] as List<dynamic>?)
               ?.map((e) => BusSubStop.fromJson(Map<String, dynamic>.from(e as Map)))
               .toList() ??
@@ -216,9 +222,13 @@ class BusRoute {
       final parsed = DateFormat("hh:mm a").parse(departureTimeStr);
       final depTime = DateTime(now.year, now.month, now.day, parsed.hour, parsed.minute);
 
+      final effectiveSpeed = (customSpeedKmh != null && customSpeedKmh > 5)
+          ? customSpeedKmh
+          : (speedKmh > 5 ? speedKmh : DefaultBusNetwork.defaultSpeedKmh);
+
       int offsetMinutes = subStop.timeOffsetMinutes;
-      if (customSpeedKmh != null && customSpeedKmh > 5 && distanceKm > 0) {
-        final hours = subStop.distanceFromOriginKm / customSpeedKmh;
+      if (effectiveSpeed > 5 && distanceKm > 0) {
+        final hours = subStop.distanceFromOriginKm / effectiveSpeed;
         offsetMinutes = (hours * 60).round();
       }
 
@@ -232,6 +242,8 @@ class BusRoute {
 
 /// Original pristine bus network data & defaults with clean Capitalized names
 class DefaultBusNetwork {
+  /// Default route speed across the transit network (50 km/h)
+  static const double defaultSpeedKmh = 50.0;
   /// Formats place/station strings to clean Capitalized / Title case
   static String formatPlaceName(String input) {
     final trimmed = input.trim();
@@ -411,7 +423,8 @@ class DefaultBusNetwork {
         destinationId: 'edavannappara',
         name: 'S.S College → Edavannappara',
         distanceKm: 13.5,
-        baseDurationMinutes: 28,
+        speedKmh: defaultSpeedKmh,
+        baseDurationMinutes: 16,
         subStops: const [],
         departures: scheduleMap["S.S College"]?["Edavannappara"] ?? departuresSscToEdv,
       ),
@@ -423,7 +436,8 @@ class DefaultBusNetwork {
         destinationId: 'ss_college',
         name: 'Edavannappara → S.S College',
         distanceKm: 13.5,
-        baseDurationMinutes: 28,
+        speedKmh: defaultSpeedKmh,
+        baseDurationMinutes: 16,
         subStops: const [],
         departures: scheduleMap["Edavannappara"]?["S.S College"] ?? departuresEdvToSsc,
       ),
@@ -435,7 +449,8 @@ class DefaultBusNetwork {
         destinationId: 'areekode',
         name: 'S.S College → Areekode',
         distanceKm: 8.5,
-        baseDurationMinutes: 18,
+        speedKmh: defaultSpeedKmh,
+        baseDurationMinutes: 10,
         subStops: const [],
         departures: scheduleMap["S.S College"]?["Areekode"] ?? departuresSscToArk,
       ),
@@ -447,7 +462,8 @@ class DefaultBusNetwork {
         destinationId: 'areekode',
         name: 'Edavannappara → Areekode',
         distanceKm: 18.0,
-        baseDurationMinutes: 35,
+        speedKmh: defaultSpeedKmh,
+        baseDurationMinutes: 22,
         subStops: const [],
         departures: scheduleMap["Edavannappara"]?["Areekode"] ?? departuresEdvToSsc,
       ),
@@ -459,7 +475,8 @@ class DefaultBusNetwork {
         destinationId: 'ss_college',
         name: 'Areekode → S.S College',
         distanceKm: 8.5,
-        baseDurationMinutes: 18,
+        speedKmh: defaultSpeedKmh,
+        baseDurationMinutes: 10,
         subStops: const [],
         departures: scheduleMap["Areekode"]?["S.S College"] ?? departuresSscToEdv,
       ),
@@ -471,7 +488,8 @@ class DefaultBusNetwork {
         destinationId: 'edavannappara',
         name: 'Areekode → Edavannappara',
         distanceKm: 18.0,
-        baseDurationMinutes: 35,
+        speedKmh: defaultSpeedKmh,
+        baseDurationMinutes: 22,
         subStops: const [],
         departures: scheduleMap["Areekode"]?["Edavannappara"] ?? departuresSscToEdv,
       ),

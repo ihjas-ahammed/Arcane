@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:isolate';
 import 'dart:ui' show IsolateNameServer;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:universal_html/html.dart' as html;
@@ -107,22 +110,26 @@ class NotificationService {
     await _plugin.initialize(
       settings,
       onDidReceiveNotificationResponse: (resp) {
-        _handleResponse(resp.actionId, resp.payload);
+        _handleResponse(resp.actionId, resp.payload, resp.input, resp.id);
       },
       onDidReceiveBackgroundNotificationResponse: _backgroundResponseHandler,
     );
 
     // Action buttons with showsUserInterface:false are delivered to a separate
     // background isolate that can't reach this singleton. Bridge them back to
-    // the main isolate over a named port so CHECK NEXT / UNDO work while the
-    // app process is alive (foreground or backgrounded).
+    // the main isolate over a named port so CHECK NEXT / UNDO / REPLIES work
+    // while the app process is alive (foreground or backgrounded).
     if (!kIsWeb) {
       IsolateNameServer.removePortNameMapping(_notifActionPortName);
       final port = ReceivePort();
       IsolateNameServer.registerPortWithName(port.sendPort, _notifActionPortName);
       port.listen((message) {
-        if (message is List && message.length == 2) {
-          _handleResponse(message[0] as String?, message[1] as String?);
+        if (message is List && message.length >= 2) {
+          final actionId = message[0] as String?;
+          final payload = message[1] as String?;
+          final input = message.length > 2 ? message[2] as String? : null;
+          final notifId = message.length > 3 ? message[3] as int? : null;
+          _handleResponse(actionId, payload, input, notifId);
         }
       });
     }
@@ -173,29 +180,61 @@ class NotificationService {
     _initialized = true;
   }
 
-  // A CHECK / STOP tap can arrive (via the background isolate port) before the
-  // AppProvider registers its handler on cold start. Buffer the last one and
+  // A CHECK / STOP / ENERGY REPLY tap can arrive (via the background isolate port)
+  // before the AppProvider registers its handler on cold start. Buffer the last one and
   // replay it the moment a handler is set so the action isn't silently dropped.
   String? _pendingActionId;
   String? _pendingPayload;
+  String? _pendingInput;
+  int? _pendingNotifId;
   bool _hasPending = false;
+  void Function(String replyText, int? notificationId)? _onEnergyReply;
+
+  void setOnEnergyReply(void Function(String replyText, int? notificationId)? handler) {
+    _onEnergyReply = handler;
+  }
 
   void setOnTap(void Function(String? payload)? handler) {
     _onTap = handler;
     if (_onTap != null && _hasPending) {
       final actionId = _pendingActionId;
       final payload = _pendingPayload;
+      final input = _pendingInput;
+      final notifId = _pendingNotifId;
       _pendingActionId = null;
       _pendingPayload = null;
+      _pendingInput = null;
+      _pendingNotifId = null;
       _hasPending = false;
-      _handleResponse(actionId, payload);
+      _handleResponse(actionId, payload, input, notifId);
     }
   }
 
-  void _handleResponse(String? actionId, String? payload) {
+  void _handleResponse(String? actionId, String? payload, [String? input, int? notificationId]) {
+    // Energy check reply (Wearable auto-reply or notification direct reply)
+    if (actionId == 'energy_reply' ||
+        (payload != null &&
+            (payload.startsWith('energy_check') || payload.startsWith('log_low_energy')) &&
+            input != null)) {
+      final replyText = (input != null && input.trim().isNotEmpty) ? input.trim() : 'yes';
+      if (_onTap == null && _onEnergyReply == null) {
+        _pendingActionId = actionId;
+        _pendingPayload = payload;
+        _pendingInput = input;
+        _pendingNotifId = notificationId;
+        _hasPending = true;
+        return;
+      }
+      _onEnergyReply?.call(replyText, notificationId);
+      _onTap?.call('energy_reply:$replyText:${notificationId ?? 5000}');
+      return;
+    }
+
     if (_onTap == null) {
       _pendingActionId = actionId;
       _pendingPayload = payload;
+      _pendingInput = input;
+      _pendingNotifId = notificationId;
       _hasPending = true;
       return;
     }
@@ -217,13 +256,17 @@ class NotificationService {
         _onTap?.call('stop_bus_transit');
         break;
       case 'log_low_energy':
-        _onTap?.call('log_low_energy');
+        final replyText = (input != null && input.trim().isNotEmpty) ? input.trim() : 'yes';
+        _onEnergyReply?.call(replyText, notificationId);
+        _onTap?.call('energy_reply:$replyText:${notificationId ?? 5000}');
         break;
       case 'dismiss_energy':
         break;
       default:
-        if (payload.startsWith('log_low_energy')) {
-          _onTap?.call('log_low_energy');
+        if (payload.startsWith('log_low_energy') || payload.startsWith('energy_check')) {
+          final replyText = (input != null && input.trim().isNotEmpty) ? input.trim() : 'yes';
+          _onEnergyReply?.call(replyText, notificationId);
+          _onTap?.call('energy_reply:$replyText:${notificationId ?? 5000}');
         } else {
           _onTap?.call(payload);
         }
@@ -647,10 +690,23 @@ class NotificationService {
         body: body.isNotEmpty ? body : 'Are you feeling tired or low on energy right now?',
         hour: h,
         minute: m,
-        payload: 'log_low_energy',
+        payload: 'energy_check:$id',
         actions: const [
-          AndroidNotificationAction('log_low_energy', 'YES (Tired)', showsUserInterface: true),
-          AndroidNotificationAction('dismiss_energy', 'NO', showsUserInterface: false),
+          AndroidNotificationAction(
+            'energy_reply',
+            'Reply',
+            icon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+            inputs: [
+              AndroidNotificationActionInput(
+                label: 'Reply (yes / no)...',
+                choices: ['yes', 'no'],
+                allowFreeFormInput: true,
+              ),
+            ],
+            allowGeneratedReplies: true,
+            showsUserInterface: false,
+            cancelNotification: false,
+          ),
         ],
       );
     }
@@ -658,13 +714,17 @@ class NotificationService {
 
   Future<void> _scheduleAndroidDailyReminder(
       int id, String title, String body, int hour, int minute,
-      {List<AndroidNotificationAction>? actions, String? payload}) async {
+      {List<AndroidNotificationAction>? actions,
+      String? payload,
+      AndroidNotificationCategory? category}) async {
     final location = tz.local;
     final now = tz.TZDateTime.now(location);
     var tzScheduled = tz.TZDateTime(location, now.year, now.month, now.day, hour, minute);
     if (tzScheduled.isBefore(now)) {
       tzScheduled = tzScheduled.add(const Duration(days: 1));
     }
+
+    final isMessageStyle = actions != null && actions.any((a) => a.inputs.isNotEmpty);
 
     final details = NotificationDetails(
       android: AndroidNotificationDetails(
@@ -673,8 +733,21 @@ class NotificationService {
         channelDescription: _reminderChannelDesc,
         importance: Importance.high,
         priority: Priority.high,
+        category: category ??
+            (isMessageStyle
+                ? AndroidNotificationCategory.message
+                : AndroidNotificationCategory.reminder),
         icon: '@mipmap/ic_launcher',
+        color: const Color(0xFFFFB547), // Tactical Amber
         actions: actions,
+        styleInformation: BigTextStyleInformation(
+          body,
+          contentTitle: '<b>◢ $title</b>',
+          summaryText: isMessageStyle ? '<i>WEARABLE AUTO-REPLY // READY</i>' : null,
+          htmlFormatContent: true,
+          htmlFormatContentTitle: true,
+          htmlFormatSummaryText: true,
+        ),
       ),
       iOS: const DarwinNotificationDetails(presentAlert: true, presentSound: true),
     );
@@ -796,17 +869,282 @@ class NotificationService {
     if (kIsWeb) return;
     await _plugin.cancel(id);
   }
+
+  // ---------------------------------------------------------------------------
+  // Energy Check & Wearable Direct Reply Methods
+  // ---------------------------------------------------------------------------
+
+  /// Android 14 instant visual feedback: immediately updates the notification
+  /// inline upon receiving an inline reply, fulfilling Android 14 requirements
+  /// and stopping the wearable reply spinner.
+  Future<void> showEnergySyncedNotification({
+    required int notificationId,
+    required String replyText,
+  }) async {
+    if (kIsWeb || !_initialized) return;
+
+    if (_isAndroid) {
+      final details = AndroidNotificationDetails(
+        _reminderChannelId,
+        _reminderChannelName,
+        channelDescription: _reminderChannelDesc,
+        importance: Importance.low,
+        priority: Priority.low,
+        autoCancel: true,
+        timeoutAfter: 6000,
+        icon: '@mipmap/ic_launcher',
+        color: const Color(0xFFFFB547),
+        category: AndroidNotificationCategory.message,
+        styleInformation: BigTextStyleInformation(
+          'Recorded: "$replyText" • AI analyzing...',
+          contentTitle: '<b>ENERGY CHECK // LOGGED</b>',
+          htmlFormatContent: true,
+          htmlFormatContentTitle: true,
+        ),
+      );
+      try {
+        await _plugin.show(
+          notificationId,
+          'ENERGY CHECK // LOGGED',
+          'Recorded: "$replyText" • AI analyzing...',
+          NotificationDetails(android: details),
+        );
+      } catch (_) {}
+    }
+  }
+
+  /// Displays the AI-generated tactical response notification.
+  Future<void> showEnergyResponseNotification({
+    required String title,
+    required String body,
+    String? replyText,
+    int id = 5100,
+  }) async {
+    if (kIsWeb) {
+      final ok = await _ensureWebPermission();
+      if (!ok) return;
+      final n = html.Notification(
+        title,
+        body: body,
+        icon: 'icons/Icon-192.png',
+        tag: 'energy-ai-$id',
+      );
+      n.onClick.listen((_) {
+        n.close();
+        _onTap?.call('view_health');
+      });
+      return;
+    }
+
+    final androidDetails = AndroidNotificationDetails(
+      _insightChannelId,
+      _insightChannelName,
+      channelDescription: _insightChannelDesc,
+      importance: Importance.high,
+      priority: Priority.high,
+      category: AndroidNotificationCategory.message,
+      color: const Color(0xFFFFB547),
+      colorized: true,
+      ledColor: const Color(0xFFFFB547),
+      ledOnMs: 800,
+      ledOffMs: 400,
+      icon: '@mipmap/ic_launcher',
+      styleInformation: BigTextStyleInformation(
+        body,
+        contentTitle: '<b>◢ $title</b>',
+        summaryText: replyText != null ? '<i>Reply: "$replyText"</i>' : '<i>ENERGY HUD // AI ADVISOR</i>',
+        htmlFormatContent: true,
+        htmlFormatContentTitle: true,
+        htmlFormatSummaryText: true,
+      ),
+    );
+
+    const darwin = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      interruptionLevel: InterruptionLevel.active,
+    );
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: darwin,
+      macOS: darwin,
+      linux: const LinuxNotificationDetails(urgency: LinuxNotificationUrgency.normal),
+    );
+
+    try {
+      await _plugin.show(id, title, body, details, payload: 'energy_ai_response');
+    } catch (_) {}
+  }
+
+  /// Headless background isolate reply handler when app is terminated.
+  static Future<void> handleBackgroundEnergyReply({
+    String? input,
+    int? notificationId,
+  }) async {
+    final reply = (input != null && input.trim().isNotEmpty) ? input.trim() : 'yes';
+    final notifId = notificationId ?? 5000;
+
+    // 1. Instant feedback to satisfy Android 14 inline reply requirement
+    final plugin = FlutterLocalNotificationsPlugin();
+    final ackDetails = AndroidNotificationDetails(
+      _reminderChannelId,
+      _reminderChannelName,
+      channelDescription: _reminderChannelDesc,
+      importance: Importance.low,
+      priority: Priority.low,
+      autoCancel: true,
+      timeoutAfter: 6000,
+      icon: '@mipmap/ic_launcher',
+      color: const Color(0xFFFFB547),
+      category: AndroidNotificationCategory.message,
+    );
+    try {
+      await plugin.show(
+        notifId,
+        'ENERGY CHECK // LOGGED',
+        'Recorded: "$reply" • AI analyzing...',
+        NotificationDetails(android: ackDetails),
+      );
+    } catch (_) {}
+
+    // 2. Parse energy level
+    final lower = reply.toLowerCase();
+    int level = 5;
+    if (lower == 'yes' ||
+        lower.contains('tired') ||
+        lower.contains('exhausted') ||
+        lower.contains('low') ||
+        lower.contains('sleepy')) {
+      level = 2;
+    } else if (lower == 'no' ||
+        lower.contains('energetic') ||
+        lower.contains('good') ||
+        lower.contains('great') ||
+        lower.contains('fine')) {
+      level = 8;
+    } else {
+      final match = RegExp(r'\b([1-9]|10)\b').firstMatch(lower);
+      if (match != null) {
+        level = int.tryParse(match.group(1)!) ?? 5;
+      }
+    }
+
+    // 3. Save pending energy log to SharedPreferences for sync when app wakes
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList('pending_energy_logs_v2') ?? [];
+      final logJson = jsonEncode({
+        'reply': reply,
+        'level': level,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+      list.add(logJson);
+      await prefs.setStringList('pending_energy_logs_v2', list);
+    } catch (_) {}
+
+    // 4. Generate AI response (attempt Gemini via HTTP if key is saved)
+    String advice = '';
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getStringList('gemini_api_keys_list') ?? [];
+      if (keys.isNotEmpty) {
+        final key = keys.first;
+        final uri = Uri.parse(
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$key');
+        final response = await http.post(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'contents': [
+              {
+                'parts': [
+                  {
+                    'text':
+                        'You are the tactical AI operator in Arcane. User replied to energy check ("Are you tired?"): "$reply" (Level $level/10). Provide a tactical, concise 1-2 sentence recommendation (under 130 characters) for the operator. No markdown headings.'
+                  }
+                ]
+              }
+            ]
+          }),
+        ).timeout(const Duration(seconds: 8));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final candidates = data['candidates'] as List?;
+          final text = candidates?.first?['content']?['parts']?.first?['text'] as String?;
+          if (text != null && text.trim().isNotEmpty) {
+            advice = text.trim();
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (advice.isEmpty) {
+      if (level <= 3) {
+        advice =
+            'Tactical Alert: Low energy registered ($reply). Drink 250ml water, stretch, and take a 3-minute eye pause.';
+      } else if (level >= 7) {
+        advice =
+            'Tactical Status: High energy confirmed ($reply). Direct focus into high-leverage mission objectives.';
+      } else {
+        advice = 'Energy state "$reply" logged. Calibrating tactical pace.';
+      }
+    }
+
+    // 5. Post response notification
+    final respDetails = AndroidNotificationDetails(
+      _insightChannelId,
+      _insightChannelName,
+      channelDescription: _insightChannelDesc,
+      importance: Importance.high,
+      priority: Priority.high,
+      category: AndroidNotificationCategory.message,
+      color: const Color(0xFFFFB547),
+      colorized: true,
+      icon: '@mipmap/ic_launcher',
+      styleInformation: BigTextStyleInformation(
+        advice,
+        contentTitle: '<b>◢ ARCANE // ENERGY ADVISOR</b>',
+        summaryText: '<i>Reply: "$reply"</i>',
+        htmlFormatContent: true,
+        htmlFormatContentTitle: true,
+      ),
+    );
+    try {
+      await plugin.show(
+        5100,
+        '◢ ARCANE // ENERGY ADVISOR',
+        advice,
+        NotificationDetails(android: respDetails),
+      );
+    } catch (_) {}
+  }
 }
 
 // Name of the port the main isolate listens on for forwarded notification
-// action-button taps.
+// action-button taps and replies.
 const String _notifActionPortName = 'arcane_notif_action_port';
 
 // Top-level background handler (Android requires this to be a top-level function).
-// Runs in a detached isolate; forward the tap to the main isolate's port so the
-// live AppProvider can act on it.
+// Runs in a detached isolate; forward the tap/reply to the main isolate's port so the
+// live AppProvider can act on it, or handle directly if the app is terminated.
 @pragma('vm:entry-point')
-void _backgroundResponseHandler(NotificationResponse resp) {
+void _backgroundResponseHandler(NotificationResponse resp) async {
   final send = IsolateNameServer.lookupPortByName(_notifActionPortName);
-  send?.send(<String?>[resp.actionId, resp.payload]);
+  if (send != null) {
+    send.send(<dynamic>[resp.actionId, resp.payload, resp.input, resp.id]);
+  } else {
+    // Main isolate is not alive (app terminated). Process directly in the background isolate!
+    if (resp.actionId == 'energy_reply' ||
+        (resp.payload != null &&
+            (resp.payload!.startsWith('energy_check') ||
+             resp.payload!.startsWith('log_low_energy')))) {
+      await NotificationService.handleBackgroundEnergyReply(
+        input: resp.input,
+        notificationId: resp.id,
+      );
+    }
+  }
 }

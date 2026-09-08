@@ -1,3 +1,14 @@
+# ⚡ Arcane System Upgrade // v2026.9.8 (Build #2126090801)
+
+### ⚡ Wearable Auto-Reply & Interactive Energy Check Telemetry
+- **Direct Inline RemoteInput**: Replaced static action buttons with an Android 14 `RemoteInput` direct inline reply action featuring predefined quick-reply chips (`yes`, `no`) and freeform voice/keyboard entry.
+- **Wear OS / Smartwatch Auto-Reply Parity**: Configured `AndroidNotificationCategory.message`, `NotificationCompat.Action.SEMANTIC_ACTION_REPLY`, and `NotificationCompat.WearableExtender` allowing direct 1-tap quick replies from Wear OS watch notification cards.
+- **Android 14 System-Level Architecture**: Created native Kotlin `EnergyNotificationHelper` and `EnergyReplyReceiver` with `FLAG_MUTABLE` PendingIntents, `android:exported="false"`, and instant inline acknowledgement updates to dismiss OS reply loading spinners.
+- **AI-Powered Tactical Advisor & Feedback Notification**: User replies ("yes", "no", or custom fatigue notes) are automatically evaluated by AI, logged to Health metrics, and answered with immediate tactical advice via heads-up notification (`◢ ARCANE // ENERGY ADVISOR`).
+- **Headless Background Engine**: Replies received when the app process is terminated are processed in a detached background isolate or Kotlin receiver, persisting logs to local storage and dispatching AI advice seamlessly upon launch.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.7 (Build #2126090702)
 
 ### 📱 Responsive Mobile Layout & Overflow Elimination

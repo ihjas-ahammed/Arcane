@@ -114,7 +114,8 @@ class _BusNetworkEditorScreenState extends State<BusNetworkEditorScreen> with Si
               destinationId: dstStop?.id ?? dst,
               name: '$orig → $dst',
               distanceKm: 12.0,
-              baseDurationMinutes: 25,
+              speedKmh: DefaultBusNetwork.defaultSpeedKmh,
+              baseDurationMinutes: (12.0 / DefaultBusNetwork.defaultSpeedKmh * 60).round(),
               subStops: const [],
               departures: deps,
             ),
@@ -352,6 +353,8 @@ class _BusNetworkEditorScreenState extends State<BusNetworkEditorScreen> with Si
                   children: [
                     _buildBadge("${route.distanceKm.toStringAsFixed(1)} km", JweTheme.accentTeal),
                     const SizedBox(width: 8),
+                    _buildBadge("${route.speedKmh.toStringAsFixed(0)} km/h", JweTheme.accentCyan),
+                    const SizedBox(width: 8),
                     _buildBadge("${route.baseDurationMinutes} mins", JweTheme.textMuted),
                     const SizedBox(width: 8),
                     _buildBadge("${route.subStops.length} sub-stops", route.subStops.isEmpty ? JweTheme.accentRed : JweTheme.accentCyan),
@@ -415,7 +418,8 @@ class _BusNetworkEditorScreenState extends State<BusNetworkEditorScreen> with Si
     String originId = _stops.first.id;
     String destId = _stops[1].id;
     final distCtrl = TextEditingController(text: "12.0");
-    final durCtrl = TextEditingController(text: "25");
+    final speedCtrl = TextEditingController(text: DefaultBusNetwork.defaultSpeedKmh.toStringAsFixed(0));
+    final durCtrl = TextEditingController(text: "14");
 
     showDialog(
       context: context,
@@ -460,6 +464,13 @@ class _BusNetworkEditorScreenState extends State<BusNetworkEditorScreen> with Si
                 ),
                 const SizedBox(height: 10),
                 TextField(
+                  controller: speedCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 12),
+                  decoration: const InputDecoration(labelText: "Route Speed (km/h)"),
+                ),
+                const SizedBox(height: 10),
+                TextField(
                   controller: durCtrl,
                   keyboardType: TextInputType.number,
                   style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 12),
@@ -479,7 +490,8 @@ class _BusNetworkEditorScreenState extends State<BusNetworkEditorScreen> with Si
                 final origName = _stops.where((s) => s.id == originId).firstOrNull?.name ?? originId;
                 final dstName = _stops.where((s) => s.id == destId).firstOrNull?.name ?? destId;
                 final dist = double.tryParse(distCtrl.text) ?? 10.0;
-                final dur = int.tryParse(durCtrl.text) ?? 20;
+                final speed = double.tryParse(speedCtrl.text) ?? DefaultBusNetwork.defaultSpeedKmh;
+                final dur = int.tryParse(durCtrl.text) ?? (dist / speed * 60).round();
 
                 final newRoute = BusRoute(
                   id: 'route_${DateTime.now().millisecondsSinceEpoch}',
@@ -487,6 +499,7 @@ class _BusNetworkEditorScreenState extends State<BusNetworkEditorScreen> with Si
                   destinationId: destId,
                   name: '$origName → $dstName',
                   distanceKm: dist,
+                  speedKmh: speed,
                   baseDurationMinutes: dur,
                   subStops: const [],
                   departures: [],
@@ -734,6 +747,7 @@ class _RouteDetailEditorScreen extends StatefulWidget {
 class _RouteDetailEditorScreenState extends State<_RouteDetailEditorScreen> {
   late TextEditingController _nameCtrl;
   late TextEditingController _distCtrl;
+  late TextEditingController _speedCtrl;
   late TextEditingController _durCtrl;
   late List<BusSubStop> _subStops;
   late List<String> _departures;
@@ -743,6 +757,7 @@ class _RouteDetailEditorScreenState extends State<_RouteDetailEditorScreen> {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.route.name);
     _distCtrl = TextEditingController(text: widget.route.distanceKm.toString());
+    _speedCtrl = TextEditingController(text: widget.route.speedKmh.toStringAsFixed(0));
     _durCtrl = TextEditingController(text: widget.route.baseDurationMinutes.toString());
     _subStops = List.from(widget.route.subStops);
     _departures = List.from(widget.route.departures);
@@ -752,17 +767,20 @@ class _RouteDetailEditorScreenState extends State<_RouteDetailEditorScreen> {
   void dispose() {
     _nameCtrl.dispose();
     _distCtrl.dispose();
+    _speedCtrl.dispose();
     _durCtrl.dispose();
     super.dispose();
   }
 
   void _saveRoute() {
     final dist = double.tryParse(_distCtrl.text) ?? widget.route.distanceKm;
+    final speed = double.tryParse(_speedCtrl.text) ?? widget.route.speedKmh;
     final dur = int.tryParse(_durCtrl.text) ?? widget.route.baseDurationMinutes;
 
     final updated = widget.route.copyWith(
       name: _nameCtrl.text.trim(),
       distanceKm: dist,
+      speedKmh: speed > 0 ? speed : DefaultBusNetwork.defaultSpeedKmh,
       baseDurationMinutes: dur,
       subStops: _subStops,
       departures: _departures,
@@ -963,13 +981,22 @@ class _RouteDetailEditorScreenState extends State<_RouteDetailEditorScreen> {
                     decoration: const InputDecoration(labelText: "Distance (km)"),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _speedCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 12),
+                    decoration: const InputDecoration(labelText: "Speed (km/h)"),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: _durCtrl,
                     keyboardType: TextInputType.number,
                     style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 12),
-                    decoration: const InputDecoration(labelText: "Duration (mins)"),
+                    decoration: const InputDecoration(labelText: "Duration (m)"),
                   ),
                 ),
               ],

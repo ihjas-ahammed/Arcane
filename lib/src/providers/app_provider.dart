@@ -32,6 +32,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:path_provider/path_provider.dart';
 import 'package:missions/src/services/app_user.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Import Mixins
 import 'package:missions/src/providers/mixins/sync_mixin.dart';
@@ -151,17 +152,19 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       } else if (payload.startsWith('stop_bus_transit') || payload == 'stop_bus_transit') {
         BusLocationService.instance.stopManualCommute();
         showGlobalToast('Bus commute ended');
+      } else if (payload.startsWith('energy_reply:')) {
+        final rest = payload.substring('energy_reply:'.length);
+        final parts = rest.split(':');
+        final replyText = parts.isNotEmpty ? parts[0] : 'yes';
+        final notifId = parts.length > 1 ? int.tryParse(parts[1]) : null;
+        handleEnergyReply(replyText, notificationId: notifId);
       } else if (payload.startsWith('log_low_energy') || payload == 'log_low_energy') {
-        final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-        addEnergyLog(
-          todayStr,
-          EnergyLog(
-            id: const Uuid().v4(),
-            level: 1,
-            timestamp: DateTime.now(),
-          ),
-        );
+        handleEnergyReply('yes');
       }
+    });
+
+    NotificationService.instance.setOnEnergyReply((replyText, notifId) {
+      handleEnergyReply(replyText, notificationId: notifId);
     });
 
     _initialize();
@@ -187,6 +190,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      drainPendingEnergyLogs();
       if (currentUser != null) {
         fetchDailyReportsFromCloud();
       }
@@ -280,6 +284,168 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         scheduledTime: r.time!,
       );
     }
+  }
+
+  /// Handle an inline reply from an energy check notification or wearable auto-reply.
+  /// Android 14 compliant: acknowledges inline reply immediately, parses sentiment/level,
+  /// commits to health logs, consults AI, and sends response notification.
+  Future<void> handleEnergyReply(String replyText, {int? notificationId}) async {
+    final trimmed = replyText.trim();
+    if (trimmed.isEmpty) return;
+
+    final notifId = notificationId ?? 5000;
+
+    // 1. Android 14 instant visual feedback: immediately update notification inline
+    await NotificationService.instance.showEnergySyncedNotification(
+      notificationId: notifId,
+      replyText: trimmed,
+    );
+
+    // 2. Parse energy level from input text
+    final lower = trimmed.toLowerCase();
+    int level = 5;
+    if (lower == 'yes' ||
+        lower.contains('tired') ||
+        lower.contains('exhausted') ||
+        lower.contains('low') ||
+        lower.contains('sleepy') ||
+        lower.contains('drained') ||
+        lower.contains('fatigued') ||
+        lower.contains('burnt')) {
+      level = 2;
+    } else if (lower == 'no' ||
+        lower.contains('energetic') ||
+        lower.contains('good') ||
+        lower.contains('great') ||
+        lower.contains('fine') ||
+        lower.contains('pumped') ||
+        lower.contains('fresh') ||
+        lower.contains('active')) {
+      level = 8;
+    } else {
+      final match = RegExp(r'\b([1-9]|10)\b').firstMatch(lower);
+      if (match != null) {
+        level = int.tryParse(match.group(1)!) ?? 5;
+      }
+    }
+
+    // 3. Log to health state
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    addEnergyLog(
+      todayStr,
+      EnergyLog(
+        id: const Uuid().v4(),
+        level: level,
+        timestamp: DateTime.now(),
+        note: 'Wearable/Notification reply: "$trimmed"',
+      ),
+    );
+
+    showGlobalToast('Energy check: "$trimmed" logged');
+
+    // 4. Process with AI to generate tactical operator guidance
+    String aiResponse = '';
+    try {
+      final prompt = '''
+You are the tactical AI operator in Arcane.
+The user just answered a scheduled Energy Check: "Are you feeling tired or low on energy right now?"
+User's response: "$trimmed" (Estimated energy level: $level/10).
+Provide a concise, tactical 1-2 sentence response (under 140 characters so it fits cleanly in a notification) directly addressing their energy state with an actionable tip or operator motivation. Do not use markdown headers or bullet points.
+''';
+
+      aiResponse = await _aiService.makeRawTextAICall(
+        prompt: prompt,
+        modelCandidates: settings.liteModels,
+        customApiKeys: settings.customApiKeys,
+        currentApiKeyIndex: apiKeyIndex,
+        onNewApiKeyIndex: setProviderApiKeyIndex,
+        onLog: (msg) {
+          if (kDebugMode) debugPrint('[EnergyCheckAI] $msg');
+        },
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('[EnergyCheckAI] Error: $e');
+    }
+
+    // Fallback if AI call failed or returned empty
+    if (aiResponse.trim().isEmpty) {
+      if (level <= 3) {
+        aiResponse =
+            'Tactical Alert: Low energy registered ($trimmed). Hydrate with 250ml water and take a 3-minute visual reset before continuing.';
+      } else if (level >= 7) {
+        aiResponse =
+            'Tactical Status: High energy confirmed ($trimmed). Channel peak cognitive momentum into your primary mission.';
+      } else {
+        aiResponse =
+            'Energy status "$trimmed" logged. Maintain steady pacing and monitor fatigue thresholds.';
+      }
+    }
+
+    // 5. Post response notification (visible on wearable and notification tray)
+    await NotificationService.instance.showEnergyResponseNotification(
+      title: 'ARCANE // ENERGY ADVISOR',
+      body: aiResponse.trim(),
+      replyText: trimmed,
+    );
+  }
+
+  /// Drains any pending energy logs saved to SharedPreferences while the app was suspended or killed.
+  Future<void> drainPendingEnergyLogs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final logs = prefs.getStringList('pending_energy_logs_v2') ?? [];
+      if (logs.isNotEmpty) {
+        await prefs.remove('pending_energy_logs_v2');
+        final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        for (final raw in logs) {
+          try {
+            final map = jsonDecode(raw) as Map<String, dynamic>;
+            final level = (map['level'] as num?)?.toInt() ?? 5;
+            final reply = map['reply'] as String? ?? 'yes';
+            final ts = map['timestamp'] != null
+                ? DateTime.tryParse(map['timestamp'] as String) ?? DateTime.now()
+                : DateTime.now();
+            addEnergyLog(
+              todayStr,
+              EnergyLog(
+                id: const Uuid().v4(),
+                level: level,
+                timestamp: ts,
+                note: 'Wearable/Notification reply: "$reply"',
+              ),
+            );
+          } catch (_) {}
+        }
+      }
+
+      // Also drain native Android pending logs if any
+      final nativeLogsJson = prefs.getString('pending_energy_logs');
+      if (nativeLogsJson != null && nativeLogsJson.isNotEmpty) {
+        await prefs.remove('pending_energy_logs');
+        final array = jsonDecode(nativeLogsJson);
+        if (array is List) {
+          final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+          for (final item in array) {
+            if (item is Map) {
+              final reply = item['reply'] as String? ?? 'yes';
+              final lower = reply.toLowerCase();
+              int lvl = 5;
+              if (lower == 'yes' || lower.contains('tired')) lvl = 2;
+              else if (lower == 'no' || lower.contains('good') || lower.contains('energetic')) lvl = 8;
+              addEnergyLog(
+                todayStr,
+                EnergyLog(
+                  id: const Uuid().v4(),
+                  level: lvl,
+                  timestamp: DateTime.now(),
+                  note: 'Wearable/Notification reply: "$reply"',
+                ),
+              );
+            }
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   List<ScheduledReminder> get scheduledReminders =>
@@ -578,6 +744,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     try {
       await NotificationService.instance.init();
       rescheduleReminders();
+      drainPendingEnergyLogs();
     } catch (e) {
       debugPrint("Notification init error: $e");
     }

@@ -54,6 +54,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- Android 14 System-level Direct Reply Receiver for Energy Checks & Wearable Auto-reply -->
+        <receiver
+            android:name="me.ihjas.missions.notifications.EnergyReplyReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="me.ihjas.missions.ENERGY_REPLY"/>
+            </intent-filter>
+        </receiver>
+
         <!-- Home-screen widget receivers -->
         <receiver
             android:name="me.ihjas.missions.widgets.RunningTaskWidget"

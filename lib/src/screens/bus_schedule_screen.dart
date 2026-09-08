@@ -94,7 +94,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
     if (origStop != null && destStop != null) {
       distKm = double.parse(origStop.distanceTo(destStop.latitude, destStop.longitude).toStringAsFixed(1));
     }
-    final durationMins = (distKm / 28.0 * 60).round().clamp(10, 120);
+    final durationMins = (distKm / DefaultBusNetwork.defaultSpeedKmh * 60).round().clamp(10, 120);
 
     final departures = _getDeparturesForRoute(origin, dest);
 
@@ -104,6 +104,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       destinationId: dest,
       name: '${DefaultBusNetwork.formatPlaceName(origin)} → ${DefaultBusNetwork.formatPlaceName(dest)}',
       distanceKm: distKm,
+      speedKmh: DefaultBusNetwork.defaultSpeedKmh,
       baseDurationMinutes: durationMins,
       subStops: const [],
       departures: departures,
@@ -579,7 +580,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Route distance between ${DefaultBusNetwork.formatPlaceName(_origin)} and ${DefaultBusNetwork.formatPlaceName(_destination)} is needed to calculate travel progress at 20 km/h speed.",
+              "Route distance between ${DefaultBusNetwork.formatPlaceName(_origin)} and ${DefaultBusNetwork.formatPlaceName(_destination)} is needed to calculate travel progress.",
               style: GoogleFonts.rajdhani(
                 color: JweTheme.textMuted,
                 fontSize: 13,
@@ -634,9 +635,100 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
     );
   }
 
+  Future<double?> _askSpeedDialog(double? currentSpeed) async {
+    final controller = TextEditingController(
+      text: (currentSpeed != null && currentSpeed > 0)
+          ? currentSpeed.toStringAsFixed(0)
+          : DefaultBusNetwork.defaultSpeedKmh.toStringAsFixed(0),
+    );
+
+    return showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: JweTheme.panel,
+        title: Row(
+          children: [
+            Icon(MdiIcons.speedometer, color: JweTheme.accentCyan, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                "ROUTE TRANSIT SPEED",
+                style: GoogleFonts.chakraPetch(
+                  color: JweTheme.accentCyan,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Set transit speed in km/h for ${DefaultBusNetwork.formatPlaceName(_origin)} → ${DefaultBusNetwork.formatPlaceName(_destination)}. Default is 50 km/h.",
+              style: GoogleFonts.rajdhani(
+                color: JweTheme.textMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: GoogleFonts.jetBrainsMono(
+                color: JweTheme.textWhite,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+              decoration: InputDecoration(
+                labelText: "SPEED (KM/H)",
+                labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 11),
+                hintText: "e.g. 50",
+                hintStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted.withValues(alpha: 0.5)),
+                suffixText: "km/h",
+                suffixStyle: GoogleFonts.jetBrainsMono(color: JweTheme.accentCyan, fontWeight: FontWeight.bold),
+                filled: true,
+                fillColor: JweTheme.bgBase,
+                border: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentCyan, width: 1.5)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: Text("CANCEL", style: GoogleFonts.rajdhani(color: JweTheme.textMuted, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: JweTheme.accentCyan,
+              foregroundColor: JweTheme.onAccent,
+            ),
+            onPressed: () {
+              final val = double.tryParse(controller.text.trim());
+              if (val != null && val > 0) {
+                Navigator.pop(ctx, val);
+              }
+            },
+            child: Text("CONFIRM SPEED", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _startInTheBus(String time) async {
     final route = _getActiveRoute();
     double distanceKm = (route?.distanceKm != null && route!.distanceKm > 0) ? route.distanceKm : 0.0;
+    final speedKmh = (route?.speedKmh != null && route!.speedKmh > 0)
+        ? route.speedKmh
+        : DefaultBusNetwork.defaultSpeedKmh;
 
     // If distance is not given, ask user
     if (distanceKm <= 0.0) {
@@ -658,7 +750,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
     final now = DateTime.now();
     final depMin = _timeToMinutes(time);
     final nowMin = now.hour * 60 + now.minute;
-    final totalDurationMins = (distanceKm / 20.0 * 60).round();
+    final totalDurationMins = (distanceKm / speedKmh * 60).round();
 
     DateTime startTime;
     if (nowMin >= depMin && (nowMin - depMin) < totalDurationMins) {
@@ -671,7 +763,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
     BusLocationService.instance.startManualCommute(
       route: activeRoute,
       startTime: startTime,
-      assumedSpeedKmh: 20.0,
+      assumedSpeedKmh: speedKmh,
       originName: DefaultBusNetwork.formatPlaceName(_origin),
       destinationName: DefaultBusNetwork.formatPlaceName(_destination),
       customDistanceKm: distanceKm,
@@ -682,7 +774,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
       setState(() {
         _selectedTime = time;
       });
-      showGlobalToast('In the bus! Traveling to ${DefaultBusNetwork.formatPlaceName(_destination)} @ 20 km/h');
+      showGlobalToast('In the bus! Traveling to ${DefaultBusNetwork.formatPlaceName(_destination)} @ ${speedKmh.toStringAsFixed(0)} km/h');
     }
   }
 
@@ -690,7 +782,8 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
     setState(() => _selectedTime = time);
     final route = _getActiveRoute();
     final distKm = (route != null && route.distanceKm > 0) ? route.distanceKm : 0.0;
-    final estDurationMins = distKm > 0 ? (distKm / 20.0 * 60).round() : 0;
+    final routeSpeed = (route != null && route.speedKmh > 0) ? route.speedKmh : DefaultBusNetwork.defaultSpeedKmh;
+    final estDurationMins = distKm > 0 ? (distKm / routeSpeed * 60).round() : 0;
     final liveState = BusLocationService.instance.currentState;
 
     showModalBottomSheet(
@@ -751,49 +844,88 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Icon(MdiIcons.mapMarkerDistance, size: 15, color: JweTheme.accentCyan),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              distKm > 0
+                                  ? '${distKm.toStringAsFixed(1)} km · ~$estDurationMins min @ ${routeSpeed.toStringAsFixed(0)} km/h'
+                                  : 'Distance: Not set (${routeSpeed.toStringAsFixed(0)} km/h)',
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 10.5,
+                                color: JweTheme.textWhite,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(MdiIcons.mapMarkerDistance, size: 15, color: JweTheme.accentCyan),
+                        InkWell(
+                          onTap: () async {
+                            final newSpeed = await _askSpeedDialog(routeSpeed);
+                            if (newSpeed != null && newSpeed > 0 && route != null) {
+                              final updated = route.copyWith(speedKmh: newSpeed);
+                              final idx = _allRoutes.indexWhere((r) => _matchesRoute(r, _origin, _destination));
+                              if (idx >= 0) {
+                                _allRoutes[idx] = updated;
+                              } else {
+                                _allRoutes.add(updated);
+                              }
+                              await _saveSchedules();
+                              if (ctx.mounted) Navigator.pop(ctx);
+                              _handleTimeSelected(time);
+                            }
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Text(
+                              'SPEED',
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: JweTheme.accentCyan,
+                              ),
+                            ),
+                          ),
+                        ),
                         const SizedBox(width: 6),
-                        Text(
-                          distKm > 0
-                              ? '${distKm.toStringAsFixed(1)} km · ~$estDurationMins min @ 20 km/h'
-                              : 'Distance: Not set (20 km/h)',
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 10.5,
-                            color: JweTheme.textWhite,
-                            fontWeight: FontWeight.bold,
+                        InkWell(
+                          onTap: () async {
+                            final newDist = await _askDistanceDialog(distKm > 0 ? distKm : null);
+                            if (newDist != null && newDist > 0 && route != null) {
+                              final updated = route.copyWith(distanceKm: newDist);
+                              final idx = _allRoutes.indexWhere((r) => _matchesRoute(r, _origin, _destination));
+                              if (idx >= 0) {
+                                _allRoutes[idx] = updated;
+                              } else {
+                                _allRoutes.add(updated);
+                              }
+                              await _saveSchedules();
+                              if (ctx.mounted) Navigator.pop(ctx);
+                              _handleTimeSelected(time);
+                            }
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Text(
+                              distKm > 0 ? 'DIST' : 'SET DIST',
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: JweTheme.accentAmber,
+                              ),
+                            ),
                           ),
                         ),
                       ],
-                    ),
-                    InkWell(
-                      onTap: () async {
-                        final newDist = await _askDistanceDialog(distKm > 0 ? distKm : null);
-                        if (newDist != null && newDist > 0 && route != null) {
-                          final updated = route.copyWith(distanceKm: newDist);
-                          final idx = _allRoutes.indexWhere((r) => _matchesRoute(r, _origin, _destination));
-                          if (idx >= 0) {
-                            _allRoutes[idx] = updated;
-                          } else {
-                            _allRoutes.add(updated);
-                          }
-                          await _saveSchedules();
-                          if (ctx.mounted) Navigator.pop(ctx);
-                          _handleTimeSelected(time);
-                        }
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Text(
-                          distKm > 0 ? 'CHANGE' : 'SET DISTANCE',
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.bold,
-                            color: JweTheme.accentAmber,
-                          ),
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -873,7 +1005,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Board this run · Track live travel @ 20 km/h on HUD, notification & widgets',
+                                  'Board this run · Track live travel @ ${routeSpeed.toStringAsFixed(0)} km/h on HUD, notification & widgets',
                                   style: GoogleFonts.rajdhani(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w600,
@@ -994,7 +1126,7 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  '20 KM/H',
+                  '${(liveState.speedKmh > 0 ? liveState.speedKmh : (liveState.activeRoute?.speedKmh ?? DefaultBusNetwork.defaultSpeedKmh)).toStringAsFixed(0)} KM/H',
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 9.5,
                     fontWeight: FontWeight.bold,
@@ -1063,12 +1195,50 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                   label: Text('END TRIP', style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: JweTheme.accentCyan,
                   side: BorderSide(color: JweTheme.accentCyan.withValues(alpha: 0.6)),
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                ),
+                onPressed: () async {
+                  final activeRoute = _getActiveRoute();
+                  final currentSpeed = liveState.speedKmh > 0
+                      ? liveState.speedKmh
+                      : (activeRoute?.speedKmh ?? DefaultBusNetwork.defaultSpeedKmh);
+                  final newSpeed = await _askSpeedDialog(currentSpeed);
+                  if (newSpeed != null && newSpeed > 0) {
+                    if (activeRoute != null) {
+                      final updated = activeRoute.copyWith(speedKmh: newSpeed);
+                      final idx = _allRoutes.indexWhere((r) => _matchesRoute(r, _origin, _destination));
+                      if (idx >= 0) {
+                        _allRoutes[idx] = updated;
+                      } else {
+                        _allRoutes.add(updated);
+                      }
+                      await _saveSchedules();
+                      BusLocationService.instance.startManualCommute(
+                        route: updated,
+                        startTime: liveState.commuteStartTime,
+                        assumedSpeedKmh: newSpeed,
+                        originName: origin,
+                        destinationName: dest,
+                        customDistanceKm: totalKm,
+                        departureTime: liveState.selectedDepartureTime,
+                      );
+                    }
+                  }
+                },
+                icon: Icon(MdiIcons.speedometer, size: 15, color: JweTheme.accentCyan),
+                label: Text('SPEED', style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, fontSize: 11)),
+              ),
+              const SizedBox(width: 6),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: JweTheme.accentAmber,
+                  side: BorderSide(color: JweTheme.accentAmber.withValues(alpha: 0.6)),
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                 ),
                 onPressed: () async {
                   final newDist = await _askDistanceDialog(totalKm);
@@ -1079,12 +1249,15 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                       final idx = _allRoutes.indexWhere((r) => _matchesRoute(r, _origin, _destination));
                       if (idx >= 0) {
                         _allRoutes[idx] = updated;
+                      } else {
+                        _allRoutes.add(updated);
                       }
                       await _saveSchedules();
+                      final speedToUse = liveState.speedKmh > 0 ? liveState.speedKmh : updated.speedKmh;
                       BusLocationService.instance.startManualCommute(
                         route: updated,
                         startTime: liveState.commuteStartTime,
-                        assumedSpeedKmh: 20.0,
+                        assumedSpeedKmh: speedToUse,
                         originName: origin,
                         destinationName: dest,
                         customDistanceKm: newDist,
@@ -1093,8 +1266,8 @@ class _BusScheduleScreenState extends State<BusScheduleScreen> {
                     }
                   }
                 },
-                icon: Icon(MdiIcons.mapMarkerDistance, size: 16, color: JweTheme.accentCyan),
-                label: Text('DISTANCE', style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+                icon: Icon(MdiIcons.mapMarkerDistance, size: 15, color: JweTheme.accentAmber),
+                label: Text('DISTANCE', style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, fontSize: 11)),
               ),
             ],
           ),

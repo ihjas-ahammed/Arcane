@@ -1242,6 +1242,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     - Emotional granularity (Susan David, "Emotional Agility"; Lisa Feldman Barrett): name specific authentic positive and grounding emotions.
     - Gratitude with specificity and brevity: short, punchy, concrete items rather than long sentences.
     - Financial awareness: provide encouraging, constructive, and positive tactical feedback on financial choices logged today.
+    - Standard Operating Procedures (SOPs): Identify recurring operational friction, cognitive fatigue, routine workflows, or positive habits in today's day and suggest 3 high-leverage SOPs to systematize them.
     - QUOTING & UNIQUENESS MANDATE: All user quotes ("user_quote") MUST be taken EXCLUSIVELY from today's Current Logs (text written on the same day). NEVER quote text from Reflection History or previous days. Ensure that all quote reflections and AI insights are 100% unique, fresh, and never repeat past themes or phrased commentary.
 
     Tone: Warm, highly optimistic, deeply supportive, appreciative, and empowering. ALWAYS celebrate wins, highlight the user's strengths, and appreciate good efforts. NEVER give negative, critical, or unsolicited corrective advice. NEVER point out flaws or cognitive distortions in a negative way.
@@ -1257,6 +1258,9 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     8. "tomorrow_intention": positive implementation intention "When [cue], I will [action]".
     9. "suggested_activities": 2-3 fresh, exciting things/actions/experiments the user can try based on today's logs. Each: "activity", "reason".
     10. "finance_briefing": summary of today's finance with "income", "expense", "net", and "ai_feedback" (1 short sentence of encouraging positive AI feedback).
+    11. "suggested_sops": Exactly 3 suggested Standard Operating Procedures (SOPs) based on today's logs, reflections, challenges, or positive habits. For each SOP provide ONLY:
+        - "title": concise, professional tactical protocol name (e.g. "Protocol: Evening Transition", "SOP: Deep Focus Recovery", "Protocol: Quick Task Clearance")
+        - "description": 2-3 sentences specifying the situation/trigger condition and context when this procedure should be initiated. DO NOT provide steps or expected outcomes, write only the title and situation description.
 
     Output JSON ONLY:
     {
@@ -1269,7 +1273,12 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
       "small_win": "string",
       "tomorrow_intention": "string",
       "suggested_activities": [ {"activity": "string", "reason": "string"} ],
-      "finance_briefing": {"income": "string", "expense": "string", "net": "string", "ai_feedback": "string"}
+      "finance_briefing": {"income": "string", "expense": "string", "net": "string", "ai_feedback": "string"},
+      "suggested_sops": [
+        {"title": "string", "description": "string"},
+        {"title": "string", "description": "string"},
+        {"title": "string", "description": "string"}
+      ]
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;

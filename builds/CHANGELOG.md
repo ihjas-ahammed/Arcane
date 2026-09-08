@@ -1,5 +1,13 @@
 # ⚡ Arcane System Changelog & Release Notes
 
+## [v2026.9.8] — 2026-09-08
+### ⚡ Wearable Auto-Reply & Interactive Energy Check Telemetry
+- **Direct Inline RemoteInput**: Replaced static buttons with Android 14 `RemoteInput` direct inline reply action featuring predefined quick-reply chips (`yes`, `no`) and freeform voice/keyboard entry.
+- **Wear OS / Smartwatch Auto-Reply Parity**: Configured `AndroidNotificationCategory.message`, `NotificationCompat.Action.SEMANTIC_ACTION_REPLY`, and `NotificationCompat.WearableExtender` allowing direct 1-tap quick replies from Wear OS watch notification cards.
+- **Android 14 System-Level Architecture**: Created native Kotlin `EnergyNotificationHelper` and `EnergyReplyReceiver` with `FLAG_MUTABLE` PendingIntents, `android:exported="false"`, and instant inline acknowledgement updates to dismiss OS reply loading spinners.
+- **AI-Powered Tactical Advisor & Feedback Notification**: User replies are evaluated by AI, committed to Health logs, and answered with immediate tactical advice via heads-up notification (`◢ ARCANE // ENERGY ADVISOR`).
+- **Headless Background Engine**: Replies received while the app process is dead are processed in a detached background isolate or Kotlin receiver with offline fallback and state synchronization on launch.
+
 ## [v2026.9.7] — 2026-09-07
 ### 📱 Responsive Mobile Layout & Overflow Elimination
 - **AI Model Selection & Rolling Fallback Shield**: Compact density and bounded constraints (`minWidth: 28, minHeight: 28`) on priority items, text ellipsis, dropdown menu overflow protections, fitted fallback action buttons, and responsive dialog constraints (`maxWidth: 460`).

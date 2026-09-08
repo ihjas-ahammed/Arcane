@@ -54,6 +54,23 @@ class WidgetActionRouter {
     _platform.setMethodCallHandler((call) async {
       if (call.method == 'widgetAction' && call.arguments is String) {
         handle(call.arguments as String, silent: true);
+      } else if (call.method == 'energyReply') {
+        final args = call.arguments;
+        String? reply;
+        int? notifId;
+        if (args is Map) {
+          reply = args['reply'] as String?;
+          notifId = args['notificationId'] as int?;
+        } else if (args is String) {
+          reply = args;
+        }
+        if (reply != null) {
+          final ctx = navigatorKey.currentContext;
+          if (ctx != null) {
+            final provider = Provider.of<AppProvider>(ctx, listen: false);
+            provider.handleEnergyReply(reply, notificationId: notifId);
+          }
+        }
       }
     });
   }

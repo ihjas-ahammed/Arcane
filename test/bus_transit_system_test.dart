@@ -102,32 +102,58 @@ void main() {
       expect(reconstructed.lastSelectedBusDestination, 'Manjeri');
     });
 
-    test('In the bus mode assumes 20 km/h speed for duration and ETA calculations', () {
-      const speedKmh = 20.0;
+    test('BusRoute defaults to 50 km/h and supports per-route custom speed serialization', () {
+      expect(DefaultBusNetwork.defaultSpeedKmh, 50.0);
 
-      // 10 km distance -> (10 / 20) * 60 = 30 minutes
-      const dist1 = 10.0;
-      final duration1 = (dist1 / speedKmh * 60).round();
-      expect(duration1, 30);
+      final defaultRoute = BusRoute(
+        id: 'route_default',
+        originId: 'ss_college',
+        destinationId: 'edavannappara',
+        name: 'S.S College → Edavannappara',
+        distanceKm: 13.5,
+        baseDurationMinutes: 16,
+      );
+      expect(defaultRoute.speedKmh, 50.0);
 
-      // 15 km distance -> (15 / 20) * 60 = 45 minutes
-      const dist2 = 15.0;
-      final duration2 = (dist2 / speedKmh * 60).round();
-      expect(duration2, 45);
+      final customRoute = defaultRoute.copyWith(speedKmh: 65.0);
+      expect(customRoute.speedKmh, 65.0);
 
-      // 6 km distance -> (6 / 20) * 60 = 18 minutes
-      const dist3 = 6.0;
-      final duration3 = (dist3 / speedKmh * 60).round();
-      expect(duration3, 18);
+      final json = customRoute.toJson();
+      expect(json['speedKmh'], 65.0);
+
+      final fromJsonRoute = BusRoute.fromJson(json);
+      expect(fromJsonRoute.speedKmh, 65.0);
     });
 
-    test('BusLocationService correctly initiates and terminates 20 km/h In The Bus transit', () {
+    test('In the bus mode uses 50 km/h default speed or per-route speed for calculations', () {
+      const defaultSpeed = DefaultBusNetwork.defaultSpeedKmh; // 50.0
+      expect(defaultSpeed, 50.0);
+
+      // 10 km distance @ 50 km/h -> (10 / 50) * 60 = 12 minutes
+      const dist1 = 10.0;
+      final duration1 = (dist1 / defaultSpeed * 60).round();
+      expect(duration1, 12);
+
+      // 25 km distance @ 50 km/h -> (25 / 50) * 60 = 30 minutes
+      const dist2 = 25.0;
+      final duration2 = (dist2 / defaultSpeed * 60).round();
+      expect(duration2, 30);
+
+      // Custom route speed 60 km/h: 15 km -> (15 / 60) * 60 = 15 minutes
+      const customSpeed = 60.0;
+      const dist3 = 15.0;
+      final duration3 = (dist3 / customSpeed * 60).round();
+      expect(duration3, 15);
+    });
+
+    test('BusLocationService initiates In The Bus transit using route speed or default 50 km/h', () {
       final route = BusRoute(
         id: 'route_test',
         originId: 'S.S College',
         destinationId: 'Edavannappara',
         name: 'S.S College → Edavannappara',
-        distanceKm: 10.0,
+        distanceKm: 25.0,
+        speedKmh: 50.0,
         baseDurationMinutes: 30,
       );
 
@@ -137,18 +163,17 @@ void main() {
       service.startManualCommute(
         route: route,
         startTime: startTime,
-        assumedSpeedKmh: 20.0,
         originName: 'S.S College',
         destinationName: 'Edavannappara',
-        customDistanceKm: 10.0,
+        customDistanceKm: 25.0,
         departureTime: '08:15 AM',
       );
 
       final state = service.currentState;
       expect(state.isOnBus, isTrue);
       expect(state.isManualCommute, isTrue);
-      expect(state.speedKmh, 20.0);
-      expect(state.routeDistanceKm, 10.0);
+      expect(state.speedKmh, 50.0);
+      expect(state.routeDistanceKm, 25.0);
       expect(state.originName, 'S.S College');
       expect(state.destinationName, 'Edavannappara');
       expect(state.selectedDepartureTime, '08:15 AM');
