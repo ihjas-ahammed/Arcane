@@ -1,29 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/timeline_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/utils/task_calculations.dart';
-import 'package:missions/src/widgets/dialogs/subtask_config_dialog.dart';
-import 'package:missions/src/widgets/dialogs/add_session_dialog.dart';
-import 'package:missions/src/widgets/dialogs/session_edit_dialog.dart';
-import 'package:missions/src/widgets/schedule/schedule_timeline.dart';
-import 'package:missions/src/widgets/ui/active_session_timer_display.dart';
-import 'package:missions/src/widgets/action_plan/action_plan_why_card.dart';
 import 'package:missions/src/widgets/action_plan/action_plan_outcome_card.dart';
 import 'package:missions/src/widgets/action_plan/action_plan_resources_card.dart';
 import 'package:missions/src/widgets/action_plan/action_plan_steps_list.dart';
-import 'package:missions/src/widgets/screens/submission_sessions_screen.dart';
-import 'package:missions/src/widgets/charts/subtask_weekly_chart.dart';
+import 'package:missions/src/widgets/action_plan/action_plan_why_card.dart';
 import 'package:missions/src/widgets/charts/subtask_progress_time_chart.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/widgets/charts/subtask_weekly_chart.dart';
+import 'package:missions/src/widgets/dialogs/add_session_dialog.dart';
+import 'package:missions/src/widgets/dialogs/session_edit_dialog.dart';
+import 'package:missions/src/widgets/dialogs/subtask_config_dialog.dart';
+import 'package:missions/src/widgets/schedule/schedule_timeline.dart';
+import 'package:missions/src/widgets/screens/submission/manual_progress_input.dart';
+import 'package:missions/src/widgets/screens/submission/section_label.dart';
+import 'package:missions/src/widgets/screens/submission/submission_date_navigator.dart';
+import 'package:missions/src/widgets/screens/submission/submission_detail_header.dart';
+import 'package:missions/src/widgets/screens/submission/submission_footer_actions.dart';
+import 'package:missions/src/widgets/screens/submission/submission_paste_dialog.dart';
+import 'package:missions/src/widgets/screens/submission/submission_reminders_dialog.dart';
+import 'package:missions/src/widgets/screens/submission/submission_timer_card.dart';
+import 'package:missions/src/widgets/screens/submission/template_sets_tabs.dart';
+import 'package:missions/src/widgets/screens/submission_sessions_screen.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:uuid/uuid.dart';
-import 'package:intl/intl.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+
+export 'package:missions/src/widgets/screens/submission/date_nav_btn.dart';
+export 'package:missions/src/widgets/screens/submission/manual_progress_input.dart';
+export 'package:missions/src/widgets/screens/submission/section_label.dart';
+export 'package:missions/src/widgets/screens/submission/submission_date_navigator.dart';
+export 'package:missions/src/widgets/screens/submission/submission_detail_header.dart';
+export 'package:missions/src/widgets/screens/submission/submission_footer_actions.dart';
+export 'package:missions/src/widgets/screens/submission/submission_paste_dialog.dart';
+export 'package:missions/src/widgets/screens/submission/submission_reminders_dialog.dart';
+export 'package:missions/src/widgets/screens/submission/submission_timer_card.dart';
+export 'package:missions/src/widgets/screens/submission/template_sets_tabs.dart';
 
 class SubmissionDetailScreen extends StatefulWidget {
   final MainTask parentTask;
@@ -68,7 +83,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     }
   }
 
-  void _showAddSessionDialog(BuildContext context, AppProvider provider) async {
+  void _showAddSessionDialog(AppProvider provider) async {
     final result = await showDialog<Map<String, DateTime>>(
       context: context,
       builder: (ctx) => AddSessionDialog(initialDate: _selectedDate),
@@ -122,183 +137,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
         }
       }
     }
-  }
-
-  bool _hasReminder(AppProvider provider, SubTask sub) {
-    return provider.getSubtaskReminders(sub.id).any((r) => r.isActive);
-  }
-
-  void _showRemindersListDialog(BuildContext context, AppProvider provider, SubTask sub) {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final rems = provider.getSubtaskReminders(sub.id);
-            return AlertDialog(
-              backgroundColor: JweTheme.panel,
-              title: Text(
-                "MISSION REMINDERS",
-                style: GoogleFonts.rajdhani(
-                  color: JweTheme.accentCyan,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (rems.isEmpty)
-                        Padding(
-                        padding: EdgeInsets.symmetric(vertical: 20),
-                        child: Text(
-                          "No reminders configured.",
-                          style: TextStyle(color: JweTheme.textMuted, fontStyle: FontStyle.italic),
-                          textAlign: TextAlign.center,
-                        ),
-                      )
-                    else
-                      Flexible(
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: rems.length,
-                          itemBuilder: (context, index) {
-                            final r = rems[index];
-                            String timeStr = '';
-                            if (r.repeat == 'daily') {
-                              timeStr = '${r.hour.toString().padLeft(2, '0')}:${r.minute.toString().padLeft(2, '0')} (Daily)';
-                            } else if (r.time != null) {
-                              timeStr = '${DateFormat('MMM d, HH:mm').format(r.time!)} (Once)';
-                            }
-                            return Container(
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: JweTheme.bgDeep,
-                                border: Border.all(color: JweTheme.border),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(MdiIcons.bellRing, color: JweTheme.accentCyan, size: 16),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      timeStr,
-                                      style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 12),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: Icon(MdiIcons.deleteOutline, color: JweTheme.accentRed, size: 18),
-                                    onPressed: () {
-                                      provider.deleteReminder(r.id);
-                                      setDialogState(() {});
-                                      setState(() {});
-                                    },
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      icon: Icon(MdiIcons.plus, size: 16),
-                      label: const Text("ADD REMINDER"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: JweTheme.accentCyan,
-                        foregroundColor: JweTheme.onAccent,
-                        shape: const BeveledRectangleBorder(),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      onPressed: () async {
-                        final repeat = await showDialog<String>(
-                          context: context,
-                          builder: (ctx2) => AlertDialog(
-                            backgroundColor: JweTheme.panel,
-                            title:  Text("REPEAT OPTION", style: TextStyle(color: JweTheme.textWhite)),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ListTile(
-                                  title:  Text("ONCE", style: TextStyle(color: JweTheme.textWhite)),
-                                  onTap: () => Navigator.pop(ctx2, 'once'),
-                                ),
-                                ListTile(
-                                  title:  Text("DAILY", style: TextStyle(color: JweTheme.textWhite)),
-                                  onTap: () => Navigator.pop(ctx2, 'daily'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                        if (repeat == null) return;
-
-                        final now = DateTime.now();
-                        DateTime date = now;
-                        if (repeat == 'once') {
-                          final pickedDate = await showDatePicker(
-                            context: ctx,
-                            initialDate: now,
-                            firstDate: now,
-                            lastDate: now.add(const Duration(days: 365)),
-                            builder: (ctx, child) => Theme(
-                              data: Theme.of(ctx).copyWith(
-                                colorScheme: ColorScheme.dark(
-                                  primary: JweTheme.accentAmber,
-                                  surface: JweTheme.panel,
-                                ),
-                              ),
-                              child: child!,
-                            ),
-                          );
-                          if (pickedDate == null) return;
-                          date = pickedDate;
-                        }
-
-                        if (!ctx.mounted) return;
-                        final time = await showTimePicker(
-                          context: ctx,
-                          initialTime: TimeOfDay.fromDateTime(now),
-                          builder: (ctx, child) => Theme(
-                            data: Theme.of(ctx).copyWith(
-                              colorScheme: ColorScheme.dark(
-                                primary: JweTheme.accentAmber,
-                                surface: JweTheme.panel,
-                              ),
-                            ),
-                            child: child!,
-                          ),
-                        );
-                        if (time == null) return;
-
-                        var scheduled = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-                        if (repeat == 'daily' && scheduled.isBefore(now)) {
-                          scheduled = scheduled.add(const Duration(days: 1));
-                        }
-
-                        await provider.addSubtaskReminder(widget.parentTask.id, sub.id, scheduled, repeat);
-                        setDialogState(() {});
-                        setState(() {});
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child:  Text("CLOSE", style: TextStyle(color: JweTheme.textMuted)),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
   }
 
   List<TimelineEntry> _buildTimelineEntries(AppProvider provider, String currentSubTaskId) {
@@ -361,247 +199,38 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
         child: Column(
           children: [
             // ── Header ───────────────────────────────────────────────
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration:   BoxDecoration(
-                color: JweTheme.panel,
-                border: Border(bottom: BorderSide(color: JweTheme.line)),
+            SubmissionDetailHeader(
+              parentTask: widget.parentTask,
+              liveSubTask: liveSubTask,
+              isRunning: isRunning,
+              activeAccent: activeAccent,
+              hasReminder: SubmissionRemindersDialog.hasReminder(provider, liveSubTask),
+              onBack: () => Navigator.pop(context),
+              onOpenReminders: () => SubmissionRemindersDialog.show(
+                context,
+                provider,
+                widget.parentTask.id,
+                liveSubTask,
+                () => setState(() {}),
               ),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: JweTheme.border),
-                        color: JweTheme.bgBase,
-                      ),
-                      child:  Icon(Icons.arrow_back, color: JweTheme.textMid, size: 18),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.parentTask.name.toUpperCase(),
-                          style: TextStyle(
-                              color: activeAccent,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 2.0),
-                        ),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            liveSubTask.name.toUpperCase(),
-                            style: GoogleFonts.rajdhani(
-                                color: JweTheme.textWhite,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 22,
-                                letterSpacing: 1.0),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  if (liveSubTask.completed)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: JweTheme.accentTeal.withValues(alpha: 0.6)),
-                        color: JweTheme.accentTeal.withValues(alpha: 0.08),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'DONE',
-                            style: TextStyle(
-                                color: JweTheme.accentTeal,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.5),
-                          ),
-                          if (liveSubTask.lastCompletedDate != null)
-                            Text(
-                              DateFormat('MMM d · HH:mm').format(liveSubTask.lastCompletedDate!),
-                              style: TextStyle(
-                                  color: JweTheme.accentTeal.withValues(alpha: 0.7),
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.8),
-                            ),
-                        ],
-                      ),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                            color: isRunning
-                                ? JweTheme.accentRed.withValues(alpha: 0.6)
-                                : JweTheme.border),
-                        color: isRunning
-                            ? JweTheme.accentRed.withValues(alpha: 0.1)
-                            : Colors.transparent,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: isRunning ? JweTheme.accentRed : JweTheme.textMuted,
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            isRunning ? "ACTIVE" : "STANDBY",
-                            style: TextStyle(
-                                color: isRunning ? JweTheme.accentRed : JweTheme.textMuted,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(width: 8),
-                  PopupMenuButton<int?>(
-                    tooltip: 'Set Checkpoint Depth',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    color: JweTheme.panel,
-                    initialValue: liveSubTask.depth,
-                    onSelected: (depth) {
-                      provider.taskActions.setSubtaskDepth(
-                        widget.parentTask.id,
-                        liveSubTask.id,
-                        depth,
-                      );
-                    },
-                    itemBuilder: (context) => [
-                      PopupMenuItem<int?>(
-                        value: null,
-                        height: 32,
-                        child: Text(
-                          'MAX (Deepest)',
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 11,
-                            color: liveSubTask.depth == null ? activeAccent : JweTheme.textWhite,
-                            fontWeight: liveSubTask.depth == null ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                      PopupMenuItem<int?>(
-                        value: 1,
-                        height: 32,
-                        child: Text(
-                          'LEVEL 1 (Top)',
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 11,
-                            color: liveSubTask.depth == 1 ? activeAccent : JweTheme.textWhite,
-                            fontWeight: liveSubTask.depth == 1 ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                      PopupMenuItem<int?>(
-                        value: 2,
-                        height: 32,
-                        child: Text(
-                          'LEVEL 2 (Substeps)',
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 11,
-                            color: liveSubTask.depth == 2 ? activeAccent : JweTheme.textWhite,
-                            fontWeight: liveSubTask.depth == 2 ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                      PopupMenuItem<int?>(
-                        value: 3,
-                        height: 32,
-                        child: Text(
-                          'LEVEL 3 (Nested)',
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 11,
-                            color: liveSubTask.depth == 3 ? activeAccent : JweTheme.textWhite,
-                            fontWeight: liveSubTask.depth == 3 ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    ],
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: liveSubTask.depth != null
-                            ? activeAccent.withValues(alpha: 0.12)
-                            : JweTheme.panel2,
-                        borderRadius: BorderRadius.circular(3),
-                        border: Border.all(
-                          color: liveSubTask.depth != null
-                              ? activeAccent.withValues(alpha: 0.5)
-                              : JweTheme.border,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            liveSubTask.depthLabel,
-                            style: GoogleFonts.jetBrainsMono(
-                              fontSize: 9,
-                              color: liveSubTask.depth != null ? activeAccent : JweTheme.textMid,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(width: 2),
-                          Icon(
-                            MdiIcons.menuDown,
-                            size: 11,
-                            color: liveSubTask.depth != null ? activeAccent : JweTheme.textMid,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => _showRemindersListDialog(context, provider, liveSubTask),
-                    child: Icon(
-                      MdiIcons.bellOutline,
-                      color: _hasReminder(provider, liveSubTask)
-                          ? JweTheme.accentAmber
-                          : JweTheme.textMid,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: () => _handleEditSubtask(context, provider, liveSubTask),
-                    child: Icon(MdiIcons.pencilOutline, color: JweTheme.textMid, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: () {
-                      Clipboard.setData(ClipboardData(text: liveSubTask.toCopyStructure()));
-                      showGlobalToast("Task structure copied to clipboard");
-                    },
-                    onLongPress: () => _handlePaste(context, provider, liveSubTask),
-                    onSecondaryTap: () => _handlePaste(context, provider, liveSubTask),
-                    child: Icon(MdiIcons.contentCopy, color: JweTheme.textMid, size: 20),
-                  ),
-                ],
+              onEdit: () => _handleEditSubtask(context, provider, liveSubTask),
+              onCopyStructure: () {
+                Clipboard.setData(ClipboardData(text: liveSubTask.toCopyStructure()));
+                showGlobalToast("Task structure copied to clipboard");
+              },
+              onPasteStructure: () => SubmissionPasteDialog.handlePaste(
+                context,
+                provider,
+                widget.parentTask.id,
+                liveSubTask,
               ),
+              onSelectDepth: (depth) {
+                provider.taskActions.setSubtaskDepth(
+                  widget.parentTask.id,
+                  liveSubTask.id,
+                  depth,
+                );
+              },
             ),
 
             // ── Scrollable body ──────────────────────────────────────
@@ -611,86 +240,34 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // ── Timer card ───────────────────────────────────
-                    Container(
-                      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: JweTheme.panel,
-                        border: Border(
-                          left: BorderSide(
-                              color: isRunning ? JweTheme.accentRed : activeAccent, width: 3),
-                          top: BorderSide(color: JweTheme.border),
-                          right: BorderSide(color: JweTheme.border),
-                          bottom: BorderSide(color: JweTheme.border),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  isRunning ? "CURRENT SESSION" : "TODAY'S LOG",
-                                  style: TextStyle(
-                                      color: isRunning
-                                          ? JweTheme.accentRed
-                                          : JweTheme.textMuted,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 2.0),
-                                ),
-                                const SizedBox(height: 4),
-                                ActiveSessionTimerDisplay(
-                                  isRunning: isRunning,
-                                  startTime: timerState?.startTime,
-                                  totalTodaySeconds: todaySeconds,
-                                ),
-                              ],
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              if (isRunning) {
-                                provider.timerActions.pauseTimer(liveSubTask!.id);
-                                provider.timerActions.logTimerAndReset(liveSubTask.id);
-                              } else {
-                                provider.timerActions.startTimer(
-                                    liveSubTask!.id, 'subtask', widget.parentTask.id);
-                              }
-                            },
-                            child: Container(
-                              width: 56,
-                              height: 56,
-                              decoration: BoxDecoration(
-                                color: isRunning
-                                    ? JweTheme.accentRed.withValues(alpha: 0.12)
-                                    : activeAccent.withValues(alpha: 0.12),
-                                border: Border.all(
-                                  color: isRunning ? JweTheme.accentRed : activeAccent,
-                                  width: 2,
-                                ),
-                              ),
-                              child: Icon(
-                                isRunning ? MdiIcons.stop : MdiIcons.play,
-                                color: isRunning ? JweTheme.accentRed : activeAccent,
-                                size: 28,
-                              ),
-                            ),
-                          ).animate(key: ValueKey(isRunning)).fadeIn(duration: 200.ms),
-                        ],
-                      ),
+                    SubmissionTimerCard(
+                      isRunning: isRunning,
+                      activeAccent: activeAccent,
+                      timerState: timerState,
+                      todaySeconds: todaySeconds,
+                      onToggleTimer: () {
+                        if (isRunning) {
+                          provider.timerActions.pauseTimer(liveSubTask.id);
+                          provider.timerActions.logTimerAndReset(liveSubTask.id);
+                        } else {
+                          provider.timerActions.startTimer(
+                            liveSubTask.id,
+                            'subtask',
+                            widget.parentTask.id,
+                          );
+                        }
+                      },
                     ),
 
                     const SizedBox(height: 24),
 
                     // ── Action plan section ──────────────────────────
-                    _SectionLabel(
+                    SectionLabel(
                       label: "ACTION PLAN",
                       accentColor: activeAccent,
                       icon: MdiIcons.formatListChecks,
                       trailing: liveSubTask.progressMode == 'manual'
-                          ? _ManualProgressInput(
+                          ? ManualProgressInput(
                               mainTaskId: widget.parentTask.id,
                               subTask: liveSubTask,
                               accentColor: activeAccent,
@@ -706,7 +283,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (liveSubTask.isRecurring)
-                            _TemplateSetsTabs(
+                            TemplateSetsTabs(
                               parentTask: widget.parentTask,
                               subTask: liveSubTask,
                               provider: provider,
@@ -718,21 +295,21 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                             accentColor: activeAccent,
                             onGenerate: (prompt) => provider.aiGenerationActions
                                 .generateActionPlanSteps(
-                                    widget.parentTask.id, liveSubTask!.id, liveSubTask.why, prompt),
+                                    widget.parentTask.id, liveSubTask.id, liveSubTask.why, prompt),
                           ),
                           const SizedBox(height: 16),
                           ActionPlanWhyCard(
                             initialWhy: liveSubTask.why,
                             accentColor: activeAccent,
                             onChanged: (val) => provider.taskActions.updateSubtask(
-                                widget.parentTask.id, liveSubTask!.id, {'why': val}),
+                                widget.parentTask.id, liveSubTask.id, {'why': val}),
                           ),
                           const SizedBox(height: 10),
                           ActionPlanOutcomeCard(
                             initialWhat: liveSubTask.what,
                             accentColor: activeAccent,
                             onChanged: (val) => provider.taskActions.updateSubtask(
-                                widget.parentTask.id, liveSubTask!.id, {'what': val}),
+                                widget.parentTask.id, liveSubTask.id, {'what': val}),
                           ),
                           const SizedBox(height: 10),
                           ActionPlanResourcesCard(
@@ -741,7 +318,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                             initialResources: liveSubTask.resources,
                             accentColor: activeAccent,
                             onChanged: (val) => provider.taskActions.updateSubtask(
-                                widget.parentTask.id, liveSubTask!.id, {'resources': val}),
+                                widget.parentTask.id, liveSubTask.id, {'resources': val}),
                           ),
                         ],
                       ),
@@ -750,7 +327,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     const SizedBox(height: 24),
 
                     // ── Weekly chart section ─────────────────────────
-                    _SectionLabel(
+                    SectionLabel(
                       label: "WEEKLY PERFORMANCE",
                       accentColor: JweTheme.accentCyan,
                       icon: MdiIcons.chartBar,
@@ -765,7 +342,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     const SizedBox(height: 24),
 
                     // ── Progress · Time chart ────────────────────────
-                    _SectionLabel(
+                    SectionLabel(
                       label: "PROGRESS · TIME",
                       accentColor: activeAccent,
                       icon: MdiIcons.chartLine,
@@ -794,7 +371,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     const SizedBox(height: 24),
 
                     // ── Timeline section ─────────────────────────────
-                    _SectionLabel(
+                    SectionLabel(
                       label: "SESSION TIMELINE",
                       accentColor: JweTheme.accentAmber,
                       icon: MdiIcons.clock,
@@ -809,12 +386,15 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text("VIEW ALL",
-                                style: TextStyle(
-                                    color: activeAccent,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.0)),
+                            Text(
+                              "VIEW ALL",
+                              style: TextStyle(
+                                color: activeAccent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
                             const SizedBox(width: 2),
                             Icon(MdiIcons.chevronRight, color: activeAccent, size: 14),
                           ],
@@ -826,62 +406,17 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     // Date navigation
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: JweTheme.panel,
-                          border: Border.all(color: JweTheme.border),
+                      child: SubmissionDateNavigator(
+                        selectedDate: _selectedDate,
+                        onPrevious: () => setState(
+                          () => _selectedDate = _selectedDate.subtract(const Duration(days: 1)),
                         ),
-                        child: Row(
-                          children: [
-                            _DateNavBtn(
-                              icon: MdiIcons.chevronLeft,
-                              onTap: () => setState(() =>
-                                  _selectedDate = _selectedDate.subtract(const Duration(days: 1))),
-                            ),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: isToday
-                                    ? null
-                                    : () => setState(() => _selectedDate = DateTime.now()),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  alignment: Alignment.center,
-                                  child: Column(
-                                    children: [
-                                      Text(
-                                        DateFormat('EEE, MMM dd yyyy')
-                                            .format(_selectedDate)
-                                            .toUpperCase(),
-                                        style: GoogleFonts.chakraPetch(
-                                            color: JweTheme.textWhite,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                            letterSpacing: 0.5),
-                                      ),
-                                      if (!isToday) ...[
-                                        const SizedBox(height: 2),
-                                        Text("TAP TO RETURN TODAY",
-                                            style: TextStyle(
-                                                color: JweTheme.accentAmber.withValues(alpha: 0.7),
-                                                fontSize: 8,
-                                                fontWeight: FontWeight.bold,
-                                                letterSpacing: 1.0)),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            _DateNavBtn(
-                              icon: MdiIcons.chevronRight,
-                              enabled: canGoForward,
-                              onTap: canGoForward
-                                  ? () => setState(() =>
-                                      _selectedDate = _selectedDate.add(const Duration(days: 1)))
-                                  : null,
-                            ),
-                          ],
-                        ),
+                        onNext: canGoForward
+                            ? () => setState(
+                                () => _selectedDate = _selectedDate.add(const Duration(days: 1)),
+                              )
+                            : null,
+                        onResetToday: isToday ? null : () => setState(() => _selectedDate = DateTime.now()),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -896,11 +431,14 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         ),
                         child: ScheduleTimeline(
                           entries: timelineEntries,
-                          onAddSession: () => _showAddSessionDialog(context, provider),
+                          onAddSession: () => _showAddSessionDialog(provider),
                           onEditEntry: (entry) {
                             if (entry.originalObject is TaskSession) {
                               _handleSessionEdit(
-                                  context, provider, entry.originalObject as TaskSession);
+                                context,
+                                provider,
+                                entry.originalObject as TaskSession,
+                              );
                             }
                           },
                         ),
@@ -912,81 +450,21 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                     // ── Footer actions ───────────────────────────────
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Container(
-                            height: 1,
-                            color: JweTheme.lineAmber,
-                            margin: const EdgeInsets.only(bottom: 20),
-                          ),
-
-                          Row(
-                            children: [
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () {
-                                    provider.taskActions.completeSubtask(
-                                        widget.parentTask.id, liveSubTask.id);
-                                    Navigator.pop(context);
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    decoration: BoxDecoration(
-                                      color: JweTheme.accentTeal.withValues(alpha: 0.12),
-                                      border: Border.all(color: JweTheme.accentTeal),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(MdiIcons.checkCircleOutline,
-                                            color: JweTheme.accentTeal, size: 16),
-                                        const SizedBox(width: 8),
-                                        Text("COMPLETE",
-                                            style: GoogleFonts.rajdhani(
-                                                color: JweTheme.accentTeal,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13,
-                                                letterSpacing: 1.5)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () {
-                                    provider.taskActions.deleteSubtask(
-                                        widget.parentTask.id, liveSubTask.id);
-                                    Navigator.pop(context);
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: JweTheme.accentRed),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(MdiIcons.deleteOutline,
-                                            color: JweTheme.accentRed, size: 16),
-                                        const SizedBox(width: 8),
-                                        Text("DELETE",
-                                            style: GoogleFonts.rajdhani(
-                                                color: JweTheme.accentRed,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13,
-                                                letterSpacing: 1.5)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-
-                        ],
+                      child: SubmissionFooterActions(
+                        onComplete: () {
+                          provider.taskActions.completeSubtask(
+                            widget.parentTask.id,
+                            liveSubTask.id,
+                          );
+                          Navigator.pop(context);
+                        },
+                        onDelete: () {
+                          provider.taskActions.deleteSubtask(
+                            widget.parentTask.id,
+                            liveSubTask.id,
+                          );
+                          Navigator.pop(context);
+                        },
                       ),
                     ),
                     const SizedBox(height: 40),
@@ -997,445 +475,6 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  void _showPasteAlertDialog(BuildContext context, String title, Function(String) onImport) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: JweTheme.panel,
-        title: Text(title, style: GoogleFonts.rajdhani(color: JweTheme.accentCyan, fontWeight: FontWeight.bold, fontSize: 16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-             Text("Paste the copied structure text here to import:", style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
-            const SizedBox(height: 10),
-            TextField(
-              controller: controller,
-              maxLines: 6,
-              style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 11),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: JweTheme.bgDeep,
-                border: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
-                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentCyan)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child:  Text("CANCEL", style: TextStyle(color: JweTheme.textMuted)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: JweTheme.accentCyan,
-              foregroundColor: JweTheme.onAccent,
-              shape: const BeveledRectangleBorder(),
-            ),
-            onPressed: () {
-              final val = controller.text.trim();
-              if (val.isNotEmpty) {
-                onImport(val);
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text("IMPORT"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _handlePaste(BuildContext context, AppProvider provider, SubTask liveSubTask) {
-    _showPasteAlertDialog(context, "PASTE OBJECTIVE STRUCTURE", (pastedText) {
-      final parsed = parseTaskOutline(pastedText);
-      if (parsed.isNotEmpty) {
-        final newCheckpoint = SubSubTask(
-          id: const Uuid().v4(),
-          name: parsed['name'] as String? ?? 'Unnamed Objective',
-          why: parsed['why'] as String? ?? '',
-          what: parsed['what'] as String? ?? '',
-          type: 'check',
-          substeps: (parsed['children'] as List<dynamic>).map((c) {
-            return SubSubTask(
-              id: const Uuid().v4(),
-              name: c['name'] as String? ?? 'Unnamed Objective',
-              why: c['why'] as String? ?? '',
-              what: c['what'] as String? ?? '',
-              type: 'check',
-            );
-          }).toList(),
-        );
-
-        provider.taskActions.updateSubtask(
-          widget.parentTask.id,
-          liveSubTask.id,
-          {
-            'subSubTasks': [...liveSubTask.subSubTasks, newCheckpoint],
-          },
-        );
-        showGlobalToast("Objective pasted as new child");
-      }
-    });
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  final String label;
-  final Color accentColor;
-  final IconData icon;
-  final Widget? trailing;
-
-  const _SectionLabel({
-    required this.label,
-    required this.accentColor,
-    required this.icon,
-    this.trailing,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Container(width: 3, height: 16, color: accentColor),
-          const SizedBox(width: 8),
-          Icon(icon, color: accentColor, size: 14),
-          const SizedBox(width: 6),
-          Text(label,
-              style: GoogleFonts.rajdhani(
-                  color: JweTheme.textWhite,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  letterSpacing: 1.5)),
-          const Spacer(),
-          if (trailing != null) trailing!,
-        ],
-      ),
-    );
-  }
-}
-
-class _DateNavBtn extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback? onTap;
-  final bool enabled;
-
-  const _DateNavBtn({required this.icon, this.onTap, this.enabled = true});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          border: Border(right: BorderSide(color: JweTheme.border)),
-        ),
-        child: Icon(icon,
-            color: enabled ? JweTheme.textMid : JweTheme.textMuted.withValues(alpha: 0.3),
-            size: 20),
-      ),
-    );
-  }
-}
-
-class _TemplateSetsTabs extends StatelessWidget {
-  final MainTask parentTask;
-  final SubTask subTask;
-  final AppProvider provider;
-
-  const _TemplateSetsTabs({
-    required this.parentTask,
-    required this.subTask,
-    required this.provider,
-  });
-
-  void _showAddDialog(BuildContext context) {
-    final textController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: JweTheme.panel,
-        title:  Text('New Template Set', style: TextStyle(color: JweTheme.textWhite)),
-        content: TextField(
-          controller: textController,
-          autofocus: true,
-          style:  TextStyle(color: JweTheme.textWhite),
-          decoration:   InputDecoration(
-            hintText: 'e.g. Monday, Routine A',
-            hintStyle: TextStyle(color: JweTheme.textMuted),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentCyan)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child:  Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
-          ),
-          TextButton(
-            onPressed: () {
-              final name = textController.text.trim();
-              if (name.isNotEmpty) {
-                provider.taskActions.addTemplateSet(parentTask.id, subTask.id, name);
-              }
-              Navigator.pop(ctx);
-            },
-            child:  Text('ADD', style: TextStyle(color: JweTheme.accentCyan)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showOptionsDialog(BuildContext context, SubTaskTemplateSet templateSet) {
-    showDialog(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        backgroundColor: JweTheme.panel,
-        title: Text('Template Set: ${templateSet.name}', style:  TextStyle(color: JweTheme.textWhite)),
-        children: [
-          SimpleDialogOption(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _showRenameDialog(context, templateSet);
-            },
-            child:   Row(
-              children: [
-                Icon(Icons.edit, color: JweTheme.accentCyan, size: 18),
-                SizedBox(width: 12),
-                Text('Rename', style: TextStyle(color: JweTheme.textWhite)),
-              ],
-            ),
-          ),
-          if (subTask.safeTemplateSets.length > 1)
-            SimpleDialogOption(
-              onPressed: () {
-                Navigator.pop(ctx);
-                provider.taskActions.deleteTemplateSet(parentTask.id, subTask.id, templateSet.id);
-              },
-              child:   Row(
-                children: [
-                  Icon(Icons.delete, color: JweTheme.accentRed, size: 18),
-                  SizedBox(width: 12),
-                  Text('Delete', style: TextStyle(color: JweTheme.textWhite)),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  void _showRenameDialog(BuildContext context, SubTaskTemplateSet templateSet) {
-    final textController = TextEditingController(text: templateSet.name);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: JweTheme.panel,
-        title:  Text('Rename Template Set', style: TextStyle(color: JweTheme.textWhite)),
-        content: TextField(
-          controller: textController,
-          autofocus: true,
-          style:  TextStyle(color: JweTheme.textWhite),
-          decoration:   InputDecoration(
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: JweTheme.accentCyan)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child:  Text('CANCEL', style: TextStyle(color: JweTheme.textMuted)),
-          ),
-          TextButton(
-            onPressed: () {
-              final name = textController.text.trim();
-              if (name.isNotEmpty) {
-                provider.taskActions.renameTemplateSet(parentTask.id, subTask.id, templateSet.id, name);
-              }
-              Navigator.pop(ctx);
-            },
-            child:  Text('SAVE', style: TextStyle(color: JweTheme.accentCyan)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final activeColor = parentTask.taskColor;
-    final templateSets = subTask.safeTemplateSets;
-    final activeId = subTask.safeActiveTemplateSetId;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      height: 36,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: templateSets.length + 1,
-        itemBuilder: (context, index) {
-          if (index == templateSets.length) {
-            // Add tab button
-            return GestureDetector(
-              onTap: () => _showAddDialog(context),
-              child: Container(
-                margin: const EdgeInsets.only(left: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: JweTheme.border),
-                  color: Colors.transparent,
-                ),
-                alignment: Alignment.center,
-                child:  Icon(Icons.add, color: JweTheme.textMid, size: 16),
-              ),
-            );
-          }
-
-          final set = templateSets[index];
-          final isActive = set.id == activeId;
-
-          return GestureDetector(
-            onTap: () => provider.taskActions.selectTemplateSet(parentTask.id, subTask.id, set.id),
-            onLongPress: () => _showOptionsDialog(context, set),
-            child: Container(
-              margin: const EdgeInsets.only(right: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: isActive ? activeColor : JweTheme.border,
-                ),
-                color: isActive ? activeColor.withValues(alpha: 0.12) : Colors.transparent,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                set.name.toUpperCase(),
-                style: GoogleFonts.chakraPetch(
-                  color: isActive ? activeColor : JweTheme.textMid,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
-                  letterSpacing: 1.0,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ManualProgressInput extends StatefulWidget {
-  final String mainTaskId;
-  final SubTask subTask;
-  final Color accentColor;
-  final AppProvider provider;
-
-  const _ManualProgressInput({
-    required this.mainTaskId,
-    required this.subTask,
-    required this.accentColor,
-    required this.provider,
-  });
-
-  @override
-  State<_ManualProgressInput> createState() => _ManualProgressInputState();
-}
-
-class _ManualProgressInputState extends State<_ManualProgressInput> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    final pct = (widget.subTask.manualProgress * 100).round();
-    _controller = TextEditingController(text: pct.toString());
-  }
-
-  @override
-  void didUpdateWidget(covariant _ManualProgressInput oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if ((oldWidget.subTask.manualProgress * 100).round() != (widget.subTask.manualProgress * 100).round()) {
-      final pct = (widget.subTask.manualProgress * 100).round();
-      _controller.text = pct.toString();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'PROGRESS: ',
-          style: GoogleFonts.jetBrainsMono(
-            color: JweTheme.textMuted,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 1.0,
-          ),
-        ),
-        Container(
-          width: 44,
-          height: 22,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            border: Border.all(color: widget.accentColor.withValues(alpha: 0.40)),
-            color: widget.accentColor.withValues(alpha: 0.05),
-          ),
-          child: TextField(
-            controller: _controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: false),
-            style: GoogleFonts.jetBrainsMono(
-              color: JweTheme.textWhite,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
-            decoration: const InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-              border: InputBorder.none,
-            ),
-            onSubmitted: (val) {
-              final parsed = double.tryParse(val);
-              if (parsed != null) {
-                final mp = (parsed / 100.0).clamp(0.0, 1.0);
-                widget.provider.taskActions.updateSubtask(
-                  widget.mainTaskId,
-                  widget.subTask.id,
-                  {'manualProgress': mp},
-                );
-              }
-            },
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          '%',
-          style: GoogleFonts.jetBrainsMono(
-            color: widget.accentColor,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
     );
   }
 }

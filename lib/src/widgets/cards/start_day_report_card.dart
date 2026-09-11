@@ -1,20 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/screens/nora_ai_screen.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/cards/start_day/start_day_contingency_section.dart';
+import 'package:missions/src/widgets/cards/start_day/start_day_goals_section.dart';
+import 'package:missions/src/widgets/cards/start_day/start_day_health_section.dart';
+import 'package:missions/src/widgets/cards/start_day/start_day_inspiration_section.dart';
+import 'package:missions/src/widgets/cards/start_day/start_day_interactions_section.dart';
+import 'package:missions/src/widgets/cards/start_day/start_day_recommended_tasks.dart';
+import 'package:missions/src/widgets/cards/start_day/start_day_yesterday_progress.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/widgets/ui/startup_wellbeing_metrics.dart';
-import 'package:missions/src/screens/nora_ai_screen.dart';
-import 'package:missions/src/providers/app_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:collection/collection.dart';
-import 'package:intl/intl.dart';
-import 'package:missions/src/utils/helpers.dart' as helper;
-import 'package:missions/src/models/task_models.dart';
-import 'package:missions/src/models/goal_model.dart';
-import 'package:missions/src/utils/goal_briefing_helper.dart';
-import 'package:missions/src/widgets/ui/task_progress_snapshot_view.dart';
+
+export 'package:missions/src/widgets/cards/start_day/start_day_contingency_section.dart';
+export 'package:missions/src/widgets/cards/start_day/start_day_goals_section.dart';
+export 'package:missions/src/widgets/cards/start_day/start_day_health_section.dart';
+export 'package:missions/src/widgets/cards/start_day/start_day_inspiration_section.dart';
+export 'package:missions/src/widgets/cards/start_day/start_day_interactions_section.dart';
+export 'package:missions/src/widgets/cards/start_day/start_day_recommended_tasks.dart';
+export 'package:missions/src/widgets/cards/start_day/start_day_yesterday_progress.dart';
 
 class StartDayReportCard extends StatefulWidget {
   final Map<String, dynamic> report;
@@ -99,8 +108,10 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
               padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
               decoration: BoxDecoration(
                 border: Border(
-                    bottom: BorderSide(
-                        color: JweTheme.accentCyan.withValues(alpha: 0.22))),
+                  bottom: BorderSide(
+                    color: JweTheme.accentCyan.withValues(alpha: 0.22),
+                  ),
+                ),
               ),
               child: Row(children: [
                 Container(width: 4, height: 14, color: JweTheme.accentCyan),
@@ -128,12 +139,13 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                               width: 14,
                               height: 14,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 1.4,
-                                  valueColor:   AlwaysStoppedAnimation<Color>(
-                                      JweTheme.accentCyan)),
+                                strokeWidth: 1.4,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  JweTheme.accentCyan,
+                                ),
+                              ),
                             )
-                          : Icon(MdiIcons.refresh,
-                              size: 15, color: JweTheme.textMuted),
+                          : Icon(MdiIcons.refresh, size: 15, color: JweTheme.textMuted),
                     ),
                   ),
                 HudDot(tone: HudTone.cyan, size: 5),
@@ -170,145 +182,27 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Yesterday Quote vs AI Response for Today
-                  if (yesterdayQuote.isNotEmpty || aiTodayAdvice.isNotEmpty) ...[
-                    Row(
-                      children: [
-                        Container(width: 3, height: 10, color: JweTheme.accentAmber),
-                        const SizedBox(width: 8),
-                        Text("YESTERDAY'S HIGHLIGHT & TODAY'S AI INSPIRATION",
-                            style: GoogleFonts.jetBrainsMono(
-                              color: JweTheme.accentAmber,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.8,
-                            )),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: JweTheme.bgDeep.withValues(alpha: 0.65),
-                        border: Border(left: BorderSide(color: JweTheme.accentAmber, width: 3)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (yesterdayQuote.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              color: JweTheme.accentAmber.withValues(alpha: 0.08),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(MdiIcons.formatQuoteOpen, size: 14, color: JweTheme.accentAmber),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      '"$yesterdayQuote"',
-                                      style: GoogleFonts.inter(
-                                        color: JweTheme.textWhite,
-                                        fontSize: 12,
-                                        fontStyle: FontStyle.italic,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          if (aiTodayAdvice.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.all(10),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(MdiIcons.lightningBolt, size: 14, color: JweTheme.accentCyan),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      aiTodayAdvice,
-                                      style: GoogleFonts.inter(
-                                        color: JweTheme.accentCyan,
-                                        fontSize: 12,
-                                        height: 1.4,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                  ],
-
-                  // Motivational Quote from Famous Scientist/Philosopher/Writer
-                  if (motivationalQuote != null && (motivationalQuote['quote']?.toString() ?? '').isNotEmpty) ...[
-                    Row(
-                      children: [
-                        Container(width: 3, height: 10, color: JweTheme.accentTeal),
-                        const SizedBox(width: 8),
-                        Text('MOMENTUM QUOTE OF THE DAY',
-                            style: GoogleFonts.jetBrainsMono(
-                              color: JweTheme.accentTeal,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.8,
-                            )),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: JweTheme.accentTeal.withValues(alpha: 0.05),
-                        border: Border.all(color: JweTheme.accentTeal.withValues(alpha: 0.3)),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '"${motivationalQuote['quote']}"',
-                            style: GoogleFonts.inter(
-                              color: JweTheme.textWhite,
-                              fontSize: 12.5,
-                              fontStyle: FontStyle.italic,
-                              height: 1.45,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: Text(
-                              '— ${motivationalQuote['author'] ?? 'Unknown'}',
-                              style: GoogleFonts.jetBrainsMono(
-                                color: JweTheme.accentTeal,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                  ],
+                  // Inspiration
+                  StartDayInspirationSection(
+                    yesterdayQuote: yesterdayQuote,
+                    aiTodayAdvice: aiTodayAdvice,
+                    motivationalQuote: motivationalQuote,
+                  ),
 
                   // Forecast
                   Row(
                     children: [
                       Container(width: 3, height: 10, color: JweTheme.accentCyan),
                       const SizedBox(width: 8),
-                      Text('COGNITIVE FORECAST MATRIX',
-                          style: GoogleFonts.jetBrainsMono(
-                            color: JweTheme.accentCyan,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.8,
-                          )),
+                      Text(
+                        'COGNITIVE FORECAST MATRIX',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: JweTheme.accentCyan,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.8,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -330,19 +224,21 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                     ),
                   ),
 
-                  // Today's Highlight (single most leveraged task)
+                  // Today's Highlight
                   if (highlight.isNotEmpty) ...[
                     const SizedBox(height: 18),
                     Row(children: [
                       Container(width: 3, height: 10, color: JweTheme.accentAmber),
                       const SizedBox(width: 8),
-                      Text("TODAY'S HIGHLIGHT",
-                          style: GoogleFonts.jetBrainsMono(
-                            color: JweTheme.accentAmber,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.8,
-                          )),
+                      Text(
+                        "TODAY'S HIGHLIGHT",
+                        style: GoogleFonts.jetBrainsMono(
+                          color: JweTheme.accentAmber,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.8,
+                        ),
+                      ),
                     ]),
                     const SizedBox(height: 8),
                     Container(
@@ -350,13 +246,13 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                       decoration: BoxDecoration(
                         color: JweTheme.accentAmber.withValues(alpha: 0.06),
                         border: Border(
-                            left: BorderSide(color: JweTheme.accentAmber, width: 3)),
+                          left: BorderSide(color: JweTheme.accentAmber, width: 3),
+                        ),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(MdiIcons.starFourPointsOutline,
-                              size: 14, color: JweTheme.accentAmber),
+                          Icon(MdiIcons.starFourPointsOutline, size: 14, color: JweTheme.accentAmber),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -380,13 +276,15 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                     Row(children: [
                       Container(width: 3, height: 10, color: JweTheme.accentAmber),
                       const SizedBox(width: 8),
-                      Text('TACTICAL DIRECTIVES',
-                          style: GoogleFonts.jetBrainsMono(
-                            color: JweTheme.accentAmber,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.8,
-                          )),
+                      Text(
+                        'TACTICAL DIRECTIVES',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: JweTheme.accentAmber,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.8,
+                        ),
+                      ),
                     ]),
                     const SizedBox(height: 8),
                     Container(
@@ -398,162 +296,56 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: directives.map((d) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('> ',
-                                      style: GoogleFonts.jetBrainsMono(
+                        children: directives
+                            .map((d) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '> ',
+                                        style: GoogleFonts.jetBrainsMono(
                                           color: JweTheme.accentAmber,
                                           fontWeight: FontWeight.w700,
-                                          fontSize: 12)),
-                                  Expanded(
-                                    child: Text(d,
-                                        style: GoogleFonts.saira(
-                                          color: JweTheme.textWhite,
-                                          fontSize: 12.5,
-                                          height: 1.35,
-                                          fontWeight: FontWeight.w500,
-                                        )),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          d,
+                                          style: GoogleFonts.saira(
+                                            color: JweTheme.textWhite,
+                                            fontSize: 12.5,
+                                            height: 1.35,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            )).toList(),
+                                ))
+                            .toList(),
                       ),
                     ),
                   ],
 
                   // Goals & Expected Increments Section
-                  _buildStartupGoalsSection(provider, reportDate),
+                  StartDayGoalsSection(provider: provider, reportDate: reportDate),
 
-                  // Contingency: WOOP obstacle + if-then plan
-                  if (obstacle.isNotEmpty || ifThen.isNotEmpty) ...[
-                    const SizedBox(height: 18),
-                    Row(children: [
-                      Container(width: 3, height: 10, color: JweTheme.accentRed),
-                      const SizedBox(width: 8),
-                      Text('CONTINGENCY PLAN',
-                          style: GoogleFonts.jetBrainsMono(
-                            color: JweTheme.accentRed,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.8,
-                          )),
-                    ]),
-                    const SizedBox(height: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: JweTheme.bgDeep.withValues(alpha: 0.65),
-                        border: Border(
-                            left: BorderSide(color: JweTheme.accentRed, width: 3)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (obstacle.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              color: JweTheme.accentRed.withValues(alpha: 0.10),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(MdiIcons.alertOutline,
-                                      size: 13, color: JweTheme.accentRed),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      obstacle,
-                                      style: GoogleFonts.inter(
-                                        color: JweTheme.textWhite,
-                                        fontSize: 12,
-                                        fontStyle: FontStyle.italic,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          if (ifThen.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(MdiIcons.arrowRightBottom,
-                                      size: 14, color: JweTheme.accentAmber),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      ifThen,
-                                      style: GoogleFonts.saira(
-                                        color: JweTheme.textWhite,
-                                        fontSize: 12.5,
-                                        height: 1.4,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-
-                  // Anticipatory savoring: one thing to look forward to
-                  if (anticipate.isNotEmpty) ...[
-                    const SizedBox(height: 18),
-                    Row(children: [
-                      Container(width: 3, height: 10, color: JweTheme.accentTeal),
-                      const SizedBox(width: 8),
-                      Text('LOOK FORWARD TO',
-                          style: GoogleFonts.jetBrainsMono(
-                            color: JweTheme.accentTeal,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.8,
-                          )),
-                    ]),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: JweTheme.accentTeal.withValues(alpha: 0.05),
-                        border: Border(
-                            left: BorderSide(color: JweTheme.accentTeal, width: 3)),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(MdiIcons.weatherSunny,
-                              size: 14, color: JweTheme.accentTeal),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              anticipate,
-                              style: GoogleFonts.inter(
-                                color: JweTheme.textWhite,
-                                fontSize: 12.5,
-                                height: 1.45,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  // Contingency & Anticipate
+                  StartDayContingencySection(
+                    obstacle: obstacle,
+                    ifThen: ifThen,
+                    anticipate: anticipate,
+                  ),
 
                   // Yesterday's Task Progress
                   const SizedBox(height: 18),
-                  _buildYesterdaysTaskProgress(context, provider, yesterdayStr),
+                  StartDayYesterdayProgress(provider: provider, yesterdayStr: yesterdayStr),
 
                   // Yesterday's Health Data
                   const SizedBox(height: 18),
-                  _buildYesterdaysHealthData(context, provider, yesterdayStr),
+                  StartDayHealthSection(provider: provider, yesterdayStr: yesterdayStr),
 
                   // Metrics
                   if (metrics != null) ...[
@@ -563,10 +355,13 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
 
                   // Recommended Tasks
                   const SizedBox(height: 18),
-                  _buildRecommendedTasks(context, provider),
+                  StartDayRecommendedTasks(provider: provider),
 
                   // Suggested Interactions
-                  _buildSuggestedInteractions(context, provider),
+                  StartDayInteractionsSection(
+                    savedContacts: widget.report['suggested_contacts'] as List<dynamic>?,
+                    provider: provider,
+                  ),
 
                   const SizedBox(height: 18),
 
@@ -580,21 +375,23 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                         decoration: BoxDecoration(
                           color: JweTheme.accentCyan.withValues(alpha: 0.10),
                           border: Border.all(
-                              color: JweTheme.accentCyan.withValues(alpha: 0.45)),
+                            color: JweTheme.accentCyan.withValues(alpha: 0.45),
+                          ),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(MdiIcons.brain,
-                                size: 14, color: JweTheme.accentCyan),
+                            Icon(MdiIcons.brain, size: 14, color: JweTheme.accentCyan),
                             const SizedBox(width: 8),
-                            Text('INITIATE NORA LINK',
-                                style: GoogleFonts.saira(
-                                  color: JweTheme.accentCyan,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.6,
-                                )),
+                            Text(
+                              'INITIATE NORA LINK',
+                              style: GoogleFonts.saira(
+                                color: JweTheme.accentCyan,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.6,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -606,1068 +403,5 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
         ],
       ),
     ).animate().fadeIn().slideY(begin: 0.06, end: 0);
-  }
-
-  Widget _buildYesterdaysTaskProgress(BuildContext context, AppProvider provider, String yesterdayStr) {
-    final yesterdayData = provider.completedByDay[yesterdayStr];
-    final completedSubs = yesterdayData?['subtasksCompleted'] as List<dynamic>? ?? [];
-    final taskTimes = yesterdayData?['taskTimes'] as Map<dynamic, dynamic>? ?? {};
-
-    bool hasAnyTime = taskTimes.values.any((v) => (v as num) > 0);
-
-    if (completedSubs.isEmpty && !hasAnyTime) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Container(width: 3, height: 10, color: JweTheme.accentCyan),
-            const SizedBox(width: 8),
-            Icon(MdiIcons.history, size: 11, color: JweTheme.accentCyan),
-            const SizedBox(width: 5),
-            Text(
-              'YESTERDAY\'S TASK PROGRESS',
-              style: GoogleFonts.jetBrainsMono(
-                color: JweTheme.accentCyan,
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.6,
-              ),
-            ),
-          ]),
-          const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: JweTheme.bgBase,
-              border: Border.all(color: JweTheme.border),
-            ),
-            child: Text(
-              'No task activity recorded yesterday.',
-              style: GoogleFonts.inter(
-                color: JweTheme.textMuted,
-                fontSize: 11.5,
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    // Prepare active time rows
-    final timeRows = <Widget>[];
-    taskTimes.forEach((taskId, timeSec) {
-      final secs = (timeSec as num).toInt();
-      if (secs <= 0) return;
-      final mainTask = provider.mainTasks.firstWhereOrNull((t) => t.id == taskId.toString());
-      if (mainTask == null) return;
-
-      final mins = secs ~/ 60;
-      final timeStr = mins >= 60 ? '${mins ~/ 60}h ${mins % 60}m' : '${mins}m';
-      final color = Color(int.parse('0xFF${mainTask.colorHex}'));
-
-      timeRows.add(
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-          child: Row(
-            children: [
-              Container(width: 4, height: 10, color: color),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  mainTask.name.toUpperCase(),
-                  style: GoogleFonts.rajdhani(
-                    color: JweTheme.textWhite,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Text(
-                timeStr,
-                style: GoogleFonts.robotoMono(
-                  color: color,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    });
-
-    // Prepare completed subtasks rows
-    final subtaskRows = <Widget>[];
-    for (final entry in completedSubs) {
-      final name = entry['name'] as String? ?? 'Unnamed Objective';
-      final parentTaskId = entry['parentTaskId'] as String? ?? '';
-      final mainTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parentTaskId);
-      final color = mainTask != null ? Color(int.parse('0xFF${mainTask.colorHex}')) : JweTheme.accentCyan;
-
-      subtaskRows.add(
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(MdiIcons.checkboxMarkedCircleOutline, size: 13, color: color),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  name,
-                  style: GoogleFonts.inter(
-                    color: JweTheme.textMid,
-                    fontSize: 12,
-                    height: 1.3,
-                  ),
-                ),
-              ),
-              if (mainTask != null) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    border: Border.all(color: color.withValues(alpha: 0.3)),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  child: Text(
-                    mainTask.name.toUpperCase(),
-                    style: GoogleFonts.jetBrainsMono(
-                      color: color,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(children: [
-          Container(width: 3, height: 10, color: JweTheme.accentCyan),
-          const SizedBox(width: 8),
-          Icon(MdiIcons.history, size: 11, color: JweTheme.accentCyan),
-          const SizedBox(width: 5),
-          Text(
-            'YESTERDAY\'S TASK PROGRESS',
-            style: GoogleFonts.jetBrainsMono(
-              color: JweTheme.accentCyan,
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.6,
-            ),
-          ),
-        ]),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: JweTheme.bgBase,
-            border: Border.all(color: JweTheme.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (timeRows.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.only(left: 12, top: 10, bottom: 6),
-                  child: Text(
-                    'ACTIVE TIME LOGGED',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: JweTheme.textMuted,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
-                ...timeRows,
-                const SizedBox(height: 6),
-              ],
-              if (timeRows.isNotEmpty && subtaskRows.isNotEmpty)
-                 Divider(color: JweTheme.lineSoft, height: 1),
-              if (subtaskRows.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.only(left: 12, top: 10, bottom: 6),
-                  child: Text(
-                    'COMPLETED OBJECTIVES',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: JweTheme.textMuted,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
-                ...subtaskRows,
-                const SizedBox(height: 10),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildYesterdaysHealthData(BuildContext context, AppProvider provider, String yesterdayStr) {
-    final yesterdayHealthLog = provider.getDailyHealthLog(yesterdayStr);
-
-    final sleepLogs = yesterdayHealthLog.sleepLogs;
-    final totalSleepMins = sleepLogs.fold<int>(0, (sum, s) => sum + s.durationMinutes);
-
-    final waterGlasses = yesterdayHealthLog.waterGlasses;
-
-    final walkDist = yesterdayHealthLog.activityLogs.fold<double>(0.0, (sum, a) => sum + a.walkDistanceKm);
-    final workoutMins = yesterdayHealthLog.activityLogs.fold<int>(0, (sum, a) => sum + a.workoutMinutes);
-
-    final mealsWithFood = yesterdayHealthLog.meals.map((meal) {
-      return provider.foodItems.firstWhereOrNull((f) => f.id == meal.foodItemId);
-    }).nonNulls.toList();
-
-    final totalCalories = mealsWithFood.fold<int>(0, (sum, f) => sum + f.calories);
-    final totalProtein = mealsWithFood.fold<double>(0.0, (sum, f) => sum + f.protein);
-    final totalCarbs = mealsWithFood.fold<double>(0.0, (sum, f) => sum + f.carbs);
-    final totalFat = mealsWithFood.fold<double>(0.0, (sum, f) => sum + f.fat);
-
-    final hasAnyHealth = totalSleepMins > 0 || waterGlasses > 0 || walkDist > 0 || workoutMins > 0 || totalCalories > 0;
-
-    if (!hasAnyHealth) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Container(width: 3, height: 10, color: JweTheme.accentTeal),
-            const SizedBox(width: 8),
-            Icon(MdiIcons.heartPulse, size: 11, color: JweTheme.accentTeal),
-            const SizedBox(width: 5),
-            Text(
-              'YESTERDAY\'S HEALTH DIAGNOSTICS',
-              style: GoogleFonts.jetBrainsMono(
-                color: JweTheme.accentTeal,
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.6,
-              ),
-            ),
-          ]),
-          const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: JweTheme.bgBase,
-              border: Border.all(color: JweTheme.border),
-            ),
-            child: Text(
-              'No health metrics logged yesterday.',
-              style: GoogleFonts.inter(
-                color: JweTheme.textMuted,
-                fontSize: 11.5,
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    final sleepStr = totalSleepMins > 0
-        ? '${totalSleepMins ~/ 60}h ${totalSleepMins % 60}m'
-        : 'No sleep logged';
-
-    final waterStr = waterGlasses > 0
-        ? '$waterGlasses glasses'
-        : 'No water logged';
-
-    final activityStr = (walkDist > 0 || workoutMins > 0)
-        ? '${walkDist > 0 ? "${walkDist.toStringAsFixed(1)} km walked" : ""}${walkDist > 0 && workoutMins > 0 ? " • " : ""}${workoutMins > 0 ? "${workoutMins}m workout" : ""}'
-        : 'No activity logged';
-
-    final nutritionStr = totalCalories > 0
-        ? '$totalCalories kcal (P: ${totalProtein.toStringAsFixed(1)}g • C: ${totalCarbs.toStringAsFixed(1)}g • F: ${totalFat.toStringAsFixed(1)}g)'
-        : 'No nutrition logged';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(children: [
-          Container(width: 3, height: 10, color: JweTheme.accentTeal),
-          const SizedBox(width: 8),
-          Icon(MdiIcons.heartPulse, size: 11, color: JweTheme.accentTeal),
-          const SizedBox(width: 5),
-          Text(
-            'YESTERDAY\'S HEALTH DIAGNOSTICS',
-            style: GoogleFonts.jetBrainsMono(
-              color: JweTheme.accentTeal,
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.6,
-            ),
-          ),
-        ]),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: JweTheme.bgBase,
-            border: Border.all(color: JweTheme.border),
-          ),
-          child: Column(
-            children: [
-              _buildHealthRow(MdiIcons.sleep, 'SLEEP', sleepStr, JweTheme.accentCyan, showDivider: true),
-              _buildHealthRow(MdiIcons.water, 'HYDRATION', waterStr, JweTheme.accentCyan, showDivider: true),
-              _buildHealthRow(MdiIcons.run, 'ACTIVITY', activityStr, JweTheme.accentTeal, showDivider: true),
-              _buildHealthRow(MdiIcons.foodApple, 'NUTRITION', nutritionStr, JweTheme.accentWarn, showDivider: false),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHealthRow(IconData icon, String label, String value, Color color, {required bool showDivider}) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          child: Row(
-            children: [
-              Icon(icon, size: 15, color: color),
-              const SizedBox(width: 10),
-              SizedBox(
-                width: 85,
-                child: Text(
-                  label,
-                  style: GoogleFonts.jetBrainsMono(
-                    color: JweTheme.textMuted,
-                    fontSize: 8.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  value,
-                  style: GoogleFonts.inter(
-                    color: JweTheme.textWhite,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (showDivider)
-           Divider(color: JweTheme.lineSoft, height: 1),
-      ],
-    );
-  }
-
-  List<({MainTask task, SubTask sub})> getRecommendedTasks(AppProvider provider) {
-    final list = <({MainTask task, SubTask sub})>[];
-    final todayStr = helper.getTodayDateString();
-
-    for (final task in provider.mainTasks) {
-      if (task.isDeleted || !task.isActive) continue;
-
-      // Filter subtasks to active, uncompleted ones
-      final uncompletedSubs = task.subTasks.where((sub) {
-        if (sub.isDeleted || !sub.isActive) return false;
-        if (sub.isRecurring && sub.completed) {
-          if (sub.completedDate == todayStr) return false;
-        }
-        return !sub.completed;
-      }).toList();
-
-      if (uncompletedSubs.isEmpty) continue;
-
-      // Score/sort them:
-      // 1. Recurring
-      // 2. In-progress (has progress > 0 or time spent > 0)
-      // 3. Strategic (has description or why/what)
-      // 4. Default
-      uncompletedSubs.sort((a, b) {
-        int scoreA = 0;
-        if (a.isRecurring) scoreA += 10;
-        if (a.calculateProgress() > 0.0 || a.currentTimeSpent > 0) scoreA += 5;
-        if (a.why.isNotEmpty || a.what.isNotEmpty) scoreA += 2;
-
-        int scoreB = 0;
-        if (b.isRecurring) scoreB += 10;
-        if (b.calculateProgress() > 0.0 || b.currentTimeSpent > 0) scoreB += 5;
-        if (b.why.isNotEmpty || b.what.isNotEmpty) scoreB += 2;
-
-        return scoreB.compareTo(scoreA); // descending
-      });
-
-      // Pick top 1 or 2 from this mission
-      final countToTake = uncompletedSubs.length >= 2 ? 2 : uncompletedSubs.length;
-      for (int i = 0; i < countToTake; i++) {
-        list.add((task: task, sub: uncompletedSubs[i]));
-      }
-    }
-
-    // Sort the final recommendations list: show recurring first, then in-progress, etc.
-    list.sort((a, b) {
-      int scoreA = 0;
-      if (a.sub.isRecurring) scoreA += 10;
-      if (a.sub.calculateProgress() > 0.0 || a.sub.currentTimeSpent > 0) scoreA += 5;
-
-      int scoreB = 0;
-      if (b.sub.isRecurring) scoreB += 10;
-      if (b.sub.calculateProgress() > 0.0 || b.sub.currentTimeSpent > 0) scoreB += 5;
-
-      return scoreB.compareTo(scoreA);
-    });
-
-    return list;
-  }
-
-  Widget _buildRecommendedTasks(BuildContext context, AppProvider provider) {
-    final recommendations = getRecommendedTasks(provider);
-    final todayStr = helper.getTodayDateString();
-    final plan = List<String>.from(provider.taskActions.getDayPlan(todayStr));
-
-    if (recommendations.isEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Container(width: 3, height: 10, color: JweTheme.accentWarn),
-            const SizedBox(width: 8),
-            Icon(MdiIcons.starOutline, size: 11, color: JweTheme.accentWarn),
-            const SizedBox(width: 5),
-            Text(
-              'TACTICAL RECOMMENDATIONS',
-              style: GoogleFonts.jetBrainsMono(
-                color: JweTheme.accentWarn,
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.6,
-              ),
-            ),
-          ]),
-          const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: JweTheme.bgBase,
-              border: Border.all(color: JweTheme.border),
-            ),
-            child: Text(
-              'No recommendations available. All tasks completed!',
-              style: GoogleFonts.inter(
-                color: JweTheme.textMuted,
-                fontSize: 11.5,
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(children: [
-          Container(width: 3, height: 10, color: JweTheme.accentWarn),
-          const SizedBox(width: 8),
-          Icon(MdiIcons.starOutline, size: 11, color: JweTheme.accentWarn),
-          const SizedBox(width: 5),
-          Text(
-            'TACTICAL RECOMMENDATIONS',
-            style: GoogleFonts.jetBrainsMono(
-              color: JweTheme.accentWarn,
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.6,
-            ),
-          ),
-        ]),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: JweTheme.bgBase,
-            border: Border.all(color: JweTheme.border),
-          ),
-          child: Column(
-            children: List.generate(recommendations.length, (index) {
-              final rec = recommendations[index];
-              final task = rec.task;
-              final sub = rec.sub;
-              final color = Color(int.parse('0xFF${task.colorHex}'));
-
-              final compoundId = '${task.id}|${sub.id}';
-              final isQueued = plan.contains(compoundId);
-
-              return Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                    child: Row(
-                      children: [
-                        Container(width: 4, height: 12, color: color),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                sub.name,
-                                style: GoogleFonts.inter(
-                                  color: JweTheme.textWhite,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  Text(
-                                    task.name.toUpperCase(),
-                                    style: GoogleFonts.jetBrainsMono(
-                                      color: color,
-                                      fontSize: 8.5,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  if (sub.isRecurring) ...[
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                      decoration: BoxDecoration(
-                                        color: JweTheme.accentCyan.withValues(alpha: 0.1),
-                                        border: Border.all(color: JweTheme.accentCyan.withValues(alpha: 0.3)),
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
-                                      child: Text(
-                                        'RECURRING',
-                                        style: GoogleFonts.jetBrainsMono(
-                                          color: JweTheme.accentCyan,
-                                          fontSize: 7.5,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                  if (sub.calculateProgress() > 0.0) ...[
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                      decoration: BoxDecoration(
-                                        color: JweTheme.accentTeal.withValues(alpha: 0.1),
-                                        border: Border.all(color: JweTheme.accentTeal.withValues(alpha: 0.3)),
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
-                                      child: Text(
-                                        '${(sub.calculateProgress() * 100).toInt()}% DONE',
-                                        style: GoogleFonts.jetBrainsMono(
-                                          color: JweTheme.accentTeal,
-                                          fontSize: 7.5,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: Icon(
-                            isQueued ? MdiIcons.minus : MdiIcons.plus,
-                            size: 16,
-                            color: isQueued ? JweTheme.accentRed : JweTheme.accentCyan,
-                          ),
-                          tooltip: isQueued ? 'Remove from Day Plan' : 'Add to Day Plan',
-                          style: IconButton.styleFrom(
-                            backgroundColor: (isQueued ? JweTheme.accentRed : JweTheme.accentCyan).withValues(alpha: 0.08),
-                            padding: const EdgeInsets.all(6),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          onPressed: () {
-                            if (isQueued) {
-                              plan.remove(compoundId);
-                            } else {
-                              plan.add(compoundId);
-                            }
-                            provider.taskActions.updateDayPlan(todayStr, plan);
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (index < recommendations.length - 1)
-                     Divider(color: JweTheme.lineSoft, height: 1),
-                ],
-              );
-            }),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSuggestedInteractions(BuildContext context, AppProvider provider) {
-    final savedContacts = widget.report['suggested_contacts'] as List<dynamic>?;
-
-    final displaySuggestions = <Map<String, dynamic>>[];
-
-    if (savedContacts != null && savedContacts.isNotEmpty) {
-      for (final c in savedContacts) {
-        final map = c as Map<String, dynamic>;
-        final typeStr = map['type']?.toString() ?? 'CHECK IN';
-        Color color = JweTheme.accentCyan;
-        IconData icon = MdiIcons.accountNetworkOutline;
-        if (typeStr.contains('RECONNECT')) {
-          color = JweTheme.accentAmber;
-          icon = MdiIcons.accountClockOutline;
-        } else if (typeStr.contains('FOLLOW UP')) {
-          color = JweTheme.accentRed;
-          icon = MdiIcons.heartHalfFull;
-        } else if (typeStr.contains('APPRECIATION')) {
-          color = JweTheme.accentTeal;
-          icon = MdiIcons.heartFlash;
-        }
-        displaySuggestions.add({
-          'name': map['name'] ?? 'Contact',
-          'relation': map['relation'] ?? 'Friend',
-          'type': typeStr,
-          'reason': map['reason'] ?? '',
-          'icon': icon,
-          'color': color,
-        });
-      }
-    } else {
-      final now = DateTime.now();
-      final logs = provider.reflectionLogs;
-      final people = provider.chatbotMemory.people;
-
-      if (people.isEmpty) return const SizedBox.shrink();
-
-      final recommendations = <Map<String, dynamic>>[];
-
-      for (final person in people) {
-        final personNameLower = person.name.toLowerCase();
-        final personLogs = logs.where((l) {
-          final text = '${l.trigger} ${l.emotion} ${l.reason} ${l.action}'.toLowerCase();
-          return text.contains(personNameLower);
-        }).toList();
-
-        personLogs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-        if (personLogs.isNotEmpty) {
-          final latestLog = personLogs.first;
-          final daysSince = now.difference(latestLog.timestamp).inDays;
-
-          if (daysSince > 7 && daysSince <= 21) {
-            recommendations.add({
-              'name': person.name,
-              'relation': person.relation,
-              'type': 'RECONNECT',
-              'reason': 'No contact recorded in $daysSince days. Plan a check-in.',
-              'icon': MdiIcons.accountClockOutline,
-              'color': JweTheme.accentAmber,
-            });
-          } else if (daysSince <= 7) {
-            final negEmotions = ['stressed', 'anxious', 'sad', 'angry', 'overwhelmed', 'tired', 'frustrated', 'worried'];
-            final isNeg = negEmotions.any((e) => latestLog.emotion.toLowerCase().contains(e) || latestLog.reason.toLowerCase().contains(e));
-            if (isNeg) {
-              recommendations.add({
-                'name': person.name,
-                'relation': person.relation,
-                'type': 'FOLLOW UP',
-                'reason': 'Follow up regarding recent tension or stress.',
-                'icon': MdiIcons.heartHalfFull,
-                'color': JweTheme.accentRed,
-              });
-            } else {
-              recommendations.add({
-                'name': person.name,
-                'relation': person.relation,
-                'type': 'APPRECIATION',
-                'reason': 'Keep the momentum going. Share a quick word of support.',
-                'icon': MdiIcons.heartFlash,
-                'color': JweTheme.accentTeal,
-              });
-            }
-          }
-        } else {
-          recommendations.add({
-            'name': person.name,
-            'relation': person.relation,
-            'type': 'STAY IN TOUCH',
-            'reason': 'No recent reflection logs mention them. Ping to catch up.',
-            'icon': MdiIcons.accountNetworkOutline,
-            'color': JweTheme.accentCyan,
-          });
-        }
-      }
-
-      displaySuggestions.addAll(recommendations.take(3));
-    }
-
-    if (displaySuggestions.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 18),
-        Row(children: [
-          Container(width: 3, height: 10, color: JweTheme.accentCyan),
-          const SizedBox(width: 8),
-          Icon(MdiIcons.accountMultipleOutline, size: 11, color: JweTheme.accentCyan),
-          const SizedBox(width: 5),
-          Text(
-            'SUGGESTED INTERACTIONS (PEOPLE)',
-            style: GoogleFonts.jetBrainsMono(
-              color: JweTheme.accentCyan,
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.6,
-            ),
-          ),
-        ]),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: JweTheme.bgDeep.withValues(alpha: 0.65),
-            border: Border.all(color: JweTheme.accentCyan.withValues(alpha: 0.25)),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Column(
-            children: displaySuggestions.map((s) {
-              final color = s['color'] as Color;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(s['icon'] as IconData, size: 14, color: color),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                (s['name'] as String).toUpperCase(),
-                                style: GoogleFonts.saira(
-                                  color: JweTheme.textWhite,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '(${s['relation']})',
-                                style: GoogleFonts.jetBrainsMono(
-                                  color: JweTheme.textMuted,
-                                  fontSize: 8.5,
-                                ),
-                              ),
-                              const Spacer(),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: color.withValues(alpha: 0.5)),
-                                  color: color.withValues(alpha: 0.08),
-                                ),
-                                child: Text(
-                                  s['type'] as String,
-                                  style: GoogleFonts.jetBrainsMono(
-                                    color: color,
-                                    fontSize: 7.5,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            s['reason'] as String,
-                            style: GoogleFonts.inter(
-                              color: JweTheme.textMid,
-                              fontSize: 11,
-                              height: 1.3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStartupGoalsSection(AppProvider provider, DateTime reportDate) {
-    final yesterdayCompleted = GoalBriefingHelper.getYesterdayCompletedGoals(provider, reportDate);
-    final todayToComplete = GoalBriefingHelper.getTodayGoalsToComplete(provider, reportDate);
-    final weeklyGoals = provider.getGoalsForDate(reportDate, GoalScope.weekly);
-    final monthlyGoals = provider.getGoalsForDate(reportDate, GoalScope.monthly);
-    final periodGoals = [...weeklyGoals, ...monthlyGoals];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 18),
-        Row(
-          children: [
-            Container(width: 3, height: 10, color: JweTheme.accentCyan),
-            const SizedBox(width: 8),
-            Text(
-              'GOAL INTEL & EXPECTED INCREMENTS',
-              style: GoogleFonts.jetBrainsMono(
-                color: JweTheme.accentCyan,
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.8,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: JweTheme.bgDeep.withValues(alpha: 0.65),
-            border: Border.all(color: JweTheme.accentCyan.withValues(alpha: 0.3)),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Yesterday's Completed Goals
-              Row(
-                children: [
-                  Icon(MdiIcons.trophyOutline, size: 13, color: JweTheme.accentTeal),
-                  const SizedBox(width: 6),
-                  Text(
-                    "YESTERDAY'S COMPLETED",
-                    style: GoogleFonts.jetBrainsMono(
-                      color: JweTheme.accentTeal,
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              if (yesterdayCompleted.isNotEmpty)
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: yesterdayCompleted.map((g) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: JweTheme.accentTeal.withValues(alpha: 0.12),
-                        border: Border.all(color: JweTheme.accentTeal.withValues(alpha: 0.4)),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(MdiIcons.checkDecagram, size: 12, color: JweTheme.accentTeal),
-                          const SizedBox(width: 5),
-                          Text(
-                            g.title,
-                            style: GoogleFonts.saira(
-                              color: JweTheme.textWhite,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, bottom: 4),
-                  child: Text(
-                    'No completed goals recorded from yesterday.',
-                    style: GoogleFonts.inter(color: JweTheme.textMuted, fontSize: 11, fontStyle: FontStyle.italic),
-                  ),
-                ),
-              const SizedBox(height: 10),
-              Divider(color: JweTheme.accentCyan.withValues(alpha: 0.15), height: 1),
-              const SizedBox(height: 10),
-
-              // 2. Today's Daily Goals
-              Row(
-                children: [
-                  Icon(MdiIcons.target, size: 13, color: JweTheme.accentCyan),
-                  const SizedBox(width: 6),
-                  Text(
-                    "TODAY'S GOALS",
-                    style: GoogleFonts.jetBrainsMono(
-                      color: JweTheme.accentCyan,
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              if (todayToComplete.isNotEmpty)
-                Column(
-                  children: todayToComplete.map((g) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 3),
-                      child: Row(
-                        children: [
-                          Icon(MdiIcons.checkboxBlankOutline, size: 13, color: JweTheme.accentCyan),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              g.title,
-                              style: GoogleFonts.saira(
-                                color: JweTheme.textWhite,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          if (g.targetValue > 1)
-                            Text(
-                              'Target: ${g.targetValue % 1 == 0 ? g.targetValue.toInt() : g.targetValue}',
-                              style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
-                            ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, bottom: 4),
-                  child: Text(
-                    'All daily goals completed or no daily goals set for today.',
-                    style: GoogleFonts.inter(color: JweTheme.textMuted, fontSize: 11, fontStyle: FontStyle.italic),
-                  ),
-                ),
-
-              // 3. Active Weekly & Monthly Goals
-              if (periodGoals.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Divider(color: JweTheme.accentCyan.withValues(alpha: 0.15), height: 1),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Icon(MdiIcons.chartTimelineVariant, size: 13, color: JweTheme.accentAmber),
-                    const SizedBox(width: 6),
-                    Text(
-                      "PERIOD GOALS",
-                      style: GoogleFonts.jetBrainsMono(
-                        color: JweTheme.accentAmber,
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Column(
-                  children: periodGoals.map((g) {
-                    final expInfo = GoalBriefingHelper.getExpectedDailyIncrement(provider, g, reportDate);
-                    final currentRatio = g.getProgressRatio();
-                    final expectedDelta = expInfo.ratioIncrement.clamp(0.0, 1.0 - currentRatio);
-                    final projectedRatio = (currentRatio + expectedDelta).clamp(0.0, 1.0);
-                    final defaultColor = g.scope == GoalScope.weekly ? JweTheme.accentCyan : JweTheme.accentAmber;
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: JweTheme.bgDeep.withValues(alpha: 0.4),
-                        border: Border.all(color: defaultColor.withValues(alpha: 0.2)),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
-                                decoration: BoxDecoration(
-                                  color: defaultColor.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                                child: Text(
-                                  g.scope.name.toUpperCase(),
-                                  style: GoogleFonts.jetBrainsMono(
-                                    color: defaultColor,
-                                    fontSize: 7.5,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  g.title,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.saira(
-                                    color: JweTheme.textWhite,
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                '${(currentRatio * 100).round()}%',
-                                style: GoogleFonts.jetBrainsMono(
-                                  color: defaultColor,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 5),
-                          TaskDeltaProgressBar(
-                            liveProgress: projectedRatio,
-                            delta: expectedDelta,
-                            defaultColor: defaultColor,
-                            segments: 20,
-                            height: 4,
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
   }
 }

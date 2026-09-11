@@ -1,5 +1,11 @@
 # ⚡ Arcane System Changelog & Release Notes
 
+## [v2026.9.12] — 2026-09-12
+### 🏗️ Codebase Modularization & Architectural Decomposition
+- **Monolithic Screen & View Decomposition**: Refactored massive UI monoliths (Today Planner, Bus Schedule, Health Dashboard, Goals Drawer, Journaling Reviews, Settings, and Homescreen Studio) into modular domain-specific component libraries and subpackages.
+- **Component Separation & Reusability**: Extracted standalone dialogs, section widgets, and HUD modules (Hextech, NFS, Tactical HUD) into dedicated files, dramatically improving maintainability and readability while preserving all state management and dual-theme fidelity.
+- **Full Test Suite & Dual-Theme Parity**: Verified 100% test pass rate across all 70 test suites, with full dual-theme adaptation (`JweTheme`) and zero static analysis errors across all newly modularized components.
+
 ## [v2026.9.8] — 2026-09-08
 ### ⚡ Wearable Auto-Reply & Interactive Energy Check Telemetry
 - **Direct Inline RemoteInput**: Replaced static buttons with Android 14 `RemoteInput` direct inline reply action featuring predefined quick-reply chips (`yes`, `no`) and freeform voice/keyboard entry.

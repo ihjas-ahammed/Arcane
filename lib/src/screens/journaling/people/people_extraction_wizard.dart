@@ -1,0 +1,914 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:missions/src/models/chatbot_models.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/arc/arc_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/theme/person_info_theme.dart';
+import 'package:missions/src/widgets/valorant/valorant_button.dart';
+import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
+
+class PeopleExtractionWizard extends StatefulWidget {
+  const PeopleExtractionWizard({super.key});
+
+  @override
+  State<PeopleExtractionWizard> createState() => _PeopleExtractionWizardState();
+}
+
+class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
+  int _step = 0; // 0: Options, 1: Scanning, 2: Resolving, 3: Success
+  int _rangeDays = 30; // 7, 30, 90, 365 (All-Time)
+
+  List<Map<String, dynamic>> _extractedPeople = [];
+  String _scanError = "";
+
+  int _resolvingIndex = 0;
+  final List<Map<String, dynamic>> _resolvedItems = []; // List of final PersonInfo to save
+  bool _showConfusionUI = false;
+  Map<String, dynamic>? _conflictingExtracted;
+  PersonInfo? _conflictingExisting;
+
+  DateTime? _scanRangeStart;
+  DateTime? _scanRangeEnd;
+  DateTimeRange? _customDateRange;
+
+  bool isSimilar(String name1, String name2) {
+    final n1 = name1.toLowerCase().trim();
+    final n2 = name2.toLowerCase().trim();
+    if (n1 == n2) return true;
+
+    if (n1.length > 3 && n2.length > 3) {
+      if (n1.contains(n2) || n2.contains(n1)) return true;
+    }
+
+    final parts1 = n1.split(' ');
+    final parts2 = n2.split(' ');
+    if (parts1.isNotEmpty && parts2.isNotEmpty) {
+      final first1 = parts1[0];
+      final first2 = parts2[0];
+      if (first1.length > 2 && first1 == first2) {
+        return true;
+      }
+    }
+
+    int dist = _levenshtein(n1, n2);
+    return dist <= 3;
+  }
+
+  int _levenshtein(String s, String t) {
+    if (s == t) return 0;
+    if (s.isEmpty) return t.length;
+    if (t.isEmpty) return s.length;
+
+    List<int> v0 = List<int>.filled(t.length + 1, 0);
+    List<int> v1 = List<int>.filled(t.length + 1, 0);
+
+    for (int i = 0; i < v0.length; i++) {
+      v0[i] = i;
+    }
+
+    for (int i = 0; i < s.length; i++) {
+      v1[0] = i + 1;
+      for (int j = 0; j < t.length; j++) {
+        int cost = (s[i] == t[j]) ? 0 : 1;
+        v1[j + 1] = _min3(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost);
+      }
+      v0 = List<int>.from(v1);
+    }
+    return v0[t.length];
+  }
+
+  int _min3(int a, int b, int c) => a < b ? (a < c ? a : c) : (b < c ? b : c);
+
+  Future<void> _startScan(AppProvider provider) async {
+    setState(() {
+      _step = 1;
+      _scanError = "";
+    });
+
+    try {
+      final now = DateTime.now();
+      DateTime? limit;
+      if (_rangeDays == 7) {
+        limit = now.subtract(const Duration(days: 7));
+      } else if (_rangeDays == 30) {
+        limit = now.subtract(const Duration(days: 30));
+      } else if (_rangeDays == 90) {
+        limit = now.subtract(const Duration(days: 90));
+      } else if (_rangeDays == 365) {
+        limit = now.subtract(const Duration(days: 365));
+      }
+
+      final filteredLogs = (_rangeDays == 0 && _customDateRange != null)
+          ? provider.reflectionLogs.where((l) =>
+              l.timestamp.isAfter(_customDateRange!.start) &&
+              l.timestamp.isBefore(_customDateRange!.end.add(const Duration(days: 1)))).toList()
+          : (limit == null
+              ? provider.reflectionLogs
+              : provider.reflectionLogs.where((l) => l.timestamp.isAfter(limit!)).toList());
+
+      if (filteredLogs.isEmpty) {
+        setState(() {
+          _step = 0;
+          _scanError = "No journal logs logged inside this timeframe.";
+        });
+        return;
+      }
+
+      DateTime minDate = filteredLogs.first.timestamp;
+      DateTime maxDate = filteredLogs.first.timestamp;
+      for (var log in filteredLogs) {
+        if (log.timestamp.isBefore(minDate)) minDate = log.timestamp;
+        if (log.timestamp.isAfter(maxDate)) maxDate = log.timestamp;
+      }
+      _scanRangeStart = minDate;
+      _scanRangeEnd = maxDate;
+
+      // Batched processing, 50 reflections per request
+      final List<Map<String, dynamic>> accumulatedResults = [];
+      const int batchSize = 50;
+
+      final existingLabels = provider.chatbotMemory.people.map((p) => {
+        "name": p.name,
+        "relation": p.relation,
+      }).toList();
+
+      for (int i = 0; i < filteredLogs.length; i += batchSize) {
+        final endIdx = (i + batchSize < filteredLogs.length) ? i + batchSize : filteredLogs.length;
+        final batch = filteredLogs.sublist(i, endIdx);
+
+        final logsText = batch
+            .map((l) => "[${l.timestamp.toIso8601String()}] ${l.trigger}: ${l.emotion} - ${l.reason}")
+            .join('\n');
+
+        // Call AI Service with Lite Model per instructions, passing already found labels
+        final results = await provider.aiService.extractPeopleFromReflectionsWithLabels(
+          logsText: logsText,
+          existingLabels: existingLabels,
+          modelCandidates: provider.settings.liteModels,
+          currentApiKeyIndex: provider.apiKeyIndex,
+          customApiKeys: provider.settings.customApiKeys,
+          onNewApiKeyIndex: (idx) => provider.setProviderApiKeyIndex(idx),
+          onLog: (msg) => debugPrint("[PeopleExtractionBatch] $msg"),
+        );
+
+        accumulatedResults.addAll(results);
+      }
+
+      if (accumulatedResults.isEmpty) {
+        setState(() {
+          _step = 3;
+        });
+        return;
+      }
+
+      setState(() {
+        _extractedPeople = accumulatedResults;
+        _step = 2;
+        _resolvingIndex = 0;
+      });
+
+      _processNextEntity(provider);
+
+    } catch (e) {
+      setState(() {
+        _step = 0;
+        _scanError = "Cognitive scan aborted: $e";
+      });
+    }
+  }
+
+  void _processNextEntity(AppProvider provider) {
+    if (_resolvingIndex >= _extractedPeople.length) {
+      setState(() {
+        _step = 3;
+      });
+      return;
+    }
+
+    final extracted = _extractedPeople[_resolvingIndex];
+    final name = extracted['name'] as String? ?? '';
+    final relation = extracted['relation'] as String? ?? 'Acquaintance';
+
+    if (name.trim().isEmpty) {
+      _resolvingIndex++;
+      _processNextEntity(provider);
+      return;
+    }
+
+    final existingPeople = provider.chatbotMemory.people;
+    final exactMatchIdx = existingPeople.indexWhere((p) => p.name.toLowerCase().trim() == name.toLowerCase().trim());
+
+    bool canRelate = false;
+    if (exactMatchIdx != -1) {
+      final existing = existingPeople[exactMatchIdx];
+      final matchedExistingName = extracted['matched_existing_name'] as String?;
+      if (matchedExistingName != null && matchedExistingName.toLowerCase().trim() == existing.name.toLowerCase().trim()) {
+        canRelate = true;
+      } else if (existing.relation.toLowerCase().trim() == relation.toLowerCase().trim()) {
+        canRelate = true;
+      }
+    }
+
+    if (exactMatchIdx != -1 && canRelate) {
+      // Match found and can relate! Auto-merge details & expand scan range
+      final existing = existingPeople[exactMatchIdx];
+
+      final newStart = (existing.scanRangeStart == null || _scanRangeStart!.isBefore(existing.scanRangeStart!))
+          ? _scanRangeStart
+          : existing.scanRangeStart;
+      final newEnd = (existing.scanRangeEnd == null || _scanRangeEnd!.isAfter(existing.scanRangeEnd!))
+          ? _scanRangeEnd
+          : existing.scanRangeEnd;
+
+      final updated = PersonInfo(
+        id: existing.id,
+        name: existing.name,
+        relation: relation.isNotEmpty && relation != 'Acquaintance' ? relation : existing.relation,
+        details: existing.details,
+        lastUpdated: DateTime.now(),
+        scanRangeStart: newStart,
+        scanRangeEnd: newEnd,
+        manualAge: existing.manualAge,
+        manualGender: existing.manualGender,
+        manualNotes: existing.manualNotes,
+        manualNextMeetPlan: existing.manualNextMeetPlan,
+        manualLastContactIntel: existing.manualLastContactIntel,
+        manualOccupation: existing.manualOccupation,
+        manualLocation: existing.manualLocation,
+        manualBirthday: existing.manualBirthday,
+        manualContact: existing.manualContact,
+      );
+
+      _resolvedItems.add({
+        'type': 'merge_exact',
+        'person': updated,
+        'originalName': name,
+      });
+
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) {
+          setState(() {
+            _resolvingIndex++;
+          });
+          _processNextEntity(provider);
+        }
+      });
+      return;
+    }
+
+    // Similarity checking for potential duplicates or exact match but can't relate
+    PersonInfo? conflicting;
+    if (exactMatchIdx != -1 && !canRelate) {
+      // Same name but cannot relate -> prompt user with description about both of them
+      conflicting = existingPeople[exactMatchIdx];
+    } else {
+      for (var p in existingPeople) {
+        if (isSimilar(p.name, name)) {
+          conflicting = p;
+          break;
+        }
+      }
+    }
+
+    if (conflicting != null) {
+      // Pause automatic loader and show confusion selection panel
+      setState(() {
+        _showConfusionUI = true;
+        _conflictingExtracted = extracted;
+        _conflictingExisting = conflicting;
+      });
+    } else {
+      // Brand new entity
+      final newPerson = PersonInfo(
+        id: const Uuid().v4(),
+        name: name,
+        relation: relation,
+        scanRangeStart: _scanRangeStart,
+        scanRangeEnd: _scanRangeEnd,
+        lastUpdated: DateTime.now(),
+      );
+
+      _resolvedItems.add({
+        'type': 'new',
+        'person': newPerson,
+        'originalName': name,
+      });
+
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) {
+          setState(() {
+            _resolvingIndex++;
+          });
+          _processNextEntity(provider);
+        }
+      });
+    }
+  }
+
+  void _resolveConfusion(AppProvider provider, bool merge) {
+    if (merge) {
+      final existing = _conflictingExisting!;
+      final relation = _conflictingExtracted!['relation'] as String? ?? 'Acquaintance';
+
+      final newStart = (existing.scanRangeStart == null || _scanRangeStart!.isBefore(existing.scanRangeStart!))
+          ? _scanRangeStart
+          : existing.scanRangeStart;
+      final newEnd = (existing.scanRangeEnd == null || _scanRangeEnd!.isAfter(existing.scanRangeEnd!))
+          ? _scanRangeEnd
+          : existing.scanRangeEnd;
+
+      final updated = PersonInfo(
+        id: existing.id,
+        name: existing.name,
+        relation: relation.isNotEmpty && relation != 'Acquaintance' ? relation : existing.relation,
+        details: existing.details,
+        lastUpdated: DateTime.now(),
+        scanRangeStart: newStart,
+        scanRangeEnd: newEnd,
+        manualAge: existing.manualAge,
+        manualGender: existing.manualGender,
+        manualNotes: existing.manualNotes,
+        manualNextMeetPlan: existing.manualNextMeetPlan,
+        manualLastContactIntel: existing.manualLastContactIntel,
+        manualOccupation: existing.manualOccupation,
+        manualLocation: existing.manualLocation,
+        manualBirthday: existing.manualBirthday,
+        manualContact: existing.manualContact,
+      );
+
+      _resolvedItems.add({
+        'type': 'merge_confusion',
+        'person': updated,
+        'originalName': _conflictingExtracted!['name'],
+      });
+    } else {
+      final newPerson = PersonInfo(
+        id: const Uuid().v4(),
+        name: _conflictingExtracted!['name'],
+        relation: _conflictingExtracted!['relation'] ?? 'Acquaintance',
+        scanRangeStart: _scanRangeStart,
+        scanRangeEnd: _scanRangeEnd,
+        lastUpdated: DateTime.now(),
+      );
+
+      _resolvedItems.add({
+        'type': 'new',
+        'person': newPerson,
+        'originalName': _conflictingExtracted!['name'],
+      });
+    }
+
+    setState(() {
+      _showConfusionUI = false;
+      _resolvingIndex++;
+    });
+    _processNextEntity(provider);
+  }
+
+  void _commitChanges(AppProvider provider) {
+    final list = List<PersonInfo>.from(provider.chatbotMemory.people);
+
+    for (var r in _resolvedItems) {
+      final person = r['person'] as PersonInfo;
+      final type = r['type'] as String;
+
+      if (type.startsWith('merge')) {
+        final idx = list.indexWhere((p) => p.id == person.id);
+        if (idx != -1) {
+          list[idx] = person;
+        }
+      } else {
+        list.insert(0, person);
+      }
+    }
+
+    provider.updatePeopleList(list);
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context);
+
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(maxHeight: 500, maxWidth: 450),
+      decoration: BoxDecoration(
+        color: PersonInfoTheme.bgPanel,
+        border: Border.all(color: PersonInfoTheme.spideyCyan, width: 1.5),
+        boxShadow: [
+          BoxShadow(color: ArcEffects.cyanGlow(0.2), blurRadius: 20, spreadRadius: 1)
+        ],
+      ),
+      child: Column(
+        children: [
+          // Cyberpunk glowing title bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [PersonInfoTheme.headerGradientStart, PersonInfoTheme.bgPanel],
+              ),
+              border: Border(bottom: BorderSide(color: ArcStrokes.steel)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.radar, color: PersonInfoTheme.spideyCyan, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  "TACTICAL COGNITIVE SCANNER",
+                  style: GoogleFonts.rajdhani(
+                    color: PersonInfoTheme.spideyCyan,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                const Spacer(),
+                if (_step != 1)
+                  IconButton(
+                    icon: Icon(Icons.close, color: PersonInfoTheme.textGrey, size: 18),
+                    onPressed: () => Navigator.pop(context),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+              ],
+            ),
+          ),
+
+          // Content view
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: _buildWizardStep(provider),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWizardStep(AppProvider provider) {
+    if (_step == 0) {
+      // Step 0: Choose range
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "SELECT REFLECTION ARCHIVES SCALING",
+            style: GoogleFonts.rajdhani(color: PersonInfoTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          if (_scanError.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: PersonInfoTheme.spideyRed.withValues(alpha: 0.1),
+                border: Border.all(color: PersonInfoTheme.spideyRed.withValues(alpha: 0.5)),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                _scanError,
+                style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyRed, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+          _buildRangeRadioOption(7, "7 DAYS ARCHIVE MATRIX"),
+          _buildRangeRadioOption(30, "30 DAYS ARCHIVE MATRIX"),
+          _buildRangeRadioOption(90, "90 DAYS ARCHIVE MATRIX"),
+          _buildRangeRadioOption(365, "ALL-TIME SYSTEM ARCHIVES"),
+          _buildRangeRadioOption(0, "CUSTOM RANGE MATRIX"),
+          if (_rangeDays == 0) ...[
+            const SizedBox(height: 10),
+            InkWell(
+              onTap: () async {
+                final picked = await showDateRangePicker(
+                  context: context,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now().add(const Duration(days: 1)),
+                  initialDateRange: _customDateRange,
+                  builder: (context, child) => Theme(
+                    data: Theme.of(context).copyWith(
+                      colorScheme: JweTheme.pickerScheme(
+                          accent: PersonInfoTheme.spideyCyan,
+                          surface: PersonInfoTheme.bgPanel),
+                    ),
+                    child: child!,
+                  ),
+                );
+                if (picked != null) {
+                  setState(() {
+                    _customDateRange = picked;
+                  });
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: PersonInfoTheme.spideyCyan.withValues(alpha: 0.5)),
+                  color: ArcSurfaces.deepPanel,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _customDateRange == null
+                          ? "SELECT DATE RANGE"
+                          : "${DateFormat('yyyy-MM-dd').format(_customDateRange!.start)} — ${DateFormat('yyyy-MM-dd').format(_customDateRange!.end)}",
+                      style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyCyan, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                    Icon(Icons.calendar_today, color: PersonInfoTheme.spideyCyan, size: 14),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ValorantButton(
+              label: "LAUNCH INTEL EXTRACTION",
+              isPrimary: true,
+              color: PersonInfoTheme.spideyCyan,
+              onPressed: (_rangeDays == 0 && _customDateRange == null) ? null : () => _startScan(provider),
+            ),
+          ),
+        ],
+      );
+    } else if (_step == 1) {
+      // Step 1: Scanning
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: CircularProgressIndicator(
+                  color: PersonInfoTheme.spideyCyan,
+                  strokeWidth: 3,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                "SCANNING JOURNAL RECORDS...",
+                style: GoogleFonts.rajdhani(
+                  color: PersonInfoTheme.spideyCyan,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                "AI is parsing your raw reflections to identify referenced individuals using highly optimized Lite intelligence models...",
+                style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 11, height: 1.4),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    } else if (_step == 2) {
+      // Step 2: Resolving & Similarity checking
+      if (_showConfusionUI) {
+        return _buildConfusionUI(provider);
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "COMPILING SCANNED COGNITIONS",
+            style: GoogleFonts.rajdhani(color: PersonInfoTheme.spideyCyan, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+          ),
+          const SizedBox(height: 12),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _extractedPeople.length,
+            itemBuilder: (context, index) {
+              final isCurrent = index == _resolvingIndex;
+              final isResolved = index < _resolvingIndex;
+              final pName = _extractedPeople[index]['name'] as String? ?? '';
+              final pRelation = _extractedPeople[index]['relation'] as String? ?? '';
+
+              // Find resolution type
+              String statusText = "WAITING SYSTEM QUEUE";
+              Color statusColor = PersonInfoTheme.textGrey;
+              IconData icon = Icons.hourglass_empty;
+
+              if (isResolved) {
+                final resolved = _resolvedItems.firstWhere((r) => r['originalName'] == pName);
+                final type = resolved['type'] as String;
+                if (type.startsWith('merge')) {
+                  statusText = "MERGED TO SYSTEM FILE";
+                  statusColor = Colors.greenAccent;
+                  icon = Icons.done_all;
+                } else {
+                  statusText = "NEW SYSTEM ENTRY APPROVED";
+                  statusColor = PersonInfoTheme.spideyCyan;
+                  icon = Icons.person_add;
+                }
+              } else if (isCurrent) {
+                statusText = "ANALYZING TARGET STRUCTURE...";
+                statusColor = Colors.orangeAccent;
+                icon = Icons.sync;
+              }
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isCurrent ? ArcSurfaces.deepPanelRaised : ArcSurfaces.deepPanel,
+                  border: Border.all(color: isCurrent ? PersonInfoTheme.spideyCyan : ArcStrokes.steel),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    Icon(icon, color: statusColor, size: 16),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            pName.toUpperCase(),
+                            style: GoogleFonts.rajdhani(color: PersonInfoTheme.textWhite, fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            pRelation.toUpperCase(),
+                            style: GoogleFonts.rajdhani(color: PersonInfoTheme.textGrey, fontSize: 10),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      statusText.toUpperCase(),
+                      style: GoogleFonts.rajdhani(color: statusColor, fontSize: 9, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      );
+    } else {
+      // Step 3: Completed
+      final newCount = _resolvedItems.where((r) => r['type'] == 'new').length;
+      final mergeCount = _resolvedItems.where((r) => r['type'].toString().startsWith('merge')).length;
+
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.gpp_good, color: PersonInfoTheme.spideyCyan, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                "INTEGRATION SPECS REGISTERED",
+                style: GoogleFonts.rajdhani(
+                  color: PersonInfoTheme.spideyCyan,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: ArcSurfaces.deepPanel,
+                  border: Border.all(color: ArcStrokes.steel),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Column(
+                  children: [
+                    _buildSummaryRow("ENTITIES SCANNED", "${_extractedPeople.length}"),
+                    Divider(color: ArcStrokes.steel, height: 16),
+                    _buildSummaryRow("NEW CONTACT NODES", "$newCount"),
+                    Divider(color: ArcStrokes.steel, height: 16),
+                    _buildSummaryRow("OPTIMIZED SYSTEM DOSSIERS", "$mergeCount"),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ValorantButton(
+                  label: "SYNC COGNITION TO SYSTEM",
+                  isPrimary: true,
+                  color: PersonInfoTheme.spideyCyan,
+                  onPressed: () => _commitChanges(provider),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildRangeRadioOption(int days, String label) {
+    final isSelected = _rangeDays == days;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isSelected ? ArcSurfaces.deepPanelRaised : ArcSurfaces.deepPanel,
+        border: Border.all(color: isSelected ? PersonInfoTheme.spideyCyan : ArcStrokes.steel),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: RadioListTile<int>(
+        value: days,
+        groupValue: _rangeDays,
+        title: Text(
+          label,
+          style: GoogleFonts.rajdhani(
+            color: isSelected ? PersonInfoTheme.spideyCyan : PersonInfoTheme.textWhite,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            letterSpacing: 0.5,
+          ),
+        ),
+        activeColor: PersonInfoTheme.spideyCyan,
+        onChanged: (val) {
+          if (val != null) {
+            setState(() {
+              _rangeDays = val;
+            });
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String val) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: GoogleFonts.rajdhani(color: PersonInfoTheme.textGrey, fontSize: 12, fontWeight: FontWeight.w500),
+        ),
+        Text(
+          val,
+          style: GoogleFonts.rajdhani(color: PersonInfoTheme.textWhite, fontSize: 14, fontWeight: FontWeight.bold),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConfusionUI(AppProvider provider) {
+    final scannedName = _conflictingExtracted!['name'] as String? ?? '';
+    final scannedRelation = _conflictingExtracted!['relation'] as String? ?? 'Acquaintance';
+    final contextSnippet = _conflictingExtracted!['context'] as String? ?? 'Mentioned in reflection archives.';
+    final existingName = _conflictingExisting!.name;
+    final existingRelation = _conflictingExisting!.relation;
+
+    Map<String, dynamic> existingDetails = {};
+    if (_conflictingExisting!.details != null && _conflictingExisting!.details!.isNotEmpty) {
+      try {
+        existingDetails = jsonDecode(_conflictingExisting!.details!);
+      } catch (_) {}
+    }
+    final existingProfileText = existingDetails['psychological_profile'] as String? ?? _conflictingExisting!.manualNotes ?? "No profile description on file.";
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: ArcSurfaces.emberPanel,
+        border: Border.all(color: Colors.orangeAccent),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning, color: Colors.orangeAccent, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                "DUPLICATION CONFLICT DETECTED!",
+                style: GoogleFonts.rajdhani(color: Colors.orangeAccent, fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "Is the scanned entity name '$scannedName' the same person as existing archival record '$existingName'?",
+            style: GoogleFonts.rajdhani(color: PersonInfoTheme.textWhite, fontSize: 13, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("NEW SCANNED EXTRACT", style: GoogleFonts.rajdhani(color: Colors.orangeAccent, fontSize: 8, fontWeight: FontWeight.bold)),
+                    Text(scannedName.toUpperCase(), style: TextStyle(color: PersonInfoTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 12)),
+                    Text(scannedRelation.toUpperCase(), style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 10)),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: ArcSurfaces.emberPanelDeep,
+                        border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.15)),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: Text(
+                        "\"$contextSnippet\"",
+                        style: GoogleFonts.rajdhani(color: PersonInfoTheme.textWhite.withValues(alpha: 0.8), fontSize: 10.5, fontStyle: FontStyle.italic),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(
+                height: 90,
+                child: VerticalDivider(color: Colors.orangeAccent, width: 16),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("EXISTING DOSSIER FILE", style: GoogleFonts.rajdhani(color: Colors.orangeAccent, fontSize: 8, fontWeight: FontWeight.bold)),
+                    Text(existingName.toUpperCase(), style: TextStyle(color: PersonInfoTheme.textWhite, fontWeight: FontWeight.bold, fontSize: 12)),
+                    Text(existingRelation.toUpperCase(), style: TextStyle(color: PersonInfoTheme.textGrey, fontSize: 10)),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: ArcSurfaces.emberPanelDeep,
+                        border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.15)),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: Text(
+                        existingProfileText,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.rajdhani(color: PersonInfoTheme.textGrey, fontSize: 10.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.orangeAccent,
+                    side: const BorderSide(color: Colors.orangeAccent),
+                    shape: const BeveledRectangleBorder(),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  onPressed: () => _resolveConfusion(provider, false),
+                  child: Text(
+                    "NO, KEEP SEPARATE",
+                    style: GoogleFonts.rajdhani(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orangeAccent,
+                    foregroundColor: JweTheme.onAccent,
+                    shape: const BeveledRectangleBorder(),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  onPressed: () => _resolveConfusion(provider, true),
+                  child: Text(
+                    "YES, MERGE FILES",
+                    style: GoogleFonts.rajdhani(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
