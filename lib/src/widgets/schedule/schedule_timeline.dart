@@ -34,6 +34,127 @@ class ScheduleTimeline extends StatefulWidget {
     this.scrollToNowTick,
   });
 
+  /// Calculates layout for timeline entries, clustering overlapping entries into side-by-side columns
+  /// while allowing isolated entries without concurrent overlap to take full width.
+  static List<TimelineLayoutEntry> calculateTimelineLayout(
+    List<TimelineEntry> entries, {
+    double basePixelsPerHour = 60.0,
+  }) {
+    if (entries.isEmpty) return [];
+
+    final sorted = List<TimelineEntry>.from(entries)
+      ..sort((a, b) {
+        final cmp = a.startTime.compareTo(b.startTime);
+        if (cmp != 0) return cmp;
+        return b.endTime.compareTo(a.endTime);
+      });
+
+    final minVisualHours = 3.0 / basePixelsPerHour;
+
+    // Group sorted entries into connected clusters of overlapping entries
+    final List<List<TimelineEntry>> clusters = [];
+    List<TimelineEntry> currentCluster = [];
+    double currentClusterMaxEnd = -1.0;
+
+    for (var entry in sorted) {
+      final entryStartHours = entry.startTime.hour + (entry.startTime.minute / 60.0) + (entry.startTime.second / 3600.0);
+      final entryDurationHours = math.max(minVisualHours, entry.durationSeconds / 3600.0);
+      final entryEndHours = entryStartHours + entryDurationHours;
+
+      if (currentCluster.isEmpty) {
+        currentCluster.add(entry);
+        currentClusterMaxEnd = entryEndHours;
+      } else if (entryStartHours < currentClusterMaxEnd) {
+        currentCluster.add(entry);
+        if (entryEndHours > currentClusterMaxEnd) {
+          currentClusterMaxEnd = entryEndHours;
+        }
+      } else {
+        clusters.add(currentCluster);
+        currentCluster = [entry];
+        currentClusterMaxEnd = entryEndHours;
+      }
+    }
+    if (currentCluster.isNotEmpty) {
+      clusters.add(currentCluster);
+    }
+
+    final List<TimelineLayoutEntry> layout = [];
+
+    // Assign columns per cluster so isolated entries take full width
+    for (var cluster in clusters) {
+      final List<List<TimelineLayoutEntry>> clusterColumns = [];
+      final List<TimelineLayoutEntry> clusterLayout = [];
+
+      for (var entry in cluster) {
+        final entryStartHours = entry.startTime.hour + (entry.startTime.minute / 60.0) + (entry.startTime.second / 3600.0);
+        final entryDurationHours = math.max(minVisualHours, entry.durationSeconds / 3600.0);
+        final entryEndHours = entryStartHours + entryDurationHours;
+
+        int columnIndex = 0;
+        bool placed = false;
+
+        while (!placed) {
+          if (columnIndex >= clusterColumns.length) {
+            clusterColumns.add([]);
+          }
+
+          bool hasOverlap = false;
+          for (var colEntry in clusterColumns[columnIndex]) {
+            final colStartHours = colEntry.entry.startTime.hour + (colEntry.entry.startTime.minute / 60.0) + (colEntry.entry.startTime.second / 3600.0);
+            final colDurationHours = math.max(minVisualHours, colEntry.entry.durationSeconds / 3600.0);
+            final colEndHours = colStartHours + colDurationHours;
+
+            if (entryStartHours < colEndHours && entryEndHours > colStartHours) {
+              hasOverlap = true;
+              break;
+            }
+          }
+
+          if (!hasOverlap) {
+            final le = TimelineLayoutEntry(entry, columnIndex);
+            clusterColumns[columnIndex].add(le);
+            clusterLayout.add(le);
+            placed = true;
+          } else {
+            columnIndex++;
+          }
+        }
+      }
+
+      final int clusterTotalCols = clusterColumns.length;
+      for (var le in clusterLayout) {
+        le.totalCols = clusterTotalCols;
+
+        // Calculate if this entry can expand to the right into empty adjacent columns
+        final leStartHours = le.entry.startTime.hour + (le.entry.startTime.minute / 60.0) + (le.entry.startTime.second / 3600.0);
+        final leDurationHours = math.max(minVisualHours, le.entry.durationSeconds / 3600.0);
+        final leEndHours = leStartHours + leDurationHours;
+
+        int span = 1;
+        for (int c = le.col + 1; c < clusterTotalCols; c++) {
+          bool hasColOverlap = false;
+          for (var other in clusterColumns[c]) {
+            final oStart = other.entry.startTime.hour + (other.entry.startTime.minute / 60.0) + (other.entry.startTime.second / 3600.0);
+            final oDuration = math.max(minVisualHours, other.entry.durationSeconds / 3600.0);
+            final oEnd = oStart + oDuration;
+            if (leStartHours < oEnd && leEndHours > oStart) {
+              hasColOverlap = true;
+              break;
+            }
+          }
+          if (hasColOverlap) break;
+          span++;
+        }
+        le.colSpan = span;
+      }
+
+      layout.addAll(clusterLayout);
+    }
+
+    return layout;
+  }
+
   @override
   State<ScheduleTimeline> createState() => _ScheduleTimelineState();
 }
@@ -395,7 +516,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     });
   }
 
-  List<_LayoutEntry> _calculateLayout(List<TimelineEntry> entries) {
+  List<TimelineLayoutEntry> _calculateLayout(List<TimelineEntry> entries) {
     if (entries.isEmpty) return [];
 
     final effectiveEntries = entries.map((e) {
@@ -408,57 +529,10 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
       return e;
     }).toList();
 
-    final sorted = List<TimelineEntry>.from(effectiveEntries)
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
-
-    final List<_LayoutEntry> layout = [];
-    final List<List<_LayoutEntry>> columns = [];
-    final minVisualHours = 3.0 / _basePixelsPerHour;
-
-    for (var entry in sorted) {
-      final entryStartHours = entry.startTime.hour + (entry.startTime.minute / 60.0) + (entry.startTime.second / 3600.0);
-      final entryDurationHours = math.max(minVisualHours, entry.durationSeconds / 3600.0);
-      final entryEndHours = entryStartHours + entryDurationHours;
-
-      int columnIndex = 0;
-      bool placed = false;
-
-      while (!placed) {
-        if (columnIndex >= columns.length) {
-          columns.add([]);
-        }
-
-        bool hasOverlap = false;
-        for (var colEntry in columns[columnIndex]) {
-          final colStartHours = colEntry.entry.startTime.hour + (colEntry.entry.startTime.minute / 60.0) + (colEntry.entry.startTime.second / 3600.0);
-          final colDurationHours = math.max(minVisualHours, colEntry.entry.durationSeconds / 3600.0);
-          final colEndHours = colStartHours + colDurationHours;
-
-          if (entryStartHours < colEndHours && entryEndHours > colStartHours) {
-            hasOverlap = true;
-            break;
-          }
-        }
-
-        if (!hasOverlap) {
-          final le = _LayoutEntry(entry, columnIndex);
-          columns[columnIndex].add(le);
-          layout.add(le);
-          placed = true;
-        } else {
-          columnIndex++;
-        }
-      }
-    }
-
-    for (var le in layout) {
-      le.totalCols = columns.length;
-    }
-
-    return layout;
+    return ScheduleTimeline.calculateTimelineLayout(effectiveEntries, basePixelsPerHour: _basePixelsPerHour);
   }
 
-  bool _isTouchOnEntry(Offset localPosition, List<_LayoutEntry> layoutEntries, double maxWidth) {
+  bool _isTouchOnEntry(Offset localPosition, List<TimelineLayoutEntry> layoutEntries, double maxWidth) {
     const double leftGutter = 60.0;
     final double availableWidth = (maxWidth - leftGutter - 10).clamp(0.0, double.infinity);
 
@@ -471,7 +545,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
 
       final double widthPerCol = availableWidth / le.totalCols;
       final double left = leftGutter + (le.col * widthPerCol);
-      final double cardWidth = (widthPerCol - 4).clamp(0.0, double.infinity);
+      final double cardWidth = (widthPerCol * le.colSpan - 4).clamp(0.0, double.infinity);
 
       final rect = Rect.fromLTWH(left, top, cardWidth, height);
       if (rect.inflate(8.0).contains(localPosition)) {
@@ -594,7 +668,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                     final double availableWidth = (constraints.maxWidth - leftGutter - 10).clamp(0.0, double.infinity);
                     final double widthPerCol = availableWidth / le.totalCols;
                     final double left = leftGutter + (le.col * widthPerCol);
-                    final double cardWidth = (widthPerCol - 4).clamp(0.0, double.infinity);
+                    final double cardWidth = (widthPerCol * le.colSpan - 4).clamp(0.0, double.infinity);
 
                     return Positioned(
                       top: top,
@@ -693,7 +767,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
   }
 
   List<Widget> _buildAnimatedHandles({
-    required _LayoutEntry le,
+    required TimelineLayoutEntry le,
     required bool isSelected,
     required double pixelsPerHour,
     required double maxWidth,
@@ -708,7 +782,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     final double availableWidth = (maxWidth - leftGutter - 10).clamp(0.0, double.infinity);
     final double widthPerCol = availableWidth / le.totalCols;
     final double left = leftGutter + (le.col * widthPerCol);
-    final double cardWidth = (widthPerCol - 4).clamp(0.0, double.infinity);
+    final double cardWidth = (widthPerCol * le.colSpan - 4).clamp(0.0, double.infinity);
 
     final handleColor = JweTheme.isLight ? JweTheme.calibrate(entry.color) : entry.color;
     final handleInset = math.min(22.0, cardWidth * 0.12);
@@ -781,12 +855,12 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
   }
 
   List<Widget> _buildActiveResizeGuideline({
-    required List<_LayoutEntry> layoutEntries,
+    required List<TimelineLayoutEntry> layoutEntries,
     required double pixelsPerHour,
   }) {
     if (_resizingEntryId == null) return [];
 
-    _LayoutEntry? resizingLe;
+    TimelineLayoutEntry? resizingLe;
     for (final le in layoutEntries) {
       if (le.entry.id == _resizingEntryId) {
         resizingLe = le;
@@ -814,12 +888,12 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
   }
 
   List<Widget> _buildActiveMoveGuideline({
-    required List<_LayoutEntry> layoutEntries,
+    required List<TimelineLayoutEntry> layoutEntries,
     required double pixelsPerHour,
   }) {
     if (_movingEntryId == null) return [];
 
-    _LayoutEntry? movingLe;
+    TimelineLayoutEntry? movingLe;
     for (final le in layoutEntries) {
       if (le.entry.id == _movingEntryId) {
         movingLe = le;
@@ -1174,9 +1248,10 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
   }
 }
 
-class _LayoutEntry {
+class TimelineLayoutEntry {
   final TimelineEntry entry;
   final int col;
-  int totalCols = 0;
-  _LayoutEntry(this.entry, this.col);
+  int totalCols = 1;
+  int colSpan = 1;
+  TimelineLayoutEntry(this.entry, this.col);
 }

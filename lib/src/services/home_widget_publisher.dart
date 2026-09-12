@@ -193,7 +193,7 @@ class HomeWidgetPublisher {
             : (m?.name ?? ''));
 
     final activeTimer = s == null ? null : _provider.activeTimers[s.id];
-    final accumulated = s == null ? 0.0 : TaskCalculations.getHistoricalTodaySeconds(s);
+    final accumulated = s == null ? 0.0 : TaskCalculations.getHistoricalTodaySeconds(s, _provider.mainTasks);
     final sessionStart = r.isRunning ? activeTimer?.startTime : null;
     final progress = s == null ? 0.0 : s.calculateProgress();
 

@@ -118,7 +118,7 @@ class ScheduleHeroStateResolver {
     final activeTimer = nextSubTask == null ? null : provider.activeTimers[nextSubTask.id];
     final isRunning = activeTimer?.isRunning == true;
     final accumulatedTodaySeconds = nextSubTask != null
-        ? TaskCalculations.getHistoricalTodaySeconds(nextSubTask)
+        ? TaskCalculations.getHistoricalTodaySeconds(nextSubTask, provider.mainTasks)
         : 0.0;
     final sessionStart = isRunning ? activeTimer?.startTime : null;
 

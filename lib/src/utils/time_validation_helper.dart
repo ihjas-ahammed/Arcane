@@ -5,17 +5,23 @@ class TimeValidationHelper {
   /// 
   /// [allTasks] is the list of all MainTasks to check against global overlap.
   /// [excludeSessionId] is used when updating a session to ignore itself.
+  /// [targetSubTaskId] if specified, only checks for overlap against sessions of the same subtask.
   /// Returns `true` if an overlap is found.
   static bool hasOverlap({
     required DateTime start,
     required DateTime end,
     required List<MainTask> allTasks,
     String? excludeSessionId,
+    String? targetSubTaskId,
   }) {
     final proposedDuration = end.difference(start);
 
     for (var task in allTasks) {
       for (var sub in task.subTasks) {
+        if (targetSubTaskId != null && sub.id != targetSubTaskId) {
+          continue;
+        }
+
         for (var session in sub.sessions) {
           if (excludeSessionId != null && session.id == excludeSessionId) {
             continue;

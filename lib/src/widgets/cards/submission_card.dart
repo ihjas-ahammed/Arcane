@@ -60,8 +60,8 @@ class SubmissionCard extends StatelessWidget {
     final nextCp = isCompleted ? null : TaskCalculations.nextCheckpoint(current);
 
     final displayBaseTime = isRunning
-        ? TaskCalculations.getHistoricalTodaySeconds(current)
-        : TaskCalculations.getTodaySeconds(current, timerState);
+        ? TaskCalculations.getHistoricalTodaySeconds(current, provider.mainTasks)
+        : TaskCalculations.getTodaySeconds(current, timerState, provider.mainTasks);
 
     final now = DateTime.now();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
@@ -72,7 +72,7 @@ class SubmissionCard extends StatelessWidget {
     var avgSeconds = total7Days / 7.0;
     if (avgSeconds < 300) avgSeconds = 300;
 
-    final fullTotalToday = TaskCalculations.getTodaySeconds(current, timerState);
+    final fullTotalToday = TaskCalculations.getTodaySeconds(current, timerState, provider.mainTasks);
     final usagePct = isCompleted ? 1.0 : (fullTotalToday / avgSeconds).clamp(0.0, 1.0);
     final hierarchical = current.calculateProgress();
 

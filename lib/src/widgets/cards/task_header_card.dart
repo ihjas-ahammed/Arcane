@@ -196,8 +196,8 @@ class TaskHeaderCard extends StatelessWidget {
     final isRunning = timerState?.isRunning ?? false;
 
     final displayBaseTime = isRunning
-        ? TaskCalculations.getHistoricalTodaySeconds(phxSub)
-        : TaskCalculations.getTodaySeconds(phxSub, timerState);
+        ? TaskCalculations.getHistoricalTodaySeconds(phxSub, provider.mainTasks)
+        : TaskCalculations.getTodaySeconds(phxSub, timerState, provider.mainTasks);
 
     final hours = (displayBaseTime / 3600).floor();
     final minutes = ((displayBaseTime / 60) % 60).floor();

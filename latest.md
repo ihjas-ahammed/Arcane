@@ -1,4 +1,19 @@
+# ⚡ Arcane System Upgrade // v2026.9.12 (Build #2126091204)
+
+### 📊 Local Overlap Clustering on Timeline
+- **Non-Squishing Isolated Tasks**: Isolated events and tasks with no concurrent overlap retain 100% full-width layout across the timeline sheet rather than dividing the entire page.
+- **Local Overlap Partitioning**: Intersecting events are grouped into connected overlap clusters, dynamically assigning side-by-side columns only to concurrent tasks within that specific time window (`totalCols = clusterColumns.length`).
+- **Free-Column Expansion**: Non-overlapping segments inside larger clusters automatically expand horizontally across adjacent unoccupied columns using calculated column spans (`colSpan`).
+
+### ⏱️ Strict Wall-Clock Time Averaging (Sweep-Line Time Log Slicing)
+- **Zero Double-Counting**: When concurrent missions run or overlap in the schedule timeline, time logs are partitioned into disjoint timestamp slices. For each slice with $N$ concurrent tasks, elapsed duration is allocated evenly ($\Delta t / N$).
+- **Conservation of Wall-Clock Time**: Total recorded time across all tasks is strictly guaranteed to never exceed real-world elapsed wall-clock time ($\sum \text{TaskTime} \le \text{ElapsedTime}$).
+- **Concurrent Session Validation**: Updated `TimeValidationHelper` to permit concurrent sessions across distinct tasks and subtasks, preventing false collision rejections while maintaining integrity against duplicate sessions for the exact same subtask.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.12 (Build #2126091203)
+
 
 ### ⏱️ 2-Minute Precision Snapping, Drag-Through-Time & Fast Mission Switching
 - **Granular 2-Minute Snapping**: Upgraded the timeline precision across all time adjustments from 15-minute steps down to ultra-precise 2-minute increments. Both edge resize handles and whole-card drags automatically snap to the 2-minute timeline grid.

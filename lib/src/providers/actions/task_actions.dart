@@ -1188,7 +1188,12 @@ class TaskActions {
   // --- Session Management ---
 
   bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
-    if (TimeValidationHelper.hasOverlap(start: start, end: end, allTasks: _provider.mainTasks)) return false;
+    if (TimeValidationHelper.hasOverlap(
+      start: start, 
+      end: end, 
+      allTasks: _provider.mainTasks,
+      targetSubTaskId: subTaskId,
+    )) return false;
 
     final session = TaskSession(id: IdGenerator.generateSessionId(), startTime: start, endTime: end);
     final durationSeconds = session.durationSeconds;
@@ -1222,7 +1227,13 @@ class TaskActions {
   }
 
   void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) {
-    if (TimeValidationHelper.hasOverlap(start: newStart, end: newEnd, allTasks: _provider.mainTasks, excludeSessionId: sessionId)) return;
+    if (TimeValidationHelper.hasOverlap(
+      start: newStart, 
+      end: newEnd, 
+      allTasks: _provider.mainTasks, 
+      excludeSessionId: sessionId,
+      targetSubTaskId: subTaskId,
+    )) return;
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
@@ -1325,29 +1336,8 @@ class TaskActions {
     if (!silent) _provider.setLoadingTask("RECALIBRATING...");
 
     final Map<String, dynamic> newCompletedByDay = Map.from(_provider.completedByDay);
-    final Map<String, Map<String, int>> calculatedHistory = {};
-
-    for (var task in _provider.mainTasks) {
-      for (var sub in task.subTasks) {
-        for (var session in sub.sessions) {
-          DateTime cursor = session.startTime;
-          while (cursor.isBefore(session.endTime)) {
-            final dateStr = DateFormat('yyyy-MM-dd').format(cursor);
-            final endOfDay = DateTime(cursor.year, cursor.month, cursor.day, 23, 59, 59, 999);
-            final segmentEnd = session.endTime.isBefore(endOfDay) ? session.endTime : endOfDay;
-            final seconds = segmentEnd.difference(cursor).inSeconds;
-            
-            if (seconds > 0) {
-              if (!calculatedHistory.containsKey(dateStr)) {
-                calculatedHistory[dateStr] = {};
-              }
-              calculatedHistory[dateStr]![task.id] = (calculatedHistory[dateStr]![task.id] ?? 0) + seconds;
-            }
-            cursor = DateTime(cursor.year, cursor.month, cursor.day).add(const Duration(days: 1));
-          }
-        }
-      }
-    }
+    final recalibrated = TaskCalculations.recalculateAllTimeLogs(_provider.mainTasks);
+    final calculatedHistory = recalibrated.dailyTaskTimes;
 
     calculatedHistory.forEach((date, taskMap) {
       if (!newCompletedByDay.containsKey(date)) {
@@ -1368,7 +1358,7 @@ class TaskActions {
 
     final newMainTasks = _provider.mainTasks.map((task) {
       final updatedSubtasks = task.subTasks.map((st) {
-        final totalSeconds = st.sessions.fold(0, (sum, s) => sum + s.durationSeconds);
+        final totalSeconds = recalibrated.subtaskLifetimeSeconds[st.id] ?? 0;
         return st.copyWith(currentTimeSpent: totalSeconds);
       }).toList();
 

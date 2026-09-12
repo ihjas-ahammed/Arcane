@@ -42,8 +42,8 @@ class ProjectTasksTab extends StatelessWidget {
         final isRunning = timerState?.isRunning ?? false;
 
         final displayBaseTime = isRunning
-            ? TaskCalculations.getHistoricalTodaySeconds(sub)
-            : TaskCalculations.getTodaySeconds(sub, timerState);
+            ? TaskCalculations.getHistoricalTodaySeconds(sub, provider.mainTasks)
+            : TaskCalculations.getTodaySeconds(sub, timerState, provider.mainTasks);
 
         final hours = (displayBaseTime / 3600).floor();
         final minutes = ((displayBaseTime / 60) % 60).floor();

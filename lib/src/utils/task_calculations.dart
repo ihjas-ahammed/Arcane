@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart' show Color;
 import 'package:collection/collection.dart';
+import 'package:intl/intl.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/app_state_models.dart';
 
@@ -38,9 +39,9 @@ class ResolvedDayPlanItem {
 class TaskCalculations {
   /// Calculates the total time spent on a subtask for the current day (local time).
   /// Includes completed sessions from today and the current elapsed time of an active timer if running.
-  static double getTodaySeconds(SubTask subTask, ActiveTimerInfo? activeTimer) {
+  static double getTodaySeconds(SubTask subTask, ActiveTimerInfo? activeTimer, [List<MainTask>? allTasks]) {
     final now = DateTime.now();
-    double totalSeconds = getHistoricalTodaySeconds(subTask);
+    double totalSeconds = getHistoricalTodaySeconds(subTask, allTasks);
 
     // 2. Add active timer if it started today or is running into today
     if (activeTimer != null && activeTimer.isRunning) {
@@ -60,10 +61,16 @@ class TaskCalculations {
   }
 
   /// Calculates only the sum of completed sessions for today.
-  static double getHistoricalTodaySeconds(SubTask subTask) {
+  /// If [allTasks] is passed, overlapping concurrent sessions are averaged.
+  static double getHistoricalTodaySeconds(SubTask subTask, [List<MainTask>? allTasks]) {
     final now = DateTime.now();
+    if (allTasks != null) {
+      final recalibrated = recalculateAllTimeLogs(allTasks);
+      final todayStr = DateFormat('yyyy-MM-dd').format(now);
+      return (recalibrated.dailySubtaskTimes[todayStr]?[subTask.id] ?? 0).toDouble();
+    }
+
     double totalSeconds = 0;
-    
     for (var session in subTask.sessions) {
       if (_isSameDay(session.startTime, now)) {
         totalSeconds += session.durationSeconds;
@@ -288,4 +295,138 @@ class TaskCalculations {
 
   static const int defaultSubtaskMinutes = 30;
   static const int defaultCheckpointMinutes = 15;
+
+  /// Recalculates all daily and lifetime time logs across all tasks.
+  /// When multiple sessions overlap in time (e.g. concurrent sessions on the same day),
+  /// the overlapping duration is split evenly (averaged) among the active sessions,
+  /// ensuring the total time spent never exceeds the real elapsed wall-clock time.
+  static RecalibratedTimeData recalculateAllTimeLogs(List<MainTask> allTasks) {
+    final Map<String, Map<String, int>> dailyTaskTimes = {};
+    final Map<String, Map<String, int>> dailySubtaskTimes = {};
+    final Map<String, int> subtaskLifetimeSeconds = {};
+    final Map<String, int> sessionEffectiveSeconds = {};
+
+    // 1. Flatten all valid sessions
+    final List<_SessionInterval> intervals = [];
+    for (var task in allTasks) {
+      for (var sub in task.subTasks) {
+        for (var session in sub.sessions) {
+          if (session.endTime.isAfter(session.startTime)) {
+            intervals.add(_SessionInterval(
+              sessionId: session.id,
+              subTaskId: sub.id,
+              mainTaskId: task.id,
+              startTime: session.startTime,
+              endTime: session.endTime,
+            ));
+          }
+        }
+      }
+    }
+
+    if (intervals.isEmpty) {
+      return RecalibratedTimeData(
+        dailyTaskTimes: dailyTaskTimes,
+        dailySubtaskTimes: dailySubtaskTimes,
+        subtaskLifetimeSeconds: subtaskLifetimeSeconds,
+        sessionEffectiveSeconds: sessionEffectiveSeconds,
+      );
+    }
+
+    // 2. Collect all boundaries including midnight transitions
+    final Set<DateTime> boundarySet = {};
+    for (var item in intervals) {
+      boundarySet.add(item.startTime);
+      boundarySet.add(item.endTime);
+
+      DateTime cursor = DateTime(item.startTime.year, item.startTime.month, item.startTime.day).add(const Duration(days: 1));
+      while (cursor.isBefore(item.endTime)) {
+        boundarySet.add(cursor);
+        cursor = cursor.add(const Duration(days: 1));
+      }
+    }
+
+    final List<DateTime> sortedPoints = boundarySet.toList()..sort();
+
+    // 3. Process each consecutive non-empty slice [tStart, tEnd]
+    for (int i = 0; i < sortedPoints.length - 1; i++) {
+      final tStart = sortedPoints[i];
+      final tEnd = sortedPoints[i + 1];
+      final sliceSeconds = tEnd.difference(tStart).inSeconds;
+      if (sliceSeconds <= 0) continue;
+
+      // Find all sessions active during [tStart, tEnd]
+      final active = intervals.where((s) =>
+        !s.startTime.isAfter(tStart) && !s.endTime.isBefore(tEnd)
+      ).toList();
+
+      if (active.isEmpty) continue;
+
+      final count = active.length;
+      final base = sliceSeconds ~/ count;
+      final remainder = sliceSeconds % count;
+      final dateStr = DateFormat('yyyy-MM-dd').format(tStart);
+
+      if (!dailyTaskTimes.containsKey(dateStr)) {
+        dailyTaskTimes[dateStr] = {};
+      }
+      if (!dailySubtaskTimes.containsKey(dateStr)) {
+        dailySubtaskTimes[dateStr] = {};
+      }
+
+      for (int j = 0; j < count; j++) {
+        final s = active[j];
+        final allocated = base + (j < remainder ? 1 : 0);
+
+        sessionEffectiveSeconds[s.sessionId] = (sessionEffectiveSeconds[s.sessionId] ?? 0) + allocated;
+        subtaskLifetimeSeconds[s.subTaskId] = (subtaskLifetimeSeconds[s.subTaskId] ?? 0) + allocated;
+        dailyTaskTimes[dateStr]![s.mainTaskId] = (dailyTaskTimes[dateStr]![s.mainTaskId] ?? 0) + allocated;
+        dailySubtaskTimes[dateStr]![s.subTaskId] = (dailySubtaskTimes[dateStr]![s.subTaskId] ?? 0) + allocated;
+      }
+    }
+
+    return RecalibratedTimeData(
+      dailyTaskTimes: dailyTaskTimes,
+      dailySubtaskTimes: dailySubtaskTimes,
+      subtaskLifetimeSeconds: subtaskLifetimeSeconds,
+      sessionEffectiveSeconds: sessionEffectiveSeconds,
+    );
+  }
+}
+
+class RecalibratedTimeData {
+  /// Date (yyyy-MM-dd) -> MainTaskId -> seconds spent on that day
+  final Map<String, Map<String, int>> dailyTaskTimes;
+
+  /// Date (yyyy-MM-dd) -> SubTaskId -> seconds spent on that day
+  final Map<String, Map<String, int>> dailySubtaskTimes;
+
+  /// SubTaskId -> total lifetime seconds spent
+  final Map<String, int> subtaskLifetimeSeconds;
+
+  /// SessionId -> total lifetime seconds spent
+  final Map<String, int> sessionEffectiveSeconds;
+
+  const RecalibratedTimeData({
+    required this.dailyTaskTimes,
+    required this.dailySubtaskTimes,
+    required this.subtaskLifetimeSeconds,
+    required this.sessionEffectiveSeconds,
+  });
+}
+
+class _SessionInterval {
+  final String sessionId;
+  final String subTaskId;
+  final String mainTaskId;
+  final DateTime startTime;
+  final DateTime endTime;
+
+  _SessionInterval({
+    required this.sessionId,
+    required this.subTaskId,
+    required this.mainTaskId,
+    required this.startTime,
+    required this.endTime,
+  });
 }
