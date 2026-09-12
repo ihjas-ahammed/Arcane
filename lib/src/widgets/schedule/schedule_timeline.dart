@@ -577,7 +577,10 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
               : const ClampingScrollPhysics(),
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
-            onTapUp: (_) {
+            onTapUp: (details) {
+              if (_isTouchOnEntry(details.localPosition, layoutEntries, constraints.maxWidth)) {
+                return;
+              }
               if (_selectedEntryId != null) {
                 setState(() {
                   _selectedEntryId = null;
@@ -612,44 +615,49 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
               color: Colors.transparent,
               child: Stack(
                 children: [
-                  // Hairline gutter divider
-                  Positioned(
-                    top: 0, bottom: 0, left: 55,
-                    width: 1,
-                    child: ColoredBox(color: JweTheme.lineSoft),
+                  // Hairline gutter divider & static grid cached in RepaintBoundary
+                  RepaintBoundary(
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          top: 0, bottom: 0, left: 55,
+                          width: 1,
+                          child: ColoredBox(color: JweTheme.lineSoft),
+                        ),
+                        ...List.generate(hoursCount, (index) {
+                          final isMajor = index % 3 == 0;
+                          return Positioned(
+                            top: index * pixelsPerHour,
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              height: pixelsPerHour,
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  top: BorderSide(
+                                    color: isMajor ? JweTheme.lineAmber : JweTheme.lineSoft,
+                                    width: isMajor ? 1 : 0.5,
+                                  ),
+                                ),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 6, top: 4),
+                                child: Text(
+                                  '${index.toString().padLeft(2, '0')}:00',
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: isMajor ? JweTheme.accentAmber : JweTheme.textMuted,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 1.0,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
                   ),
-                  // Grid
-                  ...List.generate(hoursCount, (index) {
-                    final isMajor = index % 3 == 0;
-                    return Positioned(
-                      top: index * pixelsPerHour,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        height: pixelsPerHour,
-                        decoration: BoxDecoration(
-                          border: Border(
-                            top: BorderSide(
-                              color: isMajor ? JweTheme.lineAmber : JweTheme.lineSoft,
-                              width: isMajor ? 1 : 0.5,
-                            ),
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 6, top: 4),
-                          child: Text(
-                            '${index.toString().padLeft(2, '0')}:00',
-                            style: GoogleFonts.jetBrainsMono(
-                              color: isMajor ? JweTheme.accentAmber : JweTheme.textMuted,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.0,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
 
                   // Current Time
                   _buildCurrentTimeIndicator(pixelsPerHour),
@@ -731,16 +739,16 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                       maxWidth: constraints.maxWidth,
                     ),
 
-                  // Animated Handles for editable entries (Google Calendar style)
-                  ...layoutEntries.where((le) => le.entry.isEditable).expand((le) {
-                    final isSelected = le.entry.id == _selectedEntryId;
-                    return _buildAnimatedHandles(
-                      le: le,
-                      isSelected: isSelected,
-                      pixelsPerHour: pixelsPerHour,
-                      maxWidth: constraints.maxWidth,
-                    );
-                  }),
+                  // Animated Handles for editable entries (rendered ONLY for the active selected entry)
+                  if (_selectedEntryId != null)
+                    ...layoutEntries.where((le) => le.entry.isEditable && le.entry.id == _selectedEntryId).expand((le) {
+                      return _buildAnimatedHandles(
+                        le: le,
+                        isSelected: true,
+                        pixelsPerHour: pixelsPerHour,
+                        maxWidth: constraints.maxWidth,
+                      );
+                    }),
 
                   // Active Resize Guideline & Duration Tag
                   if (_resizingEntryId != null) ...[

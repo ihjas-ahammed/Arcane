@@ -296,101 +296,129 @@ class TaskCalculations {
   static const int defaultSubtaskMinutes = 30;
   static const int defaultCheckpointMinutes = 15;
 
+  static List<MainTask>? _cachedTasksRef;
+  static RecalibratedTimeData? _cachedRecalibratedData;
+
   /// Recalculates all daily and lifetime time logs across all tasks.
   /// When multiple sessions overlap in time (e.g. concurrent sessions on the same day),
   /// the overlapping duration is split evenly (averaged) among the active sessions,
   /// ensuring the total time spent never exceeds the real elapsed wall-clock time.
   static RecalibratedTimeData recalculateAllTimeLogs(List<MainTask> allTasks) {
+    if (_cachedRecalibratedData != null && identical(_cachedTasksRef, allTasks)) {
+      return _cachedRecalibratedData!;
+    }
+
     final Map<String, Map<String, int>> dailyTaskTimes = {};
     final Map<String, Map<String, int>> dailySubtaskTimes = {};
     final Map<String, int> subtaskLifetimeSeconds = {};
     final Map<String, int> sessionEffectiveSeconds = {};
 
-    // 1. Flatten all valid sessions
-    final List<_SessionInterval> intervals = [];
+    // 1. Group segments by day, splitting any sessions that cross midnight
+    final Map<String, List<_SessionInterval>> intervalsByDay = {};
+
     for (var task in allTasks) {
       for (var sub in task.subTasks) {
         for (var session in sub.sessions) {
-          if (session.endTime.isAfter(session.startTime)) {
-            intervals.add(_SessionInterval(
-              sessionId: session.id,
-              subTaskId: sub.id,
-              mainTaskId: task.id,
-              startTime: session.startTime,
-              endTime: session.endTime,
-            ));
+          if (!session.endTime.isAfter(session.startTime)) continue;
+
+          DateTime curStart = session.startTime;
+          while (curStart.isBefore(session.endTime)) {
+            final nextMidnight = DateTime(curStart.year, curStart.month, curStart.day + 1);
+            final curEnd = session.endTime.isBefore(nextMidnight) ? session.endTime : nextMidnight;
+
+            if (curEnd.isAfter(curStart)) {
+              final dateStr = DateFormat('yyyy-MM-dd').format(curStart);
+              intervalsByDay.putIfAbsent(dateStr, () => []).add(_SessionInterval(
+                sessionId: session.id,
+                subTaskId: sub.id,
+                mainTaskId: task.id,
+                startTime: curStart,
+                endTime: curEnd,
+              ));
+            }
+            curStart = nextMidnight;
           }
         }
       }
     }
 
-    if (intervals.isEmpty) {
-      return RecalibratedTimeData(
+    if (intervalsByDay.isEmpty) {
+      final res = RecalibratedTimeData(
         dailyTaskTimes: dailyTaskTimes,
         dailySubtaskTimes: dailySubtaskTimes,
         subtaskLifetimeSeconds: subtaskLifetimeSeconds,
         sessionEffectiveSeconds: sessionEffectiveSeconds,
       );
+      _cachedTasksRef = allTasks;
+      _cachedRecalibratedData = res;
+      return res;
     }
 
-    // 2. Collect all boundaries including midnight transitions
-    final Set<DateTime> boundarySet = {};
-    for (var item in intervals) {
-      boundarySet.add(item.startTime);
-      boundarySet.add(item.endTime);
+    // 2. Process each day independently with high-speed sweep-line
+    intervalsByDay.forEach((dateStr, dayIntervals) {
+      dailyTaskTimes[dateStr] = {};
+      dailySubtaskTimes[dateStr] = {};
 
-      DateTime cursor = DateTime(item.startTime.year, item.startTime.month, item.startTime.day).add(const Duration(days: 1));
-      while (cursor.isBefore(item.endTime)) {
-        boundarySet.add(cursor);
-        cursor = cursor.add(const Duration(days: 1));
-      }
-    }
-
-    final List<DateTime> sortedPoints = boundarySet.toList()..sort();
-
-    // 3. Process each consecutive non-empty slice [tStart, tEnd]
-    for (int i = 0; i < sortedPoints.length - 1; i++) {
-      final tStart = sortedPoints[i];
-      final tEnd = sortedPoints[i + 1];
-      final sliceSeconds = tEnd.difference(tStart).inSeconds;
-      if (sliceSeconds <= 0) continue;
-
-      // Find all sessions active during [tStart, tEnd]
-      final active = intervals.where((s) =>
-        !s.startTime.isAfter(tStart) && !s.endTime.isBefore(tEnd)
-      ).toList();
-
-      if (active.isEmpty) continue;
-
-      final count = active.length;
-      final base = sliceSeconds ~/ count;
-      final remainder = sliceSeconds % count;
-      final dateStr = DateFormat('yyyy-MM-dd').format(tStart);
-
-      if (!dailyTaskTimes.containsKey(dateStr)) {
-        dailyTaskTimes[dateStr] = {};
-      }
-      if (!dailySubtaskTimes.containsKey(dateStr)) {
-        dailySubtaskTimes[dateStr] = {};
+      if (dayIntervals.length == 1) {
+        // Fast path for isolated day session: zero overhead
+        final s = dayIntervals.first;
+        final dur = s.endTime.difference(s.startTime).inSeconds;
+        sessionEffectiveSeconds[s.sessionId] = (sessionEffectiveSeconds[s.sessionId] ?? 0) + dur;
+        subtaskLifetimeSeconds[s.subTaskId] = (subtaskLifetimeSeconds[s.subTaskId] ?? 0) + dur;
+        dailyTaskTimes[dateStr]![s.mainTaskId] = (dailyTaskTimes[dateStr]![s.mainTaskId] ?? 0) + dur;
+        dailySubtaskTimes[dateStr]![s.subTaskId] = (dailySubtaskTimes[dateStr]![s.subTaskId] ?? 0) + dur;
+        return;
       }
 
-      for (int j = 0; j < count; j++) {
-        final s = active[j];
-        final allocated = base + (j < remainder ? 1 : 0);
-
-        sessionEffectiveSeconds[s.sessionId] = (sessionEffectiveSeconds[s.sessionId] ?? 0) + allocated;
-        subtaskLifetimeSeconds[s.subTaskId] = (subtaskLifetimeSeconds[s.subTaskId] ?? 0) + allocated;
-        dailyTaskTimes[dateStr]![s.mainTaskId] = (dailyTaskTimes[dateStr]![s.mainTaskId] ?? 0) + allocated;
-        dailySubtaskTimes[dateStr]![s.subTaskId] = (dailySubtaskTimes[dateStr]![s.subTaskId] ?? 0) + allocated;
+      // Collect unique sorted boundary timestamps for this single day
+      final boundarySet = <DateTime>{};
+      for (var s in dayIntervals) {
+        boundarySet.add(s.startTime);
+        boundarySet.add(s.endTime);
       }
-    }
+      final sortedPoints = boundarySet.toList()..sort();
 
-    return RecalibratedTimeData(
+      for (int i = 0; i < sortedPoints.length - 1; i++) {
+        final tStart = sortedPoints[i];
+        final tEnd = sortedPoints[i + 1];
+        final sliceSeconds = tEnd.difference(tStart).inSeconds;
+        if (sliceSeconds <= 0) continue;
+
+        // Active intervals within this day's slice
+        final active = <_SessionInterval>[];
+        for (var s in dayIntervals) {
+          if (!s.startTime.isAfter(tStart) && !s.endTime.isBefore(tEnd)) {
+            active.add(s);
+          }
+        }
+
+        if (active.isEmpty) continue;
+
+        final count = active.length;
+        final base = sliceSeconds ~/ count;
+        final remainder = sliceSeconds % count;
+
+        for (int j = 0; j < count; j++) {
+          final s = active[j];
+          final allocated = base + (j < remainder ? 1 : 0);
+
+          sessionEffectiveSeconds[s.sessionId] = (sessionEffectiveSeconds[s.sessionId] ?? 0) + allocated;
+          subtaskLifetimeSeconds[s.subTaskId] = (subtaskLifetimeSeconds[s.subTaskId] ?? 0) + allocated;
+          dailyTaskTimes[dateStr]![s.mainTaskId] = (dailyTaskTimes[dateStr]![s.mainTaskId] ?? 0) + allocated;
+          dailySubtaskTimes[dateStr]![s.subTaskId] = (dailySubtaskTimes[dateStr]![s.subTaskId] ?? 0) + allocated;
+        }
+      }
+    });
+
+    final res = RecalibratedTimeData(
       dailyTaskTimes: dailyTaskTimes,
       dailySubtaskTimes: dailySubtaskTimes,
       subtaskLifetimeSeconds: subtaskLifetimeSeconds,
       sessionEffectiveSeconds: sessionEffectiveSeconds,
     );
+    _cachedTasksRef = allTasks;
+    _cachedRecalibratedData = res;
+    return res;
   }
 }
 

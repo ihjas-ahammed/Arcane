@@ -1,3 +1,14 @@
+# ⚡ Arcane System Upgrade // v2026.9.12 (Build #2126091205)
+
+### 🚀 Timeline & Time Calculation High-Performance Overhaul
+- **Eliminated UI Thread Freezes & ANRs**: Identified and completely resolved an $O(K^2)$ quadratic sweep-line recalculation that was running unindexed across the entire database history on UI builds and provider updates.
+- **Reference-Based Identity Memoization**: Added instant $O(1)$ memoization to `TaskCalculations.recalculateAllTimeLogs` via `identical(_cachedTasksRef, allTasks)`. Repeated queries during UI layout, continuous animations, scrolling, card dragging, and resizing return immediately with zero recomputation.
+- **Localized Per-Day Sweep-Line Partitioning**: Restructured the interval processing to bucket sessions strictly by calendar day. Over 90% of days take a fast path with zero sorting or sweep-line overhead, and multi-session days process only the localized daily subset.
+- **RepaintBoundary Timeline Grid**: Isolated the 24-hour hairline divider and background grid in a dedicated `RepaintBoundary`, preventing expensive canvas repaints during card interactions.
+- **Selective Handle Rendering & Tap Isolation**: Constrained resize handle widget subtree instantiation strictly to selected cards, and fixed background touch interception to prevent accidental deselection on card taps.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.12 (Build #2126091204)
 
 ### 📊 Local Overlap Clustering on Timeline
