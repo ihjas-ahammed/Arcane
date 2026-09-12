@@ -24,4 +24,28 @@ class TimelineEntry {
   });
 
   int get durationSeconds => endTime.difference(startTime).inSeconds;
+
+  TimelineEntry copyWith({
+    String? id,
+    DateTime? startTime,
+    DateTime? endTime,
+    String? title,
+    String? subtitle,
+    Color? color,
+    bool? isEditable,
+    bool? isPredicted,
+    dynamic originalObject,
+  }) {
+    return TimelineEntry(
+      id: id ?? this.id,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      title: title ?? this.title,
+      subtitle: subtitle ?? this.subtitle,
+      color: color ?? this.color,
+      isEditable: isEditable ?? this.isEditable,
+      isPredicted: isPredicted ?? this.isPredicted,
+      originalObject: originalObject ?? this.originalObject,
+    );
+  }
 }

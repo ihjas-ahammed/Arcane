@@ -257,6 +257,27 @@ class _ScheduleViewState extends State<ScheduleView> {
     }
   }
 
+  void _handleUpdateEntryTimeRange(AppProvider provider, TimelineEntry entry, DateTime newStart, DateTime newEnd) {
+    if (entry.originalObject is! TaskSession) return;
+    final session = entry.originalObject as TaskSession;
+
+    String? mainTaskId;
+    String? subTaskId;
+    for (var m in provider.mainTasks) {
+      for (var s in m.subTasks) {
+        if (s.sessions.any((sess) => sess.id == session.id)) {
+          mainTaskId = m.id;
+          subTaskId = s.id;
+          break;
+        }
+      }
+      if (mainTaskId != null) break;
+    }
+
+    if (mainTaskId == null || subTaskId == null) return;
+    provider.updateSessionInSubtask(mainTaskId, subTaskId, session.id, newStart, newEnd);
+  }
+
   void _handlePredictedEntryTap(AppProvider provider, TimelineEntry entry) {
     showDialog(
       context: context,
@@ -521,6 +542,9 @@ class _ScheduleViewState extends State<ScheduleView> {
 
     Widget timelineWidget = ScheduleTimeline(
       entries: entries,
+      selectedDate: _selectedDate,
+      onRangeCreated: (start, end) => _showTaskSelectorAndAdd(provider, start, end),
+      onUpdateEntryTimeRange: (entry, newStart, newEnd) => _handleUpdateEntryTimeRange(provider, entry, newStart, newEnd),
       onAddSession: () => _handleAddSession(provider),
       onEditEntry: (entry) => _handleEditEntry(provider, entry),
       initialScrollOffset: 0,

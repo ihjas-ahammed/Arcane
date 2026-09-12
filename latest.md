@@ -1,3 +1,13 @@
+# ⚡ Arcane System Upgrade // v2026.9.12 (Build #2126091202)
+
+### 📅 Schedule Timeline Drag-to-Resize & Google Calendar Handles
+- **Interactive Drag-to-Create Time Blocks**: Enabled drag-to-create gestures across the schedule timeline with real-time start/end time markers, duration badges, and instant task assignment sheet on finger release.
+- **Direct Edge Drag-Resizing**: Integrated top-left and bottom-right Google Calendar-style resize handles supporting direct 15-minute snapped drag adjustments with live time indicators and duration feedback chips (`DUR: Xh Ym`).
+- **Refined Minimalist Handle Geometry**: Sized handles to a crisp $\times 0.75$ scale ($7\text{px}$ diameter) without drop shadows, featuring $44 \times 44\text{px}$ hit targets and vertically symmetrical seating centered flush on the $2\text{px}$ border strokes.
+- **Fluid Animated Transitions**: Added smooth `AnimatedContainer` transitions ($200\text{ms}$, `Curves.easeOutCubic`) for card border, glow, and padding morphing, paired with `AnimatedScale` (`Curves.easeOutBack`) and `AnimatedOpacity` ($180\text{ms}$) on handle appearance and exit. Drag operations seamlessly switch to `Duration.zero` for lag-free 60fps tracking.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.12 (Build #2126091201)
 
 ### 🏗️ Codebase Modularization & Architectural Decomposition
