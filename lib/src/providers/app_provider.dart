@@ -993,7 +993,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) => _taskActions.updateSubtask(mainTaskId, subtaskId, updates);
   bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) => _taskActions.addSessionToSubtask(mainTaskId, subTaskId, start, end);
   void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) => _taskActions.updateSessionInSubtask(mainTaskId, subTaskId, sessionId, newStart, newEnd);
-  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId) => _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId);
+  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId, {bool silent = false}) => _taskActions.deleteSessionFromSubtask(mainTaskId, subTaskId, sessionId, silent: silent);
   bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.completeSubtask(mainTaskId, subtaskId, fromSync: fromSync);
   void uncompleteSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubtask(mainTaskId, subtaskId, fromSync: fromSync);
   void deleteSubtask(String mainTaskId, String subtaskId) => _taskActions.deleteSubtask(mainTaskId, subtaskId);

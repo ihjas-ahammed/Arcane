@@ -10,9 +10,13 @@ class TimelineEntryCard extends StatelessWidget {
   final double width;
   final VoidCallback onTap;
   final VoidCallback? onDoubleTap;
-  final VoidCallback? onLongPress;
+  final GestureLongPressStartCallback? onLongPressStart;
+  final GestureLongPressMoveUpdateCallback? onLongPressMoveUpdate;
+  final GestureLongPressEndCallback? onLongPressEnd;
+  final VoidCallback? onLongPressCancel;
   final bool isSelected;
   final bool isResizing;
+  final bool isMoving;
 
   const TimelineEntryCard({
     super.key,
@@ -21,9 +25,13 @@ class TimelineEntryCard extends StatelessWidget {
     required this.width,
     required this.onTap,
     this.onDoubleTap,
-    this.onLongPress,
+    this.onLongPressStart,
+    this.onLongPressMoveUpdate,
+    this.onLongPressEnd,
+    this.onLongPressCancel,
     this.isSelected = false,
     this.isResizing = false,
+    this.isMoving = false,
   });
 
   @override
@@ -57,26 +65,29 @@ class TimelineEntryCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       onDoubleTap: onDoubleTap,
-      onLongPress: onLongPress,
+      onLongPressStart: onLongPressStart,
+      onLongPressMoveUpdate: onLongPressMoveUpdate,
+      onLongPressEnd: onLongPressEnd,
+      onLongPressCancel: onLongPressCancel,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: isResizing ? Duration.zero : const Duration(milliseconds: 200),
+        duration: (isResizing || isMoving) ? Duration.zero : const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
         width: width,
         height: math.max(3.0, height),
         decoration: BoxDecoration(
           color: effectiveColor,
           border: Border.all(
-            color: borderColor,
-            width: isSelected ? 2.0 : 1.0,
+            color: isMoving ? calColor : borderColor,
+            width: (isSelected || isMoving) ? 2.0 : 1.0,
           ),
-          borderRadius: BorderRadius.circular(isSelected ? 6 : 4),
-          boxShadow: isSelected
+          borderRadius: BorderRadius.circular((isSelected || isMoving) ? 6 : 4),
+          boxShadow: (isSelected || isMoving)
               ? [
                   BoxShadow(
-                    color: calColor.withValues(alpha: 0.35),
-                    blurRadius: 8,
-                    spreadRadius: 0.5,
+                    color: calColor.withValues(alpha: isMoving ? 0.6 : 0.35),
+                    blurRadius: isMoving ? 14 : 8,
+                    spreadRadius: isMoving ? 1.5 : 0.5,
                   ),
                 ]
               : null,

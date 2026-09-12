@@ -1,3 +1,13 @@
+# ⚡ Arcane System Upgrade // v2026.9.12 (Build #2126091203)
+
+### ⏱️ 2-Minute Precision Snapping, Drag-Through-Time & Fast Mission Switching
+- **Granular 2-Minute Snapping**: Upgraded the timeline precision across all time adjustments from 15-minute steps down to ultra-precise 2-minute increments. Both edge resize handles and whole-card drags automatically snap to the 2-minute timeline grid.
+- **Drag Cards Through Time (Google Calendar Paradigm)**: Replaced the previous long-press edit dialog with direct drag-through-time manipulation. Long-pressing an editable event lifts it with elevation and shadow, locks scroll physics, displays top and bottom time guidelines and duration telemetry in real time, and cleanly updates the session bounds upon release.
+- **Conflict-Free Drag Coordination**: Intelligent hit testing prevents timeline background range creation when touching or long-pressing existing cards.
+- **Double-Tap Mission Selector**: Double-tapping any event card instantly brings up the "SWITCH MISSION" dialog with full protocol hierarchy, allowing seamless instant reassignment of sessions across subtasks while preserving duration and timing without misleading undo snackbars.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.12 (Build #2126091202)
 
 ### 📅 Schedule Timeline Drag-to-Resize & Google Calendar Handles

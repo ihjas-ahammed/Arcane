@@ -15,6 +15,7 @@ class ScheduleTimeline extends StatefulWidget {
   final Function(TimelineEntry entry, DateTime newStart, DateTime newEnd)? onUpdateEntryTimeRange;
   final VoidCallback onAddSession;
   final Function(TimelineEntry) onEditEntry;
+  final Function(TimelineEntry entry)? onSwitchTask;
   final double initialScrollOffset;
   final bool scrollToNow;
   final ValueListenable<int>? scrollToNowTick;
@@ -27,6 +28,7 @@ class ScheduleTimeline extends StatefulWidget {
     this.onUpdateEntryTimeRange,
     required this.onAddSession,
     required this.onEditEntry,
+    this.onSwitchTask,
     this.initialScrollOffset = 0,
     this.scrollToNow = false,
     this.scrollToNowTick,
@@ -50,6 +52,15 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
   DateTime? _initialEntryEndTime;
   double _initialDragGlobalY = 0.0;
   TimelineEntry? _activeResizingOriginalEntry;
+
+  // Whole-Card Move Through Time State (Google Calendar style)
+  String? _movingEntryId;
+  DateTime? _movingStartTime;
+  DateTime? _movingEndTime;
+  DateTime? _initialMovingStartTime;
+  DateTime? _initialMovingEndTime;
+  double _initialMoveGlobalY = 0.0;
+  TimelineEntry? _activeMovingOriginalEntry;
 
   // Drag-to-Create Range State
   bool _isCreatingRange = false;
@@ -93,6 +104,8 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedDate != widget.selectedDate) {
       _selectedEntryId = null;
+      _resizingEntryId = null;
+      _movingEntryId = null;
     }
     if (oldWidget.scrollToNowTick != widget.scrollToNowTick) {
       oldWidget.scrollToNowTick?.removeListener(_handleScrollToNowTick);
@@ -136,7 +149,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
   void _startRangeCreation(Offset localPosition) {
     _selectedEntryId = null;
     final totalMinutes = (localPosition.dy / _basePixelsPerHour * 60).round();
-    final snappedAnchor = ((totalMinutes / 15).round() * 15).clamp(0, 23 * 60 + 45);
+    final snappedAnchor = ((totalMinutes / 2).round() * 2).clamp(0, 23 * 60 + 58);
     _anchorMinutes = snappedAnchor;
 
     final date = _effectiveDate;
@@ -155,18 +168,18 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     if (!_isCreatingRange || _anchorMinutes == null) return;
 
     final totalMinutes = (localPosition.dy / _basePixelsPerHour * 60).round();
-    final snappedCurrent = ((totalMinutes / 15).round() * 15).clamp(0, 24 * 60);
+    final snappedCurrent = ((totalMinutes / 2).round() * 2).clamp(0, 24 * 60);
 
     final date = _effectiveDate;
     DateTime newStart;
     DateTime newEnd;
 
     if (snappedCurrent >= _anchorMinutes!) {
-      final endMin = math.max(_anchorMinutes! + 15, snappedCurrent).clamp(0, 24 * 60);
+      final endMin = math.max(_anchorMinutes! + 2, snappedCurrent).clamp(0, 24 * 60);
       newStart = DateTime(date.year, date.month, date.day, _anchorMinutes! ~/ 60, _anchorMinutes! % 60);
       newEnd = DateTime(date.year, date.month, date.day, endMin ~/ 60, endMin % 60);
     } else {
-      final startMin = math.min(_anchorMinutes! - 15, snappedCurrent).clamp(0, 24 * 60);
+      final startMin = math.min(_anchorMinutes! - 2, snappedCurrent).clamp(0, 24 * 60);
       newStart = DateTime(date.year, date.month, date.day, startMin ~/ 60, startMin % 60);
       newEnd = DateTime(date.year, date.month, date.day, _anchorMinutes! ~/ 60, _anchorMinutes! % 60);
     }
@@ -193,7 +206,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
       _anchorMinutes = null;
     });
 
-    if (start != null && end != null && end.difference(start).inMinutes >= 15) {
+    if (start != null && end != null && end.difference(start).inMinutes >= 2) {
       widget.onRangeCreated?.call(start, end);
     }
   }
@@ -211,6 +224,14 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     setState(() {});
   }
 
+  DateTime _snapTo2Min(DateTime dt) {
+    final totalMinutes = dt.hour * 60 + dt.minute;
+    final snappedMinutes = ((totalMinutes / 2).round() * 2).clamp(0, 24 * 60 - 2);
+    final hours = snappedMinutes ~/ 60;
+    final mins = snappedMinutes % 60;
+    return DateTime(dt.year, dt.month, dt.day, hours, mins);
+  }
+
   void _onHandleDragUpdate(DragUpdateDetails details) {
     if (_resizingEntryId == null ||
         _initialEntryStartTime == null ||
@@ -219,12 +240,12 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     }
 
     final totalDeltaY = details.globalPosition.dy - _initialDragGlobalY;
-    final totalDeltaMinutes = ((totalDeltaY / _basePixelsPerHour * 60) / 15).round() * 15;
+    final rawDeltaMinutes = (totalDeltaY / _basePixelsPerHour * 60).round();
 
     if (_resizingIsTop == true) {
-      final candidateStart = _initialEntryStartTime!.add(Duration(minutes: totalDeltaMinutes));
+      final candidateStart = _snapTo2Min(_initialEntryStartTime!.add(Duration(minutes: rawDeltaMinutes)));
       final minAllowed = DateTime(_initialEntryStartTime!.year, _initialEntryStartTime!.month, _initialEntryStartTime!.day, 0, 0);
-      final maxAllowed = _initialEntryEndTime!.subtract(const Duration(minutes: 15));
+      final maxAllowed = _initialEntryEndTime!.subtract(const Duration(minutes: 2));
       final clampedStart = candidateStart.isBefore(minAllowed)
           ? minAllowed
           : (candidateStart.isAfter(maxAllowed) ? maxAllowed : candidateStart);
@@ -236,9 +257,9 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
         });
       }
     } else {
-      final candidateEnd = _initialEntryEndTime!.add(Duration(minutes: totalDeltaMinutes));
-      final minAllowed = _initialEntryStartTime!.add(const Duration(minutes: 15));
-      final maxAllowed = DateTime(_initialEntryEndTime!.year, _initialEntryEndTime!.month, _initialEntryEndTime!.day, 23, 59);
+      final candidateEnd = _snapTo2Min(_initialEntryEndTime!.add(Duration(minutes: rawDeltaMinutes)));
+      final minAllowed = _initialEntryStartTime!.add(const Duration(minutes: 2));
+      final maxAllowed = DateTime(_initialEntryEndTime!.year, _initialEntryEndTime!.month, _initialEntryEndTime!.day, 23, 58);
       final clampedEnd = candidateEnd.isBefore(minAllowed)
           ? minAllowed
           : (candidateEnd.isAfter(maxAllowed) ? maxAllowed : candidateEnd);
@@ -258,26 +279,120 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     final original = _activeResizingOriginalEntry;
     final finalStart = _resizingStartTime;
     final finalEnd = _resizingEndTime;
-    final initStart = _initialEntryStartTime;
-    final initEnd = _initialEntryEndTime;
 
     HapticFeedback.mediumImpact();
     setState(() {
       _resizingEntryId = null;
-      _resizingIsTop = null;
-      _resizingStartTime = null;
-      _resizingEndTime = null;
+      _activeResizingOriginalEntry = null;
       _initialEntryStartTime = null;
       _initialEntryEndTime = null;
-      _activeResizingOriginalEntry = null;
+      _resizingStartTime = null;
+      _resizingEndTime = null;
     });
 
-    if (finalStart != null &&
+    if (original != null &&
+        finalStart != null &&
         finalEnd != null &&
-        original != null &&
-        (finalStart != initStart || finalEnd != initEnd)) {
-      widget.onUpdateEntryTimeRange?.call(original, finalStart, finalEnd);
+        widget.onUpdateEntryTimeRange != null &&
+        (finalStart != original.startTime || finalEnd != original.endTime)) {
+      widget.onUpdateEntryTimeRange!(original, finalStart, finalEnd);
     }
+  }
+
+  void _onHandleDragCancel() {
+    if (_resizingEntryId == null) return;
+    setState(() {
+      _resizingEntryId = null;
+      _activeResizingOriginalEntry = null;
+      _initialEntryStartTime = null;
+      _initialEntryEndTime = null;
+      _resizingStartTime = null;
+      _resizingEndTime = null;
+    });
+  }
+
+  // Whole-Card Move Through Time (Google Calendar style)
+  void _onCardMoveStart(TimelineEntry entry, LongPressStartDetails details) {
+    if (!entry.isEditable) return;
+    _initialMoveGlobalY = details.globalPosition.dy;
+    _activeMovingOriginalEntry = entry;
+    _initialMovingStartTime = entry.startTime;
+    _initialMovingEndTime = entry.endTime;
+    _movingEntryId = entry.id;
+    _movingStartTime = entry.startTime;
+    _movingEndTime = entry.endTime;
+    _selectedEntryId = entry.id;
+    HapticFeedback.heavyImpact();
+    setState(() {});
+  }
+
+  void _onCardMoveUpdate(LongPressMoveUpdateDetails details) {
+    if (_movingEntryId == null ||
+        _initialMovingStartTime == null ||
+        _initialMovingEndTime == null) {
+      return;
+    }
+
+    final totalDeltaY = details.globalPosition.dy - _initialMoveGlobalY;
+    final rawDeltaMinutes = (totalDeltaY / _basePixelsPerHour * 60).round();
+
+    final duration = _initialMovingEndTime!.difference(_initialMovingStartTime!);
+    final candidateStart = _snapTo2Min(_initialMovingStartTime!.add(Duration(minutes: rawDeltaMinutes)));
+
+    final dayStart = DateTime(_initialMovingStartTime!.year, _initialMovingStartTime!.month, _initialMovingStartTime!.day, 0, 0);
+    final dayEnd = DateTime(_initialMovingStartTime!.year, _initialMovingStartTime!.month, _initialMovingStartTime!.day, 23, 58);
+
+    DateTime clampedStart = candidateStart;
+    if (clampedStart.isBefore(dayStart)) {
+      clampedStart = dayStart;
+    }
+    if (clampedStart.add(duration).isAfter(dayEnd)) {
+      clampedStart = dayEnd.subtract(duration);
+    }
+    final clampedEnd = clampedStart.add(duration);
+
+    if (clampedStart != _movingStartTime || clampedEnd != _movingEndTime) {
+      HapticFeedback.selectionClick();
+      setState(() {
+        _movingStartTime = clampedStart;
+        _movingEndTime = clampedEnd;
+      });
+    }
+  }
+
+  void _onCardMoveEnd() {
+    if (_movingEntryId == null) return;
+
+    final original = _activeMovingOriginalEntry;
+    final finalStart = _movingStartTime;
+    final finalEnd = _movingEndTime;
+
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _movingEntryId = null;
+      _activeMovingOriginalEntry = null;
+      _initialMovingStartTime = null;
+      _initialMovingEndTime = null;
+      _movingStartTime = null;
+      _movingEndTime = null;
+    });
+
+    if (original != null && finalStart != null && finalEnd != null) {
+      if (finalStart != original.startTime || finalEnd != original.endTime) {
+        widget.onUpdateEntryTimeRange?.call(original, finalStart, finalEnd);
+      }
+    }
+  }
+
+  void _onCardMoveCancel() {
+    setState(() {
+      _movingEntryId = null;
+      _activeMovingOriginalEntry = null;
+      _initialMovingStartTime = null;
+      _initialMovingEndTime = null;
+      _movingStartTime = null;
+      _movingEndTime = null;
+    });
   }
 
   List<_LayoutEntry> _calculateLayout(List<TimelineEntry> entries) {
@@ -286,6 +401,9 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     final effectiveEntries = entries.map((e) {
       if (e.id == _resizingEntryId && _resizingStartTime != null && _resizingEndTime != null) {
         return e.copyWith(startTime: _resizingStartTime!, endTime: _resizingEndTime!);
+      }
+      if (e.id == _movingEntryId && _movingStartTime != null && _movingEndTime != null) {
+        return e.copyWith(startTime: _movingStartTime!, endTime: _movingEndTime!);
       }
       return e;
     }).toList();
@@ -340,6 +458,29 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     return layout;
   }
 
+  bool _isTouchOnEntry(Offset localPosition, List<_LayoutEntry> layoutEntries, double maxWidth) {
+    const double leftGutter = 60.0;
+    final double availableWidth = (maxWidth - leftGutter - 10).clamp(0.0, double.infinity);
+
+    for (final le in layoutEntries) {
+      final entry = le.entry;
+      final startTotalHours = entry.startTime.hour + (entry.startTime.minute / 60.0) + (entry.startTime.second / 3600.0);
+      final top = startTotalHours * _basePixelsPerHour;
+      final rawHeight = (entry.durationSeconds / 3600.0) * _basePixelsPerHour;
+      final height = math.max(3.0, rawHeight);
+
+      final double widthPerCol = availableWidth / le.totalCols;
+      final double left = leftGutter + (le.col * widthPerCol);
+      final double cardWidth = (widthPerCol - 4).clamp(0.0, double.infinity);
+
+      final rect = Rect.fromLTWH(left, top, cardWidth, height);
+      if (rect.inflate(8.0).contains(localPosition)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     const int hoursCount = 24;
@@ -357,7 +498,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
         color: JweTheme.bgCanvas,
         child: SingleChildScrollView(
           controller: _scrollController,
-          physics: _resizingEntryId != null
+          physics: (_resizingEntryId != null || _movingEntryId != null)
               ? const NeverScrollableScrollPhysics()
               : const ClampingScrollPhysics(),
           child: GestureDetector(
@@ -369,9 +510,20 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                 });
               }
             },
-            onLongPressStart: (details) => _startRangeCreation(details.localPosition),
-            onLongPressMoveUpdate: (details) => _updateRangeCreation(details.localPosition),
-            onLongPressEnd: (_) => _finishRangeCreation(),
+            onLongPressStart: (details) {
+              if (_isTouchOnEntry(details.localPosition, layoutEntries, constraints.maxWidth)) {
+                return;
+              }
+              _startRangeCreation(details.localPosition);
+            },
+            onLongPressMoveUpdate: (details) {
+              if (!_isCreatingRange) return;
+              _updateRangeCreation(details.localPosition);
+            },
+            onLongPressEnd: (_) {
+              if (!_isCreatingRange) return;
+              _finishRangeCreation();
+            },
             onLongPressCancel: () {
               setState(() {
                 _isCreatingRange = false;
@@ -453,6 +605,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                         width: cardWidth,
                         isSelected: isSelected,
                         isResizing: _resizingEntryId == entry.id,
+                        isMoving: _movingEntryId == entry.id,
                         onTap: () {
                           if (!entry.isEditable) {
                             widget.onEditEntry(entry);
@@ -472,14 +625,25 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                         },
                         onDoubleTap: () {
                           if (entry.isEditable) {
-                            widget.onEditEntry(entry);
+                            if (widget.onSwitchTask != null) {
+                              widget.onSwitchTask!(entry);
+                            } else {
+                              widget.onEditEntry(entry);
+                            }
                           }
                         },
-                        onLongPress: () {
-                          if (entry.isEditable) {
-                            widget.onEditEntry(entry);
-                          }
-                        },
+                        onLongPressStart: entry.isEditable
+                            ? (details) => _onCardMoveStart(entry, details)
+                            : null,
+                        onLongPressMoveUpdate: entry.isEditable
+                            ? (details) => _onCardMoveUpdate(details)
+                            : null,
+                        onLongPressEnd: entry.isEditable
+                            ? (_) => _onCardMoveEnd()
+                            : null,
+                        onLongPressCancel: entry.isEditable
+                            ? () => _onCardMoveCancel()
+                            : null,
                       ),
                     );
                   }),
@@ -507,6 +671,14 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                   // Active Resize Guideline & Duration Tag
                   if (_resizingEntryId != null) ...[
                     ..._buildActiveResizeGuideline(
+                      layoutEntries: layoutEntries,
+                      pixelsPerHour: pixelsPerHour,
+                    ),
+                  ],
+
+                  // Active Move Through Time Guideline & Duration Tag
+                  if (_movingEntryId != null) ...[
+                    ..._buildActiveMoveGuideline(
                       layoutEntries: layoutEntries,
                       pixelsPerHour: pixelsPerHour,
                     ),
@@ -565,6 +737,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                 onVerticalDragStart: (details) => _onHandleDragStart(entry, true, details),
                 onVerticalDragUpdate: _onHandleDragUpdate,
                 onVerticalDragEnd: (_) => _onHandleDragEnd(),
+                onVerticalDragCancel: _onHandleDragCancel,
                 child: Center(
                   child: _buildHandle(color: handleColor),
                 ),
@@ -595,6 +768,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                 onVerticalDragStart: (details) => _onHandleDragStart(entry, false, details),
                 onVerticalDragUpdate: _onHandleDragUpdate,
                 onVerticalDragEnd: (_) => _onHandleDragEnd(),
+                onVerticalDragCancel: _onHandleDragCancel,
                 child: Center(
                   child: _buildHandle(color: handleColor),
                 ),
@@ -634,6 +808,47 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
         time: _resizingIsTop == true ? entry.startTime : entry.endTime,
         duration: entry.endTime.difference(entry.startTime),
         isTop: _resizingIsTop == true,
+        color: handleColor,
+      ),
+    ];
+  }
+
+  List<Widget> _buildActiveMoveGuideline({
+    required List<_LayoutEntry> layoutEntries,
+    required double pixelsPerHour,
+  }) {
+    if (_movingEntryId == null) return [];
+
+    _LayoutEntry? movingLe;
+    for (final le in layoutEntries) {
+      if (le.entry.id == _movingEntryId) {
+        movingLe = le;
+        break;
+      }
+    }
+    if (movingLe == null) return [];
+
+    final entry = movingLe.entry;
+    final startTotalHours = entry.startTime.hour + (entry.startTime.minute / 60.0) + (entry.startTime.second / 3600.0);
+    final top = startTotalHours * pixelsPerHour;
+    final rawHeight = (entry.durationSeconds / 3600.0) * pixelsPerHour;
+    final height = math.max(16.0, rawHeight);
+    final handleColor = JweTheme.isLight ? JweTheme.calibrate(entry.color) : entry.color;
+    final duration = entry.endTime.difference(entry.startTime);
+
+    return [
+      _buildResizeGuideline(
+        y: top,
+        time: entry.startTime,
+        duration: duration,
+        isTop: true,
+        color: handleColor,
+      ),
+      _buildResizeGuideline(
+        y: top + height,
+        time: entry.endTime,
+        duration: duration,
+        isTop: false,
         color: handleColor,
       ),
     ];

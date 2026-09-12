@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -278,6 +279,82 @@ class _ScheduleViewState extends State<ScheduleView> {
     provider.updateSessionInSubtask(mainTaskId, subTaskId, session.id, newStart, newEnd);
   }
 
+  void _handleSwitchTask(AppProvider provider, TimelineEntry entry) {
+    if (entry.originalObject is! TaskSession) return;
+    final session = entry.originalObject as TaskSession;
+
+    String? currentMainTaskId;
+    String? currentSubTaskId;
+    for (var m in provider.mainTasks) {
+      for (var s in m.subTasks) {
+        if (s.sessions.any((sess) => sess.id == session.id)) {
+          currentMainTaskId = m.id;
+          currentSubTaskId = s.id;
+          break;
+        }
+      }
+      if (currentMainTaskId != null) break;
+    }
+
+    if (currentMainTaskId == null || currentSubTaskId == null) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final validTasks = provider.mainTasks.where((t) => !t.isDeleted).toList();
+        return AlertDialog(
+          backgroundColor: JweTheme.panel,
+          title: Text(
+            "SWITCH MISSION",
+            style: TextStyle(
+              color: JweTheme.textWhite,
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+            ),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: validTasks.length,
+              itemBuilder: (context, index) {
+                final task = validTasks[index];
+                final activeSubtasks = task.subTasks.where((s) => !s.completed && !s.isDeleted).toList();
+                if (activeSubtasks.isEmpty) return const SizedBox.shrink();
+
+                return ExpansionTile(
+                  initiallyExpanded: task.id == currentMainTaskId,
+                  title: Text(task.name, style: TextStyle(color: task.taskColor, fontWeight: FontWeight.bold)),
+                  children: activeSubtasks.map((sub) {
+                    final isCurrent = sub.id == currentSubTaskId;
+                    return ListTile(
+                      title: Text(
+                        sub.name,
+                        style: TextStyle(
+                          color: isCurrent ? JweTheme.accentCyan : JweTheme.textWhite,
+                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                      trailing: isCurrent ? Icon(Icons.check, size: 16, color: JweTheme.accentCyan) : null,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        if (!isCurrent) {
+                          provider.deleteSessionFromSubtask(currentMainTaskId!, currentSubTaskId!, session.id, silent: true);
+                          provider.addSessionToSubtask(task.id, sub.id, session.startTime, session.endTime);
+                          HapticFeedback.mediumImpact();
+                        }
+                      },
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _handlePredictedEntryTap(AppProvider provider, TimelineEntry entry) {
     showDialog(
       context: context,
@@ -547,6 +624,7 @@ class _ScheduleViewState extends State<ScheduleView> {
       onUpdateEntryTimeRange: (entry, newStart, newEnd) => _handleUpdateEntryTimeRange(provider, entry, newStart, newEnd),
       onAddSession: () => _handleAddSession(provider),
       onEditEntry: (entry) => _handleEditEntry(provider, entry),
+      onSwitchTask: (entry) => _handleSwitchTask(provider, entry),
       initialScrollOffset: 0,
       scrollToNow: isToday,
       scrollToNowTick: widget.openTick,
