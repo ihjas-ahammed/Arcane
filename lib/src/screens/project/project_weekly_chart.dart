@@ -10,6 +10,7 @@ import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/src/utils/task_calculations.dart';
 
 class ProjectWeeklyChart extends StatelessWidget {
   final Project project;
@@ -52,11 +53,7 @@ class ProjectWeeklyChart extends StatelessWidget {
         final sub = mainTask?.subTasks.firstWhereOrNull((s) => s.id == subId);
 
         if (sub != null) {
-          for (var s in sub.sessions) {
-            if (s.startTime.year == d.year && s.startTime.month == d.month && s.startTime.day == d.day) {
-              sec += s.durationSeconds;
-            }
-          }
+          sec += TaskCalculations.getSubtaskSecondsForDay(sub, d, provider.mainTasks).toDouble();
           final timer = provider.activeTimers[sub.id];
           if (timer != null && timer.isRunning) {
             final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());

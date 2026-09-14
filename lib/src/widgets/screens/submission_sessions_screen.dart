@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:missions/src/utils/task_calculations.dart';
 
 class SubmissionSessionsScreen extends StatelessWidget {
   final MainTask parentTask;
@@ -24,12 +25,11 @@ class SubmissionSessionsScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => SessionEditDialog(initialStart: session.startTime, initialEnd: session.endTime),
     );
+
     if (result != null) {
-      if (result['action'] == 'delete') {
-        provider.deleteSessionFromSubtask(parentTask.id, subTask.id, session.id);
-      } else if (result['action'] == 'save') {
-        provider.updateSessionInSubtask(parentTask.id, subTask.id, session.id, result['start'], result['end']);
-      }
+      final newStart = result['startTime'] as DateTime;
+      final newEnd = result['endTime'] as DateTime;
+      provider.updateSessionInSubtask(parentTask.id, subTask.id, session.id, newStart, newEnd);
     }
   }
 
@@ -46,11 +46,12 @@ class SubmissionSessionsScreen extends StatelessWidget {
       return  Scaffold(backgroundColor: JweTheme.bgDeep, body: SizedBox());
     }
 
+    final recalibrated = TaskCalculations.recalculateAllTimeLogs(provider.mainTasks);
     final sessions = List<TaskSession>.from(liveSubTask.sessions)
       ..sort((a, b) => b.startTime.compareTo(a.startTime));
     final color = liveParentTask.taskColor;
-    final totalSeconds = sessions.fold<int>(
-        0, (sum, s) => sum + s.endTime.difference(s.startTime).inSeconds);
+    final totalSeconds = recalibrated.subtaskLifetimeSeconds[liveSubTask.id] ??
+        TaskCalculations.getSubtaskTotalSeconds(liveSubTask, provider.mainTasks);
 
     return Scaffold(
       backgroundColor: JweTheme.bgDeep,
@@ -181,7 +182,8 @@ class SubmissionSessionsScreen extends StatelessWidget {
                       itemCount: sessions.length,
                       itemBuilder: (context, index) {
                         final session = sessions[index];
-                        final duration = session.endTime.difference(session.startTime);
+                        final rawDuration = session.endTime.difference(session.startTime);
+                        final effectiveSeconds = recalibrated.sessionEffectiveSeconds[session.id] ?? rawDuration.inSeconds;
                         final dateStr = DateFormat('EEE, MMM dd').format(session.startTime);
                         final yearStr = DateFormat('yyyy').format(session.startTime);
                         final timeRangeStr =
@@ -237,11 +239,22 @@ class SubmissionSessionsScreen extends StatelessWidget {
                                         border: Border.all(color: color.withValues(alpha: 0.4)),
                                       ),
                                       child: Text(
-                                        helper.formatTime(duration.inSeconds.toDouble()),
+                                        helper.formatTime(effectiveSeconds.toDouble()),
                                         style: GoogleFonts.jetBrainsMono(
                                             color: color, fontWeight: FontWeight.bold, fontSize: 13),
                                       ),
                                     ),
+                                    if (effectiveSeconds != rawDuration.inSeconds) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        "SPLIT (${rawDuration.inMinutes}m)",
+                                        style: GoogleFonts.jetBrainsMono(
+                                          color: JweTheme.textMuted,
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
                                     const SizedBox(height: 8),
                                     GestureDetector(
                                       onTap: () => _handleSessionEdit(context, provider, session),

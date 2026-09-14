@@ -1196,33 +1196,61 @@ class TaskActions {
     )) return false;
 
     final session = TaskSession(id: IdGenerator.generateSessionId(), startTime: start, endTime: end);
-    final durationSeconds = session.durationSeconds;
-    
-    final newMainTasks = _provider.mainTasks.map((task) {
+
+    final provisionalTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(
-            dailyTimeSpent: task.dailyTimeSpent + durationSeconds,
-            lastWorkedDate: getTodayDateString(),
-            subTasks: task.subTasks.map((st) {
-              if (st.id == subTaskId) {
-                final newSessions = [...st.sessions, session]..sort((a, b) => b.startTime.compareTo(a.startTime));
-                final totalTime = newSessions.fold(0, (sum, s) => sum + s.durationSeconds);
-                return st.copyWith(
-                  currentTimeSpent: totalTime,
-                  sessions: newSessions,
-                  updatedAt: DateTime.now(),
-                );
-              }
-              return st;
-            }).toList());
+          lastWorkedDate: getTodayDateString(),
+          subTasks: task.subTasks.map((st) {
+            if (st.id == subTaskId) {
+              final newSessions = [...st.sessions, session]..sort((a, b) => b.startTime.compareTo(a.startTime));
+              return st.copyWith(
+                sessions: newSessions,
+                updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
       }
       return task;
     }).toList();
-    
-    _provider.setProviderState(mainTasks: newMainTasks);
-    // Defer recalibration — currentTimeSpent is already correct above;
-    // history rebuild runs after UI paints to avoid blocking the frame
-    Future.microtask(() => recalibrateTimeLogs(silent: true));
+
+    final recalibrated = TaskCalculations.recalculateAllTimeLogs(provisionalTasks);
+    final todayStr = getTodayDateString();
+    final todayTimes = recalibrated.dailyTaskTimes[todayStr] ?? {};
+
+    final newMainTasks = provisionalTasks.map((task) {
+      final updatedSubtasks = task.subTasks.map((st) {
+        final totalSeconds = recalibrated.subtaskLifetimeSeconds[st.id] ?? 0;
+        return st.copyWith(currentTimeSpent: totalSeconds);
+      }).toList();
+
+      return task.copyWith(
+        subTasks: updatedSubtasks,
+        dailyTimeSpent: todayTimes[task.id] ?? 0,
+      );
+    }).toList();
+
+    final Map<String, dynamic> newCompletedByDay = Map.from(_provider.completedByDay);
+    recalibrated.dailyTaskTimes.forEach((date, taskMap) {
+      if (!newCompletedByDay.containsKey(date)) {
+        newCompletedByDay[date] = {
+          'taskTimes': <String, int>{},
+          'subtasksCompleted': <Map<String, dynamic>>[],
+          'checkpointsCompleted': <Map<String, dynamic>>[],
+          'dailyPlan': <String>[],
+        };
+      }
+      final dayData = Map<String, dynamic>.from(newCompletedByDay[date]);
+      dayData['taskTimes'] = taskMap;
+      newCompletedByDay[date] = dayData;
+    });
+
+    _provider.setProviderState(
+      completedByDay: newCompletedByDay,
+      mainTasks: newMainTasks,
+    );
     return true;
   }
 
@@ -1235,29 +1263,62 @@ class TaskActions {
       targetSubTaskId: subTaskId,
     )) return;
 
-    final newMainTasks = _provider.mainTasks.map((task) {
+    final provisionalTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(
-            subTasks: task.subTasks.map((st) {
-          if (st.id == subTaskId) {
-            final updatedSessions = st.sessions.map((s) {
-              if (s.id == sessionId) return TaskSession(id: s.id, startTime: newStart, endTime: newEnd);
-              return s;
-            }).toList();
-            final totalTime = updatedSessions.fold(0, (sum, s) => sum + s.durationSeconds);
-            return st.copyWith(
-              currentTimeSpent: totalTime,
-              sessions: updatedSessions..sort((a, b) => b.startTime.compareTo(a.startTime)),
-              updatedAt: DateTime.now(),
-            );
-          }
-          return st;
-        }).toList());
+          subTasks: task.subTasks.map((st) {
+            if (st.id == subTaskId) {
+              final updatedSessions = st.sessions.map((s) {
+                if (s.id == sessionId) return TaskSession(id: s.id, startTime: newStart, endTime: newEnd);
+                return s;
+              }).toList()..sort((a, b) => b.startTime.compareTo(a.startTime));
+              return st.copyWith(
+                sessions: updatedSessions,
+                updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
       }
       return task;
     }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-    recalibrateTimeLogs(silent: true);
+
+    final recalibrated = TaskCalculations.recalculateAllTimeLogs(provisionalTasks);
+    final todayStr = getTodayDateString();
+    final todayTimes = recalibrated.dailyTaskTimes[todayStr] ?? {};
+
+    final newMainTasks = provisionalTasks.map((task) {
+      final updatedSubtasks = task.subTasks.map((st) {
+        final totalSeconds = recalibrated.subtaskLifetimeSeconds[st.id] ?? 0;
+        return st.copyWith(currentTimeSpent: totalSeconds);
+      }).toList();
+
+      return task.copyWith(
+        subTasks: updatedSubtasks,
+        dailyTimeSpent: todayTimes[task.id] ?? 0,
+      );
+    }).toList();
+
+    final Map<String, dynamic> newCompletedByDay = Map.from(_provider.completedByDay);
+    recalibrated.dailyTaskTimes.forEach((date, taskMap) {
+      if (!newCompletedByDay.containsKey(date)) {
+        newCompletedByDay[date] = {
+          'taskTimes': <String, int>{},
+          'subtasksCompleted': <Map<String, dynamic>>[],
+          'checkpointsCompleted': <Map<String, dynamic>>[],
+          'dailyPlan': <String>[],
+        };
+      }
+      final dayData = Map<String, dynamic>.from(newCompletedByDay[date]);
+      dayData['taskTimes'] = taskMap;
+      newCompletedByDay[date] = dayData;
+    });
+
+    _provider.setProviderState(
+      completedByDay: newCompletedByDay,
+      mainTasks: newMainTasks,
+    );
   }
 
   void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId, {bool silent = false}) {
@@ -1273,28 +1334,59 @@ class TaskActions {
       )).toList(),
     )).toList();
 
-    final newMainTasks = _provider.mainTasks.map((task) {
+    final provisionalTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        int deduction = oldSession.durationSeconds;
         return task.copyWith(
-            dailyTimeSpent: (task.dailyTimeSpent - deduction).clamp(0, 999999),
-            subTasks: task.subTasks.map((st) {
-          if (st.id == subTaskId) {
-            final remainingSessions = st.sessions.where((s) => s.id != sessionId).toList();
-            final totalTime = remainingSessions.fold(0, (sum, s) => sum + s.durationSeconds);
-            return st.copyWith(
-              currentTimeSpent: totalTime,
-              sessions: remainingSessions,
-              updatedAt: DateTime.now(),
-            );
-          }
-          return st;
-        }).toList());
+          subTasks: task.subTasks.map((st) {
+            if (st.id == subTaskId) {
+              final remainingSessions = st.sessions.where((s) => s.id != sessionId).toList();
+              return st.copyWith(
+                sessions: remainingSessions,
+                updatedAt: DateTime.now(),
+              );
+            }
+            return st;
+          }).toList(),
+        );
       }
       return task;
     }).toList();
-    _provider.setProviderState(mainTasks: newMainTasks);
-    recalibrateTimeLogs(silent: true);
+
+    final recalibrated = TaskCalculations.recalculateAllTimeLogs(provisionalTasks);
+    final todayStr = getTodayDateString();
+    final todayTimes = recalibrated.dailyTaskTimes[todayStr] ?? {};
+
+    final newMainTasks = provisionalTasks.map((task) {
+      final updatedSubtasks = task.subTasks.map((st) {
+        final totalSeconds = recalibrated.subtaskLifetimeSeconds[st.id] ?? 0;
+        return st.copyWith(currentTimeSpent: totalSeconds);
+      }).toList();
+
+      return task.copyWith(
+        subTasks: updatedSubtasks,
+        dailyTimeSpent: todayTimes[task.id] ?? 0,
+      );
+    }).toList();
+
+    final Map<String, dynamic> newCompletedByDay = Map.from(_provider.completedByDay);
+    recalibrated.dailyTaskTimes.forEach((date, taskMap) {
+      if (!newCompletedByDay.containsKey(date)) {
+        newCompletedByDay[date] = {
+          'taskTimes': <String, int>{},
+          'subtasksCompleted': <Map<String, dynamic>>[],
+          'checkpointsCompleted': <Map<String, dynamic>>[],
+          'dailyPlan': <String>[],
+        };
+      }
+      final dayData = Map<String, dynamic>.from(newCompletedByDay[date]);
+      dayData['taskTimes'] = taskMap;
+      newCompletedByDay[date] = dayData;
+    });
+
+    _provider.setProviderState(
+      completedByDay: newCompletedByDay,
+      mainTasks: newMainTasks,
+    );
 
     if (!silent) {
       final formatter = DateFormat('jm');

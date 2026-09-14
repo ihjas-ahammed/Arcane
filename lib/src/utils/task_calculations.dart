@@ -61,13 +61,18 @@ class TaskCalculations {
   }
 
   /// Calculates only the sum of completed sessions for today.
-  /// If [allTasks] is passed, overlapping concurrent sessions are averaged.
+  /// If [allTasks] is passed or cached recalibrated data exists, overlapping split tasks
+  /// in schedule allocate their proportional fraction of the realtime difference.
   static double getHistoricalTodaySeconds(SubTask subTask, [List<MainTask>? allTasks]) {
     final now = DateTime.now();
+    final todayStr = DateFormat('yyyy-MM-dd').format(now);
     if (allTasks != null) {
       final recalibrated = recalculateAllTimeLogs(allTasks);
-      final todayStr = DateFormat('yyyy-MM-dd').format(now);
       return (recalibrated.dailySubtaskTimes[todayStr]?[subTask.id] ?? 0).toDouble();
+    }
+    if (_cachedRecalibratedData != null &&
+        _cachedRecalibratedData!.dailySubtaskTimes.containsKey(todayStr)) {
+      return (_cachedRecalibratedData!.dailySubtaskTimes[todayStr]?[subTask.id] ?? 0).toDouble();
     }
 
     double totalSeconds = 0;
@@ -77,6 +82,88 @@ class TaskCalculations {
       }
     }
     return totalSeconds;
+  }
+
+  /// Total lifetime seconds spent on [subTask], with overlapping sessions
+  /// proportionally calibrated against real-time span.
+  static int getSubtaskTotalSeconds(SubTask subTask, [List<MainTask>? allTasks]) {
+    final recalibrated = allTasks != null 
+        ? recalculateAllTimeLogs(allTasks) 
+        : _cachedRecalibratedData;
+    if (recalibrated != null && recalibrated.subtaskLifetimeSeconds.containsKey(subTask.id)) {
+      return recalibrated.subtaskLifetimeSeconds[subTask.id]!;
+    }
+    if (subTask.currentTimeSpent > 0) return subTask.currentTimeSpent;
+    return subTask.sessions.fold(0, (sum, s) => sum + s.durationSeconds);
+  }
+
+  /// Effective seconds for [session], pro-rated if overlapping with other tasks.
+  static int getSessionEffectiveSeconds(TaskSession session, [List<MainTask>? allTasks]) {
+    final recalibrated = allTasks != null 
+        ? recalculateAllTimeLogs(allTasks) 
+        : _cachedRecalibratedData;
+    if (recalibrated != null && recalibrated.sessionEffectiveSeconds.containsKey(session.id)) {
+      return recalibrated.sessionEffectiveSeconds[session.id]!;
+    }
+    return session.durationSeconds;
+  }
+
+  /// Total calibrated seconds for [subTask] on [day].
+  static int getSubtaskSecondsForDay(SubTask subTask, DateTime day, [List<MainTask>? allTasks]) {
+    final recalibrated = allTasks != null 
+        ? recalculateAllTimeLogs(allTasks) 
+        : _cachedRecalibratedData;
+    final dayStr = DateFormat('yyyy-MM-dd').format(day);
+    if (recalibrated != null && recalibrated.dailySubtaskTimes.containsKey(dayStr)) {
+      return recalibrated.dailySubtaskTimes[dayStr]?[subTask.id] ?? 0;
+    }
+    int sec = 0;
+    for (var s in subTask.sessions) {
+      if (_isSameDay(s.startTime, day)) {
+        sec += s.durationSeconds;
+      }
+    }
+    return sec;
+  }
+
+  /// Total calibrated seconds for [task] on [day].
+  static int getMainTaskSecondsForDay(MainTask task, DateTime day, [List<MainTask>? allTasks]) {
+    final recalibrated = allTasks != null 
+        ? recalculateAllTimeLogs(allTasks) 
+        : _cachedRecalibratedData;
+    final dayStr = DateFormat('yyyy-MM-dd').format(day);
+    if (recalibrated != null && recalibrated.dailyTaskTimes.containsKey(dayStr)) {
+      return recalibrated.dailyTaskTimes[dayStr]?[task.id] ?? 0;
+    }
+    int sec = 0;
+    for (var sub in task.subTasks) {
+      for (var s in sub.sessions) {
+        if (_isSameDay(s.startTime, day)) {
+          sec += s.durationSeconds;
+        }
+      }
+    }
+    return sec;
+  }
+
+  /// Calibrated seconds for [subTask] within the [start] to [end] range.
+  static int getSubtaskSecondsInRange(SubTask subTask, DateTime start, DateTime end, [List<MainTask>? allTasks]) {
+    final recalibrated = allTasks != null 
+        ? recalculateAllTimeLogs(allTasks) 
+        : _cachedRecalibratedData;
+    int total = 0;
+    for (var s in subTask.sessions) {
+      if (s.startTime.isAfter(start) && s.startTime.isBefore(end)) {
+        final eff = recalibrated?.sessionEffectiveSeconds[s.id] ?? s.durationSeconds;
+        total += eff;
+      }
+    }
+    return total;
+  }
+
+  static void invalidateCache() {
+    _cachedTasksRef = null;
+    _cachedRecalibratedData = null;
   }
 
   /// The next checkpoint to tick off for [subTask]: the first (in order)
@@ -354,10 +441,12 @@ class TaskCalculations {
       return res;
     }
 
-    // 2. Process each day independently with high-speed sweep-line
+    // 2. Process each day independently with connected cluster fraction allocation
     intervalsByDay.forEach((dateStr, dayIntervals) {
       dailyTaskTimes[dateStr] = {};
       dailySubtaskTimes[dateStr] = {};
+
+      if (dayIntervals.isEmpty) return;
 
       if (dayIntervals.length == 1) {
         // Fast path for isolated day session: zero overhead
@@ -370,42 +459,102 @@ class TaskCalculations {
         return;
       }
 
-      // Collect unique sorted boundary timestamps for this single day
-      final boundarySet = <DateTime>{};
+      // Sort intervals by startTime, then endTime
+      dayIntervals.sort((a, b) {
+        final cmp = a.startTime.compareTo(b.startTime);
+        if (cmp != 0) return cmp;
+        return a.endTime.compareTo(b.endTime);
+      });
+
+      // Group into connected clusters of overlapping intervals
+      final List<List<_SessionInterval>> clusters = [];
+      List<_SessionInterval> currentCluster = [];
+      DateTime? clusterMaxEnd;
+
       for (var s in dayIntervals) {
-        boundarySet.add(s.startTime);
-        boundarySet.add(s.endTime);
-      }
-      final sortedPoints = boundarySet.toList()..sort();
-
-      for (int i = 0; i < sortedPoints.length - 1; i++) {
-        final tStart = sortedPoints[i];
-        final tEnd = sortedPoints[i + 1];
-        final sliceSeconds = tEnd.difference(tStart).inSeconds;
-        if (sliceSeconds <= 0) continue;
-
-        // Active intervals within this day's slice
-        final active = <_SessionInterval>[];
-        for (var s in dayIntervals) {
-          if (!s.startTime.isAfter(tStart) && !s.endTime.isBefore(tEnd)) {
-            active.add(s);
+        if (currentCluster.isEmpty) {
+          currentCluster.add(s);
+          clusterMaxEnd = s.endTime;
+        } else if (s.startTime.isBefore(clusterMaxEnd!)) {
+          // Overlaps with current cluster
+          currentCluster.add(s);
+          if (s.endTime.isAfter(clusterMaxEnd)) {
+            clusterMaxEnd = s.endTime;
           }
+        } else {
+          // No overlap: close current cluster and start new one
+          clusters.add(currentCluster);
+          currentCluster = [s];
+          clusterMaxEnd = s.endTime;
         }
+      }
+      if (currentCluster.isNotEmpty) {
+        clusters.add(currentCluster);
+      }
 
-        if (active.isEmpty) continue;
+      // Allocate time per cluster
+      for (var cluster in clusters) {
+        if (cluster.length == 1) {
+          // Isolated session in this cluster: gets 100% of duration
+          final s = cluster.first;
+          final dur = s.endTime.difference(s.startTime).inSeconds;
+          sessionEffectiveSeconds[s.sessionId] = (sessionEffectiveSeconds[s.sessionId] ?? 0) + dur;
+          subtaskLifetimeSeconds[s.subTaskId] = (subtaskLifetimeSeconds[s.subTaskId] ?? 0) + dur;
+          dailyTaskTimes[dateStr]![s.mainTaskId] = (dailyTaskTimes[dateStr]![s.mainTaskId] ?? 0) + dur;
+          dailySubtaskTimes[dateStr]![s.subTaskId] = (dailySubtaskTimes[dateStr]![s.subTaskId] ?? 0) + dur;
+        } else {
+          // Cluster of split / overlapping tasks:
+          // Difference in realtime: max end - min start
+          DateTime clusterMinStart = cluster.first.startTime;
+          DateTime clusterLatestEnd = cluster.first.endTime;
+          int totalRawSeconds = 0;
 
-        final count = active.length;
-        final base = sliceSeconds ~/ count;
-        final remainder = sliceSeconds % count;
+          for (var s in cluster) {
+            if (s.startTime.isBefore(clusterMinStart)) {
+              clusterMinStart = s.startTime;
+            }
+            if (s.endTime.isAfter(clusterLatestEnd)) {
+              clusterLatestEnd = s.endTime;
+            }
+            totalRawSeconds += s.endTime.difference(s.startTime).inSeconds;
+          }
 
-        for (int j = 0; j < count; j++) {
-          final s = active[j];
-          final allocated = base + (j < remainder ? 1 : 0);
+          final realtimeDifference = clusterLatestEnd.difference(clusterMinStart).inSeconds;
 
-          sessionEffectiveSeconds[s.sessionId] = (sessionEffectiveSeconds[s.sessionId] ?? 0) + allocated;
-          subtaskLifetimeSeconds[s.subTaskId] = (subtaskLifetimeSeconds[s.subTaskId] ?? 0) + allocated;
-          dailyTaskTimes[dateStr]![s.mainTaskId] = (dailyTaskTimes[dateStr]![s.mainTaskId] ?? 0) + allocated;
-          dailySubtaskTimes[dateStr]![s.subTaskId] = (dailySubtaskTimes[dateStr]![s.subTaskId] ?? 0) + allocated;
+          if (totalRawSeconds <= 0 || realtimeDifference <= 0) {
+            continue;
+          }
+
+          // Distribute realtimeDifference proportionally according to each session's raw duration
+          int allocatedSum = 0;
+          final sessionAllocations = <int>[];
+
+          for (int i = 0; i < cluster.length; i++) {
+            final s = cluster[i];
+            final rawSec = s.endTime.difference(s.startTime).inSeconds;
+            final alloc = (realtimeDifference * rawSec) ~/ totalRawSeconds;
+            sessionAllocations.add(alloc);
+            allocatedSum += alloc;
+          }
+
+          // Distribute remainder so allocatedSum == realtimeDifference exactly
+          int remainder = realtimeDifference - allocatedSum;
+          int idx = 0;
+          while (remainder > 0 && idx < cluster.length) {
+            sessionAllocations[idx] += 1;
+            remainder--;
+            idx++;
+          }
+
+          for (int i = 0; i < cluster.length; i++) {
+            final s = cluster[i];
+            final allocated = sessionAllocations[i];
+
+            sessionEffectiveSeconds[s.sessionId] = (sessionEffectiveSeconds[s.sessionId] ?? 0) + allocated;
+            subtaskLifetimeSeconds[s.subTaskId] = (subtaskLifetimeSeconds[s.subTaskId] ?? 0) + allocated;
+            dailyTaskTimes[dateStr]![s.mainTaskId] = (dailyTaskTimes[dateStr]![s.mainTaskId] ?? 0) + allocated;
+            dailySubtaskTimes[dateStr]![s.subTaskId] = (dailySubtaskTimes[dateStr]![s.subTaskId] ?? 0) + allocated;
+          }
         }
       }
     });

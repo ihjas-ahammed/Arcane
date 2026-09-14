@@ -65,9 +65,12 @@ class SubmissionCard extends StatelessWidget {
 
     final now = DateTime.now();
     final sevenDaysAgo = now.subtract(const Duration(days: 7));
+    final recalibrated = TaskCalculations.recalculateAllTimeLogs(provider.mainTasks);
     var total7Days = 0.0;
     for (var s in current.sessions) {
-      if (s.startTime.isAfter(sevenDaysAgo)) total7Days += s.durationSeconds;
+      if (s.startTime.isAfter(sevenDaysAgo)) {
+        total7Days += (recalibrated.sessionEffectiveSeconds[s.id] ?? s.durationSeconds);
+      }
     }
     var avgSeconds = total7Days / 7.0;
     if (avgSeconds < 300) avgSeconds = 300;

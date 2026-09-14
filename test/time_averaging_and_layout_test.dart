@@ -200,6 +200,90 @@ void main() {
       expect(result.dailyTaskTimes['2026-09-13']!['task_1'], equals(3600));
       expect(result.subtaskLifetimeSeconds['sub_1'], equals(7200));
     });
+
+    test('Cluster fraction: Task from 9 to 5 pm with interior tasks allocates exact realtime difference', () {
+      // Task A: 09:00 - 17:00 (8h = 28,800s)
+      // Task B: 10:00 - 12:00 (2h = 7,200s)
+      // Task C: 13:00 - 15:00 (2h = 7,200s)
+      // Task D: 15:00 - 17:00 (2h = 7,200s)
+      // Raw sum = 28,800 + 7,200 + 7,200 + 7,200 = 50,400s (14 hours!)
+      // Realtime span = 17:00 - 09:00 = 8h (28,800s)
+      // Total sum must be strictly 28,800s (NEVER overcounted to 14h or 16h)
+      final t9 = DateTime(2026, 9, 12, 9, 0);
+      final t17 = DateTime(2026, 9, 12, 17, 0);
+      final t10 = DateTime(2026, 9, 12, 10, 0);
+      final t12 = DateTime(2026, 9, 12, 12, 0);
+      final t13 = DateTime(2026, 9, 12, 13, 0);
+      final t15 = DateTime(2026, 9, 12, 15, 0);
+
+      final taskA = MainTask(
+        id: 'task_a',
+        name: 'Task 9 to 5',
+        description: '',
+        theme: 'general',
+        subTasks: [
+          SubTask(
+            id: 'sub_a',
+            name: 'Sub A',
+            sessions: [TaskSession(id: 'sa', startTime: t9, endTime: t17)],
+          )
+        ],
+      );
+
+      final taskB = MainTask(
+        id: 'task_b',
+        name: 'Task B',
+        description: '',
+        theme: 'general',
+        subTasks: [
+          SubTask(
+            id: 'sub_b',
+            name: 'Sub B',
+            sessions: [TaskSession(id: 'sb', startTime: t10, endTime: t12)],
+          )
+        ],
+      );
+
+      final taskC = MainTask(
+        id: 'task_c',
+        name: 'Task C',
+        description: '',
+        theme: 'general',
+        subTasks: [
+          SubTask(
+            id: 'sub_c',
+            name: 'Sub C',
+            sessions: [TaskSession(id: 'sc', startTime: t13, endTime: t15)],
+          )
+        ],
+      );
+
+      final taskD = MainTask(
+        id: 'task_d',
+        name: 'Task D',
+        description: '',
+        theme: 'general',
+        subTasks: [
+          SubTask(
+            id: 'sub_d',
+            name: 'Sub D',
+            sessions: [TaskSession(id: 'sd', startTime: t15, endTime: t17)],
+          )
+        ],
+      );
+
+      final result = TaskCalculations.recalculateAllTimeLogs([taskA, taskB, taskC, taskD]);
+      final todayTimes = result.dailyTaskTimes['2026-09-12']!;
+
+      // Total must be EXACTLY 28,800s (8 hours)
+      final totalToday = todayTimes.values.reduce((a, b) => a + b);
+      expect(totalToday, equals(28800));
+
+      expect(todayTimes['task_a'], equals((28800 * 28800) ~/ 50400 + 1));
+      expect(todayTimes['task_b'], equals((28800 * 7200) ~/ 50400));
+      expect(todayTimes['task_c'], equals((28800 * 7200) ~/ 50400));
+      expect(todayTimes['task_d'], equals((28800 * 7200) ~/ 50400));
+    });
   });
 
   group('TimeValidationHelper concurrent session support', () {

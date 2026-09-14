@@ -7,6 +7,9 @@ import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/utils/task_calculations.dart';
 
 String _fmtMins(double v) {
   final m = v.round();
@@ -33,6 +36,7 @@ class SubtaskWeeklyChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<AppProvider>(context, listen: false);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final days = <DateTime>[];
@@ -41,12 +45,7 @@ class SubtaskWeeklyChart extends StatelessWidget {
     for (var i = 6; i >= 0; i--) {
       final d = today.subtract(Duration(days: i));
       days.add(d);
-      double sec = 0;
-      for (var s in subTask.sessions) {
-        if (s.startTime.year == d.year && s.startTime.month == d.month && s.startTime.day == d.day) {
-          sec += s.durationSeconds;
-        }
-      }
+      final sec = TaskCalculations.getSubtaskSecondsForDay(subTask, d, provider.mainTasks).toDouble();
       mins.add(sec / 60.0);
     }
 

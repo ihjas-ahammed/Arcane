@@ -8,23 +8,14 @@ import 'package:missions/src/models/health_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/services/widget_action_router.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/utils/task_calculations.dart';
 
 int taskWorkoutMinutesForDay(AppProvider provider, String taskId, String dateStr) {
   final task = provider.mainTasks.firstWhereOrNull((t) => t.id == taskId);
   if (task == null) return 0;
   final target = DateTime.tryParse(dateStr);
   if (target == null) return 0;
-  int seconds = 0;
-  for (final sub in task.subTasks) {
-    for (final s in sub.sessions) {
-      if (s.startTime.year == target.year &&
-          s.startTime.month == target.month &&
-          s.startTime.day == target.day) {
-        seconds += s.durationSeconds.round();
-      }
-    }
-  }
-  return seconds ~/ 60;
+  return TaskCalculations.getMainTaskSecondsForDay(task, target, provider.mainTasks) ~/ 60;
 }
 
 void showActivityDialog(BuildContext context, AppProvider provider, String dateStr) {

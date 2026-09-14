@@ -11,6 +11,7 @@ import 'package:missions/src/screens/project/project_weekly_chart.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/src/utils/task_calculations.dart';
 
 class ProjectPlanBriefingHero extends StatelessWidget {
   final Project project;
@@ -130,9 +131,7 @@ class ProjectAnalyticsTab extends StatelessWidget {
       final sub = mainTask?.subTasks.firstWhereOrNull((s) => s.id == subId);
       if (sub == null) continue;
 
-      for (final session in sub.sessions) {
-        totalSeconds += session.durationSeconds;
-      }
+      totalSeconds += TaskCalculations.getSubtaskTotalSeconds(sub, provider.mainTasks);
 
       final timer = provider.activeTimers[sub.id];
       if (timer != null && timer.isRunning) {

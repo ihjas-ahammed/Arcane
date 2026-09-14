@@ -7,6 +7,7 @@ import 'package:missions/src/widgets/dialogs/session_edit_dialog.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:missions/src/utils/task_calculations.dart';
 
 class SessionLogDrawer extends StatelessWidget {
   final MainTask parentTask;
@@ -23,15 +24,18 @@ class SessionLogDrawer extends StatelessWidget {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => SessionEditDialog(
-          initialStart: session.startTime, initialEnd: session.endTime),
+        initialStart: session.startTime,
+        initialEnd: session.endTime,
+      ),
     );
+
     if (result != null) {
       if (result['action'] == 'delete') {
         provider.deleteSessionFromSubtask(
             parentTask.id, subTask.id, session.id);
       } else if (result['action'] == 'save') {
-        provider.updateSessionInSubtask(parentTask.id, subTask.id, session.id,
-            result['start'], result['end']);
+        provider.updateSessionInSubtask(parentTask.id, subTask.id,
+            session.id, result['start'], result['end']);
       }
     }
   }
@@ -51,6 +55,7 @@ class SessionLogDrawer extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    final recalibrated = TaskCalculations.recalculateAllTimeLogs(provider.mainTasks);
     final sessions = List<TaskSession>.from(liveSubTask.sessions)
       ..sort((a, b) => b.startTime.compareTo(a.startTime));
 
@@ -122,8 +127,9 @@ class SessionLogDrawer extends StatelessWidget {
                     itemCount: sessions.length,
                     itemBuilder: (context, index) {
                       final session = sessions[index];
-                      final duration =
+                      final rawDuration =
                           session.endTime.difference(session.startTime);
+                      final effectiveSeconds = recalibrated.sessionEffectiveSeconds[session.id] ?? rawDuration.inSeconds;
                       final dateStr =
                           DateFormat('MMM dd, yyyy').format(session.startTime);
                       final timeRangeStr =
@@ -229,7 +235,7 @@ class SessionLogDrawer extends StatelessWidget {
                                   children: [
                                     Text(
                                       helper.formatTime(
-                                          duration.inSeconds.toDouble()),
+                                          effectiveSeconds.toDouble()),
                                       style: TextStyle(
                                         fontFamily: "RobotoMono",
                                         color: AppTheme.fhAccentTeal,
@@ -237,6 +243,17 @@ class SessionLogDrawer extends StatelessWidget {
                                         fontSize: 14,
                                       ),
                                     ),
+                                    if (effectiveSeconds != rawDuration.inSeconds) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        "SPLIT (${rawDuration.inMinutes}m)",
+                                        style: TextStyle(
+                                          color: AppTheme.fhTextDisabled,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
                                     const SizedBox(height: 4),
                                     Icon(MdiIcons.pencil,
                                         size: 14, color: AppTheme.fhTextDisabled),

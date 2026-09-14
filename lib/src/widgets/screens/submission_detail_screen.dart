@@ -185,7 +185,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     }
 
     final timerState = provider.activeTimers[liveSubTask.id];
-    final double todaySeconds = TaskCalculations.getTodaySeconds(liveSubTask, timerState);
+    final double todaySeconds = TaskCalculations.getTodaySeconds(liveSubTask, timerState, provider.mainTasks);
     final bool isRunning = timerState?.isRunning ?? false;
     final timelineEntries = _buildTimelineEntries(provider, liveSubTask.id);
     final Color activeAccent = widget.parentTask.taskColor;
@@ -355,8 +355,8 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
                         dataPoints: liveSubTask.progressDataPoints,
                         accentColor: activeAccent,
                         currentSpentSeconds: liveSubTask.isRecurring
-                            ? TaskCalculations.getTodaySeconds(liveSubTask, timerState).toInt()
-                            : liveSubTask.sessions.fold(0, (s, sess) => s + sess.durationSeconds) +
+                            ? TaskCalculations.getTodaySeconds(liveSubTask, timerState, provider.mainTasks).toInt()
+                            : TaskCalculations.getSubtaskTotalSeconds(liveSubTask, provider.mainTasks) +
                                 (isRunning && timerState?.startTime != null
                                     ? DateTime.now().difference(timerState!.startTime).inSeconds
                                     : 0),

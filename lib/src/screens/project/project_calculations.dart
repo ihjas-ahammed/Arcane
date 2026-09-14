@@ -8,24 +8,22 @@ import 'package:missions/src/utils/task_calculations.dart';
 int calculateProjectStreak(Project project, AppProvider provider) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
+  final recalibrated = TaskCalculations.recalculateAllTimeLogs(provider.mainTasks);
   final Map<String, double> dailySeconds = {};
 
   for (final key in project.linkedTaskKeys) {
     final parts = key.split('|');
     if (parts.length < 2) continue;
-    final mainId = parts[0];
     final subId = parts[1];
 
-    final mainTask = provider.mainTasks.firstWhereOrNull((t) => t.id == mainId);
-    final sub = mainTask?.subTasks.firstWhereOrNull((s) => s.id == subId);
-    if (sub == null) continue;
+    recalibrated.dailySubtaskTimes.forEach((dateStr, subMap) {
+      final sSec = subMap[subId] ?? 0;
+      if (sSec > 0) {
+        dailySeconds[dateStr] = (dailySeconds[dateStr] ?? 0.0) + sSec;
+      }
+    });
 
-    for (final session in sub.sessions) {
-      final dateStr = DateFormat('yyyy-MM-dd').format(session.startTime);
-      dailySeconds[dateStr] = (dailySeconds[dateStr] ?? 0.0) + session.durationSeconds;
-    }
-
-    final timer = provider.activeTimers[sub.id];
+    final timer = provider.activeTimers[subId];
     if (timer != null && timer.isRunning) {
       final elapsed = DateTime.now().difference(timer.startTime).inSeconds;
       final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());

@@ -1,3 +1,18 @@
+# ⚡ Arcane System Upgrade // v2026.9.14 (Build #2126091401)
+
+### ⏱️ Proportional Realtime Cluster Time Allocation
+- **Eliminated Overcounted Schedule Time**: When multiple tasks overlap or nest within the same schedule window (e.g., a 9:00 AM – 5:00 PM task with intermediate tasks at 10–12, 13–15, 15–17), time is no longer inflated. Overlapping sessions are grouped into connected clusters, measuring the true realtime difference ($\Delta T_{\text{realtime}} = \max(endTime) - \min(startTime)$).
+- **Proportional Fractional Allocation**: Each session within an overlapping cluster is allocated its exact proportional fraction of the realtime difference based on its scheduled duration:
+  $$\text{effectiveSeconds} = \frac{s.\text{durationSeconds}}{\sum s_j.\text{durationSeconds}} \times \Delta T_{\text{realtime}}$$
+  Fractional seconds are distributed using largest-remainder distribution, ensuring the sum of all session times strictly matches the real wall-clock elapsed time down to the integer second.
+- **Universal Application Across App Subsystems**:
+  - **Missions & Subtasks**: Lifetime duration, today's elapsed time, and 7-day rolling averages reflect proportional real-time allocation.
+  - **Session Archives & Drawers**: Individual session cards and log drawers display calibrated effective durations with `SPLIT (Xm)` badge telemetry.
+  - **Charts & Analytics**: Subtask progress time charts, weekly bar charts, project analytics, and streaks calculate proportional cluster time.
+  - **Health & Reports**: Daily workout sync and AI system report generators derive accurate real-time workloads.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.12 (Build #2126091205)
 
 ### 🚀 Timeline & Time Calculation High-Performance Overhaul

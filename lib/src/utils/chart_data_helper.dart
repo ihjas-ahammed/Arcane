@@ -5,6 +5,7 @@ import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
+import 'package:missions/src/utils/task_calculations.dart';
 
 class ChartDataHelper {
   static Map<String, dynamic> prepareWeeklyData(
@@ -141,7 +142,10 @@ class ChartDataHelper {
   }
 
   static int calculateDailyTimeFromSessions(
-      MainTask task, DateTime startOfDay) {
+      MainTask task, DateTime startOfDay, [List<MainTask>? allTasks]) {
+    final sec = TaskCalculations.getMainTaskSecondsForDay(task, startOfDay, allTasks);
+    if (sec > 0) return (sec / 60).round();
+
     int totalMinutes = 0;
     for (var sub in task.subTasks) {
       for (var session in sub.sessions) {

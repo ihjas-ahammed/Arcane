@@ -7,6 +7,7 @@ import 'package:missions/src/utils/helpers.dart';
 import 'package:missions/src/utils/history_helper.dart';
 import 'package:missions/src/utils/goal_briefing_helper.dart';
 import 'package:intl/intl.dart';
+import 'package:missions/src/utils/task_calculations.dart';
 
 class ReportActions {
   final AppProvider _provider;
@@ -208,6 +209,7 @@ class ReportActions {
   String _buildWeeklyAgentProgressContext(DateTime now) {
     final weekAgo = now.subtract(const Duration(days: 7));
     final buf = StringBuffer();
+    final recalibrated = TaskCalculations.recalculateAllTimeLogs(_provider.mainTasks);
     for (final task in _provider.mainTasks.where((t) => !t.isDeleted && t.isActive).take(4)) {
       int weekSec = 0;
       int completedSubs = 0;
@@ -216,7 +218,7 @@ class ReportActions {
         if (sub.completed) completedSubs++;
         for (final sess in sub.sessions) {
           if (sess.startTime.isAfter(weekAgo) && sess.startTime.isBefore(now)) {
-            weekSec += sess.durationSeconds;
+            weekSec += (recalibrated.sessionEffectiveSeconds[sess.id] ?? sess.durationSeconds);
           }
         }
       }
