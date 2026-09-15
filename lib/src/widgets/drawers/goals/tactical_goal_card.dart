@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -9,7 +10,7 @@ import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/widgets/drawers/goals/add_sub_check_item_row.dart';
 import 'package:missions/src/widgets/drawers/goals/tactical_goal_painters.dart';
 
-class TacticalGoalCard extends StatelessWidget {
+class TacticalGoalCard extends StatefulWidget {
   final GoalModel goal;
   final double timeMins;
   final Color themeColor;
@@ -32,7 +33,38 @@ class TacticalGoalCard extends StatelessWidget {
   });
 
   @override
+  State<TacticalGoalCard> createState() => _TacticalGoalCardState();
+}
+
+class _TacticalGoalCardState extends State<TacticalGoalCard> {
+  bool _isReorderMode = false;
+
+  void _toggleReorderMode() {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _isReorderMode = !_isReorderMode;
+      if (_isReorderMode && !widget.isSubExpanded) {
+        widget.onToggleSubExpanded();
+      }
+    });
+  }
+
+  void _moveItem(int currentIndex, int delta) {
+    final targetIndex = currentIndex + delta;
+    if (targetIndex < 0 || targetIndex >= widget.goal.subChecklist.length) return;
+    HapticFeedback.selectionClick();
+    widget.appProvider.reorderGoalSubCheckItem(widget.goal.id, currentIndex, targetIndex);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final goal = widget.goal;
+    final timeMins = widget.timeMins;
+    final themeColor = widget.themeColor;
+    final isLight = widget.isLight;
+    final appProvider = widget.appProvider;
+    final onEdit = widget.onEdit;
+
     final isDone = goal.getIsEffectiveCompleted(dynamicTimeMinutes: timeMins);
     final ratio = goal.getProgressRatio(dynamicTimeMinutes: timeMins);
 
@@ -304,6 +336,13 @@ class TacticalGoalCard extends StatelessWidget {
   }
 
   Widget _buildSubchecklist(BuildContext context) {
+    final goal = widget.goal;
+    final themeColor = widget.themeColor;
+    final isLight = widget.isLight;
+    final isSubExpanded = widget.isSubExpanded;
+    final appProvider = widget.appProvider;
+    final onToggleSubExpanded = widget.onToggleSubExpanded;
+
     final completedCount =
         goal.subChecklist.where((i) => i.isCompleted).length;
     final totalCount = goal.subChecklist.length;
@@ -313,62 +352,143 @@ class TacticalGoalCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: isLight
-            ? Colors.black.withValues(alpha: 0.03)
-            : const Color(0xFF0F1018),
+            ? (_isReorderMode
+                ? themeColor.withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: 0.03))
+            : (_isReorderMode
+                ? themeColor.withValues(alpha: 0.08)
+                : const Color(0xFF0F1018)),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: (goal.isCompleted ? themeColor.darken(0.15) : themeColor)
-              .withValues(alpha: 0.25),
-          width: 1,
+          color: _isReorderMode
+              ? themeColor.withValues(alpha: 0.65)
+              : (goal.isCompleted ? themeColor.darken(0.15) : themeColor)
+                  .withValues(alpha: 0.25),
+          width: _isReorderMode ? 1.5 : 1,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Subchecklist Header Bar
-          InkWell(
-            onTap: onToggleSubExpanded,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              child: Row(
-                children: [
-                  Icon(
-                    isSubExpanded
-                        ? Icons.keyboard_arrow_down
-                        : Icons.keyboard_arrow_right,
-                    size: 16,
-                    color: themeColor,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'SUBCHECKLIST',
-                    style: GoogleFonts.orbitron(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.bold,
-                      color: isLight ? Colors.black87 : Colors.white70,
+          // Subchecklist Header Bar (Single-tap: collapse/expand, Double-tap: toggle rearrange mode)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: onToggleSubExpanded,
+                    onDoubleTap: _toggleReorderMode,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isSubExpanded
+                              ? Icons.keyboard_arrow_down
+                              : Icons.keyboard_arrow_right,
+                          size: 16,
+                          color: themeColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _isReorderMode ? 'REORDER' : 'SUBCHECKLIST',
+                          style: GoogleFonts.orbitron(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            color: _isReorderMode
+                                ? (isLight ? themeColor.darken(0.15) : themeColor)
+                                : (isLight ? Colors.black87 : Colors.white70),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        if (_isReorderMode) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: themeColor
+                                  .withValues(alpha: isLight ? 0.15 : 0.22),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: themeColor.withValues(alpha: 0.45),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Text(
+                              'ARRANGE',
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.bold,
+                                color: themeColor,
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: themeColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '$completedCount/$totalCount (${(subRatio * 100).toInt()}%)',
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: themeColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: themeColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      '$completedCount/$totalCount (${(subRatio * 100).toInt()}%)',
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        color: themeColor,
+                ),
+                if (_isReorderMode)
+                  InkWell(
+                    onTap: _toggleReorderMode,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: themeColor.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: themeColor.withValues(alpha: 0.5),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check, size: 12, color: themeColor),
+                          const SizedBox(width: 3),
+                          Text(
+                            'DONE',
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.bold,
+                              color: themeColor,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+                  )
+                else
+                  InkWell(
+                    onTap: _toggleReorderMode,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Tooltip(
+                      message: 'Double click to rearrange subchecklist',
+                      child: Icon(MdiIcons.swapVertical,
+                          size: 14, color: themeColor),
+                    ),
                   ),
-                  const Spacer(),
-                  Icon(MdiIcons.playlistPlus, size: 14, color: themeColor),
-                ],
-              ),
+              ],
             ),
           ),
 
@@ -378,16 +498,37 @@ class TacticalGoalCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
               child: Column(
                 children: [
-                  ...goal.subChecklist.map((item) {
+                  ...goal.subChecklist.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
+                    final isFirst = index == 0;
+                    final isLast = index == totalCount - 1;
                     return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      key: ValueKey('sub_${item.id}'),
+                      padding: EdgeInsets.symmetric(
+                          vertical: _isReorderMode ? 3 : 2),
                       child: Row(
                         children: [
+                          if (_isReorderMode)
+                            Container(
+                              width: 18,
+                              margin: const EdgeInsets.only(right: 6),
+                              alignment: Alignment.center,
+                              child: Text(
+                                '${index + 1}',
+                                style: GoogleFonts.jetBrainsMono(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: themeColor,
+                                ),
+                              ),
+                            ),
                           InkWell(
                             onTap: () {
                               appProvider.toggleGoalSubCheckItem(
                                   goal.id, item.id);
                             },
+                            onDoubleTap: _toggleReorderMode,
                             child: Icon(
                               item.isCompleted
                                   ? MdiIcons.checkboxMarkedCircleOutline
@@ -400,38 +541,145 @@ class TacticalGoalCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text(
-                              item.title,
-                              style: GoogleFonts.jetBrainsMono(
-                                fontSize: 11,
-                                decoration: item.isCompleted
-                                    ? TextDecoration.lineThrough
-                                    : null,
-                                color: item.isCompleted
-                                    ? (isLight
-                                        ? Colors.black38
-                                        : Colors.white38)
-                                    : (isLight
-                                        ? Colors.black87
-                                        : Colors.white),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onDoubleTap: _toggleReorderMode,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Text(
+                                  item.title,
+                                  style: GoogleFonts.jetBrainsMono(
+                                    fontSize: 11,
+                                    decoration: item.isCompleted
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                    color: item.isCompleted
+                                        ? (isLight
+                                            ? Colors.black38
+                                            : Colors.white38)
+                                        : (isLight
+                                            ? Colors.black87
+                                            : Colors.white),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                          InkWell(
-                            onTap: () {
-                              appProvider.deleteGoalSubCheckItem(
-                                  goal.id, item.id);
-                            },
-                            child: Icon(Icons.close,
-                                size: 14,
-                                color: isLight
-                                    ? Colors.black38
-                                    : Colors.white38),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
+                          if (_isReorderMode) ...[
+                              const SizedBox(width: 4),
+                              // UP ARROW BUTTON
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: isFirst
+                                      ? null
+                                      : () => _moveItem(index, -1),
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Container(
+                                    width: 26,
+                                    height: 26,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: isFirst
+                                          ? (isLight
+                                              ? Colors.black
+                                                  .withValues(alpha: 0.03)
+                                              : Colors.white
+                                                  .withValues(alpha: 0.03))
+                                          : themeColor.withValues(
+                                              alpha: isLight ? 0.15 : 0.22),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: isFirst
+                                            ? Colors.transparent
+                                            : themeColor
+                                                .withValues(alpha: 0.45),
+                                        width: 0.9,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Icons.keyboard_arrow_up_rounded,
+                                      size: 18,
+                                      color: isFirst
+                                          ? (isLight
+                                              ? Colors.black26
+                                              : Colors.white24)
+                                          : (isLight
+                                              ? themeColor.darken(0.1)
+                                              : themeColor),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              // DOWN ARROW BUTTON
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: isLast
+                                      ? null
+                                      : () => _moveItem(index, 1),
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Container(
+                                    width: 26,
+                                    height: 26,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: isLast
+                                          ? (isLight
+                                              ? Colors.black
+                                                  .withValues(alpha: 0.03)
+                                              : Colors.white
+                                                  .withValues(alpha: 0.03))
+                                          : themeColor.withValues(
+                                              alpha: isLight ? 0.15 : 0.22),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: isLast
+                                            ? Colors.transparent
+                                            : themeColor
+                                                .withValues(alpha: 0.45),
+                                        width: 0.9,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      size: 18,
+                                      color: isLast
+                                          ? (isLight
+                                              ? Colors.black26
+                                              : Colors.white24)
+                                          : (isLight
+                                              ? themeColor.darken(0.1)
+                                              : themeColor),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
+                            InkWell(
+                              onTap: () {
+                                appProvider.deleteGoalSubCheckItem(
+                                    goal.id, item.id);
+                              },
+                              onDoubleTap: _toggleReorderMode,
+                              borderRadius: BorderRadius.circular(4),
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Icon(
+                                  Icons.close,
+                                  size: 14,
+                                  color: isLight
+                                      ? Colors.black38
+                                      : Colors.white38,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                   const SizedBox(height: 6),
 
                   // Add Subchecklist Item Input Row

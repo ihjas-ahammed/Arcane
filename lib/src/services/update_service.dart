@@ -25,8 +25,8 @@ class UpdateService {
       return PackageInfo(
         appName: 'Arcane',
         packageName: 'me.ihjas.missions',
-        version: '2026.9.14',
-        buildNumber: '2126091401',
+        version: '2026.9.15',
+        buildNumber: '2126091501',
       );
     }
   }

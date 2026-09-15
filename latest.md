@@ -1,3 +1,14 @@
+# ⚡ Arcane System Upgrade // v2026.9.15 (Build #2126091501)
+
+### 🎯 Interactive Goal Subchecklist Rearrange Mode
+- **Gesture-Activated Reorder Mode**: Double-tapping the subchecklist header or any subchecklist item row activates interactive rearrange mode with light tactical haptic feedback (`HapticFeedback.lightImpact`).
+- **Arrow-Based Order Controls**: When in rearrange mode, each subchecklist task exposes dedicated Up (`▲`) and Down (`▼`) arrow controls to shift task priority and sequencing within the goal.
+- **Visual Feedback & Index Badging**: Shows numbered badges (`#1`, `#2`, `#3`) for clear sequence tracking, while boundary arrows automatically disable at the list boundaries (top-most item disables Up arrow; bottom-most item disables Down arrow).
+- **Responsive Layout & Dual-Theme Parity**: Compact header badge and adaptive text prevent horizontal layout overflow even on compact 320px device screens. Adapts dynamically to `JweTheme` light and dark modes with calibrated cyber hues.
+- **Dedicated Completion Control**: Added an independent `[✓ DONE]` header action to seamlessly commit ordering and exit rearrange mode.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.14 (Build #2126091401)
 
 ### ⏱️ Proportional Realtime Cluster Time Allocation

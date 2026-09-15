@@ -273,6 +273,23 @@ mixin TaskMixin on ChangeNotifier {
     notifyListeners();
   }
 
+  void reorderGoalSubCheckItem(String goalId, int oldIndex, int newIndex) {
+    _goals = _goals.map((g) {
+      if (g.id == goalId) {
+        final list = List<GoalSubCheckItem>.from(g.subChecklist);
+        if (oldIndex < 0 || oldIndex >= list.length) return g;
+        if (newIndex < 0 || newIndex >= list.length) return g;
+        if (oldIndex == newIndex) return g;
+        final item = list.removeAt(oldIndex);
+        list.insert(newIndex, item);
+        return g.copyWith(subChecklist: list);
+      }
+      return g;
+    }).toList();
+    sync.markDirty('tasks');
+    notifyListeners();
+  }
+
   void addGoalSubCheckItem(String goalId, String title) {
     if (title.trim().isEmpty) return;
     _goals = _goals.map((g) {
