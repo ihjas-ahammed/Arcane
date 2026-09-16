@@ -10,6 +10,7 @@ import 'package:missions/src/screens/settings/homescreen_widgets_preview_screen.
 import 'package:missions/src/screens/settings/bus_network_editor_screen.dart';
 import 'package:missions/src/screens/settings/sop_list_screen.dart';
 import 'package:missions/src/widgets/views/settings_view.dart';
+import 'package:missions/src/screens/trading/realtime_trading_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -101,6 +102,18 @@ class MoreScreen extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                       builder: (context) => const DatabaseEditorScreen()));
+            }),
+
+            _buildMenuTile(context,
+                icon: MdiIcons.chartLine,
+                title: "Realtime Trading",
+                subtitle: "Live crypto paper-trading simulator & execution lab",
+                colorOverride: JweTheme.accentCyan,
+                onTap: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const RealtimeTradingScreen()));
             }),
 
             const SizedBox(height: 32),
@@ -209,9 +222,9 @@ class MoreScreen extends StatelessWidget {
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: effectiveColor.withOpacity(0.1),
+            color: effectiveColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.zero,
-            border: Border.all(color: effectiveColor.withOpacity(0.3))
+            border: Border.all(color: effectiveColor.withValues(alpha: 0.3))
           ),
           child: Icon(icon, color: effectiveColor),
         ),

@@ -5,6 +5,7 @@ import 'package:missions/src/screens/journaling/people_info_screen.dart';
 import 'package:missions/src/screens/journaling/simulate_event_screen.dart';
 import 'package:missions/src/screens/journaling/simulate_talk_screen.dart';
 import 'package:missions/src/screens/skills/skills_screen.dart';
+import 'package:missions/src/screens/trading/realtime_trading_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class AdvancedToolsScreen extends StatelessWidget {
@@ -67,6 +68,15 @@ class AdvancedToolsScreen extends StatelessWidget {
               color: AppTheme.fhAccentOrange,
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SimulateTalkScreen())),
             ),
+            const SizedBox(height: 16),
+            _buildToolCard(
+              context,
+              title: "REALTIME TRADING",
+              description: "Practice simulated buy/sell decisions with live Binance WebSocket prices and virtual ₹1,00,000 cash.",
+              icon: MdiIcons.chartLine,
+              color: AppTheme.fhAccentTeal,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RealtimeTradingScreen())),
+            ),
           ],
         ),
       ),
@@ -75,7 +85,7 @@ class AdvancedToolsScreen extends StatelessWidget {
 
   Widget _buildToolCard(BuildContext context, {required String title, required String description, required IconData icon, required Color color, required VoidCallback onTap}) {
     return ValorantCard(
-      borderColor: color.withOpacity(0.5),
+      borderColor: color.withValues(alpha: 0.5),
       onTap: onTap,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,7 +93,7 @@ class AdvancedToolsScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 28),

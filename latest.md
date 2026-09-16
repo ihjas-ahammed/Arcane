@@ -1,3 +1,31 @@
+# ⚡ Arcane System Upgrade // v2026.9.16 (Build #2126091603)
+
+### 📈 Realtime Paper-Trading Simulator (Binance WebSocket Feed)
+- **Zero-Risk Live Paper Trading**: Added a full paper-trading simulator to the "Systems & Utilities" suite enabling risk-free buy-low / sell-high strategy practice with real-time streaming market prices and a virtual balance.
+- **Binance Public WebSocket Feed**: Integrated live market streaming from `wss://stream.binance.com:9443` for `BTC/USDT`, `ETH/USDT`, and `SOL/USDT`. Features zero API keys, 1-second ticks, auto-reconnection, REST snapshot bootstrap for instantaneous load, and rolling tick buffers for live sparklines and charts.
+- **Watchlist Screen & Live Sparklines**: Displays live USD prices, converted INR equivalents (at configurable USDT/INR exchange rate, default ₹88), 24h percentage changes (color-coded green/red), and animated sparklines updating with incoming ticks.
+- **Asset Detail Screen & FlChart Movement**: Centered live price ticker with 24h stats (High, Low, Volume) and a live `fl_chart` price movement line chart with animated gradient shading. Includes active holding card and pending limit orders list.
+- **Order Flow & Execution**:
+  - Full support for **Market Orders** (instant execution against live ticks) and **Limit Orders** (resting orders that automatically trigger and fill when market prices cross the limit threshold).
+  - Dual quantity inputs (Amount in INR vs Crypto Coin quantity) with quick percentage allocation chips (25%, 50%, 75%, 100%).
+  - Limit order quick nudges (-2%, -1%, +1%, +2%) for fast order configuration.
+  - Confirmation dialog with estimated total costs in INR and USD before execution.
+- **Portfolio & Order History Tracking**:
+  - Tracks total portfolio value, cash reserves, holdings value, and 24h unrealized P&L in real-time.
+  - Interactive Orders tab logging all simulated trades (filled and cancelled) with instant limit order cancellation support.
+- **Configurable Simulation Parameters**:
+  - Virtual cash balance configuration (₹50k, ₹1L, ₹5L, ₹10L quick presets) and custom USDT-to-INR rate.
+  - One-tap simulation reset with state persistence in `SharedPreferences`.
+- **Foundational Market Mechanics Guide**:
+  - Built-in educational modal with 4 foundational concept cards strictly under 100 words each:
+    1. *The Bid-Ask Spread* (Why the price you see isn't always what you get)
+    2. *Market vs Limit Orders* (Speed vs Price Guarantee)
+    3. *Slippage* (Expected Price vs Filled Price)
+    4. *Why Prices Move* (Supply & Demand, featuring the Oct 2012 NSE flash crash & circuit breakers)
+- **Dual-Theme Fidelity**: 100% compliant with `JweTheme` dark and light tactical paper/stone palette.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.16 (Build #2126091602)
 
 ### 🎯 Pre-Flight Briefing Goal Alerts & Tomorrow Planning Shortcut
