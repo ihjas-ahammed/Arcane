@@ -41,7 +41,9 @@ jobs:
         shell: bash
         run: |
           VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | sed 's/+.*//' | xargs)
+          VCODE=$(grep '^version:' pubspec.yaml | sed 's/.*+//' | xargs)
           echo "vname=$VERSION" >> $GITHUB_OUTPUT
+          echo "vcode=$VCODE" >> $GITHUB_OUTPUT
 
       - name: Create api_keys.dart from secret
         env:
@@ -59,10 +61,12 @@ jobs:
       - name: Build release APK (split per ABI)
         run: flutter build apk --release --split-per-abi
 
-      - name: Copy APKs to builds directory
+      - name: Copy APKs to builds directory and update release metadata
         shell: bash
         run: |
           VERSION="${{ steps.version.outputs.vname }}"
+          VCODE="${{ steps.version.outputs.vcode }}"
+          BRANCH="${{ github.ref_name }}"
           mkdir -p builds
           for apk in build/app/outputs/flutter-apk/*-release.apk; do
             if [[ $(basename "$apk") == "app-release.apk" ]]; then
@@ -71,6 +75,28 @@ jobs:
             ABI=$(basename "$apk" | sed 's/app-//' | sed 's/-release.apk//')
             cp "$apk" "builds/missions-v${VERSION}-${ABI}.apk"
           done
+
+          # Automatically update update_info.json and latest.json
+          cat > builds/update_info.json << EOF
+{
+  "version_code": ${VCODE},
+  "version_name": "${VERSION}",
+  "published_at": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
+  "min_supported_version_code": 2026010101,
+  "apk_filename": "missions-v${VERSION}-arm64-v8a.apk",
+  "apk_url": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/${BRANCH}/builds/missions-v${VERSION}-arm64-v8a.apk",
+  "apk_arch_urls": {
+    "arm64-v8a": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/${BRANCH}/builds/missions-v${VERSION}-arm64-v8a.apk",
+    "armeabi-v7a": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/${BRANCH}/builds/missions-v${VERSION}-armeabi-v7a.apk",
+    "x86_64": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/${BRANCH}/builds/missions-v${VERSION}-x86_64.apk"
+  },
+  "changelog_url": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/${BRANCH}/builds/latest.md"
+}
+EOF
+          cp builds/update_info.json builds/latest.json
+          if [ -f latest.md ]; then
+            cp latest.md builds/latest.md
+          fi
           ls -lh builds/
 
       - name: Commit and push builds to repository

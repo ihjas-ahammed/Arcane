@@ -1,3 +1,77 @@
+# ⚡ Arcane System Upgrade // v2026.9.16 (Build #2126091605)
+
+### 🚀 Auto-Updater Sync & Downgrade Bug Elimination
+- **Eliminated False Downgrade Prompts**: Resolved a critical logic error where `forceCheck` permitted older remote builds to be recognized as available updates (`remoteCode != localCode`), which caused installed builds to be erroneously prompted to downgrade to older releases. An update is now strictly offered only when the remote version code or semantic version string is strictly newer.
+- **Synchronized Release Metadata**: Updated `builds/update_info.json` and `builds/latest.json` to reflect current `2026.9.16` APK artifacts and active build number `#2126091605`, ensuring in-app updater immediately serves the latest v2026.9.16 builds rather than stale v2026.9.15 metadata.
+- **Automated Workflow Metadata Generation**: Enhanced `.github/workflows/android-release.yml` to automatically generate and commit `builds/update_info.json`, `builds/latest.json`, and `builds/latest.md` alongside release APKs on every release build, permanently preventing metadata desynchronization.
+- **Synchronized Changelog Pipeline**: Fully synchronized `latest.md` and `builds/latest.md` so that the in-app "What's New" and build notes dialogs accurately reflect all current upgrades.
+
+---
+
+# ⚡ Arcane System Upgrade // v2026.9.16 (Build #2126091604)
+
+### 📊 Real Historical Price Data & Multi-Timeframe Charts
+- **Multi-Timeframe Real Charting**: Introduced interactive multi-timeframe price history across `[ 1D | 1W | 1M | 1Y | ALL ]` for every asset. Tapping any timeframe queries real historical market data and generates interactive `fl_chart` line charts with date/time labels and volume-weighted gradient fills.
+- **Interactive Touch Crosshairs**: Operators can drag across the historical chart to inspect exact historical price points, calendar dates/timestamps, and cumulative period return percentages ($\pm\%$).
+- **Comprehensive Key Historical Metrics**: Each asset detail screen now showcases 52-Week High & Low, Period High & Low, Previous Close, Trading Volume, Exchange, and live Market Status.
+
+### 🇮🇳 Indian Stock Market Universe & Bluechips (NSE / BSE)
+- **Extensive Indian Asset Universe**: Tailored for the Indian market context, adding top 30 National Stock Exchange (NSE) bluechips including Reliance Industries, Tata Consultancy Services (TCS), HDFC Bank, Infosys, ICICI Bank, State Bank of India (SBIN), Bharti Airtel, ITC, Larsen & Toubro, Tata Motors, Sun Pharma, Bajaj Finance, and more.
+- **Benchmark Indices & Commodities**: Integrated live tracking and historical charts for NIFTY 50, BSE SENSEX, BANK NIFTY, Gold (24K ₹/10g), Silver (₹/kg), and Crude Oil (₹/bbl).
+- **Native INR (₹) Paper Trading**: Indian equities and commodities are natively priced and transacted in Indian Rupees (₹) with whole-share quantity calculations, real-time INR wallet balance deductions, and dedicated confirmation modals.
+- **700+ Cryptocurrency Universe**: Expanded crypto trading beyond the default trio to encompass the full 700+ Binance pairs universe with real-time live search, category filtering (`ALL`, `NSE STOCKS`, `INDICES`, `CRYPTO`, `COMMODITIES`), and instantaneous USDT-to-INR conversions.
+
+### ⏰ Live Indian Market Status Telemetry & Background Poller
+- **Dynamic IST Market Hours Engine**: Automatically tracks Indian Standard Time (UTC+5:30) trading hours (09:15 – 15:30 IST, Monday–Friday).
+- **Real-Time HUD Market Status Banner**: High-contrast banner clearly indicates market status: `● NSE LIVE 09:15 - 15:30 IST` during trading hours or `○ NSE CLOSED (OPENS 09:15 IST)` after hours and weekends.
+- **15-Second Background Market Poller**: Periodically fetches fresh quotes for all active Indian assets and indices while the terminal is active.
+
+---
+
+# ⚡ Arcane System Upgrade // v2026.9.16 (Build #2126091603)
+
+### 📈 Realtime Paper-Trading Simulator (Binance WebSocket Feed)
+- **Zero-Risk Live Paper Trading**: Added a full paper-trading simulator to the "Systems & Utilities" suite enabling risk-free buy-low / sell-high strategy practice with real-time streaming market prices and a virtual balance.
+- **Binance Public WebSocket Feed**: Integrated live market streaming from `wss://stream.binance.com:9443` for `BTC/USDT`, `ETH/USDT`, and `SOL/USDT`. Features zero API keys, 1-second ticks, auto-reconnection, REST snapshot bootstrap for instantaneous load, and rolling tick buffers for live sparklines and charts.
+- **Watchlist Screen & Live Sparklines**: Displays live USD prices, converted INR equivalents (at configurable USDT/INR exchange rate, default ₹88), 24h percentage changes (color-coded green/red), and animated sparklines updating with incoming ticks.
+- **Asset Detail Screen & FlChart Movement**: Centered live price ticker with 24h stats (High, Low, Volume) and a live `fl_chart` price movement line chart with animated gradient shading. Includes active holding card and pending limit orders list.
+- **Order Flow & Execution**:
+  - Full support for **Market Orders** (instant execution against live ticks) and **Limit Orders** (resting orders that automatically trigger and fill when market prices cross the limit threshold).
+  - Dual quantity inputs (Amount in INR vs Crypto Coin quantity) with quick percentage allocation chips (25%, 50%, 75%, 100%).
+  - Limit order quick nudges (-2%, -1%, +1%, +2%) for fast order configuration.
+  - Confirmation dialog with estimated total costs in INR and USD before execution.
+- **Portfolio & Order History Tracking**:
+  - Tracks total portfolio value, cash reserves, holdings value, and 24h unrealized P&L in real-time.
+  - Interactive Orders tab logging all simulated trades (filled and cancelled) with instant limit order cancellation support.
+- **Configurable Simulation Parameters**:
+  - Virtual cash balance configuration (₹50k, ₹1L, ₹5L, ₹10L quick presets) and custom USDT-to-INR rate.
+  - One-tap simulation reset with state persistence in `SharedPreferences`.
+- **Foundational Market Mechanics Guide**:
+  - Built-in educational modal with 4 foundational concept cards strictly under 100 words each:
+    1. *The Bid-Ask Spread* (Why the price you see isn't always what you get)
+    2. *Market vs Limit Orders* (Speed vs Price Guarantee)
+    3. *Slippage* (Expected Price vs Filled Price)
+    4. *Why Prices Move* (Supply & Demand, featuring the Oct 2012 NSE flash crash & circuit breakers)
+- **Dual-Theme Fidelity**: 100% compliant with `JweTheme` dark and light tactical paper/stone palette.
+
+---
+
+# ⚡ Arcane System Upgrade // v2026.9.16 (Build #2126091602)
+
+### 🎯 Pre-Flight Briefing Goal Alerts & Tomorrow Planning Shortcut
+- **Tomorrow's Goal Prerequisite in Daily Briefing Lock Alert**: The pre-flight missing daily telemetry alert in Daily Briefing now checks if daily goals for tomorrow have been planned. If missing, it alerts the user with "TOMORROW'S TARGET GOALS" alongside health and financial inputs.
+- **Direct "+ CREATE" Action Shortcut**: Operators can tap the `+ CREATE` shortcut directly from the missing telemetry alert card to immediately open `CreateGoalSheet` pre-configured for tomorrow's daily scope, eliminating manual drawer navigation.
+- **Direct "+ LOG" Action Shortcut for Finance**: Added a quick `+ LOG` shortcut on the financial missing card to open `AddTransactionDialog` directly.
+- **Tomorrow Goals in Daily Briefing AI Context**: Tomorrow's planned goals are automatically injected into the AI context for daily briefings so the AI actively acknowledges next-day targets and aligns forward insights.
+
+### 📅 Weekly Briefing Next-Week Goals Prerequisite (Minimum 2 Goals)
+- **Forward Momentum Strategic Enforcement**: Initiating or regenerating a 7-day Weekly Review checks whether at least 2 weekly goals are planned for next week.
+- **Tactical Prerequisite Alert**: If fewer than 2 goals exist, presents a high-contrast tactical warning (`WEEKLY BRIEFING: NEXT WEEK GOALS`) showing current progress (e.g. `NEXT WEEK GOALS: 0 OF 2 SET` or `1 OF 2 SET`), displaying any existing goals with status indicators.
+- **Instant "+ ADD NEXT WEEK GOAL" Sheet**: Includes a direct button and `ADD GOALS FIRST` option that opens `CreateGoalSheet` pre-configured for next week's weekly scope. Operators can also choose `PROCEED ANYWAY` if they need to bypass.
+- **Next Week Planned Goals in Weekly AI Synthesis**: Next week's planned goals are incorporated into the weekly mission briefing context for the AI service.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.15 (Build #2126091501)
 
 ### 🎯 Interactive Goal Subchecklist Rearrange Mode

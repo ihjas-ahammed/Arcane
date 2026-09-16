@@ -1,3 +1,13 @@
+# ⚡ Arcane System Upgrade // v2026.9.16 (Build #2126091605)
+
+### 🚀 Auto-Updater Sync & Downgrade Bug Elimination
+- **Eliminated False Downgrade Prompts**: Resolved a critical logic error where `forceCheck` permitted older remote builds to be recognized as available updates (`remoteCode != localCode`), which caused installed builds to be erroneously prompted to downgrade to older releases. An update is now strictly offered only when the remote version code or semantic version string is strictly newer.
+- **Synchronized Release Metadata**: Updated `builds/update_info.json` and `builds/latest.json` to reflect current `2026.9.16` APK artifacts and active build number `#2126091605`, ensuring in-app updater immediately serves the latest v2026.9.16 builds rather than stale v2026.9.15 metadata.
+- **Automated Workflow Metadata Generation**: Enhanced `.github/workflows/android-release.yml` to automatically generate and commit `builds/update_info.json`, `builds/latest.json`, and `builds/latest.md` alongside release APKs on every release build, permanently preventing metadata desynchronization.
+- **Synchronized Changelog Pipeline**: Fully synchronized `latest.md` and `builds/latest.md` so that the in-app "What's New" and build notes dialogs accurately reflect all current upgrades.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.16 (Build #2126091604)
 
 ### 📊 Real Historical Price Data & Multi-Timeframe Charts

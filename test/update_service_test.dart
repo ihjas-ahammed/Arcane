@@ -89,10 +89,22 @@ void main() {
         isTrue,
       );
 
-      // forceCheck = true with different versionCode -> returns true
+      // forceCheck = true with older remote versionCode -> returns false (older is never an update!)
       expect(
         UpdateService.isUpdateAvailable(
           remoteCode: 2126090504,
+          localCode: 2126090505,
+          remoteVersion: '2026.9.5',
+          localVersion: '2026.9.5',
+          forceCheck: true,
+        ),
+        isFalse,
+      );
+
+      // forceCheck = true with newer remote versionCode -> returns true
+      expect(
+        UpdateService.isUpdateAvailable(
+          remoteCode: 2126090506,
           localCode: 2126090505,
           remoteVersion: '2026.9.5',
           localVersion: '2026.9.5',

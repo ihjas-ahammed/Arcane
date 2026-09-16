@@ -48,8 +48,8 @@ class UpdateSettingsSection extends StatelessWidget {
             FutureBuilder<PackageInfo>(
               future: appProvider.updateService.getLocalPackageInfo(),
               builder: (context, snapshot) {
-                final ver = snapshot.data?.version ?? '2026.9.5';
-                final buildNum = snapshot.data?.buildNumber ?? '2126090505';
+                final ver = snapshot.data?.version ?? '2026.9.16';
+                final buildNum = snapshot.data?.buildNumber ?? '2126091604';
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(

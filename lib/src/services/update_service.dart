@@ -25,8 +25,8 @@ class UpdateService {
       return PackageInfo(
         appName: 'Arcane',
         packageName: 'me.ihjas.missions',
-        version: '2026.9.15',
-        buildNumber: '2126091501',
+        version: '2026.9.16',
+        buildNumber: '2126091604',
       );
     }
   }
@@ -51,7 +51,7 @@ class UpdateService {
   }
 
   /// Evaluates whether a remote release is strictly newer than the currently installed build.
-  /// If [forceCheck] is true, any differing version code (or newer version) is accepted.
+  /// An update is available ONLY if remote build is strictly greater than local build.
   static bool isUpdateAvailable({
     required int remoteCode,
     required int localCode,
@@ -59,9 +59,6 @@ class UpdateService {
     required String localVersion,
     bool forceCheck = false,
   }) {
-    if (forceCheck && remoteCode > 0 && localCode > 0 && remoteCode != localCode) {
-      return true;
-    }
     if (remoteCode > 0 && localCode > 0) {
       if (remoteCode > localCode) return true;
       if (remoteCode < localCode) return false;
