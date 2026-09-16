@@ -1,7 +1,534 @@
 import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-/// Supported crypto symbols for paper trading
+/// Asset category for filtering
+enum TradingAssetCategory {
+  all('ALL', 'All Markets'),
+  indianEquity('NSE STOCKS', 'Indian Equities (NSE)'),
+  indianIndex('INDICES', 'Indian & Global Indices'),
+  crypto('CRYPTO', 'Cryptocurrencies (Binance)'),
+  commodity('COMMODITIES', 'Commodities & Macro');
+
+  final String label;
+  final String description;
+
+  const TradingAssetCategory(this.label, this.description);
+}
+
+/// Unified Tradable Asset Model
+class TradingAsset {
+  final String symbol;          // e.g. 'RELIANCE.NS', 'BTCUSDT', '^NSEI'
+  final String displaySymbol;   // e.g. 'RELIANCE', 'BTC', 'NIFTY 50'
+  final String name;            // e.g. 'Reliance Industries Ltd.', 'Bitcoin'
+  final TradingAssetCategory category;
+  final String currency;        // 'INR' or 'USD'
+  final int decimals;
+  final String exchange;        // 'NSE', 'BSE', 'Binance', 'MCX'
+  final bool is24x7;
+  final Color brandColor;
+  final IconData icon;
+
+  const TradingAsset({
+    required this.symbol,
+    required this.displaySymbol,
+    required this.name,
+    required this.category,
+    required this.currency,
+    required this.decimals,
+    required this.exchange,
+    required this.is24x7,
+    required this.brandColor,
+    required this.icon,
+  });
+
+  bool get isCrypto => category == TradingAssetCategory.crypto;
+  bool get isIndianEquity => category == TradingAssetCategory.indianEquity;
+  bool get isIndex => category == TradingAssetCategory.indianIndex;
+  bool get isCommodity => category == TradingAssetCategory.commodity;
+  bool get isIndianMarket => isIndianEquity || isIndex;
+  bool get isIndianAsset => currency == 'INR' || isIndianMarket;
+  String get baseAsset => displaySymbol;
+  String get pairLabel => '$displaySymbol/$currency';
+  bool get isTradable => !isIndex;
+
+  factory TradingAsset.fromCryptoSymbol(CryptoSymbol c) => TradingAsset(
+    symbol: c.rawSymbol,
+    displaySymbol: c.baseAsset,
+    name: c.name,
+    category: TradingAssetCategory.crypto,
+    currency: 'USD',
+    decimals: c.decimals,
+    exchange: 'Binance',
+    is24x7: true,
+    brandColor: c.brandColor,
+    icon: c.icon,
+  );
+
+  String get currencySymbol => currency == 'INR' ? '₹' : '\$';
+
+  /// Preloaded Curated Universe for Indian & Global Investors
+  static final List<TradingAsset> curatedAssets = [
+    // --- 🪙 Top Cryptos (Binance Live Stream) ---
+    const TradingAsset(
+      symbol: 'BTCUSDT',
+      displaySymbol: 'BTC',
+      name: 'Bitcoin',
+      category: TradingAssetCategory.crypto,
+      currency: 'USD',
+      decimals: 4,
+      exchange: 'Binance',
+      is24x7: true,
+      brandColor: Color(0xFFF7931A),
+      icon: Icons.currency_bitcoin_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'ETHUSDT',
+      displaySymbol: 'ETH',
+      name: 'Ethereum',
+      category: TradingAssetCategory.crypto,
+      currency: 'USD',
+      decimals: 4,
+      exchange: 'Binance',
+      is24x7: true,
+      brandColor: Color(0xFF627EEA),
+      icon: MdiIcons.rhombusOutline,
+    ),
+    const TradingAsset(
+      symbol: 'SOLUSDT',
+      displaySymbol: 'SOL',
+      name: 'Solana',
+      category: TradingAssetCategory.crypto,
+      currency: 'USD',
+      decimals: 3,
+      exchange: 'Binance',
+      is24x7: true,
+      brandColor: Color(0xFF14F195),
+      icon: Icons.bolt_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'BNBUSDT',
+      displaySymbol: 'BNB',
+      name: 'Binance Coin',
+      category: TradingAssetCategory.crypto,
+      currency: 'USD',
+      decimals: 3,
+      exchange: 'Binance',
+      is24x7: true,
+      brandColor: Color(0xFFF3BA2F),
+      icon: Icons.toll_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'XRPUSDT',
+      displaySymbol: 'XRP',
+      name: 'Ripple XRP',
+      category: TradingAssetCategory.crypto,
+      currency: 'USD',
+      decimals: 4,
+      exchange: 'Binance',
+      is24x7: true,
+      brandColor: Color(0xFF23292F),
+      icon: Icons.swap_horiz_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'DOGEUSDT',
+      displaySymbol: 'DOGE',
+      name: 'Dogecoin',
+      category: TradingAssetCategory.crypto,
+      currency: 'USD',
+      decimals: 1,
+      exchange: 'Binance',
+      is24x7: true,
+      brandColor: Color(0xFFC2A633),
+      icon: Icons.pets_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'ADAUSDT',
+      displaySymbol: 'ADA',
+      name: 'Cardano',
+      category: TradingAssetCategory.crypto,
+      currency: 'USD',
+      decimals: 2,
+      exchange: 'Binance',
+      is24x7: true,
+      brandColor: Color(0xFF0033AD),
+      icon: Icons.all_inclusive_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'AVAXUSDT',
+      displaySymbol: 'AVAX',
+      name: 'Avalanche',
+      category: TradingAssetCategory.crypto,
+      currency: 'USD',
+      decimals: 3,
+      exchange: 'Binance',
+      is24x7: true,
+      brandColor: Color(0xFFE84142),
+      icon: Icons.terrain_rounded,
+    ),
+
+    // --- 🇮🇳 Top Indian Bluechips (NSE) ---
+    const TradingAsset(
+      symbol: 'RELIANCE.NS',
+      displaySymbol: 'RELIANCE',
+      name: 'Reliance Industries',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFF005EB8),
+      icon: Icons.oil_barrel_outlined,
+    ),
+    const TradingAsset(
+      symbol: 'TCS.NS',
+      displaySymbol: 'TCS',
+      name: 'Tata Consultancy Services',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFF1B4D3E),
+      icon: Icons.computer_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'HDFCBANK.NS',
+      displaySymbol: 'HDFCBANK',
+      name: 'HDFC Bank Ltd.',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFF004C8F),
+      icon: Icons.account_balance_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'INFY.NS',
+      displaySymbol: 'INFY',
+      name: 'Infosys Limited',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFF007CC3),
+      icon: Icons.code_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'ICICIBANK.NS',
+      displaySymbol: 'ICICIBANK',
+      name: 'ICICI Bank Ltd.',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFFB3261E),
+      icon: Icons.account_balance_outlined,
+    ),
+    const TradingAsset(
+      symbol: 'SBIN.NS',
+      displaySymbol: 'SBIN',
+      name: 'State Bank of India',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFF280071),
+      icon: Icons.domain_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'BHARTIARTL.NS',
+      displaySymbol: 'BHARTIARTL',
+      name: 'Bharti Airtel',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFFED1C24),
+      icon: Icons.cell_tower_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'ITC.NS',
+      displaySymbol: 'ITC',
+      name: 'ITC Limited',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFFD4AF37),
+      icon: Icons.shopping_basket_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'LT.NS',
+      displaySymbol: 'LT',
+      name: 'Larsen & Toubro',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFFFF9900),
+      icon: Icons.precision_manufacturing_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'BAJFINANCE.NS',
+      displaySymbol: 'BAJFINANCE',
+      name: 'Bajaj Finance',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFF003876),
+      icon: Icons.credit_card_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'MARUTI.NS',
+      displaySymbol: 'MARUTI',
+      name: 'Maruti Suzuki India',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFFE31B23),
+      icon: Icons.directions_car_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'SUNPHARMA.NS',
+      displaySymbol: 'SUNPHARMA',
+      name: 'Sun Pharma',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFFF26522),
+      icon: Icons.medical_services_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'TITAN.NS',
+      displaySymbol: 'TITAN',
+      name: 'Titan Company',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFF800020),
+      icon: Icons.watch_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'WIPRO.NS',
+      displaySymbol: 'WIPRO',
+      name: 'Wipro Limited',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFF4A90E2),
+      icon: Icons.dns_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'KOTAKBANK.NS',
+      displaySymbol: 'KOTAKBANK',
+      name: 'Kotak Mahindra Bank',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFFED1C24),
+      icon: Icons.account_balance_wallet_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'AXISBANK.NS',
+      displaySymbol: 'AXISBANK',
+      name: 'Axis Bank Ltd.',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFF97144D),
+      icon: Icons.payment_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'JIOFIN.NS',
+      displaySymbol: 'JIOFIN',
+      name: 'Jio Financial Services',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFF0F52BA),
+      icon: Icons.stream_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'TATAPOWER.NS',
+      displaySymbol: 'TATAPOWER',
+      name: 'Tata Power Company',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFF00A3E0),
+      icon: Icons.electric_bolt_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'ADANIENT.NS',
+      displaySymbol: 'ADANIENT',
+      name: 'Adani Enterprises',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFF0C2340),
+      icon: Icons.corporate_fare_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'HINDUNILVR.NS',
+      displaySymbol: 'HINDUNILVR',
+      name: 'Hindustan Unilever',
+      category: TradingAssetCategory.indianEquity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFF001F60),
+      icon: Icons.clean_hands_rounded,
+    ),
+
+    // --- 📈 Benchmark Indices ---
+    const TradingAsset(
+      symbol: '^NSEI',
+      displaySymbol: 'NIFTY 50',
+      name: 'NIFTY 50 Benchmark Index',
+      category: TradingAssetCategory.indianIndex,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFF00BFA5),
+      icon: Icons.stacked_line_chart_rounded,
+    ),
+    const TradingAsset(
+      symbol: '^BSESN',
+      displaySymbol: 'SENSEX',
+      name: 'BSE SENSEX 30 Index',
+      category: TradingAssetCategory.indianIndex,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'BSE',
+      is24x7: false,
+      brandColor: Color(0xFF6200EA),
+      icon: Icons.show_chart_rounded,
+    ),
+    const TradingAsset(
+      symbol: '^NSEBANK',
+      displaySymbol: 'BANK NIFTY',
+      name: 'NIFTY Bank Sectoral Index',
+      category: TradingAssetCategory.indianIndex,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'NSE',
+      is24x7: false,
+      brandColor: Color(0xFF2979FF),
+      icon: Icons.account_balance_rounded,
+    ),
+
+    // --- 🟡 Commodities & Macro ---
+    const TradingAsset(
+      symbol: 'GC=F',
+      displaySymbol: 'GOLD',
+      name: 'Gold (Spot/MCX)',
+      category: TradingAssetCategory.commodity,
+      currency: 'USD',
+      decimals: 2,
+      exchange: 'MCX/Comex',
+      is24x7: false,
+      brandColor: Color(0xFFFFD700),
+      icon: Icons.diamond_outlined,
+    ),
+    const TradingAsset(
+      symbol: 'SI=F',
+      displaySymbol: 'SILVER',
+      name: 'Silver (Spot/MCX)',
+      category: TradingAssetCategory.commodity,
+      currency: 'USD',
+      decimals: 2,
+      exchange: 'MCX/Comex',
+      is24x7: false,
+      brandColor: Color(0xFFC0C0C0),
+      icon: Icons.lens_blur_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'CL=F',
+      displaySymbol: 'CRUDE OIL',
+      name: 'Crude Oil WTI',
+      category: TradingAssetCategory.commodity,
+      currency: 'USD',
+      decimals: 2,
+      exchange: 'NYMEX',
+      is24x7: false,
+      brandColor: Color(0xFF37474F),
+      icon: Icons.water_drop_rounded,
+    ),
+    const TradingAsset(
+      symbol: 'USDINR=X',
+      displaySymbol: 'USD/INR',
+      name: 'USD to Indian Rupee',
+      category: TradingAssetCategory.commodity,
+      currency: 'INR',
+      decimals: 2,
+      exchange: 'Forex',
+      is24x7: false,
+      brandColor: Color(0xFF00897B),
+      icon: Icons.currency_rupee_rounded,
+    ),
+  ];
+
+  static TradingAsset fromSymbol(String sym) {
+    final clean = sym.toUpperCase().replaceAll('/', '');
+    for (final a in curatedAssets) {
+      if (a.symbol.toUpperCase() == clean ||
+          a.displaySymbol.toUpperCase() == clean ||
+          a.symbol.toUpperCase().replaceAll('.NS', '') == clean) {
+        return a;
+      }
+    }
+    // Dynamic fallback for any search symbol
+    final isNs = clean.endsWith('.NS') || (!clean.contains('USDT') && !clean.startsWith('^'));
+    final isUsdt = clean.endsWith('USDT');
+    return TradingAsset(
+      symbol: isNs && !clean.endsWith('.NS') ? '$clean.NS' : clean,
+      displaySymbol: clean.replaceAll('.NS', '').replaceAll('USDT', ''),
+      name: clean.replaceAll('.NS', '').replaceAll('USDT', ''),
+      category: isUsdt
+          ? TradingAssetCategory.crypto
+          : (clean.startsWith('^')
+              ? TradingAssetCategory.indianIndex
+              : TradingAssetCategory.indianEquity),
+      currency: isUsdt ? 'USD' : 'INR',
+      decimals: isUsdt ? 4 : 2,
+      exchange: isUsdt ? 'Binance' : 'NSE',
+      is24x7: isUsdt,
+      brandColor: const Color(0xFF00E5FF),
+      icon: Icons.candlestick_chart_rounded,
+    );
+  }
+}
+
+/// Backwards compatibility enum
 enum CryptoSymbol {
   btc('BTCUSDT', 'Bitcoin', 'BTC', 4, Color(0xFFF7931A)),
   eth('ETHUSDT', 'Ethereum', 'ETH', 4, Color(0xFF627EEA)),
@@ -36,7 +563,7 @@ enum CryptoSymbol {
   }
 }
 
-/// Realtime price tick from Binance WebSocket
+/// Realtime or Snapshot price tick
 class CryptoPriceTick {
   final String symbol;
   final double price;
@@ -45,6 +572,10 @@ class CryptoPriceTick {
   final double low24h;
   final double volume24h;
   final DateTime timestamp;
+  final String currency; // 'INR' or 'USD'
+  final double? fiftyTwoWeekHigh;
+  final double? fiftyTwoWeekLow;
+  final double? previousClose;
 
   CryptoPriceTick({
     required this.symbol,
@@ -54,11 +585,17 @@ class CryptoPriceTick {
     required this.low24h,
     required this.volume24h,
     required this.timestamp,
+    this.currency = 'USD',
+    this.fiftyTwoWeekHigh,
+    this.fiftyTwoWeekLow,
+    this.previousClose,
   });
 
   bool get isPositive => changePercent24h >= 0;
 
   CryptoSymbol? get symbolInfo => CryptoSymbol.fromRaw(symbol);
+
+  TradingAsset get assetInfo => TradingAsset.fromSymbol(symbol);
 
   factory CryptoPriceTick.fromBinanceWs(Map<String, dynamic> data) {
     final symbol = (data['s'] as String?) ?? '';
@@ -79,6 +616,7 @@ class CryptoPriceTick {
       low24h: low,
       volume24h: volume,
       timestamp: eventTime,
+      currency: 'USD',
     );
   }
 
@@ -98,6 +636,34 @@ class CryptoPriceTick {
       low24h: low,
       volume24h: volume,
       timestamp: DateTime.now(),
+      currency: 'USD',
+    );
+  }
+
+  factory CryptoPriceTick.fromYahooFinance(Map<String, dynamic> meta) {
+    final symbol = meta['symbol']?.toString() ?? '';
+    final price = (meta['regularMarketPrice'] as num?)?.toDouble() ?? 0.0;
+    final changePercent = (meta['regularMarketChangePercent'] as num?)?.toDouble() ?? 0.0;
+    final high = (meta['regularMarketDayHigh'] as num?)?.toDouble() ?? price;
+    final low = (meta['regularMarketDayLow'] as num?)?.toDouble() ?? price;
+    final volume = (meta['regularMarketVolume'] as num?)?.toDouble() ?? 0.0;
+    final fiftyTwoHigh = (meta['fiftyTwoWeekHigh'] as num?)?.toDouble();
+    final fiftyTwoLow = (meta['fiftyTwoWeekLow'] as num?)?.toDouble();
+    final prevClose = (meta['chartPreviousClose'] as num?)?.toDouble();
+    final currency = meta['currency']?.toString().toUpperCase() == 'INR' ? 'INR' : 'USD';
+
+    return CryptoPriceTick(
+      symbol: symbol,
+      price: price,
+      changePercent24h: changePercent,
+      high24h: high,
+      low24h: low,
+      volume24h: volume,
+      timestamp: DateTime.now(),
+      currency: currency,
+      fiftyTwoWeekHigh: fiftyTwoHigh,
+      fiftyTwoWeekLow: fiftyTwoLow,
+      previousClose: prevClose,
     );
   }
 
@@ -109,6 +675,10 @@ class CryptoPriceTick {
         'low24h': low24h,
         'volume24h': volume24h,
         'timestamp': timestamp.toIso8601String(),
+        'currency': currency,
+        'fiftyTwoWeekHigh': fiftyTwoWeekHigh,
+        'fiftyTwoWeekLow': fiftyTwoWeekLow,
+        'previousClose': previousClose,
       };
 
   factory CryptoPriceTick.fromJson(Map<String, dynamic> json) => CryptoPriceTick(
@@ -119,16 +689,95 @@ class CryptoPriceTick {
         low24h: (json['low24h'] as num?)?.toDouble() ?? 0.0,
         volume24h: (json['volume24h'] as num?)?.toDouble() ?? 0.0,
         timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ?? DateTime.now(),
+        currency: json['currency'] as String? ?? 'USD',
+        fiftyTwoWeekHigh: (json['fiftyTwoWeekHigh'] as num?)?.toDouble(),
+        fiftyTwoWeekLow: (json['fiftyTwoWeekLow'] as num?)?.toDouble(),
+        previousClose: (json['previousClose'] as num?)?.toDouble(),
       );
 }
 
-/// Simulated holding position
+/// Supported historical chart timeframes
+enum TradingTimeframe {
+  oneDay('1D', 'Past 24 Hours', '1D'),
+  oneWeek('1W', 'Past 7 Days', '1W'),
+  oneMonth('1M', 'Past 30 Days', '1M'),
+  oneYear('1Y', 'Past 1 Year', '1Y'),
+  all('ALL', 'All Time', 'ALL');
+
+  final String label;
+  final String title;
+  final String apiValue;
+
+  const TradingTimeframe(this.label, this.title, this.apiValue);
+}
+
+/// A real historical data point for multi-timeframe charts
+class HistoricalDataPoint {
+  final DateTime timestamp;
+  final double price;
+  final double? open;
+  final double? high;
+  final double? low;
+  final double? volume;
+
+  const HistoricalDataPoint({
+    required this.timestamp,
+    required this.price,
+    this.open,
+    this.high,
+    this.low,
+    this.volume,
+  });
+
+  double get close => price;
+}
+
+/// Historical price bundle for an asset
+class HistoricalPriceSummary {
+  final String symbol;
+  final String timeframe; // '1D', '1W', '1M', '1Y', 'ALL'
+  final List<HistoricalDataPoint> points;
+  final double? fiftyTwoWeekHigh;
+  final double? fiftyTwoWeekLow;
+  final double? dayHigh;
+  final double? dayLow;
+  final double? previousClose;
+  final double periodReturnPercent;
+  final double minPrice;
+  final double maxPrice;
+
+  const HistoricalPriceSummary({
+    required this.symbol,
+    required this.timeframe,
+    required this.points,
+    this.fiftyTwoWeekHigh,
+    this.fiftyTwoWeekLow,
+    this.dayHigh,
+    this.dayLow,
+    this.previousClose,
+    required this.periodReturnPercent,
+    required this.minPrice,
+    required this.maxPrice,
+  });
+
+  bool get isPositive => periodReturnPercent >= 0;
+
+  double? get high52w => fiftyTwoWeekHigh;
+  double? get low52w => fiftyTwoWeekLow;
+  double? get highPeriod => dayHigh ?? (points.isNotEmpty ? maxPrice : null);
+  double? get lowPeriod => dayLow ?? (points.isNotEmpty ? minPrice : null);
+  double get volumePeriod =>
+      points.fold<double>(0.0, (acc, p) => acc + (p.volume ?? 0.0));
+}
+
+/// Universal holding position (Crypto + Indian stocks)
 class CryptoHolding {
   final String symbol;
   final String coinName;
   final double quantity;
-  final double avgBuyPriceUSDT;
+  final double avgBuyPriceUSDT; // or avgBuyPrice in native currency (INR for stocks)
   final double totalCostINR;
+  final String currency;        // 'INR' or 'USD'
 
   CryptoHolding({
     required this.symbol,
@@ -136,21 +785,32 @@ class CryptoHolding {
     required this.quantity,
     required this.avgBuyPriceUSDT,
     required this.totalCostINR,
+    this.currency = 'USD',
   });
 
   CryptoSymbol? get symbolInfo => CryptoSymbol.fromRaw(symbol);
+  TradingAsset get assetInfo => TradingAsset.fromSymbol(symbol);
 
-  double currentValueUSDT(double currentPriceUSDT) => quantity * currentPriceUSDT;
+  double currentValueUSDT(double currentPriceNative) {
+    if (currency == 'INR') {
+      return (quantity * currentPriceNative) / 88.0;
+    }
+    return quantity * currentPriceNative;
+  }
 
-  double currentValueINR(double currentPriceUSDT, double usdtToInrRate) =>
-      currentValueUSDT(currentPriceUSDT) * usdtToInrRate;
+  double currentValueINR(double currentPriceNative, double usdtToInrRate) {
+    if (currency == 'INR') {
+      return quantity * currentPriceNative;
+    }
+    return quantity * currentPriceNative * usdtToInrRate;
+  }
 
-  double pnlINR(double currentPriceUSDT, double usdtToInrRate) =>
-      currentValueINR(currentPriceUSDT, usdtToInrRate) - totalCostINR;
+  double pnlINR(double currentPriceNative, double usdtToInrRate) =>
+      currentValueINR(currentPriceNative, usdtToInrRate) - totalCostINR;
 
-  double pnlPercent(double currentPriceUSDT, double usdtToInrRate) {
+  double pnlPercent(double currentPriceNative, double usdtToInrRate) {
     if (totalCostINR <= 0) return 0.0;
-    return (pnlINR(currentPriceUSDT, usdtToInrRate) / totalCostINR) * 100;
+    return (pnlINR(currentPriceNative, usdtToInrRate) / totalCostINR) * 100;
   }
 
   CryptoHolding copyWith({
@@ -159,6 +819,7 @@ class CryptoHolding {
     double? quantity,
     double? avgBuyPriceUSDT,
     double? totalCostINR,
+    String? currency,
   }) {
     return CryptoHolding(
       symbol: symbol ?? this.symbol,
@@ -166,6 +827,7 @@ class CryptoHolding {
       quantity: quantity ?? this.quantity,
       avgBuyPriceUSDT: avgBuyPriceUSDT ?? this.avgBuyPriceUSDT,
       totalCostINR: totalCostINR ?? this.totalCostINR,
+      currency: currency ?? this.currency,
     );
   }
 
@@ -175,6 +837,7 @@ class CryptoHolding {
         'quantity': quantity,
         'avgBuyPriceUSDT': avgBuyPriceUSDT,
         'totalCostINR': totalCostINR,
+        'currency': currency,
       };
 
   factory CryptoHolding.fromJson(Map<String, dynamic> json) => CryptoHolding(
@@ -183,13 +846,12 @@ class CryptoHolding {
         quantity: (json['quantity'] as num?)?.toDouble() ?? 0.0,
         avgBuyPriceUSDT: (json['avgBuyPriceUSDT'] as num?)?.toDouble() ?? 0.0,
         totalCostINR: (json['totalCostINR'] as num?)?.toDouble() ?? 0.0,
+        currency: json['currency'] as String? ?? (json['symbol']?.toString().contains('.NS') == true ? 'INR' : 'USD'),
       );
 }
 
 enum OrderSide { buy, sell }
-
 enum TradingOrderType { market, limit }
-
 enum OrderStatus { pending, filled, cancelled }
 
 /// Simulated trade order
@@ -200,12 +862,13 @@ class TradingOrder {
   final OrderSide side;
   final TradingOrderType orderType;
   final double quantity;
-  final double targetPriceUSDT;
+  final double targetPriceUSDT; // In asset's native currency
   final double? executedPriceUSDT;
   final double totalINR;
   final OrderStatus status;
   final DateTime createdAt;
   final DateTime? filledAt;
+  final String currency; // 'INR' or 'USD'
 
   TradingOrder({
     required this.id,
@@ -220,6 +883,7 @@ class TradingOrder {
     required this.status,
     required this.createdAt,
     this.filledAt,
+    this.currency = 'USD',
   });
 
   bool get isBuy => side == OrderSide.buy;
@@ -231,6 +895,7 @@ class TradingOrder {
   bool get isCancelled => status == OrderStatus.cancelled;
 
   CryptoSymbol? get symbolInfo => CryptoSymbol.fromRaw(symbol);
+  TradingAsset get assetInfo => TradingAsset.fromSymbol(symbol);
 
   TradingOrder copyWith({
     OrderStatus? status,
@@ -251,6 +916,7 @@ class TradingOrder {
       status: status ?? this.status,
       createdAt: createdAt,
       filledAt: filledAt ?? this.filledAt,
+      currency: currency,
     );
   }
 
@@ -267,6 +933,7 @@ class TradingOrder {
         'status': status.name,
         'createdAt': createdAt.toIso8601String(),
         'filledAt': filledAt?.toIso8601String(),
+        'currency': currency,
       };
 
   factory TradingOrder.fromJson(Map<String, dynamic> json) => TradingOrder(
@@ -291,6 +958,7 @@ class TradingOrder {
         ),
         createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
         filledAt: json['filledAt'] != null ? DateTime.tryParse(json['filledAt'] as String) : null,
+        currency: json['currency'] as String? ?? (json['symbol']?.toString().contains('.NS') == true ? 'INR' : 'USD'),
       );
 }
 

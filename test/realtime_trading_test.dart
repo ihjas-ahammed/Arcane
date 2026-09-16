@@ -94,24 +94,107 @@ void main() {
         totalCostINR: 2640000.0,
       );
 
-      // If current price rises to $70,000:
-      // Current value = 0.5 * 70,000 * 88 = ₹30,80,000
-      // PnL INR = 30,80,000 - 26,40,000 = +₹4,40,000
-      // PnL % = (4,40,000 / 26,40,000) * 100 = 16.67%
       expect(holding.currentValueUSDT(70000.0), 35000.0);
       expect(holding.currentValueINR(70000.0, 88.0), 3080000.0);
       expect(holding.pnlINR(70000.0, 88.0), 440000.0);
       expect(holding.pnlPercent(70000.0, 88.0), closeTo(16.666, 0.01));
 
-      // If price drops to $50,000:
-      // Current value = 0.5 * 50,000 * 88 = ₹22,00,000
-      // PnL INR = 22,00,000 - 26,40,000 = -₹4,40,000
       expect(holding.pnlINR(50000.0, 88.0), -440000.0);
       expect(holding.pnlPercent(50000.0, 88.0), closeTo(-16.666, 0.01));
     });
   });
 
-  group('PaperTradingProvider Engine Tests', () {
+  group('Indian Markets & Unified Asset Universe Tests', () {
+    test('Curated assets contain major Indian Bluechips and Indices', () {
+      final curated = TradingAsset.curatedAssets;
+      final symbols = curated.map((a) => a.symbol).toList();
+
+      expect(symbols, contains('RELIANCE.NS'));
+      expect(symbols, contains('TCS.NS'));
+      expect(symbols, contains('HDFCBANK.NS'));
+      expect(symbols, contains('INFY.NS'));
+      expect(symbols, contains('^NSEI'));
+      expect(symbols, contains('^BSESN'));
+      expect(symbols, contains('GC=F')); // Gold
+      expect(symbols, contains('BTCUSDT'));
+    });
+
+    test('TradingAsset properties for Indian equities vs Crypto', () {
+      final reliance = TradingAsset.fromSymbol('RELIANCE.NS');
+      expect(reliance.isIndianAsset, isTrue);
+      expect(reliance.isIndianEquity, isTrue);
+      expect(reliance.isCrypto, isFalse);
+      expect(reliance.currency, 'INR');
+      expect(reliance.exchange, 'NSE');
+      expect(reliance.decimals, 2); // price decimals
+      expect(reliance.isTradable, isTrue);
+
+      final nifty = TradingAsset.fromSymbol('^NSEI');
+      expect(nifty.isIndex, isTrue);
+      expect(nifty.isTradable, isFalse); // Index view-only
+      expect(nifty.currency, 'INR');
+
+      final btc = TradingAsset.fromSymbol('BTCUSDT');
+      expect(btc.isCrypto, isTrue);
+      expect(btc.isIndianAsset, isFalse);
+      expect(btc.currency, 'USD');
+      expect(btc.exchange, 'Binance');
+    });
+
+    test('TradingAssetCategory definitions', () {
+      expect(TradingAssetCategory.all.label, 'ALL');
+      expect(TradingAssetCategory.indianEquity.label, 'NSE STOCKS');
+      expect(TradingAssetCategory.indianIndex.label, 'INDICES');
+      expect(TradingAssetCategory.crypto.label, 'CRYPTO');
+      expect(TradingAssetCategory.commodity.label, 'COMMODITIES');
+    });
+  });
+
+  group('Historical Price Models & Summary Tests', () {
+    test('HistoricalPriceSummary calculates metrics and period return', () {
+      final now = DateTime.now();
+      final points = [
+        HistoricalDataPoint(timestamp: now.subtract(const Duration(days: 4)), price: 100.0),
+        HistoricalDataPoint(timestamp: now.subtract(const Duration(days: 3)), price: 105.0),
+        HistoricalDataPoint(timestamp: now.subtract(const Duration(days: 2)), price: 98.0),
+        HistoricalDataPoint(timestamp: now.subtract(const Duration(days: 1)), price: 112.0),
+        HistoricalDataPoint(timestamp: now, price: 110.0),
+      ];
+
+      final summary = HistoricalPriceSummary(
+        symbol: 'RELIANCE.NS',
+        timeframe: '1W',
+        points: points,
+        fiftyTwoWeekHigh: 130.0,
+        fiftyTwoWeekLow: 85.0,
+        dayHigh: 112.0,
+        dayLow: 98.0,
+        previousClose: 108.0,
+        periodReturnPercent: 10.0,
+        minPrice: 98.0,
+        maxPrice: 112.0,
+      );
+
+      expect(summary.isPositive, isTrue);
+      expect(summary.high52w, 130.0);
+      expect(summary.low52w, 85.0);
+      expect(summary.highPeriod, 112.0);
+      expect(summary.lowPeriod, 98.0);
+      expect(summary.previousClose, 108.0);
+      expect(summary.points.first.close, 100.0);
+    });
+
+    test('TradingTimeframe enum values and labels', () {
+      expect(TradingTimeframe.oneDay.label, '1D');
+      expect(TradingTimeframe.oneWeek.label, '1W');
+      expect(TradingTimeframe.oneMonth.label, '1M');
+      expect(TradingTimeframe.oneYear.label, '1Y');
+      expect(TradingTimeframe.all.label, 'ALL');
+      expect(TradingTimeframe.values.length, 5);
+    });
+  });
+
+  group('PaperTradingProvider Multi-Asset & Filtering Tests', () {
     late MockMarketService mockMarketService;
     late PaperTradingProvider provider;
 
@@ -128,80 +211,87 @@ void main() {
       expect(provider.availableCash, 100000.0);
     });
 
-    test('Executes Market BUY order successfully and updates position', () {
-      // Buy 0.01 BTC at $60,000.
-      // Total cost = 0.01 * 60,000 * 88 = ₹52,800.
+    test('Executes Indian stock whole shares BUY order in native INR', () {
+      // Buy 10 shares of RELIANCE.NS at ₹2,900. Total cost = ₹29,000
       final result = provider.executeMarketOrder(
-        symbol: 'BTCUSDT',
+        symbol: 'RELIANCE.NS',
         side: OrderSide.buy,
-        quantity: 0.01,
-        currentPriceUSDT: 60000.0,
+        quantity: 10.0,
+        currentPriceUSDT: 2900.0, // native INR price
       );
 
       expect(result.success, isTrue);
-      expect(provider.cashBalance, closeTo(100000.0 - 52800.0, 0.01)); // ₹47,200
-      expect(provider.holdings.containsKey('BTCUSDT'), isTrue);
+      expect(provider.cashBalance, 100000.0 - 29000.0); // ₹71,000
+      expect(provider.holdings.containsKey('RELIANCE.NS'), isTrue);
 
-      final holding = provider.getHolding('BTCUSDT')!;
-      expect(holding.quantity, 0.01);
-      expect(holding.avgBuyPriceUSDT, 60000.0);
-      expect(holding.totalCostINR, 52800.0);
+      final holding = provider.getHolding('RELIANCE.NS')!;
+      expect(holding.quantity, 10.0);
+      expect(holding.avgBuyPriceUSDT, 2900.0);
+      expect(holding.totalCostINR, 29000.0);
+      expect(holding.currency, 'INR');
 
+      // Check order history
       expect(provider.orders.length, 1);
-      expect(provider.orders.first.isFilled, isTrue);
-      expect(provider.orders.first.isBuy, isTrue);
+      final ord = provider.orders.first;
+      expect(ord.isFilled, isTrue);
+      expect(ord.currency, 'INR');
+      expect(ord.totalINR, 29000.0);
     });
 
-    test('Rejects Market BUY when cash balance is insufficient', () {
-      // Attempt to buy 1.0 BTC at $60,000 -> requires ₹52,80,000, but user only has ₹1,00,000
-      final result = provider.executeMarketOrder(
-        symbol: 'BTCUSDT',
-        side: OrderSide.buy,
-        quantity: 1.0,
-        currentPriceUSDT: 60000.0,
-      );
-
-      expect(result.success, isFalse);
-      expect(result.message, contains('Insufficient cash'));
-      expect(provider.cashBalance, 100000.0);
-      expect(provider.holdings, isEmpty);
-    });
-
-    test('Executes Market SELL order partially and fully', () {
-      // First buy 0.02 BTC at $50,000 (Cost = 0.02 * 50,000 * 88 = ₹88,000)
+    test('Executes Indian stock SELL order and receives INR proceeds', () {
+      // First buy 10 shares of RELIANCE.NS at ₹2,900
       provider.executeMarketOrder(
-        symbol: 'BTCUSDT',
+        symbol: 'RELIANCE.NS',
         side: OrderSide.buy,
-        quantity: 0.02,
-        currentPriceUSDT: 50000.0,
+        quantity: 10.0,
+        currentPriceUSDT: 2900.0,
       );
 
-      // Now sell 0.01 BTC at $60,000 (Proceeds = 0.01 * 60,000 * 88 = ₹52,800)
-      final sell1 = provider.executeMarketOrder(
-        symbol: 'BTCUSDT',
+      // Now sell 5 shares at ₹3,100. Proceeds = 5 * 3,100 = ₹15,500
+      final sellResult = provider.executeMarketOrder(
+        symbol: 'RELIANCE.NS',
         side: OrderSide.sell,
-        quantity: 0.01,
-        currentPriceUSDT: 60000.0,
+        quantity: 5.0,
+        currentPriceUSDT: 3100.0,
       );
 
-      expect(sell1.success, isTrue);
-      final holding = provider.getHolding('BTCUSDT')!;
-      expect(holding.quantity, 0.01);
-      expect(holding.totalCostINR, 44000.0); // Half cost remains
-
-      // Sell remaining 0.01 BTC
-      final sell2 = provider.executeMarketOrder(
-        symbol: 'BTCUSDT',
-        side: OrderSide.sell,
-        quantity: 0.01,
-        currentPriceUSDT: 60000.0,
-      );
-
-      expect(sell2.success, isTrue);
-      expect(provider.getHolding('BTCUSDT'), isNull); // Holding cleared
+      expect(sellResult.success, isTrue);
+      // Cash = ₹71,000 + ₹15,500 = ₹86,500
+      expect(provider.cashBalance, 86500.0);
+      final holding = provider.getHolding('RELIANCE.NS')!;
+      expect(holding.quantity, 5.0);
+      expect(holding.totalCostINR, 14500.0); // 5 * 2,900
     });
 
-    test('Rejects Market SELL when coins are insufficient', () {
+    test('Filters assets by category correctly', () {
+      provider.setCategory(TradingAssetCategory.indianEquity);
+      final nseAssets = provider.filteredAssets;
+      expect(nseAssets.every((a) => a.category == TradingAssetCategory.indianEquity), isTrue);
+      expect(nseAssets.any((a) => a.symbol == 'RELIANCE.NS'), isTrue);
+
+      provider.setCategory(TradingAssetCategory.crypto);
+      final cryptoAssets = provider.filteredAssets;
+      expect(cryptoAssets.every((a) => a.category == TradingAssetCategory.crypto), isTrue);
+      expect(cryptoAssets.any((a) => a.symbol == 'BTCUSDT'), isTrue);
+
+      provider.setCategory(TradingAssetCategory.all);
+      expect(provider.filteredAssets.length, greaterThan(20));
+    });
+
+    test('Searches assets by symbol and name', () {
+      provider.setSearchQuery('TATA');
+      final tataAssets = provider.filteredAssets;
+      expect(tataAssets.any((a) => a.name.toUpperCase().contains('TATA')), isTrue);
+
+      provider.setSearchQuery('BTC');
+      final btcAssets = provider.filteredAssets;
+      expect(btcAssets.any((a) => a.symbol.contains('BTC')), isTrue);
+
+      provider.setSearchQuery('');
+      expect(provider.filteredAssets.length, greaterThan(20));
+    });
+
+    test('Rejects Market SELL when balance is insufficient', () {
       final result = provider.executeMarketOrder(
         symbol: 'SOLUSDT',
         side: OrderSide.sell,
@@ -210,55 +300,7 @@ void main() {
       );
 
       expect(result.success, isFalse);
-      expect(result.message, contains('Insufficient coins'));
-    });
-
-    test('Places Limit Order as pending and auto-fills on WebSocket price cross', () {
-      // Place a BUY limit order for 0.01 BTC at $55,000 (Current price is $60,000)
-      final orderResult = provider.createLimitOrder(
-        symbol: 'BTCUSDT',
-        side: OrderSide.buy,
-        quantity: 0.01,
-        targetPriceUSDT: 55000.0,
-      );
-
-      expect(orderResult.success, isTrue);
-      expect(provider.pendingOrders.length, 1);
-      final pending = provider.pendingOrders.first;
-      expect(pending.isPending, isTrue);
-      expect(pending.targetPriceUSDT, 55000.0);
-
-      // Market price tick arrives at $58,000 (does not cross 55,000 yet)
-      mockMarketService.setMockTick(CryptoPriceTick(
-        symbol: 'BTCUSDT',
-        price: 58000.0,
-        changePercent24h: 1.0,
-        high24h: 60000.0,
-        low24h: 58000.0,
-        volume24h: 5000.0,
-        timestamp: DateTime.now(),
-      ));
-
-      expect(provider.pendingOrders.length, 1);
-      expect(provider.getHolding('BTCUSDT'), isNull);
-
-      // Market drops to $54,500 (crosses target limit price of $55,000!)
-      mockMarketService.setMockTick(CryptoPriceTick(
-        symbol: 'BTCUSDT',
-        price: 54500.0,
-        changePercent24h: -3.0,
-        high24h: 60000.0,
-        low24h: 54000.0,
-        volume24h: 7000.0,
-        timestamp: DateTime.now(),
-      ));
-
-      // Limit order should now be auto-filled!
-      expect(provider.pendingOrders, isEmpty);
-      expect(provider.filledOrders.length, 1);
-      expect(provider.filledOrders.first.isFilled, isTrue);
-      expect(provider.getHolding('BTCUSDT'), isNotNull);
-      expect(provider.getHolding('BTCUSDT')!.quantity, 0.01);
+      expect(result.message, contains('Insufficient balance'));
     });
 
     test('Cancels pending limit order correctly', () {

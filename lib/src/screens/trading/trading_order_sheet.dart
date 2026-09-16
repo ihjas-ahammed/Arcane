@@ -6,29 +6,39 @@ import 'package:missions/src/providers/paper_trading_provider.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 
 class TradingOrderSheet extends StatefulWidget {
-  final CryptoSymbol symbol;
+  final TradingAsset asset;
   final PaperTradingProvider provider;
   final OrderSide initialSide;
 
-  const TradingOrderSheet({
+  TradingOrderSheet({
     super.key,
-    required this.symbol,
+    TradingAsset? asset,
+    CryptoSymbol? symbol,
     required this.provider,
     this.initialSide = OrderSide.buy,
-  });
+  }) : asset = asset ??
+            (symbol != null
+                ? TradingAsset.fromCryptoSymbol(symbol)
+                : TradingAsset.fromCryptoSymbol(CryptoSymbol.btc));
 
   static Future<void> show({
     required BuildContext context,
-    required CryptoSymbol symbol,
+    TradingAsset? asset,
+    CryptoSymbol? symbol,
     required PaperTradingProvider provider,
     OrderSide initialSide = OrderSide.buy,
   }) {
+    final effectiveAsset = asset ??
+        (symbol != null
+            ? TradingAsset.fromCryptoSymbol(symbol)
+            : TradingAsset.fromCryptoSymbol(CryptoSymbol.btc));
+
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => TradingOrderSheet(
-        symbol: symbol,
+        asset: effectiveAsset,
         provider: provider,
         initialSide: initialSide,
       ),
@@ -54,9 +64,9 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
     super.initState();
     _side = widget.initialSide;
 
-    final tick = widget.provider.marketService.getTick(widget.symbol.rawSymbol);
-    final initialPrice = tick?.price ?? 1000.0;
-    _limitPriceController.text = initialPrice.toStringAsFixed(2);
+    final tick = widget.provider.marketService.getTick(widget.asset.symbol);
+    final initialPrice = tick?.price ?? (widget.asset.isIndianAsset ? 1500.0 : 1000.0);
+    _limitPriceController.text = initialPrice.toStringAsFixed(widget.asset.isIndianAsset ? 2 : 2);
   }
 
   @override
@@ -67,26 +77,34 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
     super.dispose();
   }
 
-  double get _effectivePriceUSDT {
+  double get _currentLivePrice {
+    final tick = widget.provider.marketService.getTick(widget.asset.symbol);
+    return tick?.price ?? (widget.asset.isIndianAsset ? 1500.0 : 1000.0);
+  }
+
+  double get _effectivePrice {
     if (_orderType == TradingOrderType.limit) {
-      return double.tryParse(_limitPriceController.text) ?? _currentLivePriceUSDT;
+      return double.tryParse(_limitPriceController.text) ?? _currentLivePrice;
     }
-    return _currentLivePriceUSDT;
+    return _currentLivePrice;
   }
 
-  double get _currentLivePriceUSDT {
-    final tick = widget.provider.marketService.getTick(widget.symbol.rawSymbol);
-    return tick?.price ?? 0.0;
+  double get _effectivePriceINR {
+    if (widget.asset.isIndianAsset) {
+      return _effectivePrice;
+    }
+    return _effectivePrice * widget.provider.usdtToInrRate;
   }
-
-  double get _priceInINR => _effectivePriceUSDT * widget.provider.usdtToInrRate;
 
   void _onAmountChanged(String val) {
     if (_isEditingQuantity) return;
     final inr = double.tryParse(val) ?? 0.0;
-    if (_priceInINR > 0) {
-      final qty = inr / _priceInINR;
-      _quantityController.text = qty.toStringAsFixed(widget.symbol.decimals);
+    if (_effectivePriceINR > 0) {
+      final rawQty = inr / _effectivePriceINR;
+      final qty = widget.asset.isIndianAsset && widget.asset.decimals == 0
+          ? rawQty.floorToDouble()
+          : rawQty;
+      _quantityController.text = qty > 0 ? qty.toStringAsFixed(widget.asset.decimals) : '0';
     } else {
       _quantityController.text = '0';
     }
@@ -96,7 +114,7 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
   void _onQuantityChanged(String val) {
     _isEditingQuantity = true;
     final qty = double.tryParse(val) ?? 0.0;
-    final inr = qty * _priceInINR;
+    final inr = qty * _effectivePriceINR;
     _amountController.text = inr > 0 ? inr.toStringAsFixed(0) : '';
     _isEditingQuantity = false;
     setState(() {});
@@ -109,15 +127,18 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
       _amountController.text = targetSpend.toStringAsFixed(0);
       _onAmountChanged(_amountController.text);
     } else {
-      final availableCoins = widget.provider.getAvailableCoinQuantity(widget.symbol.rawSymbol);
-      final targetQty = availableCoins * fraction;
-      _quantityController.text = targetQty.toStringAsFixed(widget.symbol.decimals);
+      final availableUnits = widget.provider.getAvailableCoinQuantity(widget.asset.symbol);
+      final rawTarget = availableUnits * fraction;
+      final targetQty = widget.asset.isIndianAsset && widget.asset.decimals == 0
+          ? rawTarget.floorToDouble()
+          : rawTarget;
+      _quantityController.text = targetQty.toStringAsFixed(widget.asset.decimals);
       _onQuantityChanged(_quantityController.text);
     }
   }
 
   void _adjustLimitPrice(double percentChange) {
-    final current = double.tryParse(_limitPriceController.text) ?? _currentLivePriceUSDT;
+    final current = double.tryParse(_limitPriceController.text) ?? _currentLivePrice;
     final updated = current * (1.0 + (percentChange / 100.0));
     _limitPriceController.text = updated.toStringAsFixed(2);
     _onAmountChanged(_amountController.text);
@@ -125,12 +146,21 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
 
   Future<void> _reviewAndConfirm() async {
     final qty = double.tryParse(_quantityController.text) ?? 0.0;
-    final priceUSDT = _effectivePriceUSDT;
-    final totalINR = qty * priceUSDT * widget.provider.usdtToInrRate;
+    final price = _effectivePrice;
+    final totalINR = widget.asset.isIndianAsset
+        ? qty * price
+        : qty * price * widget.provider.usdtToInrRate;
 
     if (qty <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a valid quantity or spend amount.')),
+      );
+      return;
+    }
+
+    if (widget.asset.isIndianAsset && widget.asset.decimals == 0 && qty != qty.roundToDouble()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Indian equities require integer whole share quantities.')),
       );
       return;
     }
@@ -143,16 +173,16 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
     }
 
     if (_side == OrderSide.sell) {
-      final availableQty = widget.provider.getAvailableCoinQuantity(widget.symbol.rawSymbol);
+      final availableQty = widget.provider.getAvailableCoinQuantity(widget.asset.symbol);
       if (qty > availableQty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Insufficient coin balance. Available: ${availableQty.toStringAsFixed(4)} ${widget.symbol.baseAsset}')),
+          SnackBar(content: Text('Insufficient position. Available: ${availableQty.toStringAsFixed(widget.asset.decimals)} ${widget.asset.baseAsset}')),
         );
         return;
       }
     }
 
-    final inrFormat = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 0);
+    final inrFormat = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 2);
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -178,16 +208,28 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildReviewRow('Action', '${_side.name.toUpperCase()} (${_orderType.name.toUpperCase()})'),
-            _buildReviewRow('Asset', widget.symbol.pairLabel),
-            _buildReviewRow('Quantity', '${qty.toStringAsFixed(widget.symbol.decimals)} ${widget.symbol.baseAsset}'),
-            _buildReviewRow('Unit Price', '\$${priceUSDT.toStringAsFixed(2)} (~${inrFormat.format(priceUSDT * widget.provider.usdtToInrRate)})'),
+            _buildReviewRow('Asset', widget.asset.pairLabel),
+            _buildReviewRow('Exchange', widget.asset.exchange),
+            _buildReviewRow('Quantity', '${qty.toStringAsFixed(widget.asset.decimals)} ${widget.asset.baseAsset}'),
+            _buildReviewRow(
+              'Unit Price',
+              widget.asset.isIndianAsset
+                  ? inrFormat.format(price)
+                  : '\$${price.toStringAsFixed(2)} (~${inrFormat.format(price * widget.provider.usdtToInrRate)})',
+            ),
             const Divider(height: 16),
-            _buildReviewRow('Estimated Total', '${inrFormat.format(totalINR)} (\$${(totalINR / widget.provider.usdtToInrRate).toStringAsFixed(2)})', isHighlight: true),
+            _buildReviewRow(
+              'Estimated Total',
+              widget.asset.isIndianAsset
+                  ? inrFormat.format(totalINR)
+                  : '${inrFormat.format(totalINR)} (\$${(totalINR / widget.provider.usdtToInrRate).toStringAsFixed(2)})',
+              isHighlight: true,
+            ),
             const SizedBox(height: 10),
             Text(
               _orderType == TradingOrderType.market
-                  ? 'Fills immediately with simulated market liquidity.'
-                  : 'Order will sit pending until live market reaches target price.',
+                  ? 'Fills immediately at simulated market price.'
+                  : 'Order will sit pending until market reaches target price.',
               style: GoogleFonts.inter(color: JweTheme.textMuted, fontSize: 11),
             ),
           ],
@@ -215,10 +257,10 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
     if (confirmed == true && mounted) {
       if (_orderType == TradingOrderType.market) {
         final result = widget.provider.executeMarketOrder(
-          symbol: widget.symbol.rawSymbol,
+          symbol: widget.asset.symbol,
           side: _side,
           quantity: qty,
-          currentPriceUSDT: priceUSDT,
+          currentPriceUSDT: price,
         );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -228,10 +270,10 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
         );
       } else {
         final result = widget.provider.createLimitOrder(
-          symbol: widget.symbol.rawSymbol,
+          symbol: widget.asset.symbol,
           side: _side,
           quantity: qty,
-          targetPriceUSDT: priceUSDT,
+          targetPriceUSDT: price,
         );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -267,9 +309,9 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final inrFormat = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 0);
+    final inrFormat = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 2);
 
-    final availableCoins = widget.provider.getAvailableCoinQuantity(widget.symbol.rawSymbol);
+    final availableUnits = widget.provider.getAvailableCoinQuantity(widget.asset.symbol);
     final availableCash = widget.provider.availableCash;
 
     return AnimatedPadding(
@@ -312,20 +354,55 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
                 children: [
                   Row(
                     children: [
-                      Icon(widget.symbol.icon, color: widget.symbol.brandColor, size: 22),
+                      Icon(widget.asset.icon, color: widget.asset.brandColor, size: 22),
                       const SizedBox(width: 8),
-                      Text(
-                        widget.symbol.pairLabel,
-                        style: GoogleFonts.jetBrainsMono(
-                          color: JweTheme.textWhite,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                widget.asset.displaySymbol,
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: JweTheme.textWhite,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: JweTheme.panel2,
+                                  borderRadius: BorderRadius.circular(3),
+                                  border: Border.all(color: JweTheme.border),
+                                ),
+                                child: Text(
+                                  widget.asset.exchange,
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: JweTheme.textMuted,
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            widget.asset.name,
+                            style: GoogleFonts.inter(
+                              color: JweTheme.textMuted,
+                              fontSize: 10.5,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                   Text(
-                    '\$${_currentLivePriceUSDT.toStringAsFixed(2)}',
+                    widget.asset.isIndianAsset
+                        ? inrFormat.format(_currentLivePrice)
+                        : '\$${_currentLivePrice.toStringAsFixed(2)}',
                     style: GoogleFonts.jetBrainsMono(
                       color: JweTheme.textWhite,
                       fontSize: 14,
@@ -449,7 +526,7 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
               // Limit Price Input (if Limit order selected)
               if (_orderType == TradingOrderType.limit) ...[
                 Text(
-                  'TARGET LIMIT PRICE (USDT)',
+                  widget.asset.isIndianAsset ? 'TARGET LIMIT PRICE (INR)' : 'TARGET LIMIT PRICE (USDT)',
                   style: GoogleFonts.jetBrainsMono(
                     color: JweTheme.accentAmber,
                     fontSize: 10,
@@ -464,7 +541,7 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
                   style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 13),
                   onChanged: (_) => _onAmountChanged(_amountController.text),
                   decoration: InputDecoration(
-                    prefixText: '\$ ',
+                    prefixText: widget.asset.isIndianAsset ? '₹ ' : '\$ ',
                     prefixStyle: GoogleFonts.jetBrainsMono(color: JweTheme.accentAmber, fontSize: 13),
                     filled: true,
                     fillColor: JweTheme.panel2,
@@ -524,7 +601,7 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
                 decoration: InputDecoration(
                   prefixText: '₹ ',
                   prefixStyle: GoogleFonts.jetBrainsMono(color: JweTheme.accentCyan, fontSize: 14),
-                  hintText: 'e.g. 10000',
+                  hintText: widget.asset.isIndianAsset ? 'e.g. 5000' : 'e.g. 10000',
                   hintStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 13),
                   filled: true,
                   fillColor: JweTheme.panel2,
@@ -541,9 +618,11 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
               ),
               const SizedBox(height: 10),
 
-              // Quantity Input (Coin)
+              // Quantity Input (Coin/Shares)
               Text(
-                'QUANTITY (${widget.symbol.baseAsset})',
+                widget.asset.isIndianAsset
+                    ? 'QUANTITY (SHARES - ${widget.asset.baseAsset})'
+                    : 'QUANTITY (${widget.asset.baseAsset})',
                 style: GoogleFonts.jetBrainsMono(
                   color: JweTheme.textMid,
                   fontSize: 10,
@@ -554,11 +633,13 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
               const SizedBox(height: 6),
               TextField(
                 controller: _quantityController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: TextInputType.numberWithOptions(
+                  decimal: !widget.asset.isIndianAsset || widget.asset.decimals > 0,
+                ),
                 style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 14),
                 onChanged: _onQuantityChanged,
                 decoration: InputDecoration(
-                  suffixText: widget.symbol.baseAsset,
+                  suffixText: widget.asset.baseAsset,
                   suffixStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 12),
                   filled: true,
                   fillColor: JweTheme.panel2,
@@ -623,15 +704,25 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Available Cash:', style: GoogleFonts.inter(color: JweTheme.textMuted, fontSize: 11)),
-                        Text(inrFormat.format(availableCash), style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 11, fontWeight: FontWeight.bold)),
+                        Text(
+                          inrFormat.format(availableCash),
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.textWhite,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 3),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Holding Balance:', style: GoogleFonts.inter(color: JweTheme.textMuted, fontSize: 11)),
-                        Text('${availableCoins.toStringAsFixed(4)} ${widget.symbol.baseAsset}', style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 11)),
+                        Text('Position Holding:', style: GoogleFonts.inter(color: JweTheme.textMuted, fontSize: 11)),
+                        Text(
+                          '${availableUnits.toStringAsFixed(widget.asset.decimals)} ${widget.asset.baseAsset}',
+                          style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 11),
+                        ),
                       ],
                     ),
                   ],

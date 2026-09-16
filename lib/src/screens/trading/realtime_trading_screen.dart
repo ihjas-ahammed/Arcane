@@ -22,6 +22,7 @@ class _RealtimeTradingScreenState extends State<RealtimeTradingScreen>
   static PaperTradingProvider? _sharedProvider;
   late final PaperTradingProvider _provider;
   late final TabController _tabController;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -32,13 +33,13 @@ class _RealtimeTradingScreenState extends State<RealtimeTradingScreen>
       _sharedProvider = PaperTradingProvider(marketService: marketService);
     }
     _provider = _sharedProvider!;
-    // Ensure market streaming is active
     _provider.marketService.start();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -89,7 +90,7 @@ class _RealtimeTradingScreenState extends State<RealtimeTradingScreen>
                   ],
                 ),
                 Text(
-                  'Paper simulation · Binance WebSocket',
+                  'India & Global Paper Markets · Real Live Quotes',
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.jetBrainsMono(
                     color: JweTheme.textMuted,
@@ -125,7 +126,7 @@ class _RealtimeTradingScreenState extends State<RealtimeTradingScreen>
                   unselectedLabelColor: JweTheme.textMuted,
                   labelStyle: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8),
                   tabs: [
-                    const Tab(text: 'WATCHLIST'),
+                    const Tab(text: 'MARKETS'),
                     Tab(text: 'PORTFOLIO (${_provider.holdings.length})'),
                     Tab(text: 'ORDERS (${_provider.orders.length})'),
                   ],
@@ -233,7 +234,10 @@ class _RealtimeTradingScreenState extends State<RealtimeTradingScreen>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _WatchlistTab(provider: _provider),
+                    _WatchlistTab(
+                      provider: _provider,
+                      searchController: _searchController,
+                    ),
                     _PortfolioTab(provider: _provider),
                     _OrdersTab(provider: _provider),
                   ],
@@ -247,160 +251,349 @@ class _RealtimeTradingScreenState extends State<RealtimeTradingScreen>
   }
 }
 
-// ── Tab 1: Watchlist ────────────────────────────────────────────────────────
+// ── Tab 1: Unified Markets Watchlist ────────────────────────────────────────
 
 class _WatchlistTab extends StatelessWidget {
   final PaperTradingProvider provider;
+  final TextEditingController searchController;
 
-  const _WatchlistTab({required this.provider});
+  const _WatchlistTab({
+    required this.provider,
+    required this.searchController,
+  });
 
   @override
   Widget build(BuildContext context) {
-    const symbols = CryptoSymbol.values;
+    final assets = provider.filteredAssets;
+    final inrFormat = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 2);
+    final inrCompact = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 0);
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      itemCount: symbols.length,
-      itemBuilder: (context, index) {
-        final sym = symbols[index];
-        final tick = provider.marketService.getTick(sym.rawSymbol);
-        final history = provider.marketService.getHistory(sym.rawSymbol);
+    final isIndianOpen = provider.marketService.isIndianMarketOpen;
 
-        final price = tick?.price ?? 0.0;
-        final changePercent = tick?.changePercent24h ?? 0.0;
-        final isPositive = changePercent >= 0;
-        final priceINR = price * provider.usdtToInrRate;
-        final inrFormat = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 0);
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 10),
-          color: JweTheme.panel,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            side: BorderSide(color: JweTheme.border),
-            borderRadius: BorderRadius.circular(10),
+    return Column(
+      children: [
+        // Indian Market Status Header Bar
+        Container(
+          margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: JweTheme.panel,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: JweTheme.border),
           ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(10),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => TradingAssetDetailScreen(
-                    symbol: sym,
-                    provider: provider,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isIndianOpen ? JweTheme.accentTeal : JweTheme.accentAmber,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    provider.marketService.indianMarketStatusText,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: isIndianOpen ? JweTheme.accentTeal : JweTheme.accentAmber,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                '09:15 - 15:30 IST · Mon-Fri',
+                style: GoogleFonts.jetBrainsMono(
+                  color: JweTheme.textMuted,
+                  fontSize: 8.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Search Bar
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: TextField(
+            controller: searchController,
+            onChanged: provider.setSearchQuery,
+            style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 13),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: 'Search 700+ assets (Reliance, Nifty, BTC, Gold...)',
+              hintStyle: GoogleFonts.inter(color: JweTheme.textMuted, fontSize: 12),
+              prefixIcon: Icon(Icons.search_rounded, color: JweTheme.textMuted, size: 18),
+              suffixIcon: provider.searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: Icon(Icons.clear_rounded, color: JweTheme.textMuted, size: 16),
+                      onPressed: () {
+                        searchController.clear();
+                        provider.setSearchQuery('');
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: JweTheme.panel,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              enabledBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: JweTheme.border),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: JweTheme.accentCyan, width: 1.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Category Filter Chips
+        SizedBox(
+          height: 32,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            children: TradingAssetCategory.values.map((cat) {
+              final isSelected = provider.selectedCategory == cat;
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: InkWell(
+                  onTap: () => provider.setCategory(cat),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? JweTheme.accentCyan.withValues(alpha: 0.18)
+                          : JweTheme.panel,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isSelected ? JweTheme.accentCyan : JweTheme.border,
+                        width: isSelected ? 1.2 : 1.0,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        cat.label,
+                        style: GoogleFonts.jetBrainsMono(
+                          color: isSelected ? JweTheme.accentCyan : JweTheme.textMuted,
+                          fontSize: 10,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               );
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  // Icon
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: sym.brandColor.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Center(
-                      child: Icon(sym.icon, color: sym.brandColor, size: 22),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 8),
 
-                  // Name & Symbol
-                  Expanded(
+        // Asset List
+        Expanded(
+          child: assets.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        Icon(Icons.search_off_rounded, color: JweTheme.textMuted, size: 40),
+                        const SizedBox(height: 10),
                         Text(
-                          sym.name,
+                          'NO MATCHING ASSETS FOUND',
                           style: GoogleFonts.jetBrainsMono(
                             color: JweTheme.textWhite,
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(
-                          sym.pairLabel,
-                          style: GoogleFonts.jetBrainsMono(
-                            color: JweTheme.textMuted,
-                            fontSize: 10.5,
-                          ),
+                          'Try searching for another ticker symbol or company name.',
+                          style: GoogleFonts.inter(color: JweTheme.textMuted, fontSize: 11),
                         ),
                       ],
                     ),
                   ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                  itemCount: assets.length,
+                  itemBuilder: (context, index) {
+                    final asset = assets[index];
+                    final tick = provider.marketService.getTick(asset.symbol);
+                    final history = provider.marketService.getHistory(asset.symbol);
 
-                  // Mini Sparkline Preview
-                  if (history.length >= 2) ...[
-                    SizedBox(
-                      width: 50,
-                      height: 22,
-                      child: HudSparkline(
-                        data: history,
-                        width: 50,
-                        height: 22,
-                        tone: isPositive ? HudTone.teal : HudTone.red,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
+                    final price = tick?.price ?? 0.0;
+                    final changePercent = tick?.changePercent24h ?? 0.0;
+                    final isPositive = changePercent >= 0;
 
-                  // Price & % Change
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '\$${price.toStringAsFixed(price < 100 ? 2 : 2)}',
-                        style: GoogleFonts.jetBrainsMono(
-                          color: JweTheme.textWhite,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      color: JweTheme.panel,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        side: BorderSide(color: JweTheme.border),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      const SizedBox(height: 2),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            inrFormat.format(priceINR),
-                            style: GoogleFonts.jetBrainsMono(
-                              color: JweTheme.textMuted,
-                              fontSize: 10,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: (isPositive ? JweTheme.accentTeal : JweTheme.accentRed)
-                                  .withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(
-                              '${isPositive ? '+' : ''}${changePercent.toStringAsFixed(2)}%',
-                              style: GoogleFonts.jetBrainsMono(
-                                color: isPositive ? JweTheme.accentTeal : JweTheme.accentRed,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.bold,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TradingAssetDetailScreen(
+                                asset: asset,
+                                provider: provider,
                               ),
                             ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              // Asset Icon
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: asset.brandColor.withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Center(
+                                  child: Icon(asset.icon, color: asset.brandColor, size: 20),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+
+                              // Name & Symbol
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          asset.displaySymbol,
+                                          style: GoogleFonts.jetBrainsMono(
+                                            color: JweTheme.textWhite,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: JweTheme.panel2,
+                                            borderRadius: BorderRadius.circular(3),
+                                          ),
+                                          child: Text(
+                                            asset.exchange,
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: JweTheme.textMuted,
+                                              fontSize: 8.5,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      asset.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.inter(
+                                        color: JweTheme.textMuted,
+                                        fontSize: 10.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              // Mini Sparkline Preview
+                              if (history.length >= 2) ...[
+                                SizedBox(
+                                  width: 44,
+                                  height: 20,
+                                  child: HudSparkline(
+                                    data: history,
+                                    width: 44,
+                                    height: 20,
+                                    tone: isPositive ? HudTone.teal : HudTone.red,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                              ],
+
+                              // Price & % Change
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    asset.isIndianAsset
+                                        ? inrFormat.format(price)
+                                        : '\$${price.toStringAsFixed(price < 100 ? 2 : 2)}',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: JweTheme.textWhite,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (!asset.isIndianAsset) ...[
+                                        Text(
+                                          inrCompact.format(price * provider.usdtToInrRate),
+                                          style: GoogleFonts.jetBrainsMono(
+                                            color: JweTheme.textMuted,
+                                            fontSize: 9.5,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 5),
+                                      ],
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                        decoration: BoxDecoration(
+                                          color: (isPositive ? JweTheme.accentTeal : JweTheme.accentRed)
+                                              .withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(3),
+                                        ),
+                                        child: Text(
+                                          '${isPositive ? '+' : ''}${changePercent.toStringAsFixed(2)}%',
+                                          style: GoogleFonts.jetBrainsMono(
+                                            color: isPositive ? JweTheme.accentTeal : JweTheme.accentRed,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }
@@ -416,6 +609,7 @@ class _PortfolioTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final holdings = provider.holdings.values.toList();
     final inrFormat = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 0);
+    final inrDecimalFormat = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 2);
 
     if (holdings.isEmpty) {
       return Center(
@@ -437,7 +631,7 @@ class _PortfolioTab extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'You hold 100% in virtual cash (${inrFormat.format(provider.cashBalance)}).\nSelect a coin from the Watchlist to execute your first simulated trade.',
+                'You hold 100% in virtual cash (${inrFormat.format(provider.cashBalance)}).\nSelect an Indian stock or crypto pair from the Markets tab to execute your first paper trade.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(color: JweTheme.textMuted, fontSize: 11.5, height: 1.4),
               ),
@@ -452,7 +646,7 @@ class _PortfolioTab extends StatelessWidget {
       itemCount: holdings.length,
       itemBuilder: (context, index) {
         final holding = holdings[index];
-        final sym = holding.symbolInfo ?? CryptoSymbol.btc;
+        final asset = holding.assetInfo;
         final tick = provider.marketService.getTick(holding.symbol);
         final currentPrice = tick?.price ?? holding.avgBuyPriceUSDT;
 
@@ -478,10 +672,10 @@ class _PortfolioTab extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(sym.icon, color: sym.brandColor, size: 20),
+                        Icon(asset.icon, color: asset.brandColor, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          holding.coinName,
+                          asset.displaySymbol,
                           style: GoogleFonts.jetBrainsMono(
                             color: JweTheme.textWhite,
                             fontSize: 13,
@@ -489,11 +683,19 @@ class _PortfolioTab extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        Text(
-                          sym.pairLabel,
-                          style: GoogleFonts.jetBrainsMono(
-                            color: JweTheme.textMuted,
-                            fontSize: 10,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: JweTheme.panel2,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            asset.exchange,
+                            style: GoogleFonts.jetBrainsMono(
+                              color: JweTheme.textMuted,
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
@@ -510,7 +712,7 @@ class _PortfolioTab extends StatelessWidget {
                           context,
                           MaterialPageRoute(
                             builder: (_) => TradingAssetDetailScreen(
-                              symbol: sym,
+                              asset: asset,
                               provider: provider,
                             ),
                           ),
@@ -531,38 +733,57 @@ class _PortfolioTab extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('HOLDING QUANTITY', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.5)),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${holding.quantity.toStringAsFixed(sym.decimals)} ${sym.baseAsset}',
-                          style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
-                      ],
+                    Expanded(
+                      flex: 4,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('HOLDING QUANTITY', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.0), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${holding.quantity.toStringAsFixed(asset.decimals)} ${asset.baseAsset}',
+                            style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 11.5, fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text('AVG COST / LIVE', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.5)),
-                        const SizedBox(height: 2),
-                        Text(
-                          '\$${holding.avgBuyPriceUSDT.toStringAsFixed(0)} / \$${currentPrice.toStringAsFixed(0)}',
-                          style: GoogleFonts.jetBrainsMono(color: JweTheme.textMid, fontSize: 11),
-                        ),
-                      ],
+                    const SizedBox(width: 4),
+                    Expanded(
+                      flex: 4,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text('AVG / LIVE', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.0), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 2),
+                          Text(
+                            asset.isIndianAsset
+                                ? '${inrDecimalFormat.format(holding.avgBuyPriceUSDT)} / ${inrDecimalFormat.format(currentPrice)}'
+                                : '\$${holding.avgBuyPriceUSDT.toStringAsFixed(1)} / \$${currentPrice.toStringAsFixed(1)}',
+                            style: GoogleFonts.jetBrainsMono(color: JweTheme.textMid, fontSize: 10.0),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('CURRENT VALUE', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.5)),
-                        const SizedBox(height: 2),
-                        Text(
-                          inrFormat.format(curValINR),
-                          style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
-                      ],
+                    const SizedBox(width: 4),
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('CURRENT VALUE', style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.0), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 2),
+                          Text(
+                            inrFormat.format(curValINR),
+                            style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 11.5, fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -622,7 +843,7 @@ class _OrdersTab extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Placed orders and limit orders will be logged here with complete execution telemetry.',
+                'Executed and pending orders across Indian stocks & crypto will appear here.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(color: JweTheme.textMuted, fontSize: 11.5, height: 1.4),
               ),
@@ -637,7 +858,7 @@ class _OrdersTab extends StatelessWidget {
       itemCount: orders.length,
       itemBuilder: (context, index) {
         final order = orders[index];
-        final sym = order.symbolInfo ?? CryptoSymbol.btc;
+        final asset = order.assetInfo;
         final isBuy = order.isBuy;
 
         return Container(
@@ -677,7 +898,7 @@ class _OrdersTab extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          '${order.quantity.toStringAsFixed(sym.decimals)} ${sym.baseAsset}',
+                          '${order.quantity.toStringAsFixed(asset.decimals)} ${asset.baseAsset}',
                           style: GoogleFonts.jetBrainsMono(
                             color: JweTheme.textWhite,
                             fontSize: 12,
@@ -700,7 +921,7 @@ class _OrdersTab extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Price: \$${(order.executedPriceUSDT ?? order.targetPriceUSDT).toStringAsFixed(2)} • ${DateFormat('dd MMM HH:mm').format(order.createdAt)}',
+                      'Unit: ${asset.isIndianAsset ? '₹' : '\$'}${(order.executedPriceUSDT ?? order.targetPriceUSDT).toStringAsFixed(2)} • ${DateFormat('dd MMM HH:mm').format(order.createdAt)}',
                       style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
                     ),
                   ],

@@ -1,3 +1,23 @@
+# ⚡ Arcane System Upgrade // v2026.9.16 (Build #2126091604)
+
+### 📊 Real Historical Price Data & Multi-Timeframe Charts
+- **Multi-Timeframe Real Charting**: Introduced interactive multi-timeframe price history across `[ 1D | 1W | 1M | 1Y | ALL ]` for every asset. Tapping any timeframe queries real historical market data and generates interactive `fl_chart` line charts with date/time labels and volume-weighted gradient fills.
+- **Interactive Touch Crosshairs**: Operators can drag across the historical chart to inspect exact historical price points, calendar dates/timestamps, and cumulative period return percentages ($\pm\%$).
+- **Comprehensive Key Historical Metrics**: Each asset detail screen now showcases 52-Week High & Low, Period High & Low, Previous Close, Trading Volume, Exchange, and live Market Status.
+
+### 🇮🇳 Indian Stock Market Universe & Bluechips (NSE / BSE)
+- **Extensive Indian Asset Universe**: Tailored for the Indian market context, adding top 30 National Stock Exchange (NSE) bluechips including Reliance Industries, Tata Consultancy Services (TCS), HDFC Bank, Infosys, ICICI Bank, State Bank of India (SBIN), Bharti Airtel, ITC, Larsen & Toubro, Tata Motors, Sun Pharma, Bajaj Finance, and more.
+- **Benchmark Indices & Commodities**: Integrated live tracking and historical charts for NIFTY 50, BSE SENSEX, BANK NIFTY, Gold (24K ₹/10g), Silver (₹/kg), and Crude Oil (₹/bbl).
+- **Native INR (₹) Paper Trading**: Indian equities and commodities are natively priced and transacted in Indian Rupees (₹) with whole-share quantity calculations, real-time INR wallet balance deductions, and dedicated confirmation modals.
+- **700+ Cryptocurrency Universe**: Expanded crypto trading beyond the default trio to encompass the full 700+ Binance pairs universe with real-time live search, category filtering (`ALL`, `NSE STOCKS`, `INDICES`, `CRYPTO`, `COMMODITIES`), and instantaneous USDT-to-INR conversions.
+
+### ⏰ Live Indian Market Status Telemetry & Background Poller
+- **Dynamic IST Market Hours Engine**: Automatically tracks Indian Standard Time (UTC+5:30) trading hours (09:15 – 15:30 IST, Monday–Friday).
+- **Real-Time HUD Market Status Banner**: High-contrast banner clearly indicates market status: `● NSE LIVE 09:15 - 15:30 IST` during trading hours or `○ NSE CLOSED (OPENS 09:15 IST)` after hours and weekends.
+- **15-Second Background Market Poller**: Periodically fetches fresh quotes for all active Indian assets and indices while the terminal is active.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.16 (Build #2126091603)
 
 ### 📈 Realtime Paper-Trading Simulator (Binance WebSocket Feed)

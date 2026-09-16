@@ -45,6 +45,12 @@ class PaperTradingProvider extends ChangeNotifier {
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
 
+  TradingAssetCategory _selectedCategory = TradingAssetCategory.all;
+  TradingAssetCategory get selectedCategory => _selectedCategory;
+
+  String _searchQuery = '';
+  String get searchQuery => _searchQuery;
+
   PaperTradingProvider({required this.marketService}) {
     _init();
     marketService.addListener(_onMarketTicksUpdated);
@@ -60,6 +66,35 @@ class PaperTradingProvider extends ChangeNotifier {
   void _onMarketTicksUpdated() {
     checkLimitOrders(marketService.ticks);
     notifyListeners();
+  }
+
+  // ── Category & Search ──────────────────────────────────────────
+
+  void setCategory(TradingAssetCategory cat) {
+    _selectedCategory = cat;
+    notifyListeners();
+  }
+
+  void setSearchQuery(String q) {
+    _searchQuery = q.trim();
+    notifyListeners();
+  }
+
+  List<TradingAsset> get filteredAssets {
+    final all = marketService.allSearchableAssets;
+    return all.where((a) {
+      if (_selectedCategory != TradingAssetCategory.all && a.category != _selectedCategory) {
+        return false;
+      }
+      if (_searchQuery.isNotEmpty) {
+        final query = _searchQuery.toUpperCase();
+        final matchesSymbol = a.symbol.toUpperCase().contains(query);
+        final matchesDisplay = a.displaySymbol.toUpperCase().contains(query);
+        final matchesName = a.name.toUpperCase().contains(query);
+        return matchesSymbol || matchesDisplay || matchesName;
+      }
+      return true;
+    }).toList();
   }
 
   // ── Balance & Config ────────────────────────────────────────────
@@ -123,8 +158,8 @@ class PaperTradingProvider extends ChangeNotifier {
     double total = 0.0;
     _holdings.forEach((sym, holding) {
       final tick = ticks[sym];
-      final currentPriceUSDT = tick?.price ?? holding.avgBuyPriceUSDT;
-      total += holding.currentValueINR(currentPriceUSDT, _usdtToInrRate);
+      final currentPrice = tick?.price ?? holding.avgBuyPriceUSDT;
+      total += holding.currentValueINR(currentPrice, _usdtToInrRate);
     });
     return total;
   }
@@ -142,40 +177,47 @@ class PaperTradingProvider extends ChangeNotifier {
   }
 
   double totalUnrealizedPnlINR(Map<String, CryptoPriceTick> ticks) {
-    double pnl = 0.0;
+    double totalPnl = 0.0;
     _holdings.forEach((sym, holding) {
       final tick = ticks[sym];
-      final currentPriceUSDT = tick?.price ?? holding.avgBuyPriceUSDT;
-      pnl += holding.pnlINR(currentPriceUSDT, _usdtToInrRate);
+      final currentPrice = tick?.price ?? holding.avgBuyPriceUSDT;
+      totalPnl += holding.pnlINR(currentPrice, _usdtToInrRate);
     });
-    return pnl;
+    return totalPnl;
   }
 
   double totalUnrealizedPnlPercent(Map<String, CryptoPriceTick> ticks) {
     double totalCost = 0.0;
-    _holdings.forEach((_, h) => totalCost += h.totalCostINR);
+    for (final h in _holdings.values) {
+      totalCost += h.totalCostINR;
+    }
     if (totalCost <= 0) return 0.0;
-    return (totalUnrealizedPnlINR(ticks) / totalCost) * 100.0;
+    return (totalUnrealizedPnlINR(ticks) / totalCost) * 100;
   }
 
-  // ── Trade Execution ─────────────────────────────────────────────
+  // ── Execution Logic ─────────────────────────────────────────────
 
   TradeExecutionResult executeMarketOrder({
     required String symbol,
     required OrderSide side,
     required double quantity,
-    required double currentPriceUSDT,
+    required double currentPriceUSDT, // Native price (INR for NSE, USD for Crypto)
   }) {
     final sym = symbol.toUpperCase();
-    final coinMeta = CryptoSymbol.fromRaw(sym);
-    final coinName = coinMeta?.name ?? sym;
-    final totalCostINR = quantity * currentPriceUSDT * _usdtToInrRate;
+    final asset = TradingAsset.fromSymbol(sym);
+    final coinName = asset.name;
+    final isIndian = asset.isIndianMarket || asset.currency == 'INR';
+
+    final totalCostINR = isIndian
+        ? quantity * currentPriceUSDT
+        : quantity * currentPriceUSDT * _usdtToInrRate;
 
     if (quantity <= 0) {
       return TradeExecutionResult(success: false, message: 'Quantity must be greater than zero.');
     }
     if (currentPriceUSDT <= 0) {
-      return TradeExecutionResult(success: false, message: 'Invalid market price.');
+      return TradeExecutionResult(
+          success: false, message: 'Market price unavailable. Please try again.');
     }
 
     if (side == OrderSide.buy) {
@@ -183,22 +225,23 @@ class PaperTradingProvider extends ChangeNotifier {
         return TradeExecutionResult(
           success: false,
           message:
-              'Insufficient cash. Required: ₹${totalCostINR.toStringAsFixed(2)}, Available: ₹${availableCash.toStringAsFixed(2)}',
+              'Insufficient cash balance. Required: ₹${totalCostINR.toStringAsFixed(2)}, Available: ₹${availableCash.toStringAsFixed(2)}',
         );
       }
 
-      // Deduct cash
       _cashBalance -= totalCostINR;
 
-      // Update or create holding position
       final existing = _holdings[sym];
       if (existing != null) {
         final newQty = existing.quantity + quantity;
         final newCost = existing.totalCostINR + totalCostINR;
-        final newAvgUSDT = (newCost / _usdtToInrRate) / newQty;
+        final newAvg = isIndian
+            ? (newCost / newQty)
+            : ((newCost / _usdtToInrRate) / newQty);
+
         _holdings[sym] = existing.copyWith(
           quantity: newQty,
-          avgBuyPriceUSDT: newAvgUSDT,
+          avgBuyPriceUSDT: newAvg,
           totalCostINR: newCost,
         );
       } else {
@@ -208,6 +251,7 @@ class PaperTradingProvider extends ChangeNotifier {
           quantity: quantity,
           avgBuyPriceUSDT: currentPriceUSDT,
           totalCostINR: totalCostINR,
+          currency: asset.currency,
         );
       }
 
@@ -224,15 +268,20 @@ class PaperTradingProvider extends ChangeNotifier {
         status: OrderStatus.filled,
         createdAt: DateTime.now(),
         filledAt: DateTime.now(),
+        currency: asset.currency,
       );
 
       _orders.insert(0, order);
       _saveToStorage();
       notifyListeners();
 
+      final unitStr = isIndian
+          ? '₹${currentPriceUSDT.toStringAsFixed(2)}'
+          : '\$${currentPriceUSDT.toStringAsFixed(2)}';
+
       return TradeExecutionResult(
         success: true,
-        message: 'Successfully bought ${quantity.toStringAsFixed(4)} $sym at \$${currentPriceUSDT.toStringAsFixed(2)}',
+        message: 'Successfully bought ${isIndian ? quantity.toInt() : quantity.toStringAsFixed(4)} $sym at $unitStr',
         order: order,
       );
     } else {
@@ -242,7 +291,7 @@ class PaperTradingProvider extends ChangeNotifier {
         return TradeExecutionResult(
           success: false,
           message:
-              'Insufficient coins. Available to sell: ${availableQty.toStringAsFixed(4)} $sym',
+              'Insufficient balance. Available to sell: ${availableQty.toStringAsFixed(2)} $sym',
         );
       }
 
@@ -275,15 +324,20 @@ class PaperTradingProvider extends ChangeNotifier {
         status: OrderStatus.filled,
         createdAt: DateTime.now(),
         filledAt: DateTime.now(),
+        currency: asset.currency,
       );
 
       _orders.insert(0, order);
       _saveToStorage();
       notifyListeners();
 
+      final unitStr = isIndian
+          ? '₹${currentPriceUSDT.toStringAsFixed(2)}'
+          : '\$${currentPriceUSDT.toStringAsFixed(2)}';
+
       return TradeExecutionResult(
         success: true,
-        message: 'Successfully sold ${quantity.toStringAsFixed(4)} $sym at \$${currentPriceUSDT.toStringAsFixed(2)}',
+        message: 'Successfully sold ${isIndian ? quantity.toInt() : quantity.toStringAsFixed(4)} $sym at $unitStr',
         order: order,
       );
     }
@@ -296,9 +350,13 @@ class PaperTradingProvider extends ChangeNotifier {
     required double targetPriceUSDT,
   }) {
     final sym = symbol.toUpperCase();
-    final coinMeta = CryptoSymbol.fromRaw(sym);
-    final coinName = coinMeta?.name ?? sym;
-    final totalCostINR = quantity * targetPriceUSDT * _usdtToInrRate;
+    final asset = TradingAsset.fromSymbol(sym);
+    final coinName = asset.name;
+    final isIndian = asset.isIndianMarket || asset.currency == 'INR';
+
+    final totalCostINR = isIndian
+        ? quantity * targetPriceUSDT
+        : quantity * targetPriceUSDT * _usdtToInrRate;
 
     if (quantity <= 0) {
       return TradeExecutionResult(success: false, message: 'Quantity must be greater than zero.');
@@ -321,7 +379,7 @@ class PaperTradingProvider extends ChangeNotifier {
         return TradeExecutionResult(
           success: false,
           message:
-              'Insufficient coins available to place sell limit. Available: ${availableQty.toStringAsFixed(4)} $sym',
+              'Insufficient balance to place sell limit. Available: ${availableQty.toStringAsFixed(2)} $sym',
         );
       }
     }
@@ -337,35 +395,27 @@ class PaperTradingProvider extends ChangeNotifier {
       totalINR: totalCostINR,
       status: OrderStatus.pending,
       createdAt: DateTime.now(),
+      currency: asset.currency,
     );
 
     _orders.insert(0, order);
     _saveToStorage();
     notifyListeners();
 
-    // Immediately test if market price already matches or crosses the limit
+    // Test if market price already matches or crosses the limit
     checkLimitOrders(marketService.ticks);
 
     return TradeExecutionResult(
       success: true,
-      message:
-          'Limit ${side.name.toUpperCase()} order placed for ${quantity.toStringAsFixed(4)} $sym at \$${targetPriceUSDT.toStringAsFixed(2)}',
+      message: 'Limit ${side.name.toUpperCase()} order placed.',
       order: order,
     );
   }
 
-  void cancelOrder(String orderId) {
-    final index = _orders.indexWhere((o) => o.id == orderId);
-    if (index != -1 && _orders[index].isPending) {
-      final updated = _orders[index].copyWith(status: OrderStatus.cancelled);
-      _orders[index] = updated;
-      _saveToStorage();
-      notifyListeners();
-    }
-  }
-
   void checkLimitOrders(Map<String, CryptoPriceTick> ticks) {
-    bool stateChanged = false;
+    if (pendingOrders.isEmpty) return;
+
+    bool updated = false;
 
     for (int i = 0; i < _orders.length; i++) {
       final order = _orders[i];
@@ -374,54 +424,60 @@ class PaperTradingProvider extends ChangeNotifier {
       final tick = ticks[order.symbol.toUpperCase()];
       if (tick == null || tick.price <= 0) continue;
 
+      final currentPrice = tick.price;
+      final isIndian = order.currency == 'INR' || order.symbol.contains('.NS');
+
       bool shouldFill = false;
-      if (order.isBuy && tick.price <= order.targetPriceUSDT) {
-        // Buy limit triggered!
+      if (order.isBuy && currentPrice <= order.targetPriceUSDT) {
         shouldFill = true;
-      } else if (order.isSell && tick.price >= order.targetPriceUSDT) {
-        // Sell limit triggered!
+      } else if (order.isSell && currentPrice >= order.targetPriceUSDT) {
         shouldFill = true;
       }
 
       if (shouldFill) {
-        final fillPriceUSDT = tick.price;
-        final totalCostINR = order.quantity * fillPriceUSDT * _usdtToInrRate;
+        final executedTotalINR = isIndian
+            ? order.quantity * currentPrice
+            : order.quantity * currentPrice * _usdtToInrRate;
 
         if (order.isBuy) {
-          _cashBalance -= totalCostINR;
-          final existing = _holdings[order.symbol];
+          final diff = order.totalINR - executedTotalINR;
+          _cashBalance -= executedTotalINR;
+          if (diff > 0) {
+            // Refund difference if bought cheaper than target
+          }
+
+          final existing = _holdings[order.symbol.toUpperCase()];
           if (existing != null) {
             final newQty = existing.quantity + order.quantity;
-            final newCost = existing.totalCostINR + totalCostINR;
-            final newAvgUSDT = (newCost / _usdtToInrRate) / newQty;
-            _holdings[order.symbol] = existing.copyWith(
+            final newCost = existing.totalCostINR + executedTotalINR;
+            final newAvg = isIndian ? (newCost / newQty) : ((newCost / _usdtToInrRate) / newQty);
+            _holdings[order.symbol.toUpperCase()] = existing.copyWith(
               quantity: newQty,
-              avgBuyPriceUSDT: newAvgUSDT,
+              avgBuyPriceUSDT: newAvg,
               totalCostINR: newCost,
             );
           } else {
-            _holdings[order.symbol] = CryptoHolding(
+            _holdings[order.symbol.toUpperCase()] = CryptoHolding(
               symbol: order.symbol,
               coinName: order.coinName,
               quantity: order.quantity,
-              avgBuyPriceUSDT: fillPriceUSDT,
-              totalCostINR: totalCostINR,
+              avgBuyPriceUSDT: currentPrice,
+              totalCostINR: executedTotalINR,
+              currency: order.currency,
             );
           }
         } else {
-          // Sell limit filled
-          _cashBalance += totalCostINR;
-          final existing = _holdings[order.symbol];
+          // Sell
+          _cashBalance += executedTotalINR;
+          final existing = _holdings[order.symbol.toUpperCase()];
           if (existing != null) {
             if (order.quantity >= existing.quantity - 1e-7) {
-              _holdings.remove(order.symbol);
+              _holdings.remove(order.symbol.toUpperCase());
             } else {
-              final fractionSold = order.quantity / existing.quantity;
-              final remainingCost = existing.totalCostINR * (1.0 - fractionSold);
-              final remainingQty = existing.quantity - order.quantity;
-              _holdings[order.symbol] = existing.copyWith(
-                quantity: remainingQty,
-                totalCostINR: remainingCost,
+              final frac = order.quantity / existing.quantity;
+              _holdings[order.symbol.toUpperCase()] = existing.copyWith(
+                quantity: existing.quantity - order.quantity,
+                totalCostINR: existing.totalCostINR * (1.0 - frac),
               );
             }
           }
@@ -429,18 +485,31 @@ class PaperTradingProvider extends ChangeNotifier {
 
         _orders[i] = order.copyWith(
           status: OrderStatus.filled,
-          executedPriceUSDT: fillPriceUSDT,
-          totalINR: totalCostINR,
+          executedPriceUSDT: currentPrice,
+          totalINR: executedTotalINR,
           filledAt: DateTime.now(),
         );
 
-        stateChanged = true;
+        updated = true;
       }
     }
 
-    if (stateChanged) {
+    if (updated) {
       _saveToStorage();
+      notifyListeners();
     }
+  }
+
+  bool cancelOrder(String orderId) {
+    final idx = _orders.indexWhere((o) => o.id == orderId);
+    if (idx == -1) return false;
+    final o = _orders[idx];
+    if (!o.isPending) return false;
+
+    _orders[idx] = o.copyWith(status: OrderStatus.cancelled);
+    _saveToStorage();
+    notifyListeners();
+    return true;
   }
 
   // ── Persistence ─────────────────────────────────────────────────
@@ -451,7 +520,7 @@ class PaperTradingProvider extends ChangeNotifier {
       final data = {
         'cashBalance': _cashBalance,
         'usdtToInrRate': _usdtToInrRate,
-        'holdings': _holdings.map((k, v) => MapEntry(k, v.toJson())),
+        'holdings': _holdings.values.map((h) => h.toJson()).toList(),
         'orders': _orders.map((o) => o.toJson()).toList(),
       };
       await prefs.setString(_prefKey, jsonEncode(data));
@@ -466,35 +535,29 @@ class PaperTradingProvider extends ChangeNotifier {
       final raw = prefs.getString(_prefKey);
       if (raw == null || raw.isEmpty) return;
 
-      final Map<String, dynamic> json = jsonDecode(raw);
-      if (json['cashBalance'] != null) {
-        _cashBalance = (json['cashBalance'] as num).toDouble();
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      _cashBalance = (data['cashBalance'] as num?)?.toDouble() ?? defaultStartingBalance;
+      _usdtToInrRate = (data['usdtToInrRate'] as num?)?.toDouble() ?? defaultInrRate;
+
+      _holdings.clear();
+      final hList = data['holdings'] as List?;
+      if (hList != null) {
+        for (final item in hList) {
+          final h = CryptoHolding.fromJson(item as Map<String, dynamic>);
+          _holdings[h.symbol.toUpperCase()] = h;
+        }
       }
-      if (json['usdtToInrRate'] != null) {
-        _usdtToInrRate = (json['usdtToInrRate'] as num).toDouble();
-      }
-      if (json['holdings'] != null) {
-        _holdings.clear();
-        final holdingsMap = json['holdings'] as Map<String, dynamic>;
-        holdingsMap.forEach((k, v) {
-          _holdings[k] = CryptoHolding.fromJson(v as Map<String, dynamic>);
-        });
-      }
-      if (json['orders'] != null) {
-        _orders.clear();
-        final ordersList = json['orders'] as List<dynamic>;
-        for (final o in ordersList) {
-          _orders.add(TradingOrder.fromJson(o as Map<String, dynamic>));
+
+      _orders.clear();
+      final oList = data['orders'] as List?;
+      if (oList != null) {
+        for (final item in oList) {
+          final o = TradingOrder.fromJson(item as Map<String, dynamic>);
+          _orders.add(o);
         }
       }
     } catch (e) {
       debugPrint('Error loading paper trading state: $e');
     }
-  }
-
-  @override
-  void dispose() {
-    marketService.removeListener(_onMarketTicksUpdated);
-    super.dispose();
   }
 }
