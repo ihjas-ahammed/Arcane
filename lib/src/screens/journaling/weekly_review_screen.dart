@@ -15,6 +15,7 @@ import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/ability_improvement_card.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/widgets/ui/tactical_briefing_indicator.dart';
+import 'package:missions/src/utils/goal_briefing_helper.dart';
 
 export 'package:missions/src/screens/journaling/weekly/weekly_common_widgets.dart';
 export 'package:missions/src/screens/journaling/weekly/weekly_completed_log_widget.dart';
@@ -60,6 +61,14 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
 
   Future<void> _regenerateReport() async {
     final effDate = _effectiveDate;
+
+    final canProceed = await GoalBriefingHelper.showWeeklyGoalsCheckDialog(
+      context,
+      widget.provider,
+      effDate,
+    );
+    if (!canProceed || !mounted) return;
+
     final dateStr = DateFormat('yyyy-MM-dd').format(effDate);
 
     setState(() {

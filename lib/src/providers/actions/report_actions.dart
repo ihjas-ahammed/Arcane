@@ -345,6 +345,20 @@ class ReportActions {
     } else {
       buf.writeln('No contacts registered.');
     }
+    buf.writeln('');
+
+    // 6. Next Week Planned Goals
+    final nextWeekGoals = GoalBriefingHelper.getNextWeekGoals(_provider, now);
+    buf.writeln('=== NEXT WEEK PLANNED GOALS ===');
+    if (nextWeekGoals.isNotEmpty) {
+      for (final g in nextWeekGoals) {
+        final targetStr = g.targetValue > 1 ? ' (Target: ${g.targetValue})' : '';
+        buf.writeln('- [ ] ${g.title}$targetStr');
+      }
+    } else {
+      buf.writeln('No weekly goals planned for next week yet.');
+    }
+
     return buf.toString();
   }
 

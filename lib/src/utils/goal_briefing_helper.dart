@@ -1,6 +1,11 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/drawers/goals/create_goal_sheet.dart';
 
 class ExpectedIncrementInfo {
   final double valueIncrement;
@@ -292,6 +297,248 @@ class GoalBriefingHelper {
       }
     }
 
+    // Tomorrow's planned daily goals
+    final tomorrowGoals = getTomorrowGoals(provider, date);
+    buffer.writeln("\nTOMORROW'S PLANNED DAILY GOALS:");
+    if (tomorrowGoals.isNotEmpty) {
+      for (var g in tomorrowGoals) {
+        final targetStr = g.targetValue > 1 ? ' (Target: ${g.targetValue})' : '';
+        buffer.writeln("- [ ] ${g.title}$targetStr");
+      }
+    } else {
+      buffer.writeln("- No daily goals scheduled for tomorrow yet.");
+    }
+
     return buffer.toString();
+  }
+
+  /// Returns next week's Monday date relative to [date]
+  static DateTime getNextWeekMonday(DateTime date) {
+    final currentMonday = date.subtract(Duration(days: date.weekday - 1));
+    return DateTime(currentMonday.year, currentMonday.month, currentMonday.day + 7);
+  }
+
+  /// Returns tomorrow date relative to [date]
+  static DateTime getTomorrow(DateTime date) {
+    return DateTime(date.year, date.month, date.day + 1);
+  }
+
+  /// Returns daily goals planned for tomorrow relative to [date]
+  static List<GoalModel> getTomorrowGoals(AppProvider provider, DateTime date) {
+    final tomorrow = getTomorrow(date);
+    return provider.getGoalsForDate(tomorrow, GoalScope.daily);
+  }
+
+  /// Checks if at least one daily goal exists for tomorrow
+  static bool hasTomorrowGoals(AppProvider provider, DateTime date) {
+    return getTomorrowGoals(provider, date).isNotEmpty;
+  }
+
+  /// Returns weekly goals planned for next week relative to [date]
+  static List<GoalModel> getNextWeekGoals(AppProvider provider, DateTime date) {
+    final nextWeekMonday = getNextWeekMonday(date);
+    return provider.getGoalsForDate(nextWeekMonday, GoalScope.weekly);
+  }
+
+  /// Checks if at least two weekly goals are planned for next week
+  static bool hasNextWeekGoals(AppProvider provider, DateTime date) {
+    return getNextWeekGoals(provider, date).length >= 2;
+  }
+
+  /// Checks if at least two weekly goals are set for next week.
+  /// If not, displays a tactical alert prompt asking the user to add them.
+  /// Returns true if generation should proceed (user already has >= 2 goals or chose "PROCEED ANYWAY").
+  /// Returns false if canceled or if user opted to add goals.
+  static Future<bool> showWeeklyGoalsCheckDialog(
+    BuildContext context,
+    AppProvider provider,
+    DateTime date,
+  ) async {
+    if (hasNextWeekGoals(provider, date)) {
+      return true;
+    }
+
+    final nextWeekGoals = getNextWeekGoals(provider, date);
+    final nextWeekMonday = getNextWeekMonday(date);
+    final nextWeekEnd = nextWeekMonday.add(const Duration(days: 6));
+    final dateRangeStr =
+        '${DateFormat('MMM d').format(nextWeekMonday)} – ${DateFormat('MMM d, yyyy').format(nextWeekEnd)}';
+
+    final result = await showDialog<dynamic>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: JweTheme.panel,
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: JweTheme.accentWarn, width: 1.5),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+          contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Row(
+            children: [
+              Icon(Icons.flag_outlined, color: JweTheme.accentWarn, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'WEEKLY BRIEFING: NEXT WEEK GOALS',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.textWhite,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Before synthesizing your weekly review, please set at least 2 weekly goals for next week ($dateRangeStr) to maintain forward strategic momentum.',
+                style: GoogleFonts.inter(
+                  color: JweTheme.textMid,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: JweTheme.panel2,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: JweTheme.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(MdiIcons.target, size: 16, color: JweTheme.accentWarn),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'NEXT WEEK GOALS: ${nextWeekGoals.length} OF 2 SET',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: JweTheme.accentWarn,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (nextWeekGoals.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      ...nextWeekGoals.map((g) => Padding(
+                            padding: const EdgeInsets.only(top: 2, bottom: 2, left: 4),
+                            child: Row(
+                              children: [
+                                Icon(Icons.check_circle_outline,
+                                    size: 13, color: JweTheme.accentTeal),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    g.title,
+                                    style: GoogleFonts.inter(
+                                      color: JweTheme.textWhite,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )),
+                    ],
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: JweTheme.accentAmber),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      ),
+                      onPressed: () => Navigator.pop(ctx, 'add_goal'),
+                      icon: Icon(Icons.add, size: 14, color: JweTheme.accentAmber),
+                      label: Text(
+                        'ADD NEXT WEEK GOAL',
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: JweTheme.accentAmber,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Weekly briefings without target goals for the upcoming week omit strategic alignment and predictive guidance from your AI synthesis.',
+                style: GoogleFonts.inter(
+                  color: JweTheme.textMuted,
+                  fontSize: 11,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'add_goal'),
+              child: Text(
+                'ADD GOALS FIRST',
+                style: GoogleFonts.jetBrainsMono(
+                  color: JweTheme.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: JweTheme.accentWarn,
+                foregroundColor: JweTheme.onAccent,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(
+                'PROCEED ANYWAY',
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == 'add_goal') {
+      if (!context.mounted) return false;
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => CreateGoalSheet(
+          initialScope: GoalScope.weekly,
+          selectedDate: nextWeekMonday,
+        ),
+      );
+      return false;
+    }
+
+    return result == true;
   }
 }

@@ -170,18 +170,19 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.90,
-        ),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: sheetBg,
+      child: Material(
+        color: sheetBg,
+        shape: RoundedRectangleBorder(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          border: Border.all(color: themeColor, width: 1.5),
+          side: BorderSide(color: themeColor, width: 1.5),
         ),
-        child: SingleChildScrollView(
-          child: Column(
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.90,
+          ),
+          padding: const EdgeInsets.all(20),
+          child: SingleChildScrollView(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -638,8 +639,9 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   String _getTaskNameById(List<MainTask> tasks, String id) {
     for (var main in tasks) {

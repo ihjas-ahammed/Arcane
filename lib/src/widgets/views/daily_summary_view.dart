@@ -9,6 +9,10 @@ import 'package:missions/src/widgets/ui/chart_carousel.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/utils/chart_data_helper.dart'; 
 import 'package:missions/src/widgets/cards/tactical_briefing_card.dart';
+import 'package:missions/src/models/goal_model.dart';
+import 'package:missions/src/utils/goal_briefing_helper.dart';
+import 'package:missions/src/widgets/dialogs/add_transaction_dialog.dart';
+import 'package:missions/src/widgets/drawers/goals/create_goal_sheet.dart';
 import 'package:missions/src/screens/journaling/weekly_review_screen.dart';
 import 'package:missions/src/screens/journaling/monthly_review_screen.dart';
 import 'package:missions/src/screens/reflections_archive_screen.dart';
@@ -130,9 +134,14 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         t.timestamp.month == targetDate.month &&
         t.timestamp.day == targetDate.day);
 
-    final missingItems = <Map<String, String>>[];
+    final tomorrow = GoalBriefingHelper.getTomorrow(targetDate);
+    final tomorrowDateStr = DateFormat('yyyy-MM-dd').format(tomorrow);
+    final hasTomorrowGoals = GoalBriefingHelper.hasTomorrowGoals(provider, targetDate);
+
+    final missingItems = <Map<String, dynamic>>[];
     if (!hasActivity) {
       missingItems.add({
+        'id': 'activity',
         'title': 'HEALTH & ACTIVITY DATA',
         'desc': hasOtherHealth
             ? 'No movement (walking distance) or workout minutes logged for today.'
@@ -143,15 +152,27 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
     if (!hasFinance) {
       missingItems.add({
+        'id': 'finance',
         'title': 'FINANCIAL INPUT',
         'desc': 'No income or expense transactions recorded for today.',
         'icon': 'finance',
+        'actionLabel': '+ LOG',
+      });
+    }
+
+    if (!hasTomorrowGoals) {
+      missingItems.add({
+        'id': 'tomorrow_goals',
+        'title': "TOMORROW'S TARGET GOALS",
+        'desc': 'No daily goals have been scheduled for tomorrow ($tomorrowDateStr).',
+        'icon': 'goal',
+        'actionLabel': '+ CREATE',
       });
     }
 
     if (missingItems.isEmpty) return true;
 
-    final proceed = await showDialog<bool>(
+    final result = await showDialog<dynamic>(
       context: context,
       barrierDismissible: true,
       builder: (ctx) {
@@ -195,6 +216,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               ),
               const SizedBox(height: 12),
               ...missingItems.map((item) {
+                final actionLabel = item['actionLabel'] as String?;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(10),
@@ -211,7 +233,9 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                         child: Icon(
                           item['icon'] == 'finance'
                               ? MdiIcons.cashMultiple
-                              : MdiIcons.runFast,
+                              : item['icon'] == 'goal'
+                                  ? MdiIcons.target
+                                  : MdiIcons.runFast,
                           size: 16,
                           color: JweTheme.accentWarn,
                         ),
@@ -222,7 +246,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              item['title']!,
+                              item['title']! as String,
                               style: GoogleFonts.jetBrainsMono(
                                 color: JweTheme.accentWarn,
                                 fontSize: 10,
@@ -232,7 +256,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              item['desc']!,
+                              item['desc']! as String,
                               style: GoogleFonts.inter(
                                 color: JweTheme.textWhite,
                                 fontSize: 11.5,
@@ -242,13 +266,34 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                           ],
                         ),
                       ),
+                      if (actionLabel != null) ...[
+                        const SizedBox(width: 8),
+                        OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: JweTheme.accentAmber),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: () => Navigator.pop(ctx, item['id']),
+                          child: Text(
+                            actionLabel,
+                            style: GoogleFonts.jetBrainsMono(
+                              color: JweTheme.accentAmber,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 );
               }),
               const SizedBox(height: 6),
               Text(
-                'Generating the daily briefing without this data will produce incomplete AI summaries and omit your physical and financial performance insights.',
+                'Generating the daily briefing without this data will produce incomplete AI summaries and omit your physical, financial, and forward-planning performance insights.',
                 style: GoogleFonts.inter(
                   color: JweTheme.textMuted,
                   fontSize: 11,
@@ -291,7 +336,28 @@ class _DailySummaryViewState extends State<DailySummaryView> {
       },
     );
 
-    return proceed == true;
+    if (result == 'tomorrow_goals') {
+      if (!mounted) return false;
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => CreateGoalSheet(
+          initialScope: GoalScope.daily,
+          selectedDate: tomorrow,
+        ),
+      );
+      return false;
+    } else if (result == 'finance') {
+      if (!mounted) return false;
+      await showDialog(
+        context: context,
+        builder: (ctx) => const AddTransactionDialog(isIncome: false),
+      );
+      return false;
+    }
+
+    return result == true;
   }
 
   Future<void> _generateTacticalBriefing(
@@ -361,6 +427,17 @@ class _DailySummaryViewState extends State<DailySummaryView> {
   }
 
   Future<void> _generateWeeklyReport(AppProvider provider) async {
+    final targetDate = _selectedDate != null
+        ? DateTime.tryParse(_selectedDate!) ?? DateTime.now()
+        : DateTime.now();
+
+    final canProceed = await GoalBriefingHelper.showWeeklyGoalsCheckDialog(
+      context,
+      provider,
+      targetDate,
+    );
+    if (!canProceed || !mounted) return;
+
     setState(() {
       _isGeneratingWeeklyReport = true;
       _weeklyStatus = 'Synthesizing 7-day performance telemetry...';
@@ -369,9 +446,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     _showBriefingDialog(context, BriefingType.weekly, () => _weeklyStatus);
 
     try {
-      final targetDate = _selectedDate != null
-          ? DateTime.tryParse(_selectedDate!) ?? DateTime.now()
-          : DateTime.now();
       final selectedDateStr = _selectedDate ?? DateFormat('yyyy-MM-dd').format(targetDate);
 
       final result = await provider.reportActions.generateWeeklyReport(
