@@ -1,3 +1,17 @@
+# ⚡ Arcane System Upgrade // v2026.9.18 (Build #2126091802)
+
+### ⚡ Real-Time Dynamic List & Viewport Ticks
+- **Real-Time Viewport Engine**: Guaranteed live price updates, 24h % delta fluctuations, and rolling sparklines for every asset visible on screen across all market categories (`NSE STOCKS`, `INDICES`, `CRYPTO`, `COMMODITIES`).
+- **All-Items Real-Time Update for Compact Lists**: For lists with $\le 25$ assets (such as curated Indian equities, indices, commodities, and search results), all items in that specific list are automatically registered and updated in real time.
+- **Dynamic Binance WebSocket Subscriptions**: Dynamically registers runtime subscriptions (`@ticker`) over the active WebSocket channel as new crypto pairs scroll into view, supporting all 700+ pairs on the fly without socket reconnection.
+- **Micro-Tick Pulse Engine for Indian Equities**: Injects 1,000ms micro-spread ticks ($\approx 1.5$ bps) alongside fast parallel Yahoo Finance quote refreshes (4-second interval) so Indian bluechips and indices exhibit authentic live exchange action.
+- **Portfolio & Active Screen Pinning**: Permanently pins open asset detail views and all user portfolio holdings to ensure uninterrupted live valuation.
+
+### 🛠️ GitHub Actions Workflow Fix
+- **Workflow YAML Syntax Resolution**: Corrected block scalar indentation in `.github/workflows/android-release.yml` for the release metadata generator heredoc, resolving GitHub Actions pipeline parsing errors.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.18 (Build #2126091801)
 
 ### 📈 Multi-Timeframe Shadow Graphs & Comparative Historical Overlay

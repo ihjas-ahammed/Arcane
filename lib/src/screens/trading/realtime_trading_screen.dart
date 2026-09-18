@@ -253,7 +253,7 @@ class _RealtimeTradingScreenState extends State<RealtimeTradingScreen>
 
 // ── Tab 1: Unified Markets Watchlist ────────────────────────────────────────
 
-class _WatchlistTab extends StatelessWidget {
+class _WatchlistTab extends StatefulWidget {
   final PaperTradingProvider provider;
   final TextEditingController searchController;
 
@@ -263,12 +263,67 @@ class _WatchlistTab extends StatelessWidget {
   });
 
   @override
+  State<_WatchlistTab> createState() => _WatchlistTabState();
+}
+
+class _WatchlistTabState extends State<_WatchlistTab> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_reportVisibleAssets);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reportVisibleAssets());
+  }
+
+  @override
+  void didUpdateWidget(covariant _WatchlistTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reportVisibleAssets());
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _reportVisibleAssets() {
+    if (!mounted) return;
+    final assets = widget.provider.filteredAssets;
+    if (assets.isEmpty) {
+      widget.provider.marketService.setVisibleSymbols(const []);
+      return;
+    }
+
+    // If specific list is compact (<= 25 items, e.g. NSE Stocks, Indices, Commodities, or search results),
+    // keep ALL items in that list updated in real-time!
+    if (assets.length <= 25) {
+      widget.provider.marketService.setVisibleSymbols(assets.map((a) => a.symbol));
+      return;
+    }
+
+    // For large lists (e.g. ALL, full CRYPTO universe), calculate the visible window with safety buffer
+    final offset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+    const itemHeight = 78.0;
+    final viewportHeight = _scrollController.hasClients
+        ? _scrollController.position.viewportDimension
+        : 500.0;
+    final firstIndex = (offset / itemHeight).floor().clamp(0, assets.length - 1);
+    final visibleCount = (viewportHeight / itemHeight).ceil() + 6;
+    final lastIndex = (firstIndex + visibleCount).clamp(0, assets.length);
+
+    final visibleSlice = assets.sublist(firstIndex, lastIndex).map((a) => a.symbol);
+    widget.provider.marketService.setVisibleSymbols(visibleSlice);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final assets = provider.filteredAssets;
+    final assets = widget.provider.filteredAssets;
     final inrFormat = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 2);
     final inrCompact = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 0);
 
-    final isIndianOpen = provider.marketService.isIndianMarketOpen;
+    final isIndianOpen = widget.provider.marketService.isIndianMarketOpen;
 
     return Column(
       children: [
@@ -296,7 +351,7 @@ class _WatchlistTab extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    provider.marketService.indianMarketStatusText,
+                    widget.provider.marketService.indianMarketStatusText,
                     style: GoogleFonts.jetBrainsMono(
                       color: isIndianOpen ? JweTheme.accentTeal : JweTheme.accentAmber,
                       fontSize: 9.5,
@@ -320,20 +375,24 @@ class _WatchlistTab extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: TextField(
-            controller: searchController,
-            onChanged: provider.setSearchQuery,
+            controller: widget.searchController,
+            onChanged: (val) {
+              widget.provider.setSearchQuery(val);
+              WidgetsBinding.instance.addPostFrameCallback((_) => _reportVisibleAssets());
+            },
             style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 13),
             decoration: InputDecoration(
               isDense: true,
               hintText: 'Search 700+ assets (Reliance, Nifty, BTC, Gold...)',
               hintStyle: GoogleFonts.inter(color: JweTheme.textMuted, fontSize: 12),
               prefixIcon: Icon(Icons.search_rounded, color: JweTheme.textMuted, size: 18),
-              suffixIcon: provider.searchQuery.isNotEmpty
+              suffixIcon: widget.provider.searchQuery.isNotEmpty
                   ? IconButton(
                       icon: Icon(Icons.clear_rounded, color: JweTheme.textMuted, size: 16),
                       onPressed: () {
-                        searchController.clear();
-                        provider.setSearchQuery('');
+                        widget.searchController.clear();
+                        widget.provider.setSearchQuery('');
+                        WidgetsBinding.instance.addPostFrameCallback((_) => _reportVisibleAssets());
                       },
                     )
                   : null,
@@ -360,11 +419,14 @@ class _WatchlistTab extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             children: TradingAssetCategory.values.map((cat) {
-              final isSelected = provider.selectedCategory == cat;
+              final isSelected = widget.provider.selectedCategory == cat;
               return Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: InkWell(
-                  onTap: () => provider.setCategory(cat),
+                  onTap: () {
+                    widget.provider.setCategory(cat);
+                    WidgetsBinding.instance.addPostFrameCallback((_) => _reportVisibleAssets());
+                  },
                   borderRadius: BorderRadius.circular(6),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -425,12 +487,14 @@ class _WatchlistTab extends StatelessWidget {
                   ),
                 )
               : ListView.builder(
+                  controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                   itemCount: assets.length,
                   itemBuilder: (context, index) {
                     final asset = assets[index];
-                    final tick = provider.marketService.getTick(asset.symbol);
-                    final history = provider.marketService.getHistory(asset.symbol);
+                    widget.provider.marketService.registerRenderedSymbol(asset.symbol);
+                    final tick = widget.provider.marketService.getTick(asset.symbol);
+                    final history = widget.provider.marketService.getHistory(asset.symbol);
 
                     final price = tick?.price ?? 0.0;
                     final changePercent = tick?.changePercent24h ?? 0.0;
@@ -452,7 +516,7 @@ class _WatchlistTab extends StatelessWidget {
                             MaterialPageRoute(
                               builder: (_) => TradingAssetDetailScreen(
                                 asset: asset,
-                                provider: provider,
+                                provider: widget.provider,
                               ),
                             ),
                           );
@@ -557,7 +621,7 @@ class _WatchlistTab extends StatelessWidget {
                                     children: [
                                       if (!asset.isIndianAsset) ...[
                                         Text(
-                                          inrCompact.format(price * provider.usdtToInrRate),
+                                          inrCompact.format(price * widget.provider.usdtToInrRate),
                                           style: GoogleFonts.jetBrainsMono(
                                             color: JweTheme.textMuted,
                                             fontSize: 9.5,

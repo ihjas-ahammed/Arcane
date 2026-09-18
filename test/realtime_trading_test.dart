@@ -571,5 +571,35 @@ void main() {
       expect(find.text('LAST WEEK'), findsOneWidget);
       expect(find.text('PRIOR 7D CYCLE'), findsOneWidget);
     });
+
+    test('Visible and active symbol tracking with crypto vs non-crypto segregation', () {
+      final service = BinanceMarketService();
+
+      expect(service.visibleSymbols, isEmpty);
+      expect(service.pinnedSymbols, isEmpty);
+
+      service.setVisibleSymbols(['BTCUSDT', 'RELIANCE.NS', 'ADAUSDT']);
+      expect(service.visibleSymbols, containsAll(['BTCUSDT', 'RELIANCE.NS', 'ADAUSDT']));
+      expect(service.allActiveSymbols, containsAll(['BTCUSDT', 'RELIANCE.NS', 'ADAUSDT']));
+
+      expect(service.isCryptoSymbol('BTCUSDT'), isTrue);
+      expect(service.isCryptoSymbol('ADAUSDT'), isTrue);
+      expect(service.isCryptoSymbol('SOLUSDT'), isTrue);
+      expect(service.isCryptoSymbol('RELIANCE.NS'), isFalse);
+      expect(service.isCryptoSymbol('^NSEI'), isFalse);
+      expect(service.isCryptoSymbol('MCX:GOLD'), isFalse);
+
+      service.addPinnedSymbol('TCS.NS');
+      expect(service.pinnedSymbols, contains('TCS.NS'));
+      expect(service.allActiveSymbols, contains('TCS.NS'));
+
+      service.removePinnedSymbol('TCS.NS');
+      expect(service.pinnedSymbols, isNot(contains('TCS.NS')));
+
+      service.registerRenderedSymbol('HDFCBANK.NS');
+      expect(service.visibleSymbols, contains('HDFCBANK.NS'));
+
+      service.dispose();
+    });
   });
 }

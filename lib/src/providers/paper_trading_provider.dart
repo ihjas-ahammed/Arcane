@@ -59,6 +59,9 @@ class PaperTradingProvider extends ChangeNotifier {
   Future<void> _init() async {
     await _loadFromStorage();
     _isInitialized = true;
+    for (final sym in _holdings.keys) {
+      marketService.addPinnedSymbol(sym);
+    }
     marketService.start();
     notifyListeners();
   }

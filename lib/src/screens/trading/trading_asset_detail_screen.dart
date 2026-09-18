@@ -40,7 +40,14 @@ class _TradingAssetDetailScreenState extends State<TradingAssetDetailScreen> {
   @override
   void initState() {
     super.initState();
+    widget.provider.marketService.addPinnedSymbol(widget.asset.symbol);
     _loadHistoricalData();
+  }
+
+  @override
+  void dispose() {
+    widget.provider.marketService.removePinnedSymbol(widget.asset.symbol);
+    super.dispose();
   }
 
   Future<void> _loadHistoricalData() async {
