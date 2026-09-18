@@ -770,6 +770,142 @@ class HistoricalPriceSummary {
       points.fold<double>(0.0, (acc, p) => acc + (p.volume ?? 0.0));
 }
 
+/// Types of comparison shadow curves that can be overlaid behind the active chart
+enum ShadowGraphType {
+  none('OFF', 'None', 'Disable shadow comparison'),
+  previousPeriod('PREV PERIOD', 'Previous Period', 'Previous cycle comparison'),
+  sameDayLastWeek('LAST WEEK', 'Same Day Last Week', 'Same weekday from prior week'),
+  sameDayLastMonth('LAST MONTH', 'Same Day Last Month', 'Same calendar day from prior month'),
+  sameDayLastYear('1 YEAR AGO', '1 Year Ago', 'Exact same date / period from 1 year ago');
+
+  final String chipLabel;
+  final String title;
+  final String description;
+
+  const ShadowGraphType(this.chipLabel, this.title, this.description);
+
+  /// Dynamic contextual label adapted to current timeframe
+  String getContextLabel(TradingTimeframe tf) {
+    switch (this) {
+      case ShadowGraphType.none:
+        return 'OFF';
+      case ShadowGraphType.previousPeriod:
+        switch (tf) {
+          case TradingTimeframe.oneDay:
+            return 'YESTERDAY';
+          case TradingTimeframe.oneWeek:
+            return 'LAST WEEK';
+          case TradingTimeframe.oneMonth:
+            return 'LAST MONTH';
+          case TradingTimeframe.oneYear:
+            return 'LAST YEAR';
+          case TradingTimeframe.all:
+            return 'PREV CYCLE';
+        }
+      case ShadowGraphType.sameDayLastWeek:
+        switch (tf) {
+          case TradingTimeframe.oneDay:
+            return 'LAST WEEK DAY';
+          case TradingTimeframe.oneWeek:
+            return 'PRIOR 7D CYCLE';
+          case TradingTimeframe.oneMonth:
+            return 'PRIOR 4W CYCLE';
+          case TradingTimeframe.oneYear:
+            return 'WEEKDAY PROFILE';
+          case TradingTimeframe.all:
+            return 'PRIOR CYCLE';
+        }
+      case ShadowGraphType.sameDayLastMonth:
+        switch (tf) {
+          case TradingTimeframe.oneDay:
+            return 'LAST MONTH DAY';
+          case TradingTimeframe.oneWeek:
+            return 'SAME WEEK LAST MO';
+          case TradingTimeframe.oneMonth:
+            return 'PRIOR MONTH';
+          case TradingTimeframe.oneYear:
+            return 'MONTHLY PROFILE';
+          case TradingTimeframe.all:
+            return 'PRIOR EPOCH';
+        }
+      case ShadowGraphType.sameDayLastYear:
+        switch (tf) {
+          case TradingTimeframe.oneDay:
+            return '1 YEAR AGO';
+          case TradingTimeframe.oneWeek:
+            return 'SAME WEEK 1Y AGO';
+          case TradingTimeframe.oneMonth:
+            return 'SAME MONTH 1Y AGO';
+          case TradingTimeframe.oneYear:
+            return 'PRIOR YEAR';
+          case TradingTimeframe.all:
+            return 'ANNUAL BENCHMARK';
+        }
+    }
+  }
+}
+
+/// Represents a shadow comparison dataset aligned with the primary chart
+class ShadowComparisonSeries {
+  final ShadowGraphType type;
+  final String label;
+  final List<HistoricalDataPoint> points;
+  final double periodReturnPercent;
+  final double minPrice;
+  final double maxPrice;
+  final DateTime? referenceDate;
+
+  const ShadowComparisonSeries({
+    required this.type,
+    required this.label,
+    required this.points,
+    required this.periodReturnPercent,
+    required this.minPrice,
+    required this.maxPrice,
+    this.referenceDate,
+  });
+
+  bool get isPositive => periodReturnPercent >= 0;
+  bool get isEmpty => points.isEmpty;
+  bool get isNotEmpty => points.isNotEmpty;
+
+  /// Returns normalized overlay prices aligned with the target length and starting base price.
+  /// Uses financial rebased indexing:
+  /// P_overlay(i) = baseStartPrice * (1 + (P_shadow(i) - P_shadow_start) / P_shadow_start)
+  List<double> getAlignedPrices({
+    required int targetLength,
+    required double baseStartPrice,
+    bool normalized = true,
+  }) {
+    if (points.isEmpty || targetLength <= 0) return [];
+
+    final shadowStartPrice = points.first.price;
+    final res = <double>[];
+
+    for (int i = 0; i < targetLength; i++) {
+      final double progress = targetLength > 1 ? i / (targetLength - 1) : 0.0;
+      final double shadowIndexFloat = progress * (points.length - 1);
+      final int lowerIdx = shadowIndexFloat.floor().clamp(0, points.length - 1);
+      final int upperIdx = shadowIndexFloat.ceil().clamp(0, points.length - 1);
+      final double fraction = shadowIndexFloat - lowerIdx;
+
+      final double rawPrice = (lowerIdx == upperIdx)
+          ? points[lowerIdx].price
+          : points[lowerIdx].price * (1.0 - fraction) + points[upperIdx].price * fraction;
+
+      if (normalized && shadowStartPrice > 0 && baseStartPrice > 0) {
+        final double shadowReturn = (rawPrice - shadowStartPrice) / shadowStartPrice;
+        res.add(baseStartPrice * (1.0 + shadowReturn));
+      } else {
+        res.add(rawPrice);
+      }
+    }
+
+    return res;
+  }
+}
+
+
 /// Universal holding position (Crypto + Indian stocks)
 class CryptoHolding {
   final String symbol;

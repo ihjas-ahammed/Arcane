@@ -5,6 +5,7 @@ import 'package:missions/src/models/trading_models.dart';
 import 'package:missions/src/services/binance_market_service.dart';
 import 'package:missions/src/providers/paper_trading_provider.dart';
 import 'package:missions/src/screens/trading/trading_guide_sheet.dart';
+import 'package:missions/src/screens/trading/trading_asset_detail_screen.dart';
 
 class MockMarketService extends BinanceMarketService {
   final Map<String, CryptoPriceTick> _mockTicks = {};
@@ -194,6 +195,162 @@ void main() {
     });
   });
 
+  group('Shadow Graphs & Historical Comparison Tests', () {
+    test('ShadowGraphType enum contextual labels adapt to timeframes', () {
+      // 1D timeframe labels
+      expect(ShadowGraphType.none.getContextLabel(TradingTimeframe.oneDay), 'OFF');
+      expect(ShadowGraphType.previousPeriod.getContextLabel(TradingTimeframe.oneDay), 'YESTERDAY');
+      expect(ShadowGraphType.sameDayLastWeek.getContextLabel(TradingTimeframe.oneDay), 'LAST WEEK DAY');
+      expect(ShadowGraphType.sameDayLastMonth.getContextLabel(TradingTimeframe.oneDay), 'LAST MONTH DAY');
+      expect(ShadowGraphType.sameDayLastYear.getContextLabel(TradingTimeframe.oneDay), '1 YEAR AGO');
+
+      // 1W timeframe labels
+      expect(ShadowGraphType.previousPeriod.getContextLabel(TradingTimeframe.oneWeek), 'LAST WEEK');
+      expect(ShadowGraphType.sameDayLastWeek.getContextLabel(TradingTimeframe.oneWeek), 'PRIOR 7D CYCLE');
+
+      // 1M timeframe labels
+      expect(ShadowGraphType.previousPeriod.getContextLabel(TradingTimeframe.oneMonth), 'LAST MONTH');
+      expect(ShadowGraphType.sameDayLastMonth.getContextLabel(TradingTimeframe.oneMonth), 'PRIOR MONTH');
+
+      // 1Y timeframe labels
+      expect(ShadowGraphType.previousPeriod.getContextLabel(TradingTimeframe.oneYear), 'LAST YEAR');
+      expect(ShadowGraphType.sameDayLastYear.getContextLabel(TradingTimeframe.oneYear), 'PRIOR YEAR');
+    });
+
+    test('ShadowComparisonSeries aligns prices with financial rebased indexing', () {
+      final now = DateTime.now();
+      // Historical shadow trajectory: 100 -> 110 (+10%) -> 120 (+20%)
+      final shadowSeries = ShadowComparisonSeries(
+        type: ShadowGraphType.previousPeriod,
+        label: 'YESTERDAY',
+        points: [
+          HistoricalDataPoint(timestamp: now.subtract(const Duration(hours: 2)), price: 100.0),
+          HistoricalDataPoint(timestamp: now.subtract(const Duration(hours: 1)), price: 110.0),
+          HistoricalDataPoint(timestamp: now, price: 120.0),
+        ],
+        periodReturnPercent: 20.0,
+        minPrice: 100.0,
+        maxPrice: 120.0,
+        referenceDate: now.subtract(const Duration(hours: 2)),
+      );
+
+      expect(shadowSeries.isPositive, isTrue);
+      expect(shadowSeries.isNotEmpty, isTrue);
+      expect(shadowSeries.isEmpty, isFalse);
+
+      // Active asset is currently starting at ₹2,500
+      final aligned = shadowSeries.getAlignedPrices(
+        targetLength: 3,
+        baseStartPrice: 2500.0,
+        normalized: true,
+      );
+
+      expect(aligned.length, 3);
+      expect(aligned[0], closeTo(2500.0, 0.001)); // Starting point matches active start
+      expect(aligned[1], closeTo(2750.0, 0.001)); // +10% applied to 2500 = 2750
+      expect(aligned[2], closeTo(3000.0, 0.001)); // +20% applied to 2500 = 3000
+    });
+
+    test('ShadowComparisonSeries resamples and interpolates smoothly for different target lengths', () {
+      final now = DateTime.now();
+      final shadowSeries = ShadowComparisonSeries(
+        type: ShadowGraphType.sameDayLastWeek,
+        label: 'LAST WEEK DAY',
+        points: [
+          HistoricalDataPoint(timestamp: now.subtract(const Duration(hours: 2)), price: 50.0),
+          HistoricalDataPoint(timestamp: now, price: 100.0), // +100% gain
+        ],
+        periodReturnPercent: 100.0,
+        minPrice: 50.0,
+        maxPrice: 100.0,
+      );
+
+      // Resample from 2 shadow points to 5 target chart points
+      final aligned = shadowSeries.getAlignedPrices(
+        targetLength: 5,
+        baseStartPrice: 1000.0,
+        normalized: true,
+      );
+
+      expect(aligned.length, 5);
+      expect(aligned[0], closeTo(1000.0, 0.001));
+      expect(aligned[2], closeTo(1500.0, 0.001)); // Midpoint (+50%)
+      expect(aligned[4], closeTo(2000.0, 0.001)); // Final point (+100%)
+    });
+
+    test('ShadowComparisonSeries handles normalized=false by returning raw prices', () {
+      final now = DateTime.now();
+      final shadowSeries = ShadowComparisonSeries(
+        type: ShadowGraphType.sameDayLastYear,
+        label: '1 YEAR AGO',
+        points: [
+          HistoricalDataPoint(timestamp: now.subtract(const Duration(days: 365)), price: 60000.0),
+          HistoricalDataPoint(timestamp: now.subtract(const Duration(days: 364)), price: 62000.0),
+        ],
+        periodReturnPercent: 3.33,
+        minPrice: 60000.0,
+        maxPrice: 62000.0,
+      );
+
+      final raw = shadowSeries.getAlignedPrices(
+        targetLength: 2,
+        baseStartPrice: 90000.0,
+        normalized: false,
+      );
+
+      expect(raw.length, 2);
+      expect(raw[0], 60000.0);
+      expect(raw[1], 62000.0);
+    });
+
+    test('BinanceMarketService fetchShadowData fallback and cache mechanism', () async {
+      final marketService = BinanceMarketService();
+      final now = DateTime.now();
+      final baseSummary = HistoricalPriceSummary(
+        symbol: 'BTCUSDT',
+        timeframe: '1D',
+        points: [
+          HistoricalDataPoint(timestamp: now.subtract(const Duration(hours: 1)), price: 92000.0),
+          HistoricalDataPoint(timestamp: now, price: 93500.0),
+        ],
+        minPrice: 92000.0,
+        maxPrice: 93500.0,
+        periodReturnPercent: 1.63,
+      );
+
+      // none type returns null
+      final noneResult = await marketService.fetchShadowData(
+        symbol: 'BTCUSDT',
+        timeframe: TradingTimeframe.oneDay,
+        type: ShadowGraphType.none,
+      );
+      expect(noneResult, isNull);
+
+      // Resilient fallback when provided base summary
+      final shadow = await marketService.fetchShadowData(
+        symbol: 'UNKNOWN_TEST_SYM',
+        timeframe: TradingTimeframe.oneDay,
+        type: ShadowGraphType.previousPeriod,
+        baseSummary: baseSummary,
+      );
+
+      expect(shadow, isNotNull);
+      expect(shadow!.points.length, baseSummary.points.length);
+      expect(shadow.label, 'YESTERDAY');
+
+      // Second call returns cached series
+      final cachedShadow = await marketService.fetchShadowData(
+        symbol: 'UNKNOWN_TEST_SYM',
+        timeframe: TradingTimeframe.oneDay,
+        type: ShadowGraphType.previousPeriod,
+        baseSummary: baseSummary,
+      );
+      expect(identical(shadow, cachedShadow), isTrue);
+
+      marketService.dispose();
+    });
+  });
+
   group('PaperTradingProvider Multi-Asset & Filtering Tests', () {
     late MockMarketService mockMarketService;
     late PaperTradingProvider provider;
@@ -373,6 +530,46 @@ void main() {
       expect(find.text('Market order vs Limit order — which to use when'), findsOneWidget);
       expect(find.text('What is slippage'), findsOneWidget);
       expect(find.text('Why prices move — a real example'), findsOneWidget);
+    });
+
+    testWidgets('TradingAssetDetailScreen renders shadow chips and toggles shadow selection', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final mockService = MockMarketService();
+      final provider = PaperTradingProvider(marketService: mockService);
+      final asset = TradingAsset.fromSymbol('BTCUSDT');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TradingAssetDetailScreen(
+            asset: asset,
+            provider: provider,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('SHADOW:'), findsOneWidget);
+      expect(find.text('OFF'), findsOneWidget);
+      expect(find.text('YESTERDAY'), findsOneWidget);
+      expect(find.text('LAST WEEK DAY'), findsOneWidget);
+      expect(find.text('LAST MONTH DAY'), findsOneWidget);
+      expect(find.text('1 YEAR AGO'), findsOneWidget);
+
+      // Tap YESTERDAY chip
+      await tester.tap(find.text('YESTERDAY'));
+      await tester.pumpAndSettle();
+
+      // Switch timeframe to 1W
+      await tester.tap(find.text('1W'));
+      await tester.pumpAndSettle();
+
+      // Verify contextual shadow chips adapt for 1W
+      expect(find.text('LAST WEEK'), findsOneWidget);
+      expect(find.text('PRIOR 7D CYCLE'), findsOneWidget);
     });
   });
 }

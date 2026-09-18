@@ -33,6 +33,10 @@ class _TradingAssetDetailScreenState extends State<TradingAssetDetailScreen> {
   bool _isLoadingHistory = false;
   String? _historyError;
 
+  ShadowGraphType _selectedShadow = ShadowGraphType.none;
+  ShadowComparisonSeries? _shadowSeries;
+  bool _isLoadingShadow = false;
+
   @override
   void initState() {
     super.initState();
@@ -55,12 +59,52 @@ class _TradingAssetDetailScreenState extends State<TradingAssetDetailScreen> {
           _historySummary = summary;
           _isLoadingHistory = false;
         });
+        if (_selectedShadow != ShadowGraphType.none) {
+          _loadShadowData();
+        }
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _historyError = 'Could not load historical data: $e';
           _isLoadingHistory = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadShadowData() async {
+    if (_selectedShadow == ShadowGraphType.none) {
+      if (mounted) {
+        setState(() {
+          _shadowSeries = null;
+          _isLoadingShadow = false;
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _isLoadingShadow = true;
+    });
+
+    try {
+      final series = await widget.provider.marketService.fetchShadowData(
+        symbol: widget.asset.symbol,
+        timeframe: _selectedTimeframe,
+        type: _selectedShadow,
+        baseSummary: _historySummary,
+      );
+      if (mounted) {
+        setState(() {
+          _shadowSeries = series;
+          _isLoadingShadow = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingShadow = false;
         });
       }
     }
@@ -299,7 +343,72 @@ class _TradingAssetDetailScreenState extends State<TradingAssetDetailScreen> {
                           );
                         }).toList(),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 10),
+
+                      // Shadow Comparison Selector Chips
+                      Row(
+                        children: [
+                          Icon(Icons.layers_outlined, color: JweTheme.accentAmber, size: 13),
+                          const SizedBox(width: 5),
+                          Text(
+                            'SHADOW:',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: JweTheme.accentAmber,
+                              fontSize: 9.0,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              child: Row(
+                                children: ShadowGraphType.values.map((st) {
+                                  final isSelected = _selectedShadow == st;
+                                  final label = st.getContextLabel(_selectedTimeframe);
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 5),
+                                    child: InkWell(
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedShadow = st;
+                                        });
+                                        _loadShadowData();
+                                      },
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? JweTheme.accentAmber.withValues(alpha: 0.2)
+                                              : JweTheme.panel,
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(
+                                            color: isSelected
+                                                ? JweTheme.accentAmber
+                                                : JweTheme.border,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          label,
+                                          style: GoogleFonts.jetBrainsMono(
+                                            color: isSelected ? JweTheme.accentAmber : JweTheme.textMuted,
+                                            fontSize: 9.0,
+                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
 
                       // Price Chart Container
                       Container(
@@ -312,65 +421,122 @@ class _TradingAssetDetailScreenState extends State<TradingAssetDetailScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      '// ${_selectedTimeframe.title.toUpperCase()}',
-                                      style: GoogleFonts.jetBrainsMono(
-                                        color: JweTheme.textMuted,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.2,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    if (_historySummary != null)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                        decoration: BoxDecoration(
-                                          color: (_historySummary!.isPositive
-                                                  ? JweTheme.accentTeal
-                                                  : JweTheme.accentRed)
-                                              .withValues(alpha: 0.15),
-                                          borderRadius: BorderRadius.circular(3),
-                                        ),
-                                        child: Text(
-                                          '${_historySummary!.isPositive ? '+' : ''}${_historySummary!.periodReturnPercent.toStringAsFixed(2)}%',
+                                    Row(
+                                      children: [
+                                        Text(
+                                          '// ${_selectedTimeframe.title.toUpperCase()}',
                                           style: GoogleFonts.jetBrainsMono(
-                                            color: _historySummary!.isPositive
-                                                ? JweTheme.accentTeal
-                                                : JweTheme.accentRed,
+                                            color: JweTheme.textMuted,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 1.2,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        if (_historySummary != null)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                            decoration: BoxDecoration(
+                                              color: (_historySummary!.isPositive
+                                                      ? JweTheme.accentTeal
+                                                      : JweTheme.accentRed)
+                                                  .withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(3),
+                                            ),
+                                            child: Text(
+                                              '${_historySummary!.isPositive ? '+' : ''}${_historySummary!.periodReturnPercent.toStringAsFixed(2)}%',
+                                              style: GoogleFonts.jetBrainsMono(
+                                                color: _historySummary!.isPositive
+                                                    ? JweTheme.accentTeal
+                                                    : JweTheme.accentRed,
+                                                fontSize: 9.5,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        Container(
+                                          width: 6,
+                                          height: 6,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: isPositive ? JweTheme.accentTeal : JweTheme.accentRed,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _isLoadingHistory ? 'SYNCING...' : 'LIVE',
+                                          style: GoogleFonts.jetBrainsMono(
+                                            color: isPositive ? JweTheme.accentTeal : JweTheme.accentRed,
                                             fontSize: 9.5,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                      ),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    Container(
-                                      width: 6,
-                                      height: 6,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: isPositive ? JweTheme.accentTeal : JweTheme.accentRed,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      _isLoadingHistory ? 'SYNCING...' : 'REAL DATA',
-                                      style: GoogleFonts.jetBrainsMono(
-                                        color: isPositive ? JweTheme.accentTeal : JweTheme.accentRed,
-                                        fontSize: 9.5,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                        if (_shadowSeries != null && _selectedShadow != ShadowGraphType.none) ...[
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            width: 10,
+                                            height: 2,
+                                            color: JweTheme.accentAmber,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'SHADOW',
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: JweTheme.accentAmber,
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                   ],
                                 ),
+                                if ((_shadowSeries != null && _selectedShadow != ShadowGraphType.none) || _isLoadingShadow) ...[
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      if (_shadowSeries != null && _selectedShadow != ShadowGraphType.none)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                          decoration: BoxDecoration(
+                                            color: JweTheme.accentAmber.withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(3),
+                                            border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.35)),
+                                          ),
+                                          child: Text(
+                                            '${_shadowSeries!.label}: ${_shadowSeries!.isPositive ? '+' : ''}${_shadowSeries!.periodReturnPercent.toStringAsFixed(2)}%',
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: JweTheme.accentAmber,
+                                              fontSize: 9.0,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      if (_isLoadingShadow) ...[
+                                        const SizedBox(width: 6),
+                                        SizedBox(
+                                          width: 10,
+                                          height: 10,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 1.5,
+                                            color: JweTheme.accentAmber,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
                               ],
                             ),
                             const SizedBox(height: 16),
@@ -693,6 +859,7 @@ class _TradingAssetDetailScreenState extends State<TradingAssetDetailScreen> {
     if (_historySummary != null && _historySummary!.points.isNotEmpty) {
       return _HistoricalLineChart(
         summary: _historySummary!,
+        shadowSeries: _shadowSeries,
         isIndianAsset: widget.asset.isIndianAsset,
       );
     }
@@ -912,10 +1079,12 @@ class _StatMetricItem extends StatelessWidget {
 
 class _HistoricalLineChart extends StatelessWidget {
   final HistoricalPriceSummary summary;
+  final ShadowComparisonSeries? shadowSeries;
   final bool isIndianAsset;
 
   const _HistoricalLineChart({
     required this.summary,
+    this.shadowSeries,
     required this.isIndianAsset,
   });
 
@@ -939,8 +1108,24 @@ class _HistoricalLineChart extends StatelessWidget {
       spots.add(FlSpot(i.toDouble(), points[i].close));
     }
 
-    final minY = spots.map((s) => s.y).reduce((a, b) => a < b ? a : b);
-    final maxY = spots.map((s) => s.y).reduce((a, b) => a > b ? a : b);
+    final shadowSpots = <FlSpot>[];
+    if (shadowSeries != null && shadowSeries!.isNotEmpty) {
+      final alignedPrices = shadowSeries!.getAlignedPrices(
+        targetLength: points.length,
+        baseStartPrice: points.first.close,
+        normalized: true,
+      );
+      for (int i = 0; i < alignedPrices.length; i++) {
+        shadowSpots.add(FlSpot(i.toDouble(), alignedPrices[i]));
+      }
+    }
+
+    final allY = [
+      ...spots.map((s) => s.y),
+      ...shadowSpots.map((s) => s.y),
+    ];
+    final minY = allY.reduce((a, b) => a < b ? a : b);
+    final maxY = allY.reduce((a, b) => a > b ? a : b);
     final delta = (maxY - minY).abs();
     final padding = delta > 0 ? delta * 0.12 : (minY * 0.01).clamp(0.1, 100.0);
 
@@ -1005,12 +1190,32 @@ class _HistoricalLineChart extends StatelessWidget {
           touchTooltipData: LineTouchTooltipData(
             getTooltipColor: (_) => JweTheme.panel2,
             getTooltipItems: (touchedSpots) {
+              if (touchedSpots.isEmpty) return [];
+
+              final touchX = touchedSpots.first.x.toInt().clamp(0, points.length - 1);
+              final pt = points[touchX];
+              final dateStr = DateFormat('dd MMM, HH:mm').format(pt.timestamp);
+
+              final mainSpot = touchedSpots.firstWhere(
+                (s) => shadowSpots.isNotEmpty ? s.barIndex == 1 : s.barIndex == 0,
+                orElse: () => touchedSpots.first,
+              );
+
+              final diffPct = firstPrice > 0 ? ((mainSpot.y - firstPrice) / firstPrice) * 100 : 0.0;
+              final isSpotPos = diffPct >= 0;
+
+              String shadowText = '';
+              if (shadowSpots.isNotEmpty && touchX < shadowSpots.length) {
+                final shadowAlignedY = shadowSpots[touchX].y;
+                final shadowReturn = firstPrice > 0 ? ((shadowAlignedY - firstPrice) / firstPrice) * 100 : 0.0;
+                final isShadowPos = shadowReturn >= 0;
+                shadowText = '\n┄ ${shadowSeries!.label}: ${isShadowPos ? '+' : ''}${shadowReturn.toStringAsFixed(2)}%';
+              }
+
               return touchedSpots.map((spot) {
-                final idx = spot.x.toInt().clamp(0, points.length - 1);
-                final pt = points[idx];
-                final dateStr = DateFormat('dd MMM, HH:mm').format(pt.timestamp);
-                final diffPct = firstPrice > 0 ? ((spot.y - firstPrice) / firstPrice) * 100 : 0.0;
-                final isSpotPos = diffPct >= 0;
+                if (shadowSpots.isNotEmpty && spot.barIndex == 0) {
+                  return null;
+                }
 
                 return LineTooltipItem(
                   '$currencySymbol${spot.y.toStringAsFixed(spot.y < 10 ? 2 : 1)}\n',
@@ -1028,6 +1233,15 @@ class _HistoricalLineChart extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    if (shadowText.isNotEmpty)
+                      TextSpan(
+                        text: shadowText,
+                        style: GoogleFonts.jetBrainsMono(
+                          color: JweTheme.accentAmber,
+                          fontSize: 9.0,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                   ],
                 );
               }).toList();
@@ -1035,6 +1249,16 @@ class _HistoricalLineChart extends StatelessWidget {
           ),
         ),
         lineBarsData: [
+          if (shadowSpots.isNotEmpty)
+            LineChartBarData(
+              spots: shadowSpots,
+              color: JweTheme.accentAmber.withValues(alpha: 0.85),
+              barWidth: 1.8,
+              isCurved: true,
+              dashArray: [5, 4],
+              dotData: const FlDotData(show: false),
+              belowBarData: BarAreaData(show: false),
+            ),
           LineChartBarData(
             spots: spots,
             color: chartColor,

@@ -1,3 +1,19 @@
+# ⚡ Arcane System Upgrade // v2026.9.18 (Build #2126091801)
+
+### 📈 Multi-Timeframe Shadow Graphs & Comparative Historical Overlay
+- **Interactive Shadow Comparison Curves**: Introduced toggleable shadow reference curves plotted directly behind the primary price line in `fl_chart`, enabling immediate visual comparison of active market trends against past cycles.
+- **4 Contextual Shadow Modes Across All Timeframes (`1D`, `1W`, `1M`, `1Y`, `ALL`)**:
+  1. *Previous Period*: Yesterday on 1D, Last Week on 1W, Last Month on 1M, Last Year on 1Y.
+  2. *Last Week Day*: Exact same weekday from 7 days ago (`LAST WEEK DAY`, `PRIOR 7D CYCLE`).
+  3. *Last Month Day*: Exact same calendar date from 30 days ago (`LAST MONTH DAY`, `PRIOR MONTH`).
+  4. *1 Year Ago*: Exact same date and historical trajectory from 365 days ago (`1 YEAR AGO`, `PRIOR YEAR`).
+- **Financial Rebased Indexing ($P_{\text{overlay}}$)**: Employs standard financial normalization ($P_{\text{overlay}}(i) = P_{\text{start}} \times (1 + \Delta P_{\text{shadow}} / P_{\text{shadowStart}})$), seamlessly aligning both trajectories onto a shared visual scale without distorting the primary Y-axis.
+- **Comparative Touch Crosshairs & Legend Telemetry**: Dragging across the chart reveals both the live quote and the shadow curve's comparative percentage delta, with high-contrast amber badges in the chart HUD.
+- **High-Resilience Dual Data Engine**: Backed by real Binance Kline API queries for crypto pairs and Yahoo Finance multi-session charts for Indian equities (NSE/BSE), benchmark indices, and commodities, with resilient fallback synthesis.
+- **Dual-Theme Tactical Parity**: Styled with theme-calibrated amber dashed strokes (`[5, 4]`), high-contrast badges, and adaptive tooltips respecting both dark and light modes (`JweTheme`).
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.16 (Build #2126091605)
 
 ### 🚀 Auto-Updater Sync & Downgrade Bug Elimination

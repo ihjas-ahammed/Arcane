@@ -217,25 +217,30 @@ class MoreScreen extends StatelessWidget {
         color: JweTheme.panel,
         border: Border(left: BorderSide(color: effectiveColor, width: 3)),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: effectiveColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.zero,
-            border: Border.all(color: effectiveColor.withValues(alpha: 0.3))
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: effectiveColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.zero,
+                border: Border.all(color: effectiveColor.withValues(alpha: 0.3)),
+              ),
+              child: Icon(icon, color: effectiveColor),
+            ),
+            title: Text(title.toUpperCase(),
+                style: GoogleFonts.chakraPetch(
+                    fontWeight: FontWeight.bold, color: JweTheme.textWhite, fontSize: 16)),
+            subtitle: Text(subtitle,
+                style:
+                     TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+            trailing: Icon(MdiIcons.chevronRight, color: JweTheme.textMuted),
           ),
-          child: Icon(icon, color: effectiveColor),
         ),
-        title: Text(title.toUpperCase(),
-            style: GoogleFonts.chakraPetch(
-                fontWeight: FontWeight.bold, color: JweTheme.textWhite, fontSize: 16)),
-        subtitle: Text(subtitle,
-            style:
-                 TextStyle(color: JweTheme.textMuted, fontSize: 12)),
-        trailing: Icon(MdiIcons.chevronRight, color: JweTheme.textMuted),
-        onTap: onTap,
       ),
     );
   }
