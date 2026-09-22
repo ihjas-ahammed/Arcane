@@ -46,7 +46,9 @@ class _TradingAssetDetailScreenState extends State<TradingAssetDetailScreen> {
 
   @override
   void dispose() {
-    widget.provider.marketService.removePinnedSymbol(widget.asset.symbol);
+    if (!widget.provider.holdings.containsKey(widget.asset.symbol.toUpperCase())) {
+      widget.provider.marketService.removePinnedSymbol(widget.asset.symbol);
+    }
     super.dispose();
   }
 
@@ -765,54 +767,88 @@ class _TradingAssetDetailScreenState extends State<TradingAssetDetailScreen> {
                 child: SafeArea(
                   top: false,
                   child: widget.asset.isTradable
-                      ? Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: JweTheme.accentTeal,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ? ListenableBuilder(
+                          listenable: widget.provider.marketService,
+                          builder: (context, _) {
+                            final isRealtime = widget.provider.marketService.isRealtimeActive(widget.asset.symbol);
+
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: isRealtime ? JweTheme.accentTeal : JweTheme.panel2,
+                                      foregroundColor: isRealtime ? Colors.white : JweTheme.textMuted,
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        side: isRealtime ? BorderSide.none : BorderSide(color: JweTheme.border),
+                                      ),
+                                    ),
+                                    onPressed: isRealtime
+                                        ? () {
+                                            TradingOrderSheet.show(
+                                              context: context,
+                                              asset: widget.asset,
+                                              provider: widget.provider,
+                                              initialSide: OrderSide.buy,
+                                            );
+                                          }
+                                        : () {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Real-time feed is unverified or offline. Purchases are locked to prevent stale executions.',
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        if (!isRealtime) ...[
+                                          Icon(Icons.lock_outline_rounded, size: 14, color: JweTheme.textMuted),
+                                          const SizedBox(width: 5),
+                                        ],
+                                        Text(
+                                          isRealtime ? 'BUY ${widget.asset.baseAsset}' : 'BUY LOCKED',
+                                          style: GoogleFonts.jetBrainsMono(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 0.8,
+                                            color: isRealtime ? Colors.white : JweTheme.textMuted,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
-                                onPressed: () {
-                                  TradingOrderSheet.show(
-                                    context: context,
-                                    asset: widget.asset,
-                                    provider: widget.provider,
-                                    initialSide: OrderSide.buy,
-                                  );
-                                },
-                                child: Text(
-                                  'BUY ${widget.asset.baseAsset}',
-                                  style: GoogleFonts.jetBrainsMono(fontSize: 12.5, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: JweTheme.accentRed,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    onPressed: () {
+                                      TradingOrderSheet.show(
+                                        context: context,
+                                        asset: widget.asset,
+                                        provider: widget.provider,
+                                        initialSide: OrderSide.sell,
+                                      );
+                                    },
+                                    child: Text(
+                                      'SELL ${widget.asset.baseAsset}',
+                                      style: GoogleFonts.jetBrainsMono(fontSize: 12.5, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: JweTheme.accentRed,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                                onPressed: () {
-                                  TradingOrderSheet.show(
-                                    context: context,
-                                    asset: widget.asset,
-                                    provider: widget.provider,
-                                    initialSide: OrderSide.sell,
-                                  );
-                                },
-                                child: Text(
-                                  'SELL ${widget.asset.baseAsset}',
-                                  style: GoogleFonts.jetBrainsMono(fontSize: 12.5, fontWeight: FontWeight.bold, letterSpacing: 0.8),
-                                ),
-                              ),
-                            ),
-                          ],
+                              ],
+                            );
+                          },
                         )
                       : Container(
                           padding: const EdgeInsets.symmetric(vertical: 12),

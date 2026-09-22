@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:missions/src/models/trading_models.dart';
 import 'package:missions/src/services/binance_market_service.dart';
+import 'package:missions/src/services/notification_service.dart';
 
 class TradeExecutionResult {
   final bool success;
@@ -32,6 +33,10 @@ class PaperTradingProvider extends ChangeNotifier {
 
   final Map<String, CryptoHolding> _holdings = {};
   Map<String, CryptoHolding> get holdings => Map.unmodifiable(_holdings);
+
+  /// Latch tracking positions that have already triggered a loss-after-higher alert
+  final Set<String> _lossAlertsTriggered = {};
+  Set<String> get lossAlertsTriggered => Set.unmodifiable(_lossAlertsTriggered);
 
   final List<TradingOrder> _orders = [];
   List<TradingOrder> get orders => List.unmodifiable(_orders);
@@ -68,6 +73,7 @@ class PaperTradingProvider extends ChangeNotifier {
 
   void _onMarketTicksUpdated() {
     checkLimitOrders(marketService.ticks);
+    _evaluateTrailingPeakAlerts(marketService.ticks);
     notifyListeners();
   }
 
@@ -224,6 +230,13 @@ class PaperTradingProvider extends ChangeNotifier {
     }
 
     if (side == OrderSide.buy) {
+      if (!marketService.isRealtimeActive(sym)) {
+        return TradeExecutionResult(
+          success: false,
+          message: 'Real-time feed for $sym is offline or unverified. Purchases are locked to protect against stale executions.',
+        );
+      }
+
       if (totalCostINR > availableCash) {
         return TradeExecutionResult(
           success: false,
@@ -257,6 +270,9 @@ class PaperTradingProvider extends ChangeNotifier {
           currency: asset.currency,
         );
       }
+
+      // Pin newly bought asset for permanent continuous real-time updates
+      marketService.addPinnedSymbol(sym);
 
       final order = TradingOrder(
         id: const Uuid().v4(),
@@ -304,6 +320,8 @@ class PaperTradingProvider extends ChangeNotifier {
 
       if (quantity >= existing.quantity - 1e-7) {
         _holdings.remove(sym);
+        _lossAlertsTriggered.remove(sym);
+        marketService.removePinnedSymbol(sym);
       } else {
         final fractionSold = quantity / existing.quantity;
         final remainingCost = existing.totalCostINR * (1.0 - fractionSold);
@@ -369,6 +387,12 @@ class PaperTradingProvider extends ChangeNotifier {
     }
 
     if (side == OrderSide.buy) {
+      if (!marketService.isRealtimeActive(sym)) {
+        return TradeExecutionResult(
+          success: false,
+          message: 'Real-time feed for $sym is offline or unverified. Buy orders are locked to protect against stale executions.',
+        );
+      }
       if (totalCostINR > availableCash) {
         return TradeExecutionResult(
           success: false,
@@ -469,6 +493,9 @@ class PaperTradingProvider extends ChangeNotifier {
               currency: order.currency,
             );
           }
+
+          // Pin newly bought asset
+          marketService.addPinnedSymbol(order.symbol.toUpperCase());
         } else {
           // Sell
           _cashBalance += executedTotalINR;
@@ -476,6 +503,8 @@ class PaperTradingProvider extends ChangeNotifier {
           if (existing != null) {
             if (order.quantity >= existing.quantity - 1e-7) {
               _holdings.remove(order.symbol.toUpperCase());
+              _lossAlertsTriggered.remove(order.symbol.toUpperCase());
+              marketService.removePinnedSymbol(order.symbol.toUpperCase());
             } else {
               final frac = order.quantity / existing.quantity;
               _holdings[order.symbol.toUpperCase()] = existing.copyWith(
@@ -501,6 +530,93 @@ class PaperTradingProvider extends ChangeNotifier {
       _saveToStorage();
       notifyListeners();
     }
+  }
+
+  void _evaluateTrailingPeakAlerts(Map<String, CryptoPriceTick> ticks) {
+    if (_holdings.isEmpty) return;
+
+    bool holdingsModified = false;
+
+    for (final entry in _holdings.entries) {
+      final sym = entry.key;
+      var holding = entry.value;
+      final tick = ticks[sym];
+      if (tick == null || tick.price <= 0) continue;
+
+      final currentPrice = tick.price;
+      final isIndian = holding.currency == 'INR' || sym.contains('.NS');
+
+      // 1. Check for higher price
+      if (currentPrice > holding.peakPrice) {
+        holding = holding.copyWith(
+          peakPrice: currentPrice,
+          hasReachedHigher: currentPrice > holding.avgBuyPriceUSDT,
+          peakTimestamp: DateTime.now(),
+        );
+        _holdings[sym] = holding;
+        holdingsModified = true;
+
+        // Reset alert latch when price recovers back into profit
+        _lossAlertsTriggered.remove(sym);
+      } else if (!holding.hasReachedHigher && currentPrice > holding.avgBuyPriceUSDT) {
+        // Price rose above entry
+        holding = holding.copyWith(
+          hasReachedHigher: true,
+          peakPrice: currentPrice,
+          peakTimestamp: DateTime.now(),
+        );
+        _holdings[sym] = holding;
+        holdingsModified = true;
+        _lossAlertsTriggered.remove(sym);
+      }
+
+      // 2. Alert if starting to lose money after getting a higher
+      if (holding.isLosingMoneyAfterHigher(currentPrice)) {
+        if (!_lossAlertsTriggered.contains(sym)) {
+          _lossAlertsTriggered.add(sym);
+          final lossPct = holding.pnlPercent(currentPrice, _usdtToInrRate);
+          final drawdownPct = holding.drawdownFromPeakPercent(currentPrice);
+          final priceUnit = isIndian ? '₹' : '\$';
+
+          NotificationService.instance.showTradingAlert(
+            title: 'POSITION REVERSAL // ${holding.coinName.toUpperCase()}',
+            body: '${holding.coinName} ($sym) fell into net loss (${lossPct.toStringAsFixed(2)}%) after reaching peak of $priceUnit${holding.peakPrice.toStringAsFixed(2)} (-${drawdownPct.toStringAsFixed(1)}% drop). Entry was $priceUnit${holding.avgBuyPriceUSDT.toStringAsFixed(2)}.',
+            payload: 'trading:$sym',
+          );
+        }
+      }
+    }
+
+    if (holdingsModified) {
+      _saveToStorage();
+    }
+  }
+
+  /// Computes aggregate 1-hour market trend across owned holdings or active assets
+  HourlyMarketTrend getHourlyTrend() {
+    final symbolsToAnalyze = _holdings.isNotEmpty
+        ? _holdings.keys.toList()
+        : marketService.allActiveSymbols.isNotEmpty
+            ? marketService.allActiveSymbols.toList()
+            : BinanceMarketService.defaultSymbols;
+
+    double totalPct = 0.0;
+    int count = 0;
+
+    for (final sym in symbolsToAnalyze) {
+      final pct = marketService.getHourlyChangePercent(sym);
+      if (pct != null) {
+        totalPct += pct;
+        count++;
+      }
+    }
+
+    if (count == 0) {
+      return const HourlyMarketTrend(avgChangePercent: 0.0, sampleCount: 0);
+    }
+
+    final avg = totalPct / count;
+    return HourlyMarketTrend(avgChangePercent: avg, sampleCount: count);
   }
 
   bool cancelOrder(String orderId) {

@@ -1,3 +1,25 @@
+# ⚡ Arcane System Upgrade // v2026.9.22 (Build #2126092201)
+
+### 🛡️ Mandatory Real-Time Feed Guard & Guaranteed Holdings Pinning
+- **Strict Real-Time Buy Gatekeeper**: Prevents buying any stock or cryptocurrency unless an active, verified real-time price feed is established (`isRealtimeActive`). Market and limit buy orders are blocked if the asset ticker is offline or unverified.
+- **Hardware-Lock Buy Button UI**: The order sheet buy button instantly renders a disabled, high-contrast `BUY LOCKED (FEED OFFLINE)` state with lock icon and amber warning banner whenever an asset feed is offline.
+- **Guaranteed Real-Time Pinned Holdings**: Every owned asset in the user's portfolio is automatically and permanently pinned for continuous real-time market updates (Binance WebSocket subscriptions for crypto, parallel Yahoo quotes with 1,000ms micro-spread pulse for Indian equities and indices).
+- **Auto Lifecycle Subscriptions**: Purchasing an asset automatically registers it to the pinned subscription list; liquidating the asset safely unpins it without disturbing other active feeds.
+
+### 🔔 Trailing Peak Reversal Alerts & Loss Notifications
+- **High-Water Peak Price Telemetry**: Each open holding tracks its historical high-water peak price (`peakPrice`) and flags when a position moves into net profit (`hasReachedHigher`).
+- **Immediate Trailing Loss Notifications**: When an asset retraces from a higher peak and crosses below the purchase price into a loss (`isLosingMoneyAfterHigher`), an urgent system alert is dispatched via `NotificationService` (`REVERSAL ALERT // CAPITAL AT RISK`).
+- **Dedicated High-Priority Alert Channel**: Alerts arrive via a dedicated `trading_alerts` notification channel configured with high importance and high-visibility alert LEDs.
+- **Anti-Spam Latch Architecture**: Notifications trigger once upon breach and latch until the asset recovers back into profit or is liquidated, preventing ticker spamming.
+- **In-App HUD Reversal Warnings**: Holding cards dynamically display high-contrast danger badges with exact drawdown from peak when a position enters drawdown after reaching higher highs.
+
+### 📊 Dashboard Hourly Change & Aggregate Market Trend
+- **Hourly Trend Telemetry**: The trading dashboard header now displays a real-time 1-hour aggregate market trend badge (`1H AVG: ±X.XX% · GOING UP / GOING DOWN / SIDEWAYS`).
+- **Dynamic 1H Metric Calculations**: Continuously computes average 1H return across active holdings and watchlist assets using Binance 1h kline opens and Yahoo 5m reference intervals.
+- **Per-Asset 1H Indicators**: Watchlist asset tiles and portfolio holding cards now feature dedicated 1H delta indicators alongside standard 24H performance.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.18 (Build #2126091802)
 
 ### ⚡ Real-Time Dynamic List & Viewport Ticks

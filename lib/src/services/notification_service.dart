@@ -42,6 +42,10 @@ class NotificationService {
   static const String _transitChannelName = 'Bus Transit';
   static const String _transitChannelDesc = 'Live updates and progress while in the bus';
 
+  static const String _tradingAlertChannelId = 'trading_alerts';
+  static const String _tradingAlertChannelName = 'Trading & Market Alerts';
+  static const String _tradingAlertChannelDesc = 'Realtime notifications for portfolio risk, price reversals and order executions';
+
   // --- Notification IDs ---
   static const int _timerNotifId = 2001;
   static const int _transitNotifId = 2002;
@@ -171,6 +175,15 @@ class NotificationService {
           importance: Importance.low,
           playSound: false,
           enableVibration: false,
+        ));
+        // Trading risk alert channel
+        await android.createNotificationChannel(const AndroidNotificationChannel(
+          _tradingAlertChannelId,
+          _tradingAlertChannelName,
+          description: _tradingAlertChannelDesc,
+          importance: Importance.high,
+          enableLights: true,
+          ledColor: Color(0xFFFF2A4B),
         ));
         try {
           await android.requestNotificationsPermission();
@@ -361,6 +374,71 @@ class NotificationService {
     );
 
     await _plugin.show(id, title, body, details, payload: payload);
+  }
+
+  Future<void> showTradingAlert({
+    required String title,
+    required String body,
+    String? payload,
+    int? id,
+  }) async {
+    final notifId = id ?? (5000 + DateTime.now().millisecondsSinceEpoch % 10000);
+    if (kIsWeb) {
+      final ok = await _ensureWebPermission();
+      if (!ok) return;
+      final n = html.Notification(
+        title,
+        body: body,
+        icon: 'icons/Icon-192.png',
+        tag: 'trading-$notifId',
+      );
+      n.onClick.listen((_) {
+        n.close();
+        _onTap?.call(payload);
+      });
+      return;
+    }
+
+    final androidDetails = AndroidNotificationDetails(
+      _tradingAlertChannelId,
+      _tradingAlertChannelName,
+      channelDescription: _tradingAlertChannelDesc,
+      importance: Importance.high,
+      priority: Priority.high,
+      category: AndroidNotificationCategory.alarm,
+      color: const Color(0xFFFF2A4B),
+      colorized: true,
+      ledColor: const Color(0xFFFF2A4B),
+      ledOnMs: 600,
+      ledOffMs: 300,
+      ticker: 'Trading Alert',
+      icon: '@mipmap/ic_launcher',
+      styleInformation: BigTextStyleInformation(
+        body,
+        contentTitle: '<b>◢ $title</b>',
+        summaryText: '<i>OPERATOR TERMINAL // TRADING ALERT</i>',
+        htmlFormatContent: true,
+        htmlFormatContentTitle: true,
+        htmlFormatSummaryText: true,
+      ),
+    );
+    const darwin = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      interruptionLevel: InterruptionLevel.timeSensitive,
+    );
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: darwin,
+      macOS: darwin,
+    );
+
+    try {
+      await _plugin.show(notifId, title, body, details, payload: payload);
+    } catch (e) {
+      debugPrint('[NotificationService] showTradingAlert suppressed / failed: $e');
+    }
   }
 
   // ---------------------------------------------------------------------------

@@ -9,12 +9,21 @@ import 'package:missions/src/screens/trading/trading_asset_detail_screen.dart';
 
 class MockMarketService extends BinanceMarketService {
   final Map<String, CryptoPriceTick> _mockTicks = {};
+  MarketConnectionStatus _mockStatus = MarketConnectionStatus.connected;
 
   @override
   Map<String, CryptoPriceTick> get ticks => _mockTicks;
 
   @override
   CryptoPriceTick? getTick(String symbol) => _mockTicks[symbol.toUpperCase()];
+
+  @override
+  MarketConnectionStatus get status => _mockStatus;
+
+  void setMockStatus(MarketConnectionStatus s) {
+    _mockStatus = s;
+    notifyListeners();
+  }
 
   void setMockTick(CryptoPriceTick tick) {
     _mockTicks[tick.symbol.toUpperCase()] = tick;
@@ -357,6 +366,26 @@ void main() {
 
     setUp(() {
       mockMarketService = MockMarketService();
+      mockMarketService.setMockTick(CryptoPriceTick(
+        symbol: 'RELIANCE.NS',
+        price: 2900.0,
+        changePercent24h: 1.2,
+        high24h: 2950.0,
+        low24h: 2880.0,
+        volume24h: 150000,
+        timestamp: DateTime.now(),
+        currency: 'INR',
+      ));
+      mockMarketService.setMockTick(CryptoPriceTick(
+        symbol: 'ETHUSDT',
+        price: 3200.0,
+        changePercent24h: 2.5,
+        high24h: 3250.0,
+        low24h: 3150.0,
+        volume24h: 5000,
+        timestamp: DateTime.now(),
+        currency: 'USD',
+      ));
       provider = PaperTradingProvider(marketService: mockMarketService);
     });
 
@@ -474,6 +503,166 @@ void main() {
       provider.cancelOrder(orderId);
       expect(provider.pendingOrders, isEmpty);
       expect(provider.orders.first.isCancelled, isTrue);
+    });
+
+    test('Blocks BUY orders when real-time feed is inactive or offline', () {
+      // 1. SOLUSDT has no tick loaded yet in mockMarketService
+      final unverifiedBuy = provider.executeMarketOrder(
+        symbol: 'SOLUSDT',
+        side: OrderSide.buy,
+        quantity: 1.0,
+        currentPriceUSDT: 145.0,
+      );
+      expect(unverifiedBuy.success, isFalse);
+      expect(unverifiedBuy.message, contains('offline or unverified'));
+
+      final unverifiedLimitBuy = provider.createLimitOrder(
+        symbol: 'SOLUSDT',
+        side: OrderSide.buy,
+        quantity: 1.0,
+        targetPriceUSDT: 140.0,
+      );
+      expect(unverifiedLimitBuy.success, isFalse);
+      expect(unverifiedLimitBuy.message, contains('offline or unverified'));
+
+      // 2. When crypto connection status is disconnected
+      mockMarketService.setMockStatus(MarketConnectionStatus.disconnected);
+      final disconnectedBuy = provider.executeMarketOrder(
+        symbol: 'ETHUSDT',
+        side: OrderSide.buy,
+        quantity: 0.1,
+        currentPriceUSDT: 3200.0,
+      );
+      expect(disconnectedBuy.success, isFalse);
+      expect(disconnectedBuy.message, contains('offline or unverified'));
+
+      // Reconnect and verify buy works
+      mockMarketService.setMockStatus(MarketConnectionStatus.connected);
+      final connectedBuy = provider.executeMarketOrder(
+        symbol: 'ETHUSDT',
+        side: OrderSide.buy,
+        quantity: 0.1,
+        currentPriceUSDT: 3200.0,
+      );
+      expect(connectedBuy.success, isTrue);
+      // Pinned symbol should now include ETHUSDT
+      expect(mockMarketService.pinnedSymbols, contains('ETHUSDT'));
+    });
+
+    test('CryptoHolding trailing peak price tracking, drawdown, and reversal detection', () {
+      final holding = CryptoHolding(
+        symbol: 'RELIANCE.NS',
+        coinName: 'Reliance Industries',
+        quantity: 10.0,
+        avgBuyPriceUSDT: 2900.0,
+        totalCostINR: 29000.0,
+        currency: 'INR',
+      );
+
+      expect(holding.peakPrice, 2900.0);
+      expect(holding.hasReachedHigher, isFalse);
+      expect(holding.peakGainPercent, 0.0);
+
+      // Price surges to ₹3,200 (+10.34%)
+      final peakHolding = holding.copyWith(
+        peakPrice: 3200.0,
+        hasReachedHigher: true,
+        peakTimestamp: DateTime.now(),
+      );
+      expect(peakHolding.peakGainPercent, closeTo(10.34, 0.01));
+      expect(peakHolding.drawdownFromPeakPercent(3040.0), closeTo(5.0, 0.01));
+      expect(peakHolding.isLosingMoneyAfterHigher(3040.0), isFalse); // Still in profit above ₹2,900
+
+      // Price plunges to ₹2,850 (below entry ₹2,900)
+      expect(peakHolding.isLosingMoneyAfterHigher(2850.0), isTrue);
+    });
+
+    test('PaperTradingProvider triggers trailing loss alert after position reached higher', () {
+      // 1. Buy Reliance at ₹2,900
+      final buyRes = provider.executeMarketOrder(
+        symbol: 'RELIANCE.NS',
+        side: OrderSide.buy,
+        quantity: 10.0,
+        currentPriceUSDT: 2900.0,
+      );
+      expect(buyRes.success, isTrue);
+
+      // 2. Price increases to ₹3,100 -> peak price updates
+      mockMarketService.setMockTick(CryptoPriceTick(
+        symbol: 'RELIANCE.NS',
+        price: 3100.0,
+        changePercent24h: 6.8,
+        high24h: 3120.0,
+        low24h: 2880.0,
+        volume24h: 200000,
+        timestamp: DateTime.now(),
+        currency: 'INR',
+      ));
+
+      final updatedHolding = provider.getHolding('RELIANCE.NS')!;
+      expect(updatedHolding.peakPrice, 3100.0);
+      expect(updatedHolding.hasReachedHigher, isTrue);
+      expect(provider.lossAlertsTriggered, isEmpty);
+
+      // 3. Price drops below entry ₹2,900 to ₹2,850 -> triggers loss alert latch
+      mockMarketService.setMockTick(CryptoPriceTick(
+        symbol: 'RELIANCE.NS',
+        price: 2850.0,
+        changePercent24h: -1.7,
+        high24h: 3120.0,
+        low24h: 2840.0,
+        volume24h: 250000,
+        timestamp: DateTime.now(),
+        currency: 'INR',
+      ));
+
+      expect(provider.lossAlertsTriggered, contains('RELIANCE.NS'));
+
+      // 4. Subsequent lower tick does not crash or un-latch
+      mockMarketService.setMockTick(CryptoPriceTick(
+        symbol: 'RELIANCE.NS',
+        price: 2830.0,
+        changePercent24h: -2.4,
+        high24h: 3120.0,
+        low24h: 2830.0,
+        volume24h: 260000,
+        timestamp: DateTime.now(),
+        currency: 'INR',
+      ));
+      expect(provider.lossAlertsTriggered, contains('RELIANCE.NS'));
+
+      // 5. Price recovers back above entry ₹2,900 to ₹3,150 -> latch is reset!
+      mockMarketService.setMockTick(CryptoPriceTick(
+        symbol: 'RELIANCE.NS',
+        price: 3150.0,
+        changePercent24h: 8.6,
+        high24h: 3150.0,
+        low24h: 2830.0,
+        volume24h: 300000,
+        timestamp: DateTime.now(),
+        currency: 'INR',
+      ));
+      expect(provider.lossAlertsTriggered, isNot(contains('RELIANCE.NS')));
+      expect(provider.getHolding('RELIANCE.NS')!.peakPrice, 3150.0);
+    });
+
+    test('HourlyMarketTrend calculates aggregate trend and direction', () {
+      const upTrend = HourlyMarketTrend(avgChangePercent: 0.45, sampleCount: 5);
+      expect(upTrend.isGoingUp, isTrue);
+      expect(upTrend.isGoingDown, isFalse);
+      expect(upTrend.directionLabel, 'GOING UP');
+
+      const downTrend = HourlyMarketTrend(avgChangePercent: -0.62, sampleCount: 4);
+      expect(downTrend.isGoingDown, isTrue);
+      expect(downTrend.isGoingUp, isFalse);
+      expect(downTrend.directionLabel, 'GOING DOWN');
+
+      const flatTrend = HourlyMarketTrend(avgChangePercent: 0.01, sampleCount: 3);
+      expect(flatTrend.isSideways, isTrue);
+      expect(flatTrend.directionLabel, 'SIDEWAYS');
+
+      final trend = provider.getHourlyTrend();
+      expect(trend.sampleCount, greaterThanOrEqualTo(0));
     });
   });
 

@@ -30,6 +30,7 @@ class BinanceMarketService extends ChangeNotifier {
   Timer? _reconnectTimer;
   Timer? _indianMarketPollTimer;
   Timer? _visibleIndianPollTimer;
+  Timer? _activeCryptoPollTimer;
   Timer? _microTickTimer;
   bool _isDisposed = false;
   int _reconnectAttempts = 0;
@@ -56,6 +57,13 @@ class BinanceMarketService extends ChangeNotifier {
   final Map<String, List<double>> _priceHistory = {};
   Map<String, List<double>> get priceHistory => _priceHistory;
   List<double> getHistory(String symbol) => _priceHistory[symbol.toUpperCase()] ?? const [];
+
+  /// Reference open price at the start of the 1-hour window
+  final Map<String, double> _hourlyOpenPrices = {};
+  Map<String, double> get hourlyOpenPrices => Map.unmodifiable(_hourlyOpenPrices);
+
+  /// Rolling timestamped prices for accurate 1-hour change calculation
+  final Map<String, List<MapEntry<DateTime, double>>> _hourlyPriceSnapshots = {};
 
   /// Cache for real historical summaries (key: symbol_timeframe)
   final Map<String, HistoricalPriceSummary> _historicalCache = {};
@@ -135,16 +143,66 @@ class BinanceMarketService extends ChangeNotifier {
 
   void addPinnedSymbol(String symbol) {
     if (_isDisposed) return;
-    _pinnedSymbols.add(symbol.toUpperCase());
+    final sym = symbol.toUpperCase();
+    _pinnedSymbols.add(sym);
     _syncSubscriptions();
-    if (!isCryptoSymbol(symbol)) {
-      _fetchSingleIndianMarket(symbol.toUpperCase());
+    if (!isCryptoSymbol(sym)) {
+      _fetchSingleIndianMarket(sym);
+    } else if (!_ticks.containsKey(sym)) {
+      _fetchSingleCryptoMarket(sym);
     }
   }
 
   void removePinnedSymbol(String symbol) {
     if (_isDisposed) return;
     _pinnedSymbols.remove(symbol.toUpperCase());
+  }
+
+  final Map<String, DateTime> _lastTickReceived = {};
+
+  /// Returns whether a symbol currently has an active, fresh real-time feed.
+  /// Buying is locked if this returns false to protect against stale executions.
+  bool isRealtimeActive(String symbol) {
+    final sym = symbol.toUpperCase();
+    final tick = getTick(sym);
+    if (tick == null || tick.price <= 0) return false;
+
+    final lastReceived = _lastTickReceived[sym] ?? tick.timestamp;
+    final now = DateTime.now();
+    final ageSeconds = now.difference(lastReceived).inSeconds.abs();
+
+    if (isCryptoSymbol(sym)) {
+      if (status == MarketConnectionStatus.disconnected) return false;
+      return ageSeconds <= 60;
+    } else {
+      // Indian equity / index / commodity: fresh within 90 seconds
+      return ageSeconds <= 90;
+    }
+  }
+
+  /// Calculates the 1-hour price change percentage for an asset.
+  double? getHourlyChangePercent(String symbol) {
+    final sym = symbol.toUpperCase();
+    final currentTick = getTick(sym);
+    if (currentTick == null || currentTick.price <= 0) return null;
+
+    final hourlyRef = _hourlyOpenPrices[sym];
+    if (hourlyRef != null && hourlyRef > 0) {
+      return ((currentTick.price - hourlyRef) / hourlyRef) * 100.0;
+    }
+
+    final snapshots = _hourlyPriceSnapshots[sym];
+    if (snapshots != null && snapshots.isNotEmpty) {
+      final oldest = snapshots.first.value;
+      if (oldest > 0 && (currentTick.price - oldest).abs() > 0.00001) {
+        return ((currentTick.price - oldest) / oldest) * 100.0;
+      }
+    }
+
+    if (currentTick.changePercent24h != 0.0) {
+      return currentTick.changePercent24h / 16.0;
+    }
+    return 0.0;
   }
 
   void start() {
@@ -161,6 +219,12 @@ class BinanceMarketService extends ChangeNotifier {
     _visibleIndianPollTimer?.cancel();
     _visibleIndianPollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       _fetchVisibleIndianMarkets();
+    });
+
+    // Fast 4-second parallel poll for all active / pinned crypto assets (continuous live quotes)
+    _activeCryptoPollTimer?.cancel();
+    _activeCryptoPollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      _fetchActiveCryptoMarkets();
     });
 
     // Real-time 1000ms micro-tick engine for active non-crypto assets
@@ -187,10 +251,52 @@ class BinanceMarketService extends ChangeNotifier {
           final tick = CryptoPriceTick.fromBinanceRest(data);
           _updateTick(tick);
         }
+
+        try {
+          final klineUri = Uri.parse('https://api.binance.com/api/v3/klines?symbol=$s&interval=1h&limit=1');
+          final klineRes = await http.get(klineUri).timeout(const Duration(seconds: 3));
+          if (klineRes.statusCode == 200) {
+            final list = jsonDecode(klineRes.body) as List?;
+            if (list != null && list.isNotEmpty) {
+              final openP = double.tryParse(list[0][1]?.toString() ?? '');
+              if (openP != null && openP > 0) {
+                _hourlyOpenPrices[s.toUpperCase()] = openP;
+              }
+            }
+          }
+        } catch (_) {}
       });
       await Future.wait(futures);
     } catch (e) {
       debugPrint('Binance REST snapshot notice: $e');
+    }
+  }
+
+  /// Fetches quotes and hourly open for a single crypto pair immediately
+  Future<void> _fetchSingleCryptoMarket(String symbol) async {
+    try {
+      final s = symbol.toUpperCase();
+      final uri = Uri.parse('https://api.binance.com/api/v3/ticker/24hr?symbol=$s');
+      final res = await http.get(uri).timeout(const Duration(seconds: 4));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final tick = CryptoPriceTick.fromBinanceRest(data);
+        _updateTick(tick);
+      }
+
+      final klineUri = Uri.parse('https://api.binance.com/api/v3/klines?symbol=$s&interval=1h&limit=1');
+      final klineRes = await http.get(klineUri).timeout(const Duration(seconds: 3));
+      if (klineRes.statusCode == 200) {
+        final list = jsonDecode(klineRes.body) as List?;
+        if (list != null && list.isNotEmpty) {
+          final openP = double.tryParse(list[0][1]?.toString() ?? '');
+          if (openP != null && openP > 0) {
+            _hourlyOpenPrices[s] = openP;
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore network drops
     }
   }
 
@@ -200,6 +306,15 @@ class BinanceMarketService extends ChangeNotifier {
     if (visibleNonCrypto.isEmpty) return;
 
     final futures = visibleNonCrypto.map((sym) => _fetchSingleIndianMarket(sym));
+    await Future.wait(futures);
+  }
+
+  /// Fast parallel fetch for all active and pinned crypto assets (guarantees fresh live ticks)
+  Future<void> _fetchActiveCryptoMarkets() async {
+    final activeCrypto = allActiveSymbols.where(isCryptoSymbol).toList();
+    if (activeCrypto.isEmpty) return;
+
+    final futures = activeCrypto.take(15).map((sym) => _fetchSingleCryptoMarket(sym));
     await Future.wait(futures);
   }
 
@@ -235,6 +350,16 @@ class BinanceMarketService extends ChangeNotifier {
                   _priceHistory[symbol.toUpperCase()] = validCloses.length > 50
                       ? validCloses.sublist(validCloses.length - 50)
                       : validCloses;
+
+                  // 1 hour ago is 12 bars back in 5m intervals
+                  if (validCloses.length >= 12) {
+                    final hourAgoPrice = validCloses[validCloses.length - 12];
+                    if (hourAgoPrice > 0) {
+                      _hourlyOpenPrices[symbol.toUpperCase()] = hourAgoPrice;
+                    }
+                  } else if (validCloses.isNotEmpty) {
+                    _hourlyOpenPrices[symbol.toUpperCase()] = validCloses.first;
+                  }
                 }
               }
             }
@@ -401,6 +526,14 @@ class BinanceMarketService extends ChangeNotifier {
       if (history.length > 50) {
         history.removeAt(0);
       }
+
+      final snapshots = _hourlyPriceSnapshots.putIfAbsent(sym, () => []);
+      if (snapshots.isEmpty || (snapshots.last.value - newPrice).abs() > 0.01) {
+        snapshots.add(MapEntry(DateTime.now(), newPrice));
+        final cutoff = DateTime.now().subtract(const Duration(minutes: 60));
+        snapshots.removeWhere((entry) => entry.key.isBefore(cutoff));
+      }
+
       updatedAny = true;
     }
 
@@ -413,6 +546,7 @@ class BinanceMarketService extends ChangeNotifier {
     if (_isDisposed) return;
     final sym = tick.symbol.toUpperCase();
     _ticks[sym] = tick;
+    _lastTickReceived[sym] = DateTime.now();
 
     // Record price point in history
     final history = _priceHistory.putIfAbsent(sym, () => []);
@@ -421,6 +555,14 @@ class BinanceMarketService extends ChangeNotifier {
       if (history.length > 50) {
         history.removeAt(0);
       }
+    }
+
+    final snapshots = _hourlyPriceSnapshots.putIfAbsent(sym, () => []);
+    snapshots.add(MapEntry(DateTime.now(), tick.price));
+    final cutoff = DateTime.now().subtract(const Duration(minutes: 60));
+    snapshots.removeWhere((entry) => entry.key.isBefore(cutoff));
+    if (_hourlyOpenPrices[sym] == null && snapshots.isNotEmpty) {
+      _hourlyOpenPrices[sym] = snapshots.first.value;
     }
 
     notifyListeners();
@@ -1119,6 +1261,7 @@ class BinanceMarketService extends ChangeNotifier {
     _reconnectTimer?.cancel();
     _indianMarketPollTimer?.cancel();
     _visibleIndianPollTimer?.cancel();
+    _activeCryptoPollTimer?.cancel();
     _microTickTimer?.cancel();
     _cleanSubscription();
     super.dispose();

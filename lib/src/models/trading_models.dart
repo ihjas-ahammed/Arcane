@@ -907,6 +907,7 @@ class ShadowComparisonSeries {
 
 
 /// Universal holding position (Crypto + Indian stocks)
+/// Universal holding position (Crypto + Indian stocks) with peak tracking
 class CryptoHolding {
   final String symbol;
   final String coinName;
@@ -914,6 +915,9 @@ class CryptoHolding {
   final double avgBuyPriceUSDT; // or avgBuyPrice in native currency (INR for stocks)
   final double totalCostINR;
   final String currency;        // 'INR' or 'USD'
+  final double peakPrice;       // Highest price reached since position opened
+  final bool hasReachedHigher;  // True if position has ever been in profit / reached a higher high
+  final DateTime? peakTimestamp;
 
   CryptoHolding({
     required this.symbol,
@@ -922,7 +926,10 @@ class CryptoHolding {
     required this.avgBuyPriceUSDT,
     required this.totalCostINR,
     this.currency = 'USD',
-  });
+    double? peakPrice,
+    this.hasReachedHigher = false,
+    this.peakTimestamp,
+  }) : peakPrice = peakPrice ?? avgBuyPriceUSDT;
 
   CryptoSymbol? get symbolInfo => CryptoSymbol.fromRaw(symbol);
   TradingAsset get assetInfo => TradingAsset.fromSymbol(symbol);
@@ -949,6 +956,23 @@ class CryptoHolding {
     return (pnlINR(currentPriceNative, usdtToInrRate) / totalCostINR) * 100;
   }
 
+  /// Calculates percentage gain at the peak price
+  double get peakGainPercent {
+    if (avgBuyPriceUSDT <= 0) return 0.0;
+    return ((peakPrice - avgBuyPriceUSDT) / avgBuyPriceUSDT) * 100.0;
+  }
+
+  /// Percentage retracement / drawdown from peak
+  double drawdownFromPeakPercent(double currentPriceNative) {
+    if (peakPrice <= 0) return 0.0;
+    return ((peakPrice - currentPriceNative) / peakPrice) * 100.0;
+  }
+
+  /// True if position was higher than buy price previously, but has now dropped into net loss
+  bool isLosingMoneyAfterHigher(double currentPriceNative) {
+    return hasReachedHigher && currentPriceNative < avgBuyPriceUSDT;
+  }
+
   CryptoHolding copyWith({
     String? symbol,
     String? coinName,
@@ -956,6 +980,9 @@ class CryptoHolding {
     double? avgBuyPriceUSDT,
     double? totalCostINR,
     String? currency,
+    double? peakPrice,
+    bool? hasReachedHigher,
+    DateTime? peakTimestamp,
   }) {
     return CryptoHolding(
       symbol: symbol ?? this.symbol,
@@ -964,6 +991,9 @@ class CryptoHolding {
       avgBuyPriceUSDT: avgBuyPriceUSDT ?? this.avgBuyPriceUSDT,
       totalCostINR: totalCostINR ?? this.totalCostINR,
       currency: currency ?? this.currency,
+      peakPrice: peakPrice ?? this.peakPrice,
+      hasReachedHigher: hasReachedHigher ?? this.hasReachedHigher,
+      peakTimestamp: peakTimestamp ?? this.peakTimestamp,
     );
   }
 
@@ -974,16 +1004,49 @@ class CryptoHolding {
         'avgBuyPriceUSDT': avgBuyPriceUSDT,
         'totalCostINR': totalCostINR,
         'currency': currency,
+        'peakPrice': peakPrice,
+        'hasReachedHigher': hasReachedHigher,
+        'peakTimestamp': peakTimestamp?.toIso8601String(),
       };
 
-  factory CryptoHolding.fromJson(Map<String, dynamic> json) => CryptoHolding(
-        symbol: json['symbol'] as String? ?? '',
-        coinName: json['coinName'] as String? ?? '',
-        quantity: (json['quantity'] as num?)?.toDouble() ?? 0.0,
-        avgBuyPriceUSDT: (json['avgBuyPriceUSDT'] as num?)?.toDouble() ?? 0.0,
-        totalCostINR: (json['totalCostINR'] as num?)?.toDouble() ?? 0.0,
-        currency: json['currency'] as String? ?? (json['symbol']?.toString().contains('.NS') == true ? 'INR' : 'USD'),
-      );
+  factory CryptoHolding.fromJson(Map<String, dynamic> json) {
+    final avgBuy = (json['avgBuyPriceUSDT'] as num?)?.toDouble() ?? 0.0;
+    return CryptoHolding(
+      symbol: json['symbol'] as String? ?? '',
+      coinName: json['coinName'] as String? ?? '',
+      quantity: (json['quantity'] as num?)?.toDouble() ?? 0.0,
+      avgBuyPriceUSDT: avgBuy,
+      totalCostINR: (json['totalCostINR'] as num?)?.toDouble() ?? 0.0,
+      currency: json['currency'] as String? ??
+          (json['symbol']?.toString().contains('.NS') == true ? 'INR' : 'USD'),
+      peakPrice: (json['peakPrice'] as num?)?.toDouble() ?? avgBuy,
+      hasReachedHigher: json['hasReachedHigher'] as bool? ?? false,
+      peakTimestamp: json['peakTimestamp'] != null
+          ? DateTime.tryParse(json['peakTimestamp'] as String)
+          : null,
+    );
+  }
+}
+
+/// Represents the aggregate hourly trend and direction
+class HourlyMarketTrend {
+  final double avgChangePercent;
+  final int sampleCount;
+
+  const HourlyMarketTrend({
+    required this.avgChangePercent,
+    required this.sampleCount,
+  });
+
+  bool get isGoingUp => avgChangePercent > 0.03;
+  bool get isGoingDown => avgChangePercent < -0.03;
+  bool get isSideways => !isGoingUp && !isGoingDown;
+
+  String get directionLabel {
+    if (isGoingUp) return 'GOING UP';
+    if (isGoingDown) return 'GOING DOWN';
+    return 'SIDEWAYS';
+  }
 }
 
 enum OrderSide { buy, sell }

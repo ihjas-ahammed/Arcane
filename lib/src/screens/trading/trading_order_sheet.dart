@@ -165,6 +165,13 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
       return;
     }
 
+    if (_side == OrderSide.buy && !widget.provider.marketService.isRealtimeActive(widget.asset.symbol)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Real-time feed is offline or unverified. Purchases are locked to protect against stale fills.')),
+      );
+      return;
+    }
+
     if (_side == OrderSide.buy && totalINR > widget.provider.availableCash) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Insufficient cash. Available: ₹${widget.provider.availableCash.toStringAsFixed(2)}')),
@@ -728,21 +735,78 @@ class _TradingOrderSheetState extends State<TradingOrderSheet> {
                   ],
                 ),
               ),
+              if (_side == OrderSide.buy &&
+                  !widget.provider.marketService.isRealtimeActive(widget.asset.symbol)) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: JweTheme.accentAmber.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, size: 16, color: JweTheme.accentAmber),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'REALTIME FEED OFFLINE: Buying locked until a fresh live quote is verified.',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.accentAmber,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 18),
 
               // Action Button
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _side == OrderSide.buy ? JweTheme.accentTeal : JweTheme.accentRed,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: _reviewAndConfirm,
-                child: Text(
-                  'REVIEW & PLACE ${_side.name.toUpperCase()} ORDER',
-                  style: GoogleFonts.jetBrainsMono(fontSize: 12.5, fontWeight: FontWeight.bold, letterSpacing: 1.0),
-                ),
+              ListenableBuilder(
+                listenable: widget.provider.marketService,
+                builder: (context, _) {
+                  final isBuyLocked = _side == OrderSide.buy &&
+                      !widget.provider.marketService.isRealtimeActive(widget.asset.symbol);
+
+                  return ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isBuyLocked
+                          ? JweTheme.panel2
+                          : (_side == OrderSide.buy ? JweTheme.accentTeal : JweTheme.accentRed),
+                      foregroundColor: isBuyLocked ? JweTheme.textMuted : Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: isBuyLocked ? BorderSide(color: JweTheme.border) : BorderSide.none,
+                      ),
+                    ),
+                    onPressed: isBuyLocked ? null : _reviewAndConfirm,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (isBuyLocked) ...[
+                          Icon(Icons.lock_outline_rounded, size: 16, color: JweTheme.textMuted),
+                          const SizedBox(width: 8),
+                        ],
+                        Text(
+                          isBuyLocked
+                              ? 'BUYING LOCKED (FEED OFFLINE)'
+                              : 'REVIEW & PLACE ${_side.name.toUpperCase()} ORDER',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                            color: isBuyLocked ? JweTheme.textMuted : Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ],
           ),

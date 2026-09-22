@@ -152,48 +152,100 @@ class _RealtimeTradingScreenState extends State<RealtimeTradingScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'TOTAL PORTFOLIO VALUE',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: JweTheme.textMuted,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  inrFormat.format(totalPortfolioINR),
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: JweTheme.textWhite,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text(
-                              'TOTAL PORTFOLIO VALUE',
-                              style: GoogleFonts.jetBrainsMono(
-                                color: JweTheme.textMuted,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.2,
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: (isPnlPositive ? JweTheme.accentTeal : JweTheme.accentRed)
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: (isPnlPositive ? JweTheme.accentTeal : JweTheme.accentRed)
+                                      .withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: Text(
+                                '${isPnlPositive ? '+' : ''}${inrFormat.format(totalPnlINR)} (${totalPnlPercent.toStringAsFixed(2)}%)',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: isPnlPositive ? JweTheme.accentTeal : JweTheme.accentRed,
+                                  fontSize: 10.0,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              inrFormat.format(totalPortfolioINR),
-                              style: GoogleFonts.jetBrainsMono(
-                                color: JweTheme.textWhite,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                              ),
+                            const SizedBox(height: 4),
+                            Builder(
+                              builder: (context) {
+                                final hourlyTrend = _provider.getHourlyTrend();
+                                final isUp = hourlyTrend.isGoingUp;
+                                final isDown = hourlyTrend.isGoingDown;
+                                final trendColor = isUp
+                                    ? JweTheme.accentTeal
+                                    : (isDown ? JweTheme.accentRed : JweTheme.textMid);
+                                final trendIcon = isUp
+                                    ? Icons.trending_up_rounded
+                                    : (isDown ? Icons.trending_down_rounded : Icons.trending_flat_rounded);
+                                final sign = hourlyTrend.avgChangePercent >= 0 ? '+' : '';
+
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
+                                  decoration: BoxDecoration(
+                                    color: trendColor.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: trendColor.withValues(alpha: 0.3)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(trendIcon, size: 11, color: trendColor),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        '1H AVG: $sign${hourlyTrend.avgChangePercent.toStringAsFixed(2)}% · ${hourlyTrend.directionLabel}',
+                                        style: GoogleFonts.jetBrainsMono(
+                                          color: trendColor,
+                                          fontSize: 8.5,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
                             ),
                           ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: (isPnlPositive ? JweTheme.accentTeal : JweTheme.accentRed)
-                                .withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: (isPnlPositive ? JweTheme.accentTeal : JweTheme.accentRed)
-                                  .withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Text(
-                            '${isPnlPositive ? '+' : ''}${inrFormat.format(totalPnlINR)} (${totalPnlPercent.toStringAsFixed(2)}%)',
-                            style: GoogleFonts.jetBrainsMono(
-                              color: isPnlPositive ? JweTheme.accentTeal : JweTheme.accentRed,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
                         ),
                       ],
                     ),
@@ -647,6 +699,24 @@ class _WatchlistTabState extends State<_WatchlistTab> {
                                       ),
                                     ],
                                   ),
+                                  Builder(
+                                    builder: (context) {
+                                      final hourly = widget.provider.marketService.getHourlyChangePercent(asset.symbol);
+                                      if (hourly == null) return const SizedBox.shrink();
+                                      final isUp = hourly >= 0;
+                                      return Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Text(
+                                          '1H: ${isUp ? '+' : ''}${hourly.toStringAsFixed(2)}%',
+                                          style: GoogleFonts.jetBrainsMono(
+                                            color: isUp ? JweTheme.accentTeal : JweTheme.accentRed,
+                                            fontSize: 8.5,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ],
                               ),
                             ],
@@ -866,6 +936,63 @@ class _PortfolioTab extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (holding.isLosingMoneyAfterHigher(currentPrice)) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: JweTheme.accentRed.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: JweTheme.accentRed.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, size: 14, color: JweTheme.accentRed),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'REVERSAL ALERT: Dropped into loss after peak of ${asset.isIndianAsset ? '₹' : '\$'}${holding.peakPrice.toStringAsFixed(2)} (-${holding.drawdownFromPeakPercent(currentPrice).toStringAsFixed(1)}%)',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: JweTheme.accentRed,
+                              fontSize: 9.0,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (holding.hasReachedHigher) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'PEAK: ${asset.isIndianAsset ? '₹' : '\$'}${holding.peakPrice.toStringAsFixed(2)} (+${holding.peakGainPercent.toStringAsFixed(1)}%)',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: JweTheme.accentAmber,
+                          fontSize: 9.0,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Builder(
+                        builder: (context) {
+                          final hourly = provider.marketService.getHourlyChangePercent(holding.symbol);
+                          if (hourly == null) return const SizedBox.shrink();
+                          final isUp = hourly >= 0;
+                          return Text(
+                            '1H: ${isUp ? '+' : ''}${hourly.toStringAsFixed(2)}%',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: isUp ? JweTheme.accentTeal : JweTheme.accentRed,
+                              fontSize: 9.0,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
