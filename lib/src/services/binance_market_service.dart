@@ -14,6 +14,14 @@ enum MarketConnectionStatus {
 }
 
 class BinanceMarketService extends ChangeNotifier {
+  static BinanceMarketService? _instance;
+  static BinanceMarketService get instance => _instance ??= BinanceMarketService();
+
+  static void resetInstanceForTesting() {
+    _instance?.dispose();
+    _instance = null;
+  }
+
   static const String _wsBaseUrl =
       'wss://stream.binance.com:9443/stream?streams=btcusdt@ticker/ethusdt@ticker/solusdt@ticker/bnbusdt@ticker/xrpusdt@ticker/dogeusdt@ticker';
   static const List<String> defaultSymbols = [

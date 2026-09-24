@@ -40,6 +40,7 @@ import 'package:missions/src/providers/mixins/task_mixin.dart';
 import 'package:missions/src/providers/mixins/finance_mixin.dart';
 import 'package:missions/src/providers/mixins/user_mixin.dart';
 import 'package:missions/src/providers/mixins/health_mixin.dart';
+import 'package:missions/src/providers/paper_trading_provider.dart';
 
 // Import Actions
 import 'package:missions/src/providers/actions/task_actions.dart';
@@ -87,6 +88,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   late final ScheduleActions _scheduleActions;
   late final FinanceActions _financeActions;
   late final JournalingActions _journalingActions;
+  late final PaperTradingProvider _paperTrading;
   final UpdateService _updateService = UpdateService();
 
   TaskActions get taskActions => _taskActions;
@@ -96,6 +98,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   ScheduleActions get scheduleActions => _scheduleActions;
   FinanceActions get financeActions => _financeActions;
   JournalingActions get journalingActions => _journalingActions;
+  PaperTradingProvider get paperTrading => _paperTrading;
   UpdateService get updateService => _updateService;
 
   UpdateModel? _availableUpdate;
@@ -134,6 +137,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     _scheduleActions = ScheduleActions(this);
     _financeActions = FinanceActions(this);
     _journalingActions = JournalingActions(this);
+    _paperTrading = PaperTradingProvider.instance;
+    _paperTrading.onStateChanged = () => markDirty('trading');
 
     // Route notification taps / action buttons.
     // Payload for the timer notification is encoded as "<subtaskId>|<mainTaskId>".
@@ -179,6 +184,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     _scheduleActions = ScheduleActions(this);
     _financeActions = FinanceActions(this);
     _journalingActions = JournalingActions(this);
+    _paperTrading = PaperTradingProvider.instance;
+    _paperTrading.onStateChanged = () => markDirty('trading');
   }
 
   @override
@@ -193,6 +200,10 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       drainPendingEnergyLogs();
       if (currentUser != null) {
         fetchDailyReportsFromCloud();
+      }
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      if (hasUnsavedChanges) {
+        forceLocalBackup();
       }
     }
   }
@@ -768,16 +779,12 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         setCurrentUser(user);
         
         final localData = await _localStorage.loadState(user.uid);
-        final bool isDesktop = !kIsWeb && (defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS);
         if (localData != null) {
           loadStateFromMap(localData);
-          if (isDesktop) {
-            // Auto restore from database when on desktop (secondary device sync)
-            try {
-              await manuallyLoadFromCloud();
-            } catch (e) {
-              debugPrint("Failed auto restore from cloud on desktop: $e");
-            }
+          if (settings.autoSaveEnabled) {
+            autoSyncWithCloud().catchError((e) {
+              debugPrint("Failed auto sync with cloud on auth change: $e");
+            });
           }
         } else {
           // FIX: Auto load from cloud if local state is missing (Fixes web resets)
@@ -855,9 +862,15 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     setChatbotMemory(ChatbotMemory());
     initializeSkills();
     initializeDefaultFinanceCategories();
+    try {
+      _paperTrading.resetPortfolio();
+    } catch (_) {}
   }
 
   // --- Mixin Implementations & Legacy Compat ---
+
+  @override
+  Map<String, dynamic> getTradingStateMap() => _paperTrading.getStateMap();
 
   @override
   Map<String, dynamic> getFullAppState() {
@@ -866,6 +879,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     map.addAll(getFinanceStateMap());
     map.addAll(getUserStateMap());
     map.addAll(getHealthStateMap());
+    map['trading'] = getTradingStateMap();
     return map;
   }
 
@@ -879,6 +893,19 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     loadFinanceState(data);
     loadUserState(data);
     loadHealthState(data);
+    if (data['trading'] != null) {
+      final t = data['trading'];
+      if (t is Map) {
+        _paperTrading.loadState(Map<String, dynamic>.from(t));
+      } else if (t is String) {
+        try {
+          final decoded = jsonDecode(t);
+          if (decoded is Map) {
+            _paperTrading.loadState(Map<String, dynamic>.from(decoded));
+          }
+        } catch (_) {}
+      }
+    }
     
     if (settings.dataVersion < 1) {
       settings.dataVersion = 1;

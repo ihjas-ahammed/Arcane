@@ -1,3 +1,14 @@
+# ⚡ Arcane System Upgrade // v2026.9.24 (Build #2126092405)
+
+### 🔄 Universal Cloud & Realtime Database Synchronization Engine
+- **End-to-End Realtime Database (RTDB) & Firestore Paper Trading Sync**: Added direct persistence and synchronization for paper trading portfolio data (`users/$userId/data/trading`), including virtual cash balance, exchange rates, asset holdings, filled/pending orders, trailing peak prices, and triggered alerts across both mobile (FlutterFire) and desktop (Linux) platforms.
+- **Automated Debounced Cloud Database Sync**: Eliminated the requirement to manually navigate to settings and tap "Force Cloud Sync". When `autoSaveEnabled` is active, any modification across any feature state (tasks, day planner, habits, reflections, finance, health, settings, and trading) automatically schedules a debounced (2.5s) sync to the cloud database.
+- **Two-Way Startup & Login Synchronization**: Connected `autoSyncWithCloud()` to auth state changes and app launches, comparing local and remote `lastModified` timestamps to download fresh cloud changes or push newer local edits.
+- **Lifecycle Flush Protection**: App lifecycle state changes (`paused`, `inactive`, backgrounding) immediately flush any pending debounced changes to both local disaster-proof storage and remote cloud database, safeguarding against data loss.
+- **Unified Global Provider Integration**: Registered `PaperTradingProvider.instance` in root `MultiProvider` and wired its state notifications to `AppProvider` to seamlessly include trading data in `getFullAppState()` snapshots and restore them in `loadStateFromMap()`.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.24 (Build #2126092404)
 
 ### 🛡️ App State Preservation & Anti-Reset Architecture

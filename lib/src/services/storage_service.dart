@@ -16,6 +16,7 @@ const String _docTasks = 'tasks';
 const String _docSettings = 'settings';
 const String _docFinance = 'finance';
 const String _docHealth = 'health';
+const String _docTrading = 'trading';
 
 /// Cross-platform cloud storage facade. The factory constructor selects the
 /// concrete impl: FlutterFire on Android/iOS/web/macOS/Windows, and a pair
@@ -34,6 +35,8 @@ abstract class StorageService {
   Future<bool> saveSettings(String userId, Map<String, dynamic> data);
   Future<bool> saveFinance(String userId, Map<String, dynamic> data);
   Future<bool> saveHealth(String userId, Map<String, dynamic> data);
+  Future<bool> saveTrading(String userId, Map<String, dynamic> data);
+  Future<Map<String, dynamic>?> getTrading(String userId);
   Future<bool> saveHistory(String userId, Map<String, dynamic> data);
   Future<bool> saveReflections(String userId, Map<String, dynamic> data);
   Future<bool> deleteUserData(String userId);
@@ -121,6 +124,18 @@ Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
     }
   }
 
+  if (raw[_docTrading] != null) {
+    if (raw[_docTrading] is String) {
+      try {
+        fullData['trading'] = jsonDecode(raw[_docTrading] as String);
+      } catch (_) {
+        fullData['trading'] = raw[_docTrading];
+      }
+    } else if (raw[_docTrading] is Map) {
+      fullData['trading'] = Map<String, dynamic>.from(raw[_docTrading] as Map);
+    }
+  }
+
   // Catch-all for any additional raw nodes under data/
   raw.forEach((key, val) {
     final k = key.toString();
@@ -128,6 +143,7 @@ Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
         k != _docTasks &&
         k != _docFinance &&
         k != _docHealth &&
+        k != _docTrading &&
         k != 'history' &&
         k != 'reflections') {
       if (val is String) {
@@ -179,6 +195,7 @@ class _FlutterFireStorageService implements StorageService {
       final tasksSnap = await baseRef.child(_docTasks).get();
       final financeSnap = await baseRef.child(_docFinance).get();
       final healthSnap = await baseRef.child(_docHealth).get();
+      final tradingSnap = await baseRef.child(_docTrading).get();
 
       final historySnap =
           await baseRef.child('history').orderByKey().limitToLast(365).get();
@@ -190,6 +207,7 @@ class _FlutterFireStorageService implements StorageService {
       if (tasksSnap.exists) rawData[_docTasks] = tasksSnap.value;
       if (financeSnap.exists) rawData[_docFinance] = financeSnap.value;
       if (healthSnap.exists) rawData[_docHealth] = healthSnap.value;
+      if (tradingSnap.exists) rawData[_docTrading] = tradingSnap.value;
       if (historySnap.exists) rawData['history'] = historySnap.value;
       if (reflectionsSnap.exists) rawData['reflections'] = reflectionsSnap.value;
 
@@ -242,6 +260,28 @@ class _FlutterFireStorageService implements StorageService {
   @override
   Future<bool> saveHealth(String userId, Map<String, dynamic> data) =>
       _saveChunkToRTDB(userId, _docHealth, data);
+  @override
+  Future<bool> saveTrading(String userId, Map<String, dynamic> data) =>
+      _saveChunkToRTDB(userId, _docTrading, data);
+
+  @override
+  Future<Map<String, dynamic>?> getTrading(String userId) async {
+    if (userId.isEmpty) return null;
+    try {
+      final snap = await _rtdbRef(userId, _docTrading).get();
+      if (snap.exists && snap.value != null) {
+        if (snap.value is String) {
+          return jsonDecode(snap.value as String) as Map<String, dynamic>?;
+        } else if (snap.value is Map) {
+          return Map<String, dynamic>.from(snap.value as Map);
+        }
+      }
+      return null;
+    } catch (e, stack) {
+      debugPrint('[StorageService.getTrading] $e\n$stack');
+      return null;
+    }
+  }
 
   Future<bool> _saveChunkToRTDB(
       String userId, String chunk, Map<String, dynamic> data) async {
@@ -478,6 +518,7 @@ class _LinuxStorageService implements StorageService {
       final tasksSnap = await baseRef.child(_docTasks).once();
       final financeSnap = await baseRef.child(_docFinance).once();
       final healthSnap = await baseRef.child(_docHealth).once();
+      final tradingSnap = await baseRef.child(_docTrading).once();
       final historySnap = await baseRef
           .child('history')
           .orderByKey()
@@ -490,6 +531,7 @@ class _LinuxStorageService implements StorageService {
       if (tasksSnap.value != null) rawData[_docTasks] = tasksSnap.value;
       if (financeSnap.value != null) rawData[_docFinance] = financeSnap.value;
       if (healthSnap.value != null) rawData[_docHealth] = healthSnap.value;
+      if (tradingSnap.value != null) rawData[_docTrading] = tradingSnap.value;
       if (historySnap.value != null) rawData['history'] = historySnap.value;
       if (reflectionsSnap.value != null) {
         rawData['reflections'] = reflectionsSnap.value;
@@ -544,6 +586,28 @@ class _LinuxStorageService implements StorageService {
   @override
   Future<bool> saveHealth(String userId, Map<String, dynamic> data) =>
       _saveChunkToRTDB(userId, _docHealth, data);
+  @override
+  Future<bool> saveTrading(String userId, Map<String, dynamic> data) =>
+      _saveChunkToRTDB(userId, _docTrading, data);
+
+  @override
+  Future<Map<String, dynamic>?> getTrading(String userId) async {
+    if (userId.isEmpty) return null;
+    try {
+      final snap = await _rtdbRef(userId, _docTrading).once();
+      if (snap.value != null) {
+        if (snap.value is String) {
+          return jsonDecode(snap.value as String) as Map<String, dynamic>?;
+        } else if (snap.value is Map) {
+          return Map<String, dynamic>.from(snap.value as Map);
+        }
+      }
+      return null;
+    } catch (e, stack) {
+      debugPrint('[StorageService.getTrading/linux] $e\n$stack');
+      return null;
+    }
+  }
 
   Future<bool> _saveChunkToRTDB(
       String userId, String chunk, Map<String, dynamic> data) async {

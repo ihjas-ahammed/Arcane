@@ -23,7 +23,21 @@ class PaperTradingProvider extends ChangeNotifier {
   static const double defaultStartingBalance = 100000.0; // ₹1,00,000
   static const double defaultInrRate = 88.0; // ₹88 / USDT
 
+  static PaperTradingProvider? _instance;
+  static PaperTradingProvider get instance =>
+      _instance ??= PaperTradingProvider(marketService: BinanceMarketService.instance);
+
+  static void resetInstanceForTesting() {
+    _instance?.dispose();
+    _instance = null;
+  }
+
   final BinanceMarketService marketService;
+
+  VoidCallback? onStateChanged;
+
+  int _lastModified = 0;
+  int get lastModified => _lastModified;
 
   double _cashBalance = defaultStartingBalance;
   double get cashBalance => _cashBalance;
@@ -124,7 +138,8 @@ class PaperTradingProvider extends ChangeNotifier {
     _cashBalance = balance;
     _holdings.clear();
     _orders.clear();
-    await _saveToStorage();
+    _lossAlertsTriggered.clear();
+    await _saveToStorage(notifyCloud: true);
     notifyListeners();
   }
 
@@ -588,7 +603,7 @@ class PaperTradingProvider extends ChangeNotifier {
     }
 
     if (holdingsModified) {
-      _saveToStorage();
+      _saveToStorage(notifyCloud: false);
     }
   }
 
@@ -741,25 +756,87 @@ class PaperTradingProvider extends ChangeNotifier {
     if (!o.isPending) return false;
 
     _orders[idx] = o.copyWith(status: OrderStatus.cancelled);
-    _saveToStorage();
+    _saveToStorage(notifyCloud: true);
     notifyListeners();
     return true;
   }
 
-  // ── Persistence ─────────────────────────────────────────────────
+  // ── State Serialization & Persistence ────────────────────────────
 
-  Future<void> _saveToStorage() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final data = {
+  Map<String, dynamic> getStateMap() => {
         'cashBalance': _cashBalance,
         'usdtToInrRate': _usdtToInrRate,
         'holdings': _holdings.values.map((h) => h.toJson()).toList(),
         'orders': _orders.map((o) => o.toJson()).toList(),
+        'lossAlertsTriggered': _lossAlertsTriggered.toList(),
+        'lastModified': _lastModified,
       };
+
+  void loadState(Map<String, dynamic> data, {bool force = false}) {
+    if (data.isEmpty) return;
+    final incomingTs = (data['lastModified'] as num?)?.toInt() ?? 0;
+    if (!force && _lastModified > incomingTs && incomingTs > 0) {
+      // Local has newer trading state than incoming snapshot
+      return;
+    }
+
+    _cashBalance =
+        (data['cashBalance'] as num?)?.toDouble() ?? defaultStartingBalance;
+    _usdtToInrRate =
+        (data['usdtToInrRate'] as num?)?.toDouble() ?? defaultInrRate;
+    _lastModified =
+        incomingTs > 0 ? incomingTs : DateTime.now().millisecondsSinceEpoch;
+
+    _holdings.clear();
+    final hList = data['holdings'] as List?;
+    if (hList != null) {
+      for (final item in hList) {
+        if (item is Map) {
+          final h = CryptoHolding.fromJson(Map<String, dynamic>.from(item));
+          _holdings[h.symbol.toUpperCase()] = h;
+        }
+      }
+    }
+
+    _orders.clear();
+    final oList = data['orders'] as List?;
+    if (oList != null) {
+      for (final item in oList) {
+        if (item is Map) {
+          final o = TradingOrder.fromJson(Map<String, dynamic>.from(item));
+          _orders.add(o);
+        }
+      }
+    }
+
+    _lossAlertsTriggered.clear();
+    final alertList = data['lossAlertsTriggered'] as List?;
+    if (alertList != null) {
+      for (final a in alertList) {
+        _lossAlertsTriggered.add(a.toString());
+      }
+    }
+
+    // Pin holding symbols for live market ticker updates
+    for (final sym in _holdings.keys) {
+      marketService.addPinnedSymbol(sym);
+    }
+
+    _saveToStorage(notifyCloud: false);
+    notifyListeners();
+  }
+
+  Future<void> _saveToStorage({bool notifyCloud = true}) async {
+    _lastModified = DateTime.now().millisecondsSinceEpoch;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final data = getStateMap();
       await prefs.setString(_prefKey, jsonEncode(data));
     } catch (e) {
       debugPrint('Error saving paper trading state: $e');
+    }
+    if (notifyCloud) {
+      onStateChanged?.call();
     }
   }
 
@@ -770,26 +847,7 @@ class PaperTradingProvider extends ChangeNotifier {
       if (raw == null || raw.isEmpty) return;
 
       final data = jsonDecode(raw) as Map<String, dynamic>;
-      _cashBalance = (data['cashBalance'] as num?)?.toDouble() ?? defaultStartingBalance;
-      _usdtToInrRate = (data['usdtToInrRate'] as num?)?.toDouble() ?? defaultInrRate;
-
-      _holdings.clear();
-      final hList = data['holdings'] as List?;
-      if (hList != null) {
-        for (final item in hList) {
-          final h = CryptoHolding.fromJson(item as Map<String, dynamic>);
-          _holdings[h.symbol.toUpperCase()] = h;
-        }
-      }
-
-      _orders.clear();
-      final oList = data['orders'] as List?;
-      if (oList != null) {
-        for (final item in oList) {
-          final o = TradingOrder.fromJson(item as Map<String, dynamic>);
-          _orders.add(o);
-        }
-      }
+      loadState(data, force: true);
     } catch (e) {
       debugPrint('Error loading paper trading state: $e');
     }

@@ -19,7 +19,6 @@ class RealtimeTradingScreen extends StatefulWidget {
 
 class _RealtimeTradingScreenState extends State<RealtimeTradingScreen>
     with SingleTickerProviderStateMixin {
-  static PaperTradingProvider? _sharedProvider;
   late final PaperTradingProvider _provider;
   late final TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
@@ -28,11 +27,7 @@ class _RealtimeTradingScreenState extends State<RealtimeTradingScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    if (_sharedProvider == null) {
-      final marketService = BinanceMarketService();
-      _sharedProvider = PaperTradingProvider(marketService: marketService);
-    }
-    _provider = _sharedProvider!;
+    _provider = PaperTradingProvider.instance;
     _provider.marketService.start();
   }
 

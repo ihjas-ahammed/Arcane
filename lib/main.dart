@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:missions/src/app.dart';
 import 'package:missions/firebase_options.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/providers/paper_trading_provider.dart';
 import 'package:missions/src/services/ai_service.dart';
 import 'package:missions/src/services/home_widget_service.dart';
 import 'package:missions/src/services/notification_service.dart';
@@ -71,6 +72,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AppProvider()),
+        ChangeNotifierProvider.value(value: PaperTradingProvider.instance),
         Provider(create: (_) => AIService()),
       ],
       child: const MyApp(),

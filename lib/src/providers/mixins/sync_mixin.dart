@@ -20,6 +20,7 @@ mixin SyncMixin on ChangeNotifier {
   bool get isManuallyLoading => _isManuallyLoading;
 
   Timer? _saveDebounce;
+  Timer? _cloudDebounce;
   
   DateTime? _lastSuccessfulSaveTimestamp;
   DateTime? get lastSuccessfulSaveTimestamp => _lastSuccessfulSaveTimestamp;
@@ -31,7 +32,7 @@ mixin SyncMixin on ChangeNotifier {
   Map<String, dynamic> getFullAppState(); 
   void loadStateFromMap(Map<String, dynamic> data);
 
-  // App is offline-first. Automatic listeners and sync timers have been removed.
+  // App is offline-first with automatic background cloud sync when autoSaveEnabled is true.
   void initSync() {}
   
   void startRealtimeSyncListener() {}
@@ -41,6 +42,7 @@ mixin SyncMixin on ChangeNotifier {
   @override
   void dispose() {
     _saveDebounce?.cancel();
+    _cloudDebounce?.cancel();
     super.dispose();
   }
 
@@ -55,10 +57,26 @@ mixin SyncMixin on ChangeNotifier {
   void _scheduleSave() {
     _saveDebounce?.cancel();
     _saveDebounce = Timer(const Duration(milliseconds: 600), _saveLocalSnapshot);
+
+    if (currentUser != null && settings.autoSaveEnabled) {
+      _scheduleCloudSave();
+    }
+  }
+
+  void _scheduleCloudSave() {
+    _cloudDebounce?.cancel();
+    _cloudDebounce = Timer(const Duration(milliseconds: 2500), () {
+      if (currentUser != null && _hasUnsavedChanges && !_isSyncing) {
+        _performActualSaveInternal();
+      }
+    });
   }
 
   void scheduleRealtimeSync() {
     _saveLocalSnapshot();
+    if (currentUser != null && settings.autoSaveEnabled) {
+      _scheduleCloudSave();
+    }
   }
 
   Future<void> syncIfDirty() async {
@@ -67,6 +85,9 @@ mixin SyncMixin on ChangeNotifier {
 
   Future<void> forceLocalBackup() async {
     await _saveLocalSnapshot(forceFlush: true);
+    if (currentUser != null && settings.autoSaveEnabled && _hasUnsavedChanges) {
+      _performActualSaveInternal();
+    }
     notifyListeners();
   }
 
@@ -101,10 +122,28 @@ mixin SyncMixin on ChangeNotifier {
     }
   }
 
+  /// Automatically compares remote vs local timestamps on login or startup and synchronizes in the background.
+  Future<void> autoSyncWithCloud() async {
+    if (currentUser == null || _isSyncing) return;
+    try {
+      final remoteTs = await _storageService.getLastModified(currentUser!.uid);
+      if (remoteTs > settings.lastModified) {
+        debugPrint("[SyncMixin] Remote cloud data is newer ($remoteTs > ${settings.lastModified}). Pulling updates.");
+        await _manuallyLoadFromCloudInternal();
+      } else if (settings.lastModified > remoteTs || _hasUnsavedChanges) {
+        debugPrint("[SyncMixin] Local changes newer (${settings.lastModified} >= $remoteTs). Syncing to cloud.");
+        await _performActualSaveInternal();
+      }
+    } catch (e) {
+      debugPrint("[SyncMixin] autoSyncWithCloud error: $e");
+    }
+  }
+
   Map<String, dynamic> getTaskStateMap() => {};
   Map<String, dynamic> getFinanceStateMap() => {};
   Map<String, dynamic> getUserStateMap() => {};
   Map<String, dynamic> getHealthStateMap() => {};
+  Map<String, dynamic> getTradingStateMap() => {};
 
   Future<bool> _manuallyLoadFromCloudInternal() async {
     final cloudData = await _storageService.getUserData(currentUser!.uid);
@@ -163,6 +202,7 @@ mixin SyncMixin on ChangeNotifier {
       final reflectionsData = {'reflectionLogs': appData['reflectionLogs'] ?? []};
       final financeData = Map<String, dynamic>.from(getFinanceStateMap());
       final healthData = Map<String, dynamic>.from(getHealthStateMap());
+      final tradingData = Map<String, dynamic>.from(getTradingStateMap());
       
       final settingsData = Map<String, dynamic>.from(getUserStateMap());
       settingsData['lastSuccessfulSaveTimestamp'] = DateTime.now().toIso8601String();
@@ -172,6 +212,8 @@ mixin SyncMixin on ChangeNotifier {
         ...tasksData.keys,
         ...financeData.keys,
         ...healthData.keys,
+        ...tradingData.keys,
+        'trading',
         'completedByDay',
         'reflectionLogs',
         ...getUserStateMap().keys,
@@ -199,6 +241,9 @@ mixin SyncMixin on ChangeNotifier {
       }
       if (force || _dirtyCollections.contains('health')) {
         if (!await _storageService.saveHealth(currentUser!.uid, healthData)) success = false;
+      }
+      if (force || _dirtyCollections.contains('trading')) {
+        if (!await _storageService.saveTrading(currentUser!.uid, tradingData)) success = false;
       }
       if (force || _dirtyCollections.isNotEmpty || _dirtyCollections.contains('settings')) {
         if (!await _storageService.saveSettings(currentUser!.uid, settingsData)) success = false;
