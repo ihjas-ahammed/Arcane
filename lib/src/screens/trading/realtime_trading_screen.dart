@@ -219,28 +219,33 @@ class _RealtimeTradingScreenState extends State<RealtimeTradingScreen>
                                     : (isDown ? Icons.trending_down_rounded : Icons.trending_flat_rounded);
                                 final sign = hourlyTrend.avgChangePercent >= 0 ? '+' : '';
 
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
-                                  decoration: BoxDecoration(
-                                    color: trendColor.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: trendColor.withValues(alpha: 0.3)),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(trendIcon, size: 11, color: trendColor),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        '1H AVG: $sign${hourlyTrend.avgChangePercent.toStringAsFixed(2)}% · ${hourlyTrend.directionLabel}',
-                                        style: GoogleFonts.jetBrainsMono(
-                                          color: trendColor,
-                                          fontSize: 8.5,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 0.3,
+                                return InkWell(
+                                  onTap: () => _showMultiTimeframeTrendAlert(context, _provider),
+                                  onLongPress: () => _showMultiTimeframeTrendAlert(context, _provider),
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
+                                    decoration: BoxDecoration(
+                                      color: trendColor.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: trendColor.withValues(alpha: 0.3)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(trendIcon, size: 11, color: trendColor),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          '1H AVG: $sign${hourlyTrend.avgChangePercent.toStringAsFixed(2)}% · ${hourlyTrend.directionLabel}',
+                                          style: GoogleFonts.jetBrainsMono(
+                                            color: trendColor,
+                                            fontSize: 8.5,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 0.3,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 );
                               },
@@ -573,6 +578,12 @@ class _WatchlistTabState extends State<_WatchlistTab> {
                             ),
                           );
                         },
+                        onLongPress: () => _showMultiTimeframeTrendAlert(
+                          context,
+                          widget.provider,
+                          symbol: asset.symbol,
+                          assetName: asset.name,
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.all(12),
                           child: Row(
@@ -704,14 +715,29 @@ class _WatchlistTabState extends State<_WatchlistTab> {
                                       final hourly = widget.provider.marketService.getHourlyChangePercent(asset.symbol);
                                       if (hourly == null) return const SizedBox.shrink();
                                       final isUp = hourly >= 0;
-                                      return Padding(
-                                        padding: const EdgeInsets.only(top: 2),
-                                        child: Text(
-                                          '1H: ${isUp ? '+' : ''}${hourly.toStringAsFixed(2)}%',
-                                          style: GoogleFonts.jetBrainsMono(
-                                            color: isUp ? JweTheme.accentTeal : JweTheme.accentRed,
-                                            fontSize: 8.5,
-                                            fontWeight: FontWeight.w600,
+                                      return InkWell(
+                                        onTap: () => _showMultiTimeframeTrendAlert(
+                                          context,
+                                          widget.provider,
+                                          symbol: asset.symbol,
+                                          assetName: asset.name,
+                                        ),
+                                        onLongPress: () => _showMultiTimeframeTrendAlert(
+                                          context,
+                                          widget.provider,
+                                          symbol: asset.symbol,
+                                          assetName: asset.name,
+                                        ),
+                                        borderRadius: BorderRadius.circular(3),
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(top: 2),
+                                          child: Text(
+                                            '1H: ${isUp ? '+' : ''}${hourly.toStringAsFixed(2)}%',
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: isUp ? JweTheme.accentTeal : JweTheme.accentRed,
+                                              fontSize: 8.5,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ),
                                       );
@@ -797,8 +823,16 @@ class _PortfolioTab extends StatelessWidget {
             side: BorderSide(color: JweTheme.border),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onLongPress: () => _showMultiTimeframeTrendAlert(
+              context,
+              provider,
+              symbol: holding.symbol,
+              assetName: holding.coinName,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
             child: Column(
               children: [
                 Row(
@@ -980,12 +1014,27 @@ class _PortfolioTab extends StatelessWidget {
                           final hourly = provider.marketService.getHourlyChangePercent(holding.symbol);
                           if (hourly == null) return const SizedBox.shrink();
                           final isUp = hourly >= 0;
-                          return Text(
-                            '1H: ${isUp ? '+' : ''}${hourly.toStringAsFixed(2)}%',
-                            style: GoogleFonts.jetBrainsMono(
-                              color: isUp ? JweTheme.accentTeal : JweTheme.accentRed,
-                              fontSize: 9.0,
-                              fontWeight: FontWeight.bold,
+                          return InkWell(
+                            onTap: () => _showMultiTimeframeTrendAlert(
+                              context,
+                              provider,
+                              symbol: holding.symbol,
+                              assetName: holding.coinName,
+                            ),
+                            onLongPress: () => _showMultiTimeframeTrendAlert(
+                              context,
+                              provider,
+                              symbol: holding.symbol,
+                              assetName: holding.coinName,
+                            ),
+                            borderRadius: BorderRadius.circular(3),
+                            child: Text(
+                              '1H: ${isUp ? '+' : ''}${hourly.toStringAsFixed(2)}%',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: isUp ? JweTheme.accentTeal : JweTheme.accentRed,
+                                fontSize: 9.0,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           );
                         },
@@ -995,6 +1044,7 @@ class _PortfolioTab extends StatelessWidget {
                 ],
               ],
             ),
+          ),
           ),
         );
       },
@@ -1219,4 +1269,235 @@ class _StatusBadge extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Displays a multi-timeframe tactical HUD alert dialog showing 1H, 24H, 7D, and 30D changes
+void _showMultiTimeframeTrendAlert(
+  BuildContext context,
+  PaperTradingProvider provider, {
+  String? symbol,
+  String? assetName,
+}) {
+  final isSingleAsset = symbol != null;
+
+  final double h1;
+  final double d1;
+  final double w1;
+  final double m1;
+  final String title;
+  final String subtitle;
+
+  if (isSingleAsset) {
+    final sym = symbol.toUpperCase();
+    title = '$sym TELEMETRY';
+    subtitle = assetName ?? 'ASSET MULTI-TIMEFRAME ANALYSIS';
+    h1 = provider.marketService.getHourlyChangePercent(sym) ?? 0.0;
+    d1 = provider.marketService.getDailyChangePercent(sym) ?? 0.0;
+    w1 = provider.marketService.getWeeklyChangePercent(sym) ?? 0.0;
+    m1 = provider.marketService.getMonthlyChangePercent(sym) ?? 0.0;
+  } else {
+    final telemetry = provider.getMultiTimeframeTelemetry();
+    title = 'MARKET TREND TELEMETRY';
+    subtitle = 'PORTFOLIO & SECTOR AGGREGATE MOMENTUM';
+    h1 = telemetry.hourly.avgChangePercent;
+    d1 = telemetry.daily.avgChangePercent;
+    w1 = telemetry.weekly.avgChangePercent;
+    m1 = telemetry.monthly.avgChangePercent;
+  }
+
+  showDialog(
+    context: context,
+    builder: (ctx) {
+      Widget buildTimeframeRow(String label, double pct) {
+        final isUp = pct > 0.03;
+        final isDown = pct < -0.03;
+        final color = isUp
+            ? JweTheme.accentTeal
+            : (isDown ? JweTheme.accentRed : JweTheme.textMid);
+        final icon = isUp
+            ? Icons.trending_up_rounded
+            : (isDown ? Icons.trending_down_rounded : Icons.trending_flat_rounded);
+        final dir = isUp ? 'GOING UP' : (isDown ? 'GOING DOWN' : 'SIDEWAYS');
+        final sign = pct >= 0 ? '+' : '';
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: JweTheme.bgCanvas,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Icon(icon, size: 16, color: color),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.textWhite,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      dir,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: color,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '$sign${pct.toStringAsFixed(2)}%',
+                style: GoogleFonts.jetBrainsMono(
+                  color: color,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      int bullishCount = 0;
+      if (h1 > 0.03) bullishCount++;
+      if (d1 > 0.03) bullishCount++;
+      if (w1 > 0.03) bullishCount++;
+      if (m1 > 0.03) bullishCount++;
+
+      int bearishCount = 0;
+      if (h1 < -0.03) bearishCount++;
+      if (d1 < -0.03) bearishCount++;
+      if (w1 < -0.03) bearishCount++;
+      if (m1 < -0.03) bearishCount++;
+
+      final regimeColor = bullishCount >= 3
+          ? JweTheme.accentTeal
+          : (bearishCount >= 3 ? JweTheme.accentRed : JweTheme.accentAmber);
+      final regimeText = bullishCount >= 3
+          ? 'BULLISH MOMENTUM'
+          : (bearishCount >= 3 ? 'BEARISH PRESSURE' : 'CONSOLIDATION / MIXED');
+
+      return AlertDialog(
+        backgroundColor: JweTheme.panel,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: JweTheme.border),
+        ),
+        titlePadding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: (JweTheme.isLight ? JweTheme.accentCyan : JweTheme.accentAmber).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Icon(
+                Icons.analytics_outlined,
+                color: JweTheme.isLight ? JweTheme.accentCyan : JweTheme.accentAmber,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.textWhite,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: JweTheme.textMuted,
+                      fontSize: 10,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 340,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              buildTimeframeRow('Hourly (1H)', h1),
+              buildTimeframeRow('Daily (24H)', d1),
+              buildTimeframeRow('Weekly (7D)', w1),
+              buildTimeframeRow('Monthly (30D)', m1),
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: regimeColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: regimeColor.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.shield_outlined, size: 14, color: regimeColor),
+                    const SizedBox(width: 6),
+                    Text(
+                      'REGIME: $regimeText',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: regimeColor,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(
+              'ACKNOWLEDGE',
+              style: GoogleFonts.jetBrainsMono(
+                color: JweTheme.accentCyan,
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
 }

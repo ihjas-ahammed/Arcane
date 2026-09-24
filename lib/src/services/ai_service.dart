@@ -14,7 +14,12 @@ import 'package:missions/src/models/app_state_models.dart';
 
 class AIService {
 
-  static bool isLiveModel(String modelName) => modelName.toLowerCase().contains('live');
+  static bool isLiveModel(String modelName) {
+    final lower = modelName.toLowerCase();
+    return lower.contains('live') ||
+        lower.contains('realtime') ||
+        lower.contains('flash-exp');
+  }
 
   /// Sends [prompt] over the Gemini Live API (WebSocket, TEXT modality) and
   /// returns the model's full text response. Uses the bidirectional streaming
@@ -38,6 +43,17 @@ class AIService {
           // Server frames may arrive as text or binary (UTF-8 JSON).
           final String raw = data is String ? data : utf8.decode(data as List<int>);
           final Map<String, dynamic> msg = jsonDecode(raw) as Map<String, dynamic>;
+
+          if (msg.containsKey('error')) {
+            if (!completer.isCompleted) {
+              final errMap = msg['error'];
+              final errMsg = errMap is Map
+                  ? (errMap['message'] ?? errMap.toString())
+                  : errMap.toString();
+              completer.completeError(Exception('Gemini Live API error: $errMsg'));
+            }
+            return;
+          }
 
           if (msg.containsKey('setupComplete')) {
             setupDone = true;
@@ -100,7 +116,7 @@ class AIService {
 
     String result;
     try {
-      result = await completer.future.timeout(const Duration(seconds: 45));
+      result = await completer.future.timeout(const Duration(seconds: 15));
     } finally {
       await sub.cancel();
       await channel.sink.close();
@@ -376,9 +392,11 @@ class AIService {
     bool fallbackJson = false,
     T Function(String raw)? fallbackParse,
   }) async {
+    final List<String> remoteGeminiKeys = await SecretsService.instance.geminiKeys();
     final List<String> apiKeysToTry = <String>{
       ...geminiApiKeys,
-      if (customApiKeys != null) ...customApiKeys
+      if (customApiKeys != null) ...customApiKeys,
+      ...remoteGeminiKeys,
     }.where((k) => !k.contains('YOUR_GEMINI_API_KEY')).toList();
 
     if (apiKeysToTry.isEmpty) {
@@ -619,9 +637,16 @@ class AIService {
         fallbackJson: true,
         fallbackParse: _parseMessageSequence,
         requestFn: (apiKey, modelName) async {
-          final String? raw;
+          String? raw;
           if (isLiveModel(modelName)) {
-            raw = await _liveTextCall(apiKey, modelName, prompt);
+            try {
+              raw = await _liveTextCall(apiKey, modelName, prompt);
+            } catch (liveErr) {
+              onLog("<span style=\"color:var(--fh-accent-orange);\">Live API failed ($liveErr). Falling back to standard model...</span>");
+              final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+              final response = await model.generateContent([genai.Content.text(prompt)]);
+              raw = response.text;
+            }
           } else {
             final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
             final response = await model.generateContent([genai.Content.text(prompt)]);
@@ -658,9 +683,16 @@ class AIService {
         fallbackJson: true,
         fallbackParse: _parseNoraResponse,
         requestFn: (apiKey, modelName) async {
-          final String? raw;
+          String? raw;
           if (isLiveModel(modelName)) {
-            raw = await _liveTextCall(apiKey, modelName, prompt);
+            try {
+              raw = await _liveTextCall(apiKey, modelName, prompt);
+            } catch (liveErr) {
+              onLog("<span style=\"color:var(--fh-accent-orange);\">Live API failed ($liveErr). Falling back to standard model...</span>");
+              final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+              final response = await model.generateContent([genai.Content.text(prompt)]);
+              raw = response.text;
+            }
           } else {
             final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
             final response = await model.generateContent([genai.Content.text(prompt)]);

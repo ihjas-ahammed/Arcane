@@ -1028,12 +1028,14 @@ class CryptoHolding {
   }
 }
 
-/// Represents the aggregate hourly trend and direction
-class HourlyMarketTrend {
+/// Represents a trend over a specific market timeframe (1H, 24H Daily, 7D Weekly, 30D Monthly)
+class MarketPeriodTrend {
+  final String label;
   final double avgChangePercent;
   final int sampleCount;
 
-  const HourlyMarketTrend({
+  const MarketPeriodTrend({
+    required this.label,
     required this.avgChangePercent,
     required this.sampleCount,
   });
@@ -1046,6 +1048,53 @@ class HourlyMarketTrend {
     if (isGoingUp) return 'GOING UP';
     if (isGoingDown) return 'GOING DOWN';
     return 'SIDEWAYS';
+  }
+}
+
+/// Represents the aggregate hourly trend and direction
+class HourlyMarketTrend extends MarketPeriodTrend {
+  const HourlyMarketTrend({
+    required super.avgChangePercent,
+    required super.sampleCount,
+  }) : super(label: 'Hourly (1H)');
+}
+
+/// Aggregates multi-timeframe market telemetry for tactical HUD alert inspection
+class MultiTimeframeMarketTelemetry {
+  final MarketPeriodTrend hourly;
+  final MarketPeriodTrend daily;
+  final MarketPeriodTrend weekly;
+  final MarketPeriodTrend monthly;
+
+  const MultiTimeframeMarketTelemetry({
+    required this.hourly,
+    required this.daily,
+    required this.weekly,
+    required this.monthly,
+  });
+
+  bool get isOverallBullish {
+    int up = 0;
+    if (hourly.isGoingUp) up++;
+    if (daily.isGoingUp) up++;
+    if (weekly.isGoingUp) up++;
+    if (monthly.isGoingUp) up++;
+    return up >= 3;
+  }
+
+  bool get isOverallBearish {
+    int down = 0;
+    if (hourly.isGoingDown) down++;
+    if (daily.isGoingDown) down++;
+    if (weekly.isGoingDown) down++;
+    if (monthly.isGoingDown) down++;
+    return down >= 3;
+  }
+
+  String get overallRegimeLabel {
+    if (isOverallBullish) return 'BULLISH MOMENTUM';
+    if (isOverallBearish) return 'BEARISH PRESSURE';
+    return 'CONSOLIDATION / MIXED';
   }
 }
 

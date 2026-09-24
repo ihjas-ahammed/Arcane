@@ -6,6 +6,8 @@ import 'package:missions/src/services/binance_market_service.dart';
 import 'package:missions/src/providers/paper_trading_provider.dart';
 import 'package:missions/src/screens/trading/trading_guide_sheet.dart';
 import 'package:missions/src/screens/trading/trading_asset_detail_screen.dart';
+import 'package:missions/src/models/app_state_models.dart';
+import 'package:missions/src/services/ai_service.dart';
 
 class MockMarketService extends BinanceMarketService {
   final Map<String, CryptoPriceTick> _mockTicks = {};
@@ -789,6 +791,127 @@ void main() {
       expect(service.visibleSymbols, contains('HDFCBANK.NS'));
 
       service.dispose();
+    });
+  });
+
+  group('Multi-Timeframe Market Trend & Telemetry Tests', () {
+    test('MarketPeriodTrend direction logic', () {
+      const upTrend = MarketPeriodTrend(
+        label: 'Hourly (1H)',
+        avgChangePercent: 0.15,
+        sampleCount: 5,
+      );
+      expect(upTrend.isGoingUp, isTrue);
+      expect(upTrend.isGoingDown, isFalse);
+      expect(upTrend.directionLabel, 'GOING UP');
+
+      const downTrend = MarketPeriodTrend(
+        label: 'Daily (24H)',
+        avgChangePercent: -1.25,
+        sampleCount: 5,
+      );
+      expect(downTrend.isGoingDown, isTrue);
+      expect(downTrend.isGoingUp, isFalse);
+      expect(downTrend.directionLabel, 'GOING DOWN');
+
+      const sidewaysTrend = MarketPeriodTrend(
+        label: 'Weekly (7D)',
+        avgChangePercent: 0.01,
+        sampleCount: 5,
+      );
+      expect(sidewaysTrend.isSideways, isTrue);
+      expect(sidewaysTrend.directionLabel, 'SIDEWAYS');
+    });
+
+    test('MultiTimeframeMarketTelemetry regime calculation', () {
+      const bullishTelemetry = MultiTimeframeMarketTelemetry(
+        hourly: MarketPeriodTrend(label: '1H', avgChangePercent: 0.10, sampleCount: 5),
+        daily: MarketPeriodTrend(label: '24H', avgChangePercent: 2.50, sampleCount: 5),
+        weekly: MarketPeriodTrend(label: '7D', avgChangePercent: 5.00, sampleCount: 5),
+        monthly: MarketPeriodTrend(label: '30D', avgChangePercent: -0.50, sampleCount: 5),
+      );
+      expect(bullishTelemetry.isOverallBullish, isTrue);
+      expect(bullishTelemetry.overallRegimeLabel, 'BULLISH MOMENTUM');
+
+      const bearishTelemetry = MultiTimeframeMarketTelemetry(
+        hourly: MarketPeriodTrend(label: '1H', avgChangePercent: -0.20, sampleCount: 5),
+        daily: MarketPeriodTrend(label: '24H', avgChangePercent: -3.00, sampleCount: 5),
+        weekly: MarketPeriodTrend(label: '7D', avgChangePercent: -7.00, sampleCount: 5),
+        monthly: MarketPeriodTrend(label: '30D', avgChangePercent: -15.00, sampleCount: 5),
+      );
+      expect(bearishTelemetry.isOverallBearish, isTrue);
+      expect(bearishTelemetry.overallRegimeLabel, 'BEARISH PRESSURE');
+    });
+
+    test('PaperTradingProvider calculates multi-timeframe trends across active universe', () async {
+      final mock = MockMarketService();
+      final provider = PaperTradingProvider(marketService: mock);
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      mock.setMockTick(CryptoPriceTick(
+        symbol: 'BTCUSDT',
+        price: 65000.0,
+        changePercent24h: 3.5,
+        high24h: 66000.0,
+        low24h: 64000.0,
+        volume24h: 1000.0,
+        timestamp: DateTime.now(),
+      ));
+
+      mock.setMockTick(CryptoPriceTick(
+        symbol: 'ETHUSDT',
+        price: 3400.0,
+        changePercent24h: 1.5,
+        high24h: 3500.0,
+        low24h: 3300.0,
+        volume24h: 5000.0,
+        timestamp: DateTime.now(),
+      ));
+
+      final telemetry = provider.getMultiTimeframeTelemetry();
+      expect(telemetry.daily.label, 'Daily (24H)');
+      expect(telemetry.daily.avgChangePercent, greaterThan(0));
+      expect(telemetry.daily.sampleCount, greaterThan(0));
+
+      final weekly = provider.getWeeklyTrend();
+      expect(weekly.label, 'Weekly (7D)');
+
+      final monthly = provider.getMonthlyTrend();
+      expect(monthly.label, 'Monthly (30D)');
+    });
+  });
+
+  group('Bluetooth AI Assistant & Settings Serialization Tests', () {
+    test('AppSettings defaults and JSON serialization for Bluetooth & TTS features', () {
+      final settings = AppSettings();
+      expect(settings.bluetoothAssistantRedirectTarget, 'nora');
+      expect(settings.bluetoothAssistantCustomPackage, isEmpty);
+      expect(settings.noraAutoSpeakTts, isTrue);
+
+      expect(AppSettings.defaultLiveModels, containsAll(['gemini-2.0-flash-exp', 'gemini-2.0-flash']));
+      expect(AppSettings.defaultHeavyModels, contains('gemini-2.5-pro'));
+
+      settings.bluetoothAssistantRedirectTarget = 'chatgpt';
+      settings.bluetoothAssistantCustomPackage = 'com.openai.chatgpt';
+      settings.noraAutoSpeakTts = false;
+
+      final json = settings.toJson();
+      expect(json['bluetoothAssistantRedirectTarget'], 'chatgpt');
+      expect(json['bluetoothAssistantCustomPackage'], 'com.openai.chatgpt');
+      expect(json['noraAutoSpeakTts'], isFalse);
+
+      final deserialized = AppSettings.fromJson(json);
+      expect(deserialized.bluetoothAssistantRedirectTarget, 'chatgpt');
+      expect(deserialized.bluetoothAssistantCustomPackage, 'com.openai.chatgpt');
+      expect(deserialized.noraAutoSpeakTts, isFalse);
+    });
+
+    test('AIService.isLiveModel recognizes bidi/realtime/live models', () {
+      expect(AIService.isLiveModel('gemini-2.0-flash-exp'), isTrue);
+      expect(AIService.isLiveModel('gemini-2.0-flash-realtime-exp'), isTrue);
+      expect(AIService.isLiveModel('gemini-2.0-flash-live'), isTrue);
+      expect(AIService.isLiveModel('gemini-2.5-pro'), isFalse);
+      expect(AIService.isLiveModel('gemini-1.5-flash'), isFalse);
     });
   });
 }

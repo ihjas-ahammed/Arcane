@@ -13,9 +13,11 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
 import 'package:missions/src/widgets/dialogs/create_character_dialog.dart';
 import 'package:missions/src/widgets/dialogs/nora_memory_space_sheet.dart';
+import 'package:missions/src/services/tts_service.dart';
 
 class NoraAiScreen extends StatefulWidget {
-  const NoraAiScreen({super.key});
+  final bool isVoiceCommandLaunch;
+  const NoraAiScreen({super.key, this.isVoiceCommandLaunch = false});
 
   @override
   State<NoraAiScreen> createState() => _NoraAiScreenState();
@@ -43,7 +45,21 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
+      if (widget.isVoiceCommandLaunch) {
+        final appProvider = Provider.of<AppProvider>(context, listen: false);
+        if (appProvider.settings.noraAutoSpeakTts) {
+          TtsService.instance.speak("Nora online. How can I assist you?");
+        }
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    TtsService.instance.stop();
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _scrollToBottom() {
@@ -72,6 +88,17 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
     if (mounted) {
       setState(() => _isSending = false);
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+
+      final settings = appProvider.settings;
+      if (settings.noraAutoSpeakTts || widget.isVoiceCommandLaunch) {
+        final messages = appProvider.activeNoraSession?.messages;
+        if (messages != null && messages.isNotEmpty) {
+          final lastMsg = messages.last;
+          if (lastMsg.sender == MessageSender.bot && lastMsg.text.trim().isNotEmpty) {
+            TtsService.instance.speak(lastMsg.text);
+          }
+        }
+      }
     }
   }
 
@@ -514,27 +541,89 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
       key: _scaffoldKey,
       backgroundColor: AppTheme.fhBgDeepDark,
       appBar: AppBar(
-        title: Text(
-          activeSession != null ? activePersona.name.toUpperCase() : "NORA ASSISTANT",
-          style: TextStyle(color: AppTheme.fhAccentPurple, letterSpacing: 2.0, fontWeight: FontWeight.bold, fontFamily: AppTheme.fontDisplay),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                activeSession != null ? activePersona.name.toUpperCase() : "NORA ASSISTANT",
+                style: TextStyle(
+                  color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+                  letterSpacing: 2.0,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: AppTheme.fontDisplay,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            if (widget.isVoiceCommandLaunch) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withOpacity(0.4),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.bluetooth_audio, size: 10, color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple),
+                    const SizedBox(width: 3),
+                    Text(
+                      "VOICE",
+                      style: TextStyle(
+                        color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         ),
         centerTitle: true,
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
         actions: [
+          IconButton(
+            icon: Icon(
+              appProvider.settings.noraAutoSpeakTts ? Icons.volume_up : Icons.volume_off,
+              color: appProvider.settings.noraAutoSpeakTts
+                  ? (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple)
+                  : (JweTheme.isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary),
+            ),
+            tooltip: appProvider.settings.noraAutoSpeakTts ? "TTS Voice Enabled" : "TTS Voice Muted",
+            onPressed: () {
+              final current = appProvider.settings.noraAutoSpeakTts;
+              appProvider.settings.noraAutoSpeakTts = !current;
+              appProvider.setSettings(appProvider.settings);
+              if (current) {
+                TtsService.instance.stop();
+              } else {
+                TtsService.instance.speak("Voice output enabled");
+              }
+              setState(() {});
+            },
+          ),
           if (activeSession != null) ...[
             IconButton(
-              icon: Icon(MdiIcons.brain, color: AppTheme.fhAccentPurple),
+              icon: Icon(MdiIcons.brain, color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple),
               tooltip: "${activePersona.name}'s Memory Space",
               onPressed: () => NoraMemorySpaceSheet.show(context, appProvider, activePersona.id),
             ),
             IconButton(
-              icon: Icon(MdiIcons.tuneVariant, color: AppTheme.fhAccentPurple),
+              icon: Icon(MdiIcons.tuneVariant, color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple),
               tooltip: "Session Parameters",
               onPressed: () => _showControlsPanel(appProvider),
             ),
           ],
           IconButton(
-            icon: Icon(MdiIcons.menu, color: AppTheme.fhTextSecondary),
+            icon: Icon(MdiIcons.menu, color: JweTheme.isLight ? JweTheme.textMid : AppTheme.fhTextSecondary),
             onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
           )
         ],

@@ -205,6 +205,54 @@ class BinanceMarketService extends ChangeNotifier {
     return 0.0;
   }
 
+  /// Calculates the 24-hour daily price change percentage for an asset.
+  double? getDailyChangePercent(String symbol) {
+    final sym = symbol.toUpperCase();
+    final currentTick = getTick(sym);
+    if (currentTick != null) {
+      return currentTick.changePercent24h;
+    }
+    final summary1d = _historicalCache['${sym}_1D'];
+    if (summary1d != null) {
+      return summary1d.periodReturnPercent;
+    }
+    return null;
+  }
+
+  /// Calculates or fetches the 7-day weekly price change percentage for an asset.
+  double? getWeeklyChangePercent(String symbol) {
+    final sym = symbol.toUpperCase();
+    final summary1w = _historicalCache['${sym}_1W'];
+    if (summary1w != null) {
+      return summary1w.periodReturnPercent;
+    }
+    // Asynchronously pre-fetch 1W historical klines for future instant queries
+    fetchHistoricalData(sym, '1W');
+
+    final currentTick = getTick(sym);
+    if (currentTick != null && currentTick.changePercent24h != 0.0) {
+      return currentTick.changePercent24h;
+    }
+    return 0.0;
+  }
+
+  /// Calculates or fetches the 30-day monthly price change percentage for an asset.
+  double? getMonthlyChangePercent(String symbol) {
+    final sym = symbol.toUpperCase();
+    final summary1m = _historicalCache['${sym}_1M'];
+    if (summary1m != null) {
+      return summary1m.periodReturnPercent;
+    }
+    // Asynchronously pre-fetch 1M historical klines for future instant queries
+    fetchHistoricalData(sym, '1M');
+
+    final currentTick = getTick(sym);
+    if (currentTick != null && currentTick.changePercent24h != 0.0) {
+      return currentTick.changePercent24h;
+    }
+    return 0.0;
+  }
+
   void start() {
     if (_status == MarketConnectionStatus.connected ||
         _status == MarketConnectionStatus.connecting) {

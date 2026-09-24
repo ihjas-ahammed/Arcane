@@ -278,18 +278,26 @@ class AppSettings {
   // Theme settings ('system', 'light', 'dark')
   String themeMode;
 
+  // Bluetooth AI Assistant & Nora Settings
+  String bluetoothAssistantRedirectTarget;
+  String bluetoothAssistantCustomPackage;
+  bool noraAutoSpeakTts;
+
   static const List<String> defaultLiteModels = [
     'gemini-2.0-flash-lite',
     'gemini-2.0-flash',
     'gemini-1.5-flash',
   ];
   static const List<String> defaultHeavyModels = [
+    'gemini-2.5-pro',
     'gemini-2.0-flash',
     'gemini-2.0-pro-exp-02-05',
     'gemini-1.5-pro',
   ];
   static const List<String> defaultLiveModels = [
-    'gemini-3.1-flash-live-preview',
+    'gemini-2.0-flash-exp',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-realtime-exp',
   ];
 
   AppSettings({
@@ -343,6 +351,9 @@ class AppSettings {
     this.writingStyleMap,
     this.storyCharacter = 'Ayan',
     this.themeMode = 'system',
+    this.bluetoothAssistantRedirectTarget = 'nora',
+    this.bluetoothAssistantCustomPackage = '',
+    this.noraAutoSpeakTts = true,
   })  : energyNotificationTimes = energyNotificationTimes ??
             const [
               "09:00",
@@ -475,6 +486,9 @@ class AppSettings {
       writingStyleMap: json['writingStyleMap'] as String?,
       storyCharacter: json['storyCharacter'] as String? ?? 'Ayan',
       themeMode: json['themeMode'] as String? ?? 'system',
+      bluetoothAssistantRedirectTarget: json['bluetoothAssistantRedirectTarget'] as String? ?? 'nora',
+      bluetoothAssistantCustomPackage: json['bluetoothAssistantCustomPackage'] as String? ?? '',
+      noraAutoSpeakTts: json['noraAutoSpeakTts'] as bool? ?? true,
     );
   }
   
@@ -530,6 +544,9 @@ class AppSettings {
       'writingStyleMap': writingStyleMap,
       'storyCharacter': storyCharacter,
       'themeMode': themeMode,
+      'bluetoothAssistantRedirectTarget': bluetoothAssistantRedirectTarget,
+      'bluetoothAssistantCustomPackage': bluetoothAssistantCustomPackage,
+      'noraAutoSpeakTts': noraAutoSpeakTts,
     };
   }
 }

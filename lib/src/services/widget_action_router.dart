@@ -8,6 +8,7 @@ import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/screens/bus_schedule_screen.dart';
+import 'package:missions/src/screens/nora_ai_screen.dart';
 import 'package:missions/src/screens/journaling/quick_therapy_screen.dart';
 import 'package:missions/src/screens/reflections_archive_screen.dart';
 import 'package:missions/src/services/bus_location_service.dart';
@@ -178,6 +179,11 @@ class WidgetActionRouter {
         if (!silent) {
           _push((_) => const BusScheduleScreen());
         }
+        break;
+
+      case 'open_nora':
+      case 'bluetooth_assistant':
+        _push((_) => const NoraAiScreen(isVoiceCommandLaunch: true));
         break;
 
       default:

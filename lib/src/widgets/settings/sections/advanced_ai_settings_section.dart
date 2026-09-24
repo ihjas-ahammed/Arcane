@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/services/tts_service.dart';
 import 'package:missions/src/widgets/settings/ai_providers_manager.dart';
 import 'package:missions/src/widgets/settings/sections/settings_section_card.dart';
 
@@ -26,6 +29,21 @@ class AdvancedAiSettingsSection extends StatefulWidget {
 
 class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
   bool _regeneratingStyleMap = false;
+  late TextEditingController _customPkgController;
+
+  @override
+  void initState() {
+    super.initState();
+    _customPkgController = TextEditingController(
+      text: widget.appProvider.settings.bluetoothAssistantCustomPackage,
+    );
+  }
+
+  @override
+  void dispose() {
+    _customPkgController.dispose();
+    super.dispose();
+  }
 
   void _showEditStyleMapDialog(BuildContext context, AppProvider appProvider) {
     final controller = TextEditingController(
@@ -255,7 +273,119 @@ class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
         const SizedBox(height: 8),
         Text(
           "Leave blank to use built-in defaults.",
-          style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11),
+          style: TextStyle(
+            color: JweTheme.isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
+            fontSize: 11,
+          ),
+        ),
+        const SizedBox(height: 20),
+        Divider(
+          height: 32,
+          color: JweTheme.isLight ? JweTheme.border : AppTheme.fhBorderColor,
+        ),
+        Row(
+          children: [
+            Icon(
+              Icons.bluetooth_audio,
+              color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              "Bluetooth AI Assistant & Redirector",
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          "Arcane catches Bluetooth headset voice commands (ACTION_VOICE_COMMAND) and lock screen assist intents. You can open Nora or bridge the call to third-party assistant apps that lack Bluetooth voice manifests.",
+          style: TextStyle(
+            color: JweTheme.isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          value: appProvider.settings.bluetoothAssistantRedirectTarget,
+          decoration: InputDecoration(
+            labelText: 'Bluetooth Voice Command Target',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+          dropdownColor: JweTheme.isLight ? JweTheme.panel : AppTheme.fhBgDark,
+          items: const [
+            DropdownMenuItem(value: 'nora', child: Text('Nora (Arcane Tactical Assistant)')),
+            DropdownMenuItem(value: 'chatgpt', child: Text('ChatGPT (com.openai.chatgpt)')),
+            DropdownMenuItem(value: 'gemini', child: Text('Google Gemini (Assistant)')),
+            DropdownMenuItem(value: 'claude', child: Text('Anthropic Claude')),
+            DropdownMenuItem(value: 'perplexity', child: Text('Perplexity AI')),
+            DropdownMenuItem(value: 'copilot', child: Text('Microsoft Copilot')),
+            DropdownMenuItem(value: 'system_assist', child: Text('System Default Assistant')),
+            DropdownMenuItem(value: 'custom', child: Text('Custom App Package Name...')),
+          ],
+          onChanged: (val) async {
+            if (val == null) return;
+            setState(() {
+              appProvider.settings.bluetoothAssistantRedirectTarget = val;
+            });
+            appProvider.setSettings(appProvider.settings);
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('bluetooth_assistant_redirect_target', val);
+          },
+        ),
+        if (appProvider.settings.bluetoothAssistantRedirectTarget == 'custom') ...[
+          const SizedBox(height: 10),
+          TextFormField(
+            controller: _customPkgController,
+            decoration: const InputDecoration(
+              labelText: 'Target Android Package Name',
+              hintText: 'e.g. com.openai.chatgpt',
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+            onChanged: (val) async {
+              appProvider.settings.bluetoothAssistantCustomPackage = val.trim();
+              appProvider.setSettings(appProvider.settings);
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('bluetooth_assistant_custom_package', val.trim());
+            },
+          ),
+        ],
+        const SizedBox(height: 14),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(
+            "Auto-Speak Nora Responses (TTS)",
+            style: TextStyle(
+              color: JweTheme.isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+          subtitle: Text(
+            "Synthesizes and speaks Nora's responses out loud using native Android Text-To-Speech engine.",
+            style: TextStyle(
+              color: JweTheme.isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
+              fontSize: 11,
+            ),
+          ),
+          value: appProvider.settings.noraAutoSpeakTts,
+          activeColor: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+          onChanged: (val) {
+            setState(() {
+              appProvider.settings.noraAutoSpeakTts = val;
+            });
+            appProvider.setSettings(appProvider.settings);
+            if (!val) {
+              TtsService.instance.stop();
+            } else {
+              TtsService.instance.speak("Nora speech synthesizer activated.");
+            }
+          },
         ),
       ],
     );

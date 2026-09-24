@@ -619,6 +619,121 @@ class PaperTradingProvider extends ChangeNotifier {
     return HourlyMarketTrend(avgChangePercent: avg, sampleCount: count);
   }
 
+  /// Computes aggregate 1-day (24H) market trend across owned holdings or active assets
+  MarketPeriodTrend getDailyTrend() {
+    final symbolsToAnalyze = _holdings.isNotEmpty
+        ? _holdings.keys.toList()
+        : marketService.allActiveSymbols.isNotEmpty
+            ? marketService.allActiveSymbols.toList()
+            : BinanceMarketService.defaultSymbols;
+
+    double totalPct = 0.0;
+    int count = 0;
+
+    for (final sym in symbolsToAnalyze) {
+      final pct = marketService.getDailyChangePercent(sym);
+      if (pct != null) {
+        totalPct += pct;
+        count++;
+      }
+    }
+
+    if (count == 0) {
+      return const MarketPeriodTrend(
+        label: 'Daily (24H)',
+        avgChangePercent: 0.0,
+        sampleCount: 0,
+      );
+    }
+
+    final avg = totalPct / count;
+    return MarketPeriodTrend(
+      label: 'Daily (24H)',
+      avgChangePercent: avg,
+      sampleCount: count,
+    );
+  }
+
+  /// Computes aggregate 7-day (1W) market trend across owned holdings or active assets
+  MarketPeriodTrend getWeeklyTrend() {
+    final symbolsToAnalyze = _holdings.isNotEmpty
+        ? _holdings.keys.toList()
+        : marketService.allActiveSymbols.isNotEmpty
+            ? marketService.allActiveSymbols.toList()
+            : BinanceMarketService.defaultSymbols;
+
+    double totalPct = 0.0;
+    int count = 0;
+
+    for (final sym in symbolsToAnalyze) {
+      final pct = marketService.getWeeklyChangePercent(sym);
+      if (pct != null) {
+        totalPct += pct;
+        count++;
+      }
+    }
+
+    if (count == 0) {
+      return const MarketPeriodTrend(
+        label: 'Weekly (7D)',
+        avgChangePercent: 0.0,
+        sampleCount: 0,
+      );
+    }
+
+    final avg = totalPct / count;
+    return MarketPeriodTrend(
+      label: 'Weekly (7D)',
+      avgChangePercent: avg,
+      sampleCount: count,
+    );
+  }
+
+  /// Computes aggregate 30-day (1M) market trend across owned holdings or active assets
+  MarketPeriodTrend getMonthlyTrend() {
+    final symbolsToAnalyze = _holdings.isNotEmpty
+        ? _holdings.keys.toList()
+        : marketService.allActiveSymbols.isNotEmpty
+            ? marketService.allActiveSymbols.toList()
+            : BinanceMarketService.defaultSymbols;
+
+    double totalPct = 0.0;
+    int count = 0;
+
+    for (final sym in symbolsToAnalyze) {
+      final pct = marketService.getMonthlyChangePercent(sym);
+      if (pct != null) {
+        totalPct += pct;
+        count++;
+      }
+    }
+
+    if (count == 0) {
+      return const MarketPeriodTrend(
+        label: 'Monthly (30D)',
+        avgChangePercent: 0.0,
+        sampleCount: 0,
+      );
+    }
+
+    final avg = totalPct / count;
+    return MarketPeriodTrend(
+      label: 'Monthly (30D)',
+      avgChangePercent: avg,
+      sampleCount: count,
+    );
+  }
+
+  /// Aggregates multi-timeframe market telemetry for HUD alert inspection
+  MultiTimeframeMarketTelemetry getMultiTimeframeTelemetry() {
+    return MultiTimeframeMarketTelemetry(
+      hourly: getHourlyTrend(),
+      daily: getDailyTrend(),
+      weekly: getWeeklyTrend(),
+      monthly: getMonthlyTrend(),
+    );
+  }
+
   bool cancelOrder(String orderId) {
     final idx = _orders.indexWhere((o) => o.id == orderId);
     if (idx == -1) return false;

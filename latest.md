@@ -1,3 +1,43 @@
+# ⚡ Arcane System Upgrade // v2026.9.24 (Build #2126092401)
+
+### 🎧 Bluetooth AI Assistant & Lock Screen Voice Launch
+- **Bluetooth Headset Voice Activation**: Added native support for Bluetooth device assistant buttons and voice triggers (`android.intent.action.VOICE_COMMAND`, `android.intent.action.ASSIST`, and `android.intent.action.VOICE_ASSIST`) via dedicated `BluetoothAssistantActivity` alias.
+- **Lock Screen Wake & Keyguard Bypass**: Configured `showWhenLocked`, `turnScreenOn`, and native Keyguard dismiss routines so voice queries and Nora assistant sessions can be engaged directly over the Android lock screen without manual device unlocking.
+- **Dedicated Permissions**: Declared `BLUETOOTH`, `BLUETOOTH_CONNECT`, `WAKE_LOCK`, and `DISABLE_KEYGUARD` for reliable headset communication and device wakeups.
+
+### 🔀 Third-Party Assistant Redirector & Bridge
+- **Universal Assistant Bridge**: Many third-party AI assistants support standard assist intents but omit Bluetooth voice command manifest filters. Arcane now acts as a bridge, capturing the Bluetooth headset button and redirecting directly to the user's preferred assistant app.
+- **Configurable Redirect Targets**: Easily route Bluetooth triggers in **Advanced AI Settings** to:
+  - Nora (Arcane Tactical Assistant)
+  - ChatGPT (`com.openai.chatgpt`)
+  - Google Gemini (`com.google.android.apps.bard` / Google Assistant)
+  - Anthropic Claude (`com.anthropic.claude`)
+  - Perplexity AI (`ai.perplexity.app`)
+  - Microsoft Copilot (`com.microsoft.copilot`)
+  - System Default Assistant
+  - Custom Android Package Name
+
+### 🧠 Gemini Live API Upgrades & Latest Model Suite
+- **Next-Gen Gemini Models**: Updated model registry with `gemini-2.0-flash-exp`, `gemini-2.0-flash`, `gemini-2.0-flash-realtime-exp`, and `gemini-2.5-pro` across Live, Lite, and Heavy tiers.
+- **Multi-Key Secret Pool Rotation**: Live WebSocket queries now rotate across all user-configured Gemini API keys in `SecretsService` alongside primary settings keys.
+- **Zero-Hang Error Frame Handling**: The Live WebSocket listener immediately intercepts and parses API error JSON frames, triggering instant failover instead of hanging on socket timeouts.
+
+### 🗣️ Native Text-to-Speech (TTS) & Resilient Fallback Engine
+- **Native Android TTS Bridge**: Implemented high-performance native Android Text-To-Speech engine via `arcane/tts` MethodChannel and singleton `TtsService` with automatic Markdown stripping and speech sanitization.
+- **Resilient Voice Fallback**: If Gemini Live API encounters network drops, quota exhaustion, or WebSocket handshake failures, Nora seamlessly falls back to standard `generateContent` and synthesizes responses out loud with TTS.
+- **Hands-Free Voice Mode**: Added auto-speak TTS toggle in Advanced AI Settings, initial voice greeting, and real-time audio controls with dual-theme HUD indicators.
+
+### 📊 Multi-Timeframe Trend Alert Dialog (1H, 24H, 7D, 30D)
+- **Long-Click Multi-Timeframe Telemetry Alert**: Long-pressing or tapping the 1H AVG badge in the trading header or holding cards opens an alert dialog displaying market trajectory across 4 distinct time horizons:
+  - **1H**: Hourly Momentum ($\pm\%$)
+  - **24H**: Daily Trend ($\pm\%$)
+  - **7D**: Weekly Direction ($\pm\%$)
+  - **30D**: Monthly Macro Cycle ($\pm\%$)
+- **Macro Market Regime Classification**: Computes aggregate market regime telemetry (`STRONG BULL EXPANSION`, `CORRECTIVE RETRACEMENT`, `BEAR CONTAGION`, `SIDEWAYS COMPRESSION`).
+- **Tactical Dual-Theme HUD**: Styled with calibrated cyber accents, high-contrast badges, and adaptive palette conforming to `JweTheme` in both Dark and Light modes.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.22 (Build #2126092201)
 
 ### 🛡️ Mandatory Real-Time Feed Guard & Guaranteed Holdings Pinning
