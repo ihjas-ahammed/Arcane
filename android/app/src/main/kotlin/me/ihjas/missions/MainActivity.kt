@@ -4,6 +4,7 @@ import android.app.KeyguardManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
@@ -173,9 +174,57 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
     /**
      * Launches external assistant directly into voice/mic listening mode.
      */
-    private fun launchAssistantVoiceMode(targetPackage: String): Boolean {
+    private fun launchAssistantVoiceMode(target: String): Boolean {
         routeAudioToBluetooth(true)
         val pm = packageManager
+
+        var targetPackage = target
+        var targetActivity: String? = null
+        if (target.contains("/")) {
+            val parts = target.split("/", limit = 2)
+            targetPackage = parts[0]
+            targetActivity = parts[1].trim()
+            if (targetActivity.startsWith(".")) {
+                targetActivity = targetPackage + targetActivity
+            }
+        }
+
+        // 0. If explicit activity is specified, try launching it directly
+        if (!targetActivity.isNullOrEmpty()) {
+            val comp = ComponentName(targetPackage, targetActivity)
+            val explicitVoiceIntent = Intent("android.intent.action.VOICE_ASSIST").apply {
+                component = comp
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("open_voice", true)
+                putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
+            }
+            try {
+                startActivity(explicitVoiceIntent)
+                return true
+            } catch (_: Exception) {}
+
+            val explicitCmdIntent = Intent(Intent.ACTION_VOICE_COMMAND).apply {
+                component = comp
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("open_voice", true)
+                putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
+            }
+            try {
+                startActivity(explicitCmdIntent)
+                return true
+            } catch (_: Exception) {}
+
+            val directIntent = Intent().apply {
+                component = comp
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("open_voice", true)
+                putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
+            }
+            try {
+                startActivity(directIntent)
+                return true
+            } catch (_: Exception) {}
+        }
 
         // 1. Try ACTION_VOICE_ASSIST (Standard Android voice assistant intent)
         val voiceAssistIntent = Intent("android.intent.action.VOICE_ASSIST").apply {
@@ -276,6 +325,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         val redirectTarget = prefs.getString("flutter.bluetooth_assistant_redirect_target", "nora") ?: "nora"
         val customPkg = prefs.getString("flutter.bluetooth_assistant_custom_package", "") ?: ""
+        val customActivity = prefs.getString("flutter.bluetooth_assistant_custom_activity", "") ?: ""
 
         if (redirectTarget != "nora") {
             val targetPackage = when (redirectTarget) {
@@ -284,7 +334,15 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                 "claude" -> "com.anthropic.claude"
                 "perplexity" -> "ai.perplexity.app"
                 "copilot" -> "com.microsoft.copilot"
-                "custom" -> customPkg.trim()
+                "custom" -> {
+                    val pkg = customPkg.trim()
+                    val act = customActivity.trim()
+                    if (pkg.isNotEmpty() && act.isNotEmpty() && !pkg.contains("/")) {
+                        "$pkg/$act"
+                    } else {
+                        pkg
+                    }
+                }
                 else -> redirectTarget
             }
 
@@ -551,12 +609,85 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                 }
                 "launchAssistantPackage" -> {
                     val pkg = call.argument<String>("package") ?: ""
-                    if (pkg.isNotEmpty()) {
-                        val launched = launchAssistantVoiceMode(pkg)
+                    val act = call.argument<String>("activity") ?: ""
+                    val target = if (act.isNotEmpty() && !pkg.contains("/")) "$pkg/$act" else pkg
+                    if (target.isNotEmpty()) {
+                        val launched = launchAssistantVoiceMode(target)
                         result.success(launched)
                     } else {
                         result.success(false)
                     }
+                }
+                "getAllInstalledApps" -> {
+                    Thread {
+                        val pm = packageManager
+                        val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+                        val list = mutableListOf<Map<String, Any?>>()
+                        for (app in apps) {
+                            if (app.packageName == packageName) continue
+                            val label = pm.getApplicationLabel(app).toString().ifEmpty { app.packageName }
+                            val isSystem = (app.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                            val launchIntent = pm.getLaunchIntentForPackage(app.packageName)
+                            list.add(mapOf(
+                                "package" to app.packageName,
+                                "label" to label,
+                                "isSystem" to isSystem,
+                                "isLaunchable" to (launchIntent != null)
+                            ))
+                        }
+                        list.sortWith(compareBy<Map<String, Any?>> { it["isSystem"] as Boolean }
+                            .thenBy { (it["label"] as? String)?.lowercase() ?: "" })
+                        Handler(Looper.getMainLooper()).post {
+                            result.success(list)
+                        }
+                    }.start()
+                }
+                "getAppActivities" -> {
+                    val pkg = call.argument<String>("package") ?: ""
+                    if (pkg.isEmpty()) {
+                        result.success(emptyList<Map<String, Any?>>())
+                        return@setMethodCallHandler
+                    }
+                    Thread {
+                        val pm = packageManager
+                        try {
+                            val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                pm.getPackageInfo(pkg, PackageManager.PackageInfoFlags.of(PackageManager.GET_ACTIVITIES.toLong()))
+                            } else {
+                                @Suppress("DEPRECATION")
+                                pm.getPackageInfo(pkg, PackageManager.GET_ACTIVITIES)
+                            }
+                            val activities = packageInfo.activities ?: emptyArray()
+                            val list = mutableListOf<Map<String, Any?>>()
+                            for (act in activities) {
+                                val name = act.name
+                                val label = act.loadLabel(pm).toString().ifEmpty { name.substringAfterLast('.') }
+                                val exported = act.exported
+                                val isVoiceOrAssist = name.contains("voice", ignoreCase = true) ||
+                                                      name.contains("assist", ignoreCase = true) ||
+                                                      name.contains("audio", ignoreCase = true) ||
+                                                      name.contains("mic", ignoreCase = true) ||
+                                                      name.contains("talk", ignoreCase = true) ||
+                                                      name.contains("live", ignoreCase = true)
+                                list.add(mapOf(
+                                    "name" to name,
+                                    "label" to label,
+                                    "exported" to exported,
+                                    "isVoiceOrAssist" to isVoiceOrAssist
+                                ))
+                            }
+                            list.sortWith(compareByDescending<Map<String, Any?>> { it["isVoiceOrAssist"] as Boolean }
+                                .thenByDescending { it["exported"] as Boolean }
+                                .thenBy { it["label"] as String })
+                            Handler(Looper.getMainLooper()).post {
+                                result.success(list)
+                            }
+                        } catch (e: Exception) {
+                            Handler(Looper.getMainLooper()).post {
+                                result.success(emptyList<Map<String, Any?>>())
+                            }
+                        }
+                    }.start()
                 }
                 "routeAudioToBluetooth" -> {
                     val enable = call.argument<Boolean>("enable") ?: true

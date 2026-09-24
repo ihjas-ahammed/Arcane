@@ -6,6 +6,7 @@ import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/services/assistant_routing_service.dart';
 import 'package:missions/src/services/tts_service.dart';
+import 'package:missions/src/screens/settings/custom_assistant_picker_screen.dart';
 import 'package:missions/src/widgets/settings/ai_providers_manager.dart';
 import 'package:missions/src/widgets/settings/sections/settings_section_card.dart';
 
@@ -433,26 +434,146 @@ class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
                 appProvider.setSettings(appProvider.settings);
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.setString('bluetooth_assistant_redirect_target', val);
+
+                if (val == 'custom' && appProvider.settings.bluetoothAssistantCustomPackage.isEmpty) {
+                  if (!context.mounted) return;
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CustomAssistantPickerScreen(),
+                    ),
+                  );
+                  setState(() {});
+                }
               },
             );
           },
         ),
         if (appProvider.settings.bluetoothAssistantRedirectTarget == 'custom') ...[
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: _customPkgController,
-            decoration: const InputDecoration(
-              labelText: 'Target Android Package Name',
-              hintText: 'e.g. com.openai.chatgpt',
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: JweTheme.isLight ? JweTheme.panel : AppTheme.fhBgDark,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withOpacity(0.4),
+              ),
             ),
-            onChanged: (val) async {
-              appProvider.settings.bluetoothAssistantCustomPackage = val.trim();
-              appProvider.setSettings(appProvider.settings);
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setString('bluetooth_assistant_custom_package', val.trim());
-            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "CUSTOM ASSISTANT TARGET",
+                      style: TextStyle(
+                        color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    if (appProvider.settings.bluetoothAssistantCustomPackage.isNotEmpty)
+                      InkWell(
+                        onTap: () async {
+                          final launched = await AssistantRoutingService.instance.launchVoiceMode(
+                            appProvider.settings.bluetoothAssistantCustomPackage,
+                            activity: appProvider.settings.bluetoothAssistantCustomActivity,
+                          );
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(launched ? 'Target launched in voice mode' : 'Failed to launch target'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.rocket_launch, size: 14, color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple),
+                            const SizedBox(width: 4),
+                            Text(
+                              "TEST",
+                              style: TextStyle(
+                                color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.apps,
+                      size: 20,
+                      color: JweTheme.isLight ? JweTheme.textMid : AppTheme.fhTextSecondary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            appProvider.settings.bluetoothAssistantCustomPackage.isEmpty
+                                ? "No application selected"
+                                : appProvider.settings.bluetoothAssistantCustomPackage,
+                            style: TextStyle(
+                              color: JweTheme.isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            appProvider.settings.bluetoothAssistantCustomActivity.isEmpty
+                                ? "Activity: Auto-Detect Voice / Default"
+                                : "Activity: ${appProvider.settings.bluetoothAssistantCustomActivity}",
+                            style: TextStyle(
+                              color: JweTheme.isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
+                              fontSize: 10,
+                              fontFamily: 'RobotoMono',
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.touch_app, size: 16),
+                    label: const Text("BROWSE APPS & ACTIVITIES"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withOpacity(0.15),
+                      foregroundColor: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+                      side: BorderSide(color: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withOpacity(0.4)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1),
+                    ),
+                    onPressed: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CustomAssistantPickerScreen(),
+                        ),
+                      );
+                      setState(() {});
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
         const SizedBox(height: 14),

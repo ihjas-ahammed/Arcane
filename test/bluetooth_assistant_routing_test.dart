@@ -8,7 +8,7 @@ import 'package:missions/src/models/app_state_models.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('InstalledAssistant Model Tests', () {
+  group('InstalledAssistant & InstalledApp Models Tests', () {
     test('InstalledAssistant properly holds package and label and formats toString', () {
       const assistant = InstalledAssistant(
         package: 'com.openai.chatgpt',
@@ -17,6 +17,33 @@ void main() {
       expect(assistant.package, 'com.openai.chatgpt');
       expect(assistant.label, 'ChatGPT');
       expect(assistant.toString(), 'ChatGPT (com.openai.chatgpt)');
+    });
+
+    test('InstalledAppInfo parses from map and handles fields', () {
+      final app = InstalledAppInfo.fromMap({
+        'package': 'com.openai.chatgpt',
+        'label': 'ChatGPT',
+        'isSystem': false,
+        'isLaunchable': true,
+      });
+      expect(app.package, 'com.openai.chatgpt');
+      expect(app.label, 'ChatGPT');
+      expect(app.isSystem, isFalse);
+      expect(app.isLaunchable, isTrue);
+    });
+
+    test('AppActivityInfo parses from map and handles fields', () {
+      final act = AppActivityInfo.fromMap({
+        'name': 'com.openai.voice.VoiceActivity',
+        'label': 'Voice Mode',
+        'exported': true,
+        'isVoiceOrAssist': true,
+      });
+      expect(act.name, 'com.openai.voice.VoiceActivity');
+      expect(act.label, 'Voice Mode');
+      expect(act.exported, isTrue);
+      expect(act.isVoiceOrAssist, isTrue);
+      expect(act.shortName, 'VoiceActivity');
     });
   });
 
@@ -44,20 +71,88 @@ void main() {
       expect(list[2].package, 'com.anthropic.claude');
     });
 
-    test('launchVoiceMode sends correct package to native channel', () async {
+    test('getAllInstalledApps returns list of all apps from native', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+        if (methodCall.method == 'getAllInstalledApps') {
+          return [
+            {
+              'package': 'com.openai.chatgpt',
+              'label': 'ChatGPT',
+              'isSystem': false,
+              'isLaunchable': true,
+            },
+            {
+              'package': 'com.android.settings',
+              'label': 'Settings',
+              'isSystem': true,
+              'isLaunchable': true,
+            },
+          ];
+        }
+        return null;
+      });
+
+      final list = await AssistantRoutingService.instance.getAllInstalledApps();
+      expect(list.length, 2);
+      expect(list[0].package, 'com.openai.chatgpt');
+      expect(list[0].isSystem, isFalse);
+      expect(list[1].package, 'com.android.settings');
+      expect(list[1].isSystem, isTrue);
+    });
+
+    test('getAppActivities returns declared activities for package', () async {
+      String? requestedPackage;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+        if (methodCall.method == 'getAppActivities') {
+          requestedPackage = (methodCall.arguments as Map)['package'] as String?;
+          return [
+            {
+              'name': 'com.openai.chatgpt.MainActivity',
+              'label': 'ChatGPT',
+              'exported': true,
+              'isVoiceOrAssist': false,
+            },
+            {
+              'name': 'com.openai.voice.AssistantActivity',
+              'label': 'Voice Assistant',
+              'exported': true,
+              'isVoiceOrAssist': true,
+            },
+          ];
+        }
+        return null;
+      });
+
+      final activities = await AssistantRoutingService.instance.getAppActivities('com.openai.chatgpt');
+      expect(requestedPackage, 'com.openai.chatgpt');
+      expect(activities.length, 2);
+      expect(activities[1].isVoiceOrAssist, isTrue);
+      expect(activities[1].shortName, 'AssistantActivity');
+    });
+
+    test('launchVoiceMode sends correct package and activity to native channel', () async {
       String? launchedPackage;
+      String? launchedActivity;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
         if (methodCall.method == 'launchAssistantPackage') {
-          launchedPackage = (methodCall.arguments as Map)['package'] as String?;
+          final args = methodCall.arguments as Map;
+          launchedPackage = args['package'] as String?;
+          launchedActivity = args['activity'] as String?;
           return true;
         }
         return null;
       });
 
-      final success = await AssistantRoutingService.instance.launchVoiceMode('com.openai.chatgpt');
+      final success = await AssistantRoutingService.instance.launchVoiceMode(
+        'com.openai.chatgpt',
+        activity: 'com.openai.voice.AssistantActivity',
+      );
       expect(success, isTrue);
       expect(launchedPackage, 'com.openai.chatgpt');
+      expect(launchedActivity, 'com.openai.voice.AssistantActivity');
     });
   });
 
@@ -178,17 +273,21 @@ void main() {
       final settings = AppSettings();
       expect(settings.bluetoothAssistantRedirectTarget, 'nora');
       expect(settings.bluetoothAssistantCustomPackage, '');
+      expect(settings.bluetoothAssistantCustomActivity, '');
 
-      settings.bluetoothAssistantRedirectTarget = 'com.openai.chatgpt';
+      settings.bluetoothAssistantRedirectTarget = 'custom';
       settings.bluetoothAssistantCustomPackage = 'com.custom.assistant';
+      settings.bluetoothAssistantCustomActivity = 'com.custom.assistant.VoiceActivity';
 
       final json = settings.toJson();
-      expect(json['bluetoothAssistantRedirectTarget'], 'com.openai.chatgpt');
+      expect(json['bluetoothAssistantRedirectTarget'], 'custom');
       expect(json['bluetoothAssistantCustomPackage'], 'com.custom.assistant');
+      expect(json['bluetoothAssistantCustomActivity'], 'com.custom.assistant.VoiceActivity');
 
       final reconstructed = AppSettings.fromJson(json);
-      expect(reconstructed.bluetoothAssistantRedirectTarget, 'com.openai.chatgpt');
+      expect(reconstructed.bluetoothAssistantRedirectTarget, 'custom');
       expect(reconstructed.bluetoothAssistantCustomPackage, 'com.custom.assistant');
+      expect(reconstructed.bluetoothAssistantCustomActivity, 'com.custom.assistant.VoiceActivity');
     });
   });
 }

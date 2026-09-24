@@ -1,3 +1,16 @@
+# ⚡ Arcane System Upgrade // v2026.9.24 (Build #2126092403)
+
+### 🎯 Custom Assistant Application & Activity Picker Screen
+- **Dedicated Installed App & Activity Browser**: Introduced a high-speed, dual-step picker screen (`CustomAssistantPickerScreen`) allowing operators to explore all applications physically installed on the host device and select exact declared Activities as custom Bluetooth voice command targets.
+- **Real-Time App & Activity Search**: Instantaneous live search filtering across 200+ installed packages by application label or package name, alongside secondary activity search inside the selected application.
+- **Smart Category Filtering**: Quick filter chips to toggle between `ALL APPS`, `USER APPS` (non-system user-installed packages), and `ASSISTANTS / AI` (apps declaring voice/assistant intents).
+- **Deep Activity Inspection & Voice Badging**: Scans and parses `PackageManager` declared activities for the selected app, highlighting voice/assist components with cyan `[VOICE]` tags and public entrypoints with green `[EXPORTED]` badges.
+- **Default Auto-Voice Option**: Allows choosing either a specific declared Activity component or using "Default Launch & Voice Auto-Detect" to let Arcane automatically trigger voice mode with voice extras.
+- **Instant Test Launch & Preview Bar**: Bottom HUD card with live target preview, confirmed target saving to `SharedPreferences`, and an immediate `[TEST LAUNCH]` rocket trigger to verify target execution with Bluetooth audio routing.
+- **Dual-Theme Tactical Compliance**: 100% compliant with `JweTheme` dynamic tokens (warm tactical paper in light mode, midnight tactical HUD in dark mode).
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.24 (Build #2126092402)
 
 ### 🎙️ Hands-Free Voice Assistant Auto-Listening & Continuous Conversational Loop

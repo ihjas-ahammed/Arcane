@@ -281,6 +281,7 @@ class AppSettings {
   // Bluetooth AI Assistant & Nora Settings
   String bluetoothAssistantRedirectTarget;
   String bluetoothAssistantCustomPackage;
+  String bluetoothAssistantCustomActivity;
   bool noraAutoSpeakTts;
 
   static const List<String> defaultLiteModels = [
@@ -353,6 +354,7 @@ class AppSettings {
     this.themeMode = 'system',
     this.bluetoothAssistantRedirectTarget = 'nora',
     this.bluetoothAssistantCustomPackage = '',
+    this.bluetoothAssistantCustomActivity = '',
     this.noraAutoSpeakTts = true,
   })  : energyNotificationTimes = energyNotificationTimes ??
             const [
@@ -488,6 +490,7 @@ class AppSettings {
       themeMode: json['themeMode'] as String? ?? 'system',
       bluetoothAssistantRedirectTarget: json['bluetoothAssistantRedirectTarget'] as String? ?? 'nora',
       bluetoothAssistantCustomPackage: json['bluetoothAssistantCustomPackage'] as String? ?? '',
+      bluetoothAssistantCustomActivity: json['bluetoothAssistantCustomActivity'] as String? ?? '',
       noraAutoSpeakTts: json['noraAutoSpeakTts'] as bool? ?? true,
     );
   }
@@ -546,6 +549,7 @@ class AppSettings {
       'themeMode': themeMode,
       'bluetoothAssistantRedirectTarget': bluetoothAssistantRedirectTarget,
       'bluetoothAssistantCustomPackage': bluetoothAssistantCustomPackage,
+      'bluetoothAssistantCustomActivity': bluetoothAssistantCustomActivity,
       'noraAutoSpeakTts': noraAutoSpeakTts,
     };
   }
