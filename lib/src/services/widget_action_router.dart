@@ -182,6 +182,7 @@ class WidgetActionRouter {
         break;
 
       case 'open_nora':
+      case 'open_nora_voice':
       case 'bluetooth_assistant':
         _push((_) => const NoraAiScreen(isVoiceCommandLaunch: true));
         break;

@@ -1,3 +1,21 @@
+# ⚡ Arcane System Upgrade // v2026.9.24 (Build #2126092402)
+
+### 🎙️ Hands-Free Voice Assistant Auto-Listening & Continuous Conversational Loop
+- **Instant Hands-Free Microphone Activation**: Opening Nora via Bluetooth headset button (`ACTION_VOICE_COMMAND`), lock screen assist, or live comms button automatically routes audio to Bluetooth and starts microphone listening immediately without requiring manual screen taps.
+- **Continuous Conversational Loop**: Nora's voice engine seamlessly chains conversational turns: listens to user speech $\rightarrow$ generates AI response $\rightarrow$ synthesizes voice response via native Text-to-Speech $\rightarrow$ automatically resumes microphone listening for continuous hands-free dialogue.
+- **Dynamic Speech Recognition Engine (STT)**: Added high-performance native Android SpeechRecognizer bridge via `arcane/stt` MethodChannel with real-time speech transcription, error-recovery callbacks, and audio-reactive decibel RMS level tracking.
+- **Interactive Audio-Reactive Live HUD**: Redesigned Nora Live Link overlay with responsive glowing wave orb dynamically scaling on voice RMS volume, real-time transcription cards, dual-theme adaptation (`JweTheme.isLight`), and one-touch mute/hangup controls.
+
+### 🎧 Universal Bluetooth Audio Routing for All Platforms
+- **Hardware-Level Bluetooth Routing**: Native communication device configuration routes all voice output (TTS synthesis) and audio input (microphone STT) to connected Bluetooth headsets, SCO ear-pieces, BLE audio, and hearing aids by default before falling back to device hardware.
+- **External Assistant Voice Mode Launch**: When redirecting to external assistants (e.g. ChatGPT, Gemini, Claude, Perplexity, Copilot, or custom assistants), Arcane routes audio to Bluetooth and triggers dedicated voice listening activities (`VoiceActivity` with `ASSIST_INPUT_HINT_KEYBOARD = false` and `open_voice = true`) to engage hands-free voice mode directly.
+
+### 🔍 Dynamic Installed Assistant Discovery & Package Manifest Filter
+- **Dynamic Installed Apps Query**: Settings assistant redirector dynamically filters and displays only apps physically installed on the user's device that declare voice/assistant capabilities (`ACTION_ASSIST`, `VOICE_ASSIST`, `VOICE_COMMAND`, `VOICE_SEARCH_HANDS_FREE`, `ACTION_WEB_SEARCH`, and `VoiceInteractionService`).
+- **Discovery Counter & Manual Refresh**: Displays live installed assistant count (e.g., `1 installed assistant app(s) discovered`) with a one-tap refresh button, System Default Assistant fallback, and custom Android package name override.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.24 (Build #2126092401)
 
 ### 🎧 Bluetooth AI Assistant & Lock Screen Voice Launch

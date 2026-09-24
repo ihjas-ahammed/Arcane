@@ -14,6 +14,8 @@ import 'package:missions/src/theme/arc/arc_theme.dart';
 import 'package:missions/src/widgets/dialogs/create_character_dialog.dart';
 import 'package:missions/src/widgets/dialogs/nora_memory_space_sheet.dart';
 import 'package:missions/src/services/tts_service.dart';
+import 'package:missions/src/services/stt_service.dart';
+import 'package:missions/src/services/assistant_routing_service.dart';
 
 class NoraAiScreen extends StatefulWidget {
   final bool isVoiceCommandLaunch;
@@ -31,6 +33,8 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
   bool _isLiveVoiceOpen = false;
   bool _audioOutputEnabled = true;
   bool _isMicMuted = false;
+  String _liveTranscription = '';
+  bool _isRecognizing = false;
 
   final List<String> _suggestions = [
     "Check off my daily tasks",
@@ -43,23 +47,71 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.isVoiceCommandLaunch) {
+      _isLiveVoiceOpen = true;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
+      AssistantRoutingService.instance.routeBluetoothAudio(true);
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
       if (widget.isVoiceCommandLaunch) {
-        final appProvider = Provider.of<AppProvider>(context, listen: false);
         if (appProvider.settings.noraAutoSpeakTts) {
           TtsService.instance.speak("Nora online. How can I assist you?");
+        } else {
+          _startAutoListening();
         }
       }
     });
+
+    TtsService.instance.onSpeechCompleted = () {
+      if (mounted && _isLiveVoiceOpen && !_isMicMuted && !_isSending) {
+        _startAutoListening();
+      }
+    };
   }
 
   @override
   void dispose() {
+    TtsService.instance.onSpeechCompleted = null;
+    SttService.instance.stopListening();
     TtsService.instance.stop();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _startAutoListening() async {
+    if (!mounted || _isMicMuted || !_audioOutputEnabled || _isSending) return;
+    setState(() {
+      _isRecognizing = true;
+      _liveTranscription = '';
+    });
+    AssistantRoutingService.instance.routeBluetoothAudio(true);
+    await SttService.instance.startListening(
+      onListening: () {
+        if (mounted) setState(() => _isRecognizing = true);
+      },
+      onPartial: (partial) {
+        if (mounted) setState(() => _liveTranscription = partial);
+      },
+      onResult: (result) {
+        if (!mounted) return;
+        setState(() {
+          _isRecognizing = false;
+          _liveTranscription = result;
+        });
+        if (result.trim().isNotEmpty) {
+          _sendMessage(result.trim());
+        }
+      },
+      onError: (err) {
+        if (mounted) {
+          setState(() {
+            _isRecognizing = false;
+          });
+        }
+      },
+    );
   }
 
   void _scrollToBottom() {
@@ -80,6 +132,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
       _messageController.clear();
     }
 
+    SttService.instance.stopListening();
     setState(() => _isSending = true);
 
     final appProvider = Provider.of<AppProvider>(context, listen: false);
@@ -90,7 +143,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
       final settings = appProvider.settings;
-      if (settings.noraAutoSpeakTts || widget.isVoiceCommandLaunch) {
+      if (settings.noraAutoSpeakTts || widget.isVoiceCommandLaunch || _isLiveVoiceOpen) {
         final messages = appProvider.activeNoraSession?.messages;
         if (messages != null && messages.isNotEmpty) {
           final lastMsg = messages.last;
@@ -98,6 +151,8 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
             TtsService.instance.speak(lastMsg.text);
           }
         }
+      } else if (_isLiveVoiceOpen && !_isMicMuted) {
+        _startAutoListening();
       }
     }
   }
@@ -307,6 +362,11 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
   }
 
   Widget _buildLiveVoiceOverlay() {
+    final isLight = JweTheme.isLight;
+    final accentColor = isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple;
+    final primaryTextColor = isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary;
+    final secondaryTextColor = isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary;
+
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 400),
       curve: Curves.fastOutSlowIn,
@@ -319,11 +379,17 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                ArcSurfaces.noraDeep,
-                AppTheme.fhBgDeepDark,
-                ArcSurfaces.noraDeeper,
-              ],
+              colors: isLight
+                  ? [
+                      JweTheme.bgBase,
+                      JweTheme.panel,
+                      JweTheme.panel2,
+                    ]
+                  : [
+                      ArcSurfaces.noraDeep,
+                      AppTheme.fhBgDeepDark,
+                      ArcSurfaces.noraDeeper,
+                    ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
@@ -337,88 +403,127 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                        Text(
-                        "NORA LIVE LINK",
-                        style: TextStyle(
-                          color: AppTheme.fhAccentPurple,
-                          letterSpacing: 3,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          fontFamily: AppTheme.fontDisplay,
-                        ),
+                      Row(
+                        children: [
+                          Icon(Icons.bluetooth_audio, size: 18, color: accentColor),
+                          const SizedBox(width: 8),
+                          Text(
+                            "NORA LIVE LINK",
+                            style: TextStyle(
+                              color: accentColor,
+                              letterSpacing: 3,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              fontFamily: AppTheme.fontDisplay,
+                            ),
+                          ),
+                        ],
                       ),
                       IconButton(
-                        icon: Icon(Icons.close, color: AppTheme.fhTextPrimary, size: 28),
-                        onPressed: () => setState(() => _isLiveVoiceOpen = false),
+                        icon: Icon(Icons.close, color: primaryTextColor, size: 28),
+                        onPressed: () {
+                          SttService.instance.stopListening();
+                          TtsService.instance.stop();
+                          setState(() => _isLiveVoiceOpen = false);
+                        },
                       ),
                     ],
                   ),
                 ),
                 const Spacer(),
 
-                // Animated glowing wave orb
-                Center(
-                  child: Container(
-                    width: 180,
-                    height: 180,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          _audioOutputEnabled
-                              ? AppTheme.fhAccentPurple.withOpacity(0.8)
-                              : Colors.red.withOpacity(0.8),
-                          _audioOutputEnabled
-                              ? AppTheme.fhAccentPurple.withOpacity(0.2)
-                              : Colors.red.withOpacity(0.2),
-                          Colors.transparent,
-                        ],
+                // Animated glowing audio-reactive wave orb
+                ValueListenableBuilder<double>(
+                  valueListenable: SttService.instance.currentRms,
+                  builder: (context, rms, child) {
+                    final reactiveScale = 1.0 + (rms.clamp(0.0, 10.0) / 25.0);
+                    final orbColor = _audioOutputEnabled ? accentColor : Colors.red;
+
+                    return Center(
+                      child: Transform.scale(
+                        scale: reactiveScale,
+                        child: Container(
+                          width: 180,
+                          height: 180,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                orbColor.withOpacity(0.8),
+                                orbColor.withOpacity(0.2),
+                                Colors.transparent,
+                              ],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: orbColor.withOpacity(0.4),
+                                blurRadius: 50,
+                                spreadRadius: _audioOutputEnabled ? 15 : 5,
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Icon(
+                              _isMicMuted ? MdiIcons.microphoneOff : MdiIcons.creation,
+                              size: 64,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _audioOutputEnabled
-                              ? AppTheme.fhAccentPurple.withOpacity(0.4)
-                              : Colors.red.withOpacity(0.4),
-                          blurRadius: 50,
-                          spreadRadius: _audioOutputEnabled ? 15 : 5,
+                    );
+                  },
+                ),
+                const Spacer(),
+
+                // Live speech transcription readout card
+                if (_liveTranscription.isNotEmpty) ...[
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: (isLight ? JweTheme.panel : AppTheme.fhBgMedium).withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: accentColor.withOpacity(0.4),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.mic,
+                          size: 16,
+                          color: accentColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            '"$_liveTranscription"',
+                            style: TextStyle(
+                              color: primaryTextColor,
+                              fontStyle: FontStyle.italic,
+                              fontSize: 13,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
                         ),
                       ],
                     ),
-                    child: Center(
-                      child: Icon(
-                        _isMicMuted ? MdiIcons.microphoneOff : MdiIcons.creation,
-                        size: 64,
-                        color: Colors.white,
-                      ),
-                    ),
-                  )
-                  .animate(onPlay: (controller) => controller.repeat())
-                  .scale(
-                    begin: const Offset(0.92, 0.92),
-                    end: const Offset(1.08, 1.08),
-                    duration: 1200.ms,
-                    curve: Curves.easeInOut,
-                  )
-                  .then()
-                  .scale(
-                    begin: const Offset(1.08, 1.08),
-                    end: const Offset(0.92, 0.92),
-                    duration: 1200.ms,
-                    curve: Curves.easeInOut,
                   ),
-                ),
-                const Spacer(),
+                  const SizedBox(height: 16),
+                ],
 
                 // Audio Output Toggle Panel
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 24),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: AppTheme.fhBgMedium,
+                    color: isLight ? JweTheme.panel : AppTheme.fhBgMedium,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: _audioOutputEnabled 
-                          ? AppTheme.fhAccentPurple.withOpacity(0.3) 
+                          ? accentColor.withOpacity(0.3) 
                           : Colors.red.withOpacity(0.3),
                     ),
                   ),
@@ -432,18 +537,18 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                             children: [
                               Icon(
                                 _audioOutputEnabled ? MdiIcons.volumeHigh : MdiIcons.volumeOff,
-                                color: _audioOutputEnabled ? AppTheme.fhAccentPurple : Colors.red,
+                                color: _audioOutputEnabled ? accentColor : Colors.red,
                               ),
                               const SizedBox(width: 12),
                               Text(
                                 "Audio Output Speaker",
-                                style: TextStyle(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold, fontSize: 14),
+                                style: TextStyle(color: primaryTextColor, fontWeight: FontWeight.bold, fontSize: 14),
                               ),
                             ],
                           ),
                           Switch(
                             value: _audioOutputEnabled,
-                            activeColor: AppTheme.fhAccentPurple,
+                            activeColor: accentColor,
                             inactiveThumbColor: Colors.grey,
                             inactiveTrackColor: Colors.black26,
                             onChanged: (val) {
@@ -456,7 +561,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                       ),
                       if (!_audioOutputEnabled) ...[
                         const SizedBox(height: 8),
-                        Divider(color: AppTheme.fhBorderColor),
+                        Divider(color: isLight ? JweTheme.border : AppTheme.fhBorderColor),
                         const SizedBox(height: 4),
                         Row(
                           children: [
@@ -474,24 +579,74 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
 
-                // Status text
-                Text(
-                  !_audioOutputEnabled
-                      ? "LIVE LINK SUSPENDED"
-                      : (_isMicMuted ? "MUTED" : "LISTENING..."),
-                  style: TextStyle(
-                    color: _audioOutputEnabled 
-                        ? (_isMicMuted ? Colors.grey : AppTheme.fhAccentPurple) 
-                        : Colors.red,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                    fontFamily: AppTheme.fontDisplay,
-                    fontSize: 16,
-                  ),
+                // Status text & Bluetooth routing indicator
+                ValueListenableBuilder<bool>(
+                  valueListenable: TtsService.instance.isSpeakingNotifier,
+                  builder: (context, isSpeaking, _) {
+                    String statusText;
+                    Color statusColor;
+
+                    if (!_audioOutputEnabled) {
+                      statusText = "LIVE LINK SUSPENDED";
+                      statusColor = Colors.red;
+                    } else if (_isSending) {
+                      statusText = "ANALYZING TACTICAL DATA...";
+                      statusColor = isLight ? JweTheme.accentAmber : AppTheme.fhAccentGold;
+                    } else if (isSpeaking) {
+                      statusText = "TRANSMITTING VOICE (TTS)...";
+                      statusColor = accentColor;
+                    } else if (_isMicMuted) {
+                      statusText = "MIC MUTED";
+                      statusColor = secondaryTextColor;
+                    } else if (_isRecognizing) {
+                      statusText = "LISTENING (MIC ACTIVE)...";
+                      statusColor = accentColor;
+                    } else {
+                      statusText = "READY";
+                      statusColor = accentColor;
+                    }
+
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          statusText,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 2,
+                            fontFamily: AppTheme.fontDisplay,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.bluetooth_audio,
+                              size: 12,
+                              color: accentColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              "BLUETOOTH AUDIO ROUTED",
+                              style: TextStyle(
+                                color: secondaryTextColor,
+                                fontSize: 10,
+                                letterSpacing: 1,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
 
                 // Bottom Call controllers
                 Padding(
@@ -502,12 +657,22 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                       // Mute Button
                       FloatingActionButton(
                         heroTag: "mute_voice",
-                        backgroundColor: _isMicMuted ? AppTheme.fhTextPrimary.withValues(alpha: 0.24) : AppTheme.fhBgMedium,
-                        child: Icon(_isMicMuted ? MdiIcons.microphoneOff : MdiIcons.microphone, color: AppTheme.fhTextPrimary),
+                        backgroundColor: _isMicMuted
+                            ? primaryTextColor.withValues(alpha: 0.24)
+                            : (isLight ? JweTheme.panel2 : AppTheme.fhBgMedium),
+                        child: Icon(
+                          _isMicMuted ? MdiIcons.microphoneOff : MdiIcons.microphone,
+                          color: primaryTextColor,
+                        ),
                         onPressed: () {
                           setState(() {
                             _isMicMuted = !_isMicMuted;
                           });
+                          if (_isMicMuted) {
+                            SttService.instance.stopListening();
+                          } else {
+                            _startAutoListening();
+                          }
                         },
                       ),
                       const SizedBox(width: 32),
@@ -516,7 +681,11 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                         heroTag: "end_voice",
                         backgroundColor: Colors.red,
                         child: const Icon(MdiIcons.phoneHangup, color: Colors.white),
-                        onPressed: () => setState(() => _isLiveVoiceOpen = false),
+                        onPressed: () {
+                          SttService.instance.stopListening();
+                          TtsService.instance.stop();
+                          setState(() => _isLiveVoiceOpen = false);
+                        },
                       ),
                     ],
                   ),
@@ -846,12 +1015,16 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                       children: [
                         // Live Voice triggers
                         IconButton(
-                          icon: Icon(MdiIcons.microphone, color: AppTheme.fhAccentPurple),
+                          icon: Icon(
+                            MdiIcons.microphone,
+                            color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+                          ),
                           tooltip: "Live Comms Link",
                           onPressed: () {
                             setState(() {
                               _isLiveVoiceOpen = true;
                             });
+                            _startAutoListening();
                           },
                         ),
                         const SizedBox(width: 8),

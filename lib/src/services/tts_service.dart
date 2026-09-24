@@ -3,10 +3,28 @@ import 'package:flutter/services.dart';
 
 /// Service providing native Android Text-To-Speech capabilities via MethodChannel.
 class TtsService {
-  TtsService._();
+  TtsService._() {
+    _channel.setMethodCallHandler(_handleNativeCall);
+  }
   static final TtsService instance = TtsService._();
 
   static const MethodChannel _channel = MethodChannel('arcane/tts');
+
+  final ValueNotifier<bool> isSpeakingNotifier = ValueNotifier<bool>(false);
+  VoidCallback? onSpeechCompleted;
+
+  Future<void> _handleNativeCall(MethodCall call) async {
+    switch (call.method) {
+      case 'onStart':
+        isSpeakingNotifier.value = true;
+        break;
+      case 'onDone':
+      case 'onError':
+        isSpeakingNotifier.value = false;
+        onSpeechCompleted?.call();
+        break;
+    }
+  }
 
   /// Speaks the provided text via the native Android TTS engine.
   /// Automatically strips markdown syntax for natural voice synthesis.

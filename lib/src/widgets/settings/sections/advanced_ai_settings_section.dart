@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/services/assistant_routing_service.dart';
 import 'package:missions/src/services/tts_service.dart';
 import 'package:missions/src/widgets/settings/ai_providers_manager.dart';
 import 'package:missions/src/widgets/settings/sections/settings_section_card.dart';
@@ -30,6 +31,8 @@ class AdvancedAiSettingsSection extends StatefulWidget {
 class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
   bool _regeneratingStyleMap = false;
   late TextEditingController _customPkgController;
+  List<InstalledAssistant> _installedAssistants = [];
+  bool _isLoadingAssistants = true;
 
   @override
   void initState() {
@@ -37,6 +40,18 @@ class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
     _customPkgController = TextEditingController(
       text: widget.appProvider.settings.bluetoothAssistantCustomPackage,
     );
+    _loadInstalledAssistants();
+  }
+
+  Future<void> _loadInstalledAssistants() async {
+    setState(() => _isLoadingAssistants = true);
+    final list = await AssistantRoutingService.instance.getInstalledAssistants();
+    if (mounted) {
+      setState(() {
+        _installedAssistants = list;
+        _isLoadingAssistants = false;
+      });
+    }
   }
 
   @override
@@ -309,32 +324,117 @@ class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
           ),
         ),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          value: appProvider.settings.bluetoothAssistantRedirectTarget,
-          decoration: InputDecoration(
-            labelText: 'Bluetooth Voice Command Target',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          ),
-          dropdownColor: JweTheme.isLight ? JweTheme.panel : AppTheme.fhBgDark,
-          items: const [
-            DropdownMenuItem(value: 'nora', child: Text('Nora (Arcane Tactical Assistant)')),
-            DropdownMenuItem(value: 'chatgpt', child: Text('ChatGPT (com.openai.chatgpt)')),
-            DropdownMenuItem(value: 'gemini', child: Text('Google Gemini (Assistant)')),
-            DropdownMenuItem(value: 'claude', child: Text('Anthropic Claude')),
-            DropdownMenuItem(value: 'perplexity', child: Text('Perplexity AI')),
-            DropdownMenuItem(value: 'copilot', child: Text('Microsoft Copilot')),
-            DropdownMenuItem(value: 'system_assist', child: Text('System Default Assistant')),
-            DropdownMenuItem(value: 'custom', child: Text('Custom App Package Name...')),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              _isLoadingAssistants
+                  ? "Scanning installed assistants..."
+                  : "${_installedAssistants.length} installed assistant app(s) discovered",
+              style: TextStyle(
+                color: JweTheme.isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            if (_isLoadingAssistants)
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+                  ),
+                ),
+              )
+            else
+              IconButton(
+                icon: Icon(
+                  MdiIcons.refresh,
+                  size: 16,
+                  color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+                ),
+                tooltip: 'Re-scan installed assistant apps',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: _loadInstalledAssistants,
+              ),
           ],
-          onChanged: (val) async {
-            if (val == null) return;
-            setState(() {
-              appProvider.settings.bluetoothAssistantRedirectTarget = val;
-            });
-            appProvider.setSettings(appProvider.settings);
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('bluetooth_assistant_redirect_target', val);
+        ),
+        const SizedBox(height: 6),
+        Builder(
+          builder: (context) {
+            final List<DropdownMenuItem<String>> items = [
+              const DropdownMenuItem(
+                value: 'nora',
+                child: Text('Nora (Arcane Tactical Assistant)'),
+              ),
+              const DropdownMenuItem(
+                value: 'system_assist',
+                child: Text('System Default Assistant'),
+              ),
+              ..._installedAssistants.map((assistant) {
+                return DropdownMenuItem<String>(
+                  value: assistant.package,
+                  child: Text(
+                    '${assistant.label} (${assistant.package})',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }),
+              const DropdownMenuItem(
+                value: 'custom',
+                child: Text('Custom App Package Name...'),
+              ),
+            ];
+
+            // Normalize legacy short codes if present
+            String currentTarget = appProvider.settings.bluetoothAssistantRedirectTarget;
+            if (currentTarget == 'chatgpt' && _installedAssistants.any((a) => a.package == 'com.openai.chatgpt')) {
+              currentTarget = 'com.openai.chatgpt';
+            } else if (currentTarget == 'gemini' && _installedAssistants.any((a) => a.package == 'com.google.android.apps.googleassistant')) {
+              currentTarget = 'com.google.android.apps.googleassistant';
+            } else if (currentTarget == 'claude' && _installedAssistants.any((a) => a.package == 'com.anthropic.claude')) {
+              currentTarget = 'com.anthropic.claude';
+            } else if (currentTarget == 'perplexity' && _installedAssistants.any((a) => a.package == 'ai.perplexity.app')) {
+              currentTarget = 'ai.perplexity.app';
+            } else if (currentTarget == 'copilot' && _installedAssistants.any((a) => a.package == 'com.microsoft.copilot')) {
+              currentTarget = 'com.microsoft.copilot';
+            }
+
+            final validValues = items.map((i) => i.value).toSet();
+            if (!validValues.contains(currentTarget)) {
+              if (currentTarget.isNotEmpty && currentTarget != 'nora' && currentTarget != 'system_assist') {
+                if (_customPkgController.text.isEmpty) {
+                  _customPkgController.text = currentTarget;
+                }
+                currentTarget = 'custom';
+              } else {
+                currentTarget = 'nora';
+              }
+            }
+
+            return DropdownButtonFormField<String>(
+              value: currentTarget,
+              decoration: InputDecoration(
+                labelText: 'Bluetooth Voice Command Target',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              dropdownColor: JweTheme.isLight ? JweTheme.panel : AppTheme.fhBgDark,
+              isExpanded: true,
+              items: items,
+              onChanged: (val) async {
+                if (val == null) return;
+                setState(() {
+                  appProvider.settings.bluetoothAssistantRedirectTarget = val;
+                });
+                appProvider.setSettings(appProvider.settings);
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('bluetooth_assistant_redirect_target', val);
+              },
+            );
           },
         ),
         if (appProvider.settings.bluetoothAssistantRedirectTarget == 'custom') ...[
