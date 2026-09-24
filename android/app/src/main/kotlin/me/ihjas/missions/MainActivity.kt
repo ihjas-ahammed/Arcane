@@ -29,6 +29,9 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var speechRecognizer: SpeechRecognizer? = null
+    private var pendingPermissionResult: MethodChannel.Result? = null
+    private var pendingStartListening = false
+    private val PERMISSION_REQUEST_CODE = 2001
 
     companion object {
         const val CHANNEL = "arcane/widget"
@@ -130,9 +133,85 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            val audioIdx = permissions.indexOf(android.Manifest.permission.RECORD_AUDIO)
+            val audioGranted = audioIdx != -1 && grantResults.isNotEmpty() && grantResults[audioIdx] == PackageManager.PERMISSION_GRANTED
+            pendingPermissionResult?.success(audioGranted)
+            pendingPermissionResult = null
+
+            if (audioGranted && pendingStartListening) {
+                pendingStartListening = false
+                startSpeechRecognitionInternal()
+            } else if (!audioGranted && pendingStartListening) {
+                pendingStartListening = false
+                sttMethodChannel?.invokeMethod("onError", "Microphone permission denied")
+                sttMethodChannel?.invokeMethod("onListening", false)
+            }
+        }
+    }
+
+    private fun startSpeechRecognitionInternal() {
+        Handler(Looper.getMainLooper()).post {
+            try {
+                routeAudioToBluetooth(true)
+                speechRecognizer?.destroy()
+                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+                speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+                    override fun onReadyForSpeech(params: Bundle?) {
+                        sttMethodChannel?.invokeMethod("onListening", true)
+                    }
+                    override fun onBeginningOfSpeech() {
+                        sttMethodChannel?.invokeMethod("onSpeechStart", null)
+                    }
+                    override fun onRmsChanged(rmsdB: Float) {
+                        sttMethodChannel?.invokeMethod("onRmsChanged", rmsdB.toDouble())
+                    }
+                    override fun onBufferReceived(buffer: ByteArray?) {}
+                    override fun onEndOfSpeech() {
+                        sttMethodChannel?.invokeMethod("onSpeechEnd", null)
+                    }
+                    override fun onError(error: Int) {
+                        sttMethodChannel?.invokeMethod("onError", "Error code $error")
+                        sttMethodChannel?.invokeMethod("onListening", false)
+                    }
+                    override fun onResults(results: Bundle?) {
+                        sttMethodChannel?.invokeMethod("onListening", false)
+                        val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        val text = matches?.firstOrNull() ?: ""
+                        sttMethodChannel?.invokeMethod("onResult", text)
+                    }
+                    override fun onPartialResults(partialResults: Bundle?) {
+                        val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        val text = matches?.firstOrNull() ?: ""
+                        sttMethodChannel?.invokeMethod("onPartialResult", text)
+                    }
+                    override fun onEvent(eventType: Int, params: Bundle?) {}
+                })
+
+                val sttIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
+                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                    putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+                }
+                speechRecognizer?.startListening(sttIntent)
+            } catch (e: Exception) {
+                sttMethodChannel?.invokeMethod("onError", e.message ?: "Failed to start speech recognition")
+                sttMethodChannel?.invokeMethod("onListening", false)
+            }
+        }
+    }
+
     /**
      * Routes incoming and outgoing voice audio to any connected Bluetooth audio
-     * device (SCO headset, BLE headset, hearing aid, or A2DP).
+     * device (SCO headset, BLE headset, hearing aid).
      */
     private fun routeAudioToBluetooth(enable: Boolean) {
         try {
@@ -146,16 +225,16 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                     val btDevice = devices.firstOrNull {
                         it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
                         it.type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
-                        it.type == AudioDeviceInfo.TYPE_HEARING_AID ||
-                        it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+                        it.type == AudioDeviceInfo.TYPE_HEARING_AID
                     }
                     if (btDevice != null) {
                         audioManager.setCommunicationDevice(btDevice)
                     }
-                }
-                if (audioManager.isBluetoothScoAvailableOffCall && !audioManager.isBluetoothScoOn) {
-                    audioManager.startBluetoothSco()
-                    audioManager.isBluetoothScoOn = true
+                } else {
+                    if (audioManager.isBluetoothScoAvailableOffCall && !audioManager.isBluetoothScoOn) {
+                        audioManager.startBluetoothSco()
+                        audioManager.isBluetoothScoOn = true
+                    }
                 }
             } else {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -173,6 +252,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
 
     /**
      * Launches external assistant directly into voice/mic listening mode.
+     * Never calls finish() to keep Arcane running and protect user session & data!
      */
     private fun launchAssistantVoiceMode(target: String): Boolean {
         routeAudioToBluetooth(true)
@@ -189,13 +269,15 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
             }
         }
 
-        // 0. If explicit activity is specified, try launching it directly
+        // 0. If explicit activity is specified, try launching it directly with voice extras
         if (!targetActivity.isNullOrEmpty()) {
             val comp = ComponentName(targetPackage, targetActivity)
             val explicitVoiceIntent = Intent("android.intent.action.VOICE_ASSIST").apply {
                 component = comp
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 putExtra("open_voice", true)
+                putExtra("voice_mode", true)
+                putExtra("start_voice", true)
                 putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
             }
             try {
@@ -205,8 +287,10 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
 
             val explicitCmdIntent = Intent(Intent.ACTION_VOICE_COMMAND).apply {
                 component = comp
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 putExtra("open_voice", true)
+                putExtra("voice_mode", true)
+                putExtra("start_voice", true)
                 putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
             }
             try {
@@ -216,8 +300,10 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
 
             val directIntent = Intent().apply {
                 component = comp
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 putExtra("open_voice", true)
+                putExtra("voice_mode", true)
+                putExtra("start_voice", true)
                 putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
             }
             try {
@@ -226,12 +312,50 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
             } catch (_: Exception) {}
         }
 
-        // 1. Try ACTION_VOICE_ASSIST (Standard Android voice assistant intent)
+        // 1. Specific ChatGPT voice activity / assist intent candidates
+        if (targetPackage == "com.openai.chatgpt") {
+            val voiceComponents = listOf(
+                ComponentName("com.openai.chatgpt", "com.openai.voice.assistant.AssistantActivity"),
+                ComponentName("com.openai.chatgpt", "com.openai.voice.VoiceActivity"),
+                ComponentName("com.openai.chatgpt", "com.openai.chatgpt.MainActivity")
+            )
+            for (comp in voiceComponents) {
+                try {
+                    val explicitIntent = Intent("android.intent.action.VOICE_ASSIST").apply {
+                        component = comp
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        putExtra("open_voice", true)
+                        putExtra("voice_mode", true)
+                        putExtra("start_voice", true)
+                        putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
+                    }
+                    startActivity(explicitIntent)
+                    return true
+                } catch (_: Exception) {}
+
+                try {
+                    val cmdIntent = Intent(Intent.ACTION_VOICE_COMMAND).apply {
+                        component = comp
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        putExtra("open_voice", true)
+                        putExtra("voice_mode", true)
+                        putExtra("start_voice", true)
+                        putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
+                    }
+                    startActivity(cmdIntent)
+                    return true
+                } catch (_: Exception) {}
+            }
+        }
+
+        // 2. Try ACTION_VOICE_ASSIST (Standard Android voice assistant intent)
         val voiceAssistIntent = Intent("android.intent.action.VOICE_ASSIST").apply {
             setPackage(targetPackage)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
             putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
             putExtra("open_voice", true)
+            putExtra("voice_mode", true)
+            putExtra("start_voice", true)
         }
         if (pm.queryIntentActivities(voiceAssistIntent, 0).isNotEmpty()) {
             try {
@@ -240,30 +364,40 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
             } catch (_: Exception) {}
         }
 
-        // 2. Specific ChatGPT voice activity / intent
-        if (targetPackage == "com.openai.chatgpt") {
-            val voiceComponents = listOf(
-                ComponentName("com.openai.chatgpt", "com.openai.voice.VoiceActivity"),
-                ComponentName("com.openai.chatgpt", "com.openai.chatgpt.MainActivity")
-            )
-            for (comp in voiceComponents) {
-                try {
-                    val explicitIntent = Intent("android.intent.action.VOICE_ASSIST").apply {
-                        component = comp
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        putExtra("open_voice", true)
-                        putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
-                    }
-                    startActivity(explicitIntent)
-                    return true
-                } catch (_: Exception) {}
-            }
+        // 3. Try ACTION_VOICE_COMMAND (Direct Bluetooth headset voice button intent)
+        val voiceCmdIntent = Intent(Intent.ACTION_VOICE_COMMAND).apply {
+            setPackage(targetPackage)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
+            putExtra("open_voice", true)
+            putExtra("voice_mode", true)
+            putExtra("start_voice", true)
+        }
+        if (pm.queryIntentActivities(voiceCmdIntent, 0).isNotEmpty()) {
+            try {
+                startActivity(voiceCmdIntent)
+                return true
+            } catch (_: Exception) {}
         }
 
-        // 3. Try standard ACTION_ASSIST with voice hint
+        // 4. Try ACTION_VOICE_SEARCH_HANDS_FREE
+        val handsFreeIntent = Intent("android.speech.action.VOICE_SEARCH_HANDS_FREE").apply {
+            setPackage(targetPackage)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
+            putExtra("open_voice", true)
+        }
+        if (pm.queryIntentActivities(handsFreeIntent, 0).isNotEmpty()) {
+            try {
+                startActivity(handsFreeIntent)
+                return true
+            } catch (_: Exception) {}
+        }
+
+        // 5. Try standard ACTION_ASSIST with voice hint
         val assistIntent = Intent(Intent.ACTION_ASSIST).apply {
             setPackage(targetPackage)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
             putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
             putExtra("open_voice", true)
         }
@@ -274,22 +408,12 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
             } catch (_: Exception) {}
         }
 
-        // 4. Try ACTION_VOICE_SEARCH_HANDS_FREE
-        val handsFreeIntent = Intent("android.speech.action.VOICE_SEARCH_HANDS_FREE").apply {
-            setPackage(targetPackage)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-        if (pm.queryIntentActivities(handsFreeIntent, 0).isNotEmpty()) {
-            try {
-                startActivity(handsFreeIntent)
-                return true
-            } catch (_: Exception) {}
-        }
-
-        // 5. Fallback to package launch intent with voice extras
+        // 6. Fallback to package launch intent with voice extras
         val launchIntent = pm.getLaunchIntentForPackage(targetPackage)?.apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             putExtra("open_voice", true)
+            putExtra("voice_mode", true)
+            putExtra("start_voice", true)
             putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
         }
         if (launchIntent != null) {
@@ -306,6 +430,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
      * Handles incoming Bluetooth voice command (ACTION_VOICE_COMMAND), system
      * assist (ACTION_ASSIST), and voice assist intents.
      *
+     * Never calls finish() to keep Arcane completely intact in the background.
      * If user configured a redirector in Settings (e.g. ChatGPT, Gemini, Claude,
      * Perplexity, Copilot, or custom app), it seamlessly launches that assistant
      * in active voice/mic mode. Otherwise, it opens Nora in active voice mode!
@@ -349,28 +474,27 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
             if (redirectTarget == "system_assist") {
                 routeAudioToBluetooth(true)
                 val assistIntent = Intent("android.intent.action.VOICE_ASSIST").apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
                     putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
                     putExtra("open_voice", true)
                 }
                 try {
                     startActivity(assistIntent)
-                    finish()
+                    // Keep Arcane alive in background; never call finish()
                     return true
                 } catch (_: Exception) {
                     val fallbackIntent = Intent(Intent.ACTION_ASSIST).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
                     }
                     try {
                         startActivity(fallbackIntent)
-                        finish()
                         return true
                     } catch (_: Exception) {}
                 }
             } else if (targetPackage.isNotEmpty()) {
                 val launched = launchAssistantVoiceMode(targetPackage)
                 if (launched) {
-                    finish()
+                    // Keep Arcane alive in background; never call finish()
                     return true
                 }
             }
@@ -464,56 +588,38 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         // STT (Speech Recognizer) method channel handler
         sttMethodChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
-                "startListening" -> {
-                    Handler(Looper.getMainLooper()).post {
-                        try {
-                            routeAudioToBluetooth(true)
-                            speechRecognizer?.destroy()
-                            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(applicationContext)
-                            speechRecognizer?.setRecognitionListener(object : RecognitionListener {
-                                override fun onReadyForSpeech(params: Bundle?) {
-                                    sttMethodChannel?.invokeMethod("onListening", true)
-                                }
-                                override fun onBeginningOfSpeech() {
-                                    sttMethodChannel?.invokeMethod("onSpeechStart", null)
-                                }
-                                override fun onRmsChanged(rmsdB: Float) {
-                                    sttMethodChannel?.invokeMethod("onRmsChanged", rmsdB.toDouble())
-                                }
-                                override fun onBufferReceived(buffer: ByteArray?) {}
-                                override fun onEndOfSpeech() {
-                                    sttMethodChannel?.invokeMethod("onSpeechEnd", null)
-                                }
-                                override fun onError(error: Int) {
-                                    sttMethodChannel?.invokeMethod("onError", "Error code $error")
-                                    sttMethodChannel?.invokeMethod("onListening", false)
-                                }
-                                override fun onResults(results: Bundle?) {
-                                    sttMethodChannel?.invokeMethod("onListening", false)
-                                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                                    val text = matches?.firstOrNull() ?: ""
-                                    sttMethodChannel?.invokeMethod("onResult", text)
-                                }
-                                override fun onPartialResults(partialResults: Bundle?) {
-                                    val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                                    val text = matches?.firstOrNull() ?: ""
-                                    sttMethodChannel?.invokeMethod("onPartialResult", text)
-                                }
-                                override fun onEvent(eventType: Int, params: Bundle?) {}
-                            })
-
-                            val sttIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
-                                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                                putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+                "hasPermission" -> {
+                    val hasRecordAudio = checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                    result.success(hasRecordAudio)
+                }
+                "requestPermission" -> {
+                    if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                        result.success(true)
+                    } else {
+                        pendingPermissionResult = result
+                        val permsToRequest = mutableListOf(android.Manifest.permission.RECORD_AUDIO)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            if (checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                                permsToRequest.add(android.Manifest.permission.BLUETOOTH_CONNECT)
                             }
-                            speechRecognizer?.startListening(sttIntent)
-                            result.success(true)
-                        } catch (e: Exception) {
-                            result.success(false)
                         }
+                        requestPermissions(permsToRequest.toTypedArray(), PERMISSION_REQUEST_CODE)
+                    }
+                }
+                "startListening" -> {
+                    if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                        pendingStartListening = true
+                        val permsToRequest = mutableListOf(android.Manifest.permission.RECORD_AUDIO)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            if (checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                                permsToRequest.add(android.Manifest.permission.BLUETOOTH_CONNECT)
+                            }
+                        }
+                        requestPermissions(permsToRequest.toTypedArray(), PERMISSION_REQUEST_CODE)
+                        result.success(true)
+                    } else {
+                        startSpeechRecognitionInternal()
+                        result.success(true)
                     }
                 }
                 "stopListening" -> {
@@ -524,7 +630,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                     }
                 }
                 "isAvailable" -> {
-                    result.success(SpeechRecognizer.isRecognitionAvailable(applicationContext))
+                    result.success(SpeechRecognizer.isRecognitionAvailable(this))
                 }
                 else -> result.notImplemented()
             }

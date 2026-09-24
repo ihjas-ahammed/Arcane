@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/chatbot_models.dart';
@@ -35,6 +36,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
   bool _isMicMuted = false;
   String _liveTranscription = '';
   bool _isRecognizing = false;
+  Timer? _greetingTimer;
 
   final List<String> _suggestions = [
     "Check off my daily tasks",
@@ -56,7 +58,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
       final appProvider = Provider.of<AppProvider>(context, listen: false);
       if (widget.isVoiceCommandLaunch) {
         if (appProvider.settings.noraAutoSpeakTts) {
-          TtsService.instance.speak("Nora online. How can I assist you?");
+          _speakInitialGreeting();
         } else {
           _startAutoListening();
         }
@@ -70,8 +72,29 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
     };
   }
 
+  Future<void> _speakInitialGreeting() async {
+    bool listeningStarted = false;
+    void triggerListening() {
+      if (mounted && !listeningStarted && _isLiveVoiceOpen && !_isMicMuted && !_isSending) {
+        listeningStarted = true;
+        _startAutoListening();
+      }
+    }
+
+    _greetingTimer?.cancel();
+    // Safety fallback: if TTS takes longer than 2.0s or fails silently, start mic immediately
+    _greetingTimer = Timer(const Duration(milliseconds: 2000), triggerListening);
+
+    final spoken = await TtsService.instance.speak("Nora online. How can I assist you?");
+    if (!spoken) {
+      _greetingTimer?.cancel();
+      triggerListening();
+    }
+  }
+
   @override
   void dispose() {
+    _greetingTimer?.cancel();
     TtsService.instance.onSpeechCompleted = null;
     SttService.instance.stopListening();
     TtsService.instance.stop();
@@ -87,6 +110,19 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
       _liveTranscription = '';
     });
     AssistantRoutingService.instance.routeBluetoothAudio(true);
+
+    // Verify / request RECORD_AUDIO permission
+    final hasPerm = await SttService.instance.hasPermission();
+    if (!hasPerm) {
+      final granted = await SttService.instance.requestPermission();
+      if (!granted) {
+        if (mounted) {
+          setState(() => _isRecognizing = false);
+        }
+        return;
+      }
+    }
+
     await SttService.instance.startListening(
       onListening: () {
         if (mounted) setState(() => _isRecognizing = true);
@@ -440,33 +476,43 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                     final orbColor = _audioOutputEnabled ? accentColor : Colors.red;
 
                     return Center(
-                      child: Transform.scale(
-                        scale: reactiveScale,
-                        child: Container(
-                          width: 180,
-                          height: 180,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: RadialGradient(
-                              colors: [
-                                orbColor.withOpacity(0.8),
-                                orbColor.withOpacity(0.2),
-                                Colors.transparent,
+                      child: GestureDetector(
+                        onTap: () {
+                          if (!_isRecognizing && !_isSending && _audioOutputEnabled) {
+                            if (_isMicMuted) {
+                              setState(() => _isMicMuted = false);
+                            }
+                            _startAutoListening();
+                          }
+                        },
+                        child: Transform.scale(
+                          scale: reactiveScale,
+                          child: Container(
+                            width: 180,
+                            height: 180,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                colors: [
+                                  orbColor.withOpacity(0.8),
+                                  orbColor.withOpacity(0.2),
+                                  Colors.transparent,
+                                ],
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: orbColor.withOpacity(0.4),
+                                  blurRadius: 50,
+                                  spreadRadius: _audioOutputEnabled ? 15 : 5,
+                                ),
                               ],
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: orbColor.withOpacity(0.4),
-                                blurRadius: 50,
-                                spreadRadius: _audioOutputEnabled ? 15 : 5,
+                            child: Center(
+                              child: Icon(
+                                _isMicMuted ? MdiIcons.microphoneOff : MdiIcons.creation,
+                                size: 64,
+                                color: Colors.white,
                               ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Icon(
-                              _isMicMuted ? MdiIcons.microphoneOff : MdiIcons.creation,
-                              size: 64,
-                              color: Colors.white,
                             ),
                           ),
                         ),

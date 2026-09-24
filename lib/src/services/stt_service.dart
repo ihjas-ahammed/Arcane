@@ -95,6 +95,26 @@ class SttService {
     }
   }
 
+  /// Checks if microphone permission is currently granted.
+  Future<bool> hasPermission() async {
+    try {
+      final granted = await _channel.invokeMethod<bool>('hasPermission');
+      return granted ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Requests microphone (and Bluetooth connect on Android 12+) permission from system.
+  Future<bool> requestPermission() async {
+    try {
+      final granted = await _channel.invokeMethod<bool>('requestPermission');
+      return granted ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   /// Checks if native speech recognition is available on this system.
   Future<bool> isAvailable() async {
     try {

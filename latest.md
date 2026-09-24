@@ -1,3 +1,18 @@
+# ⚡ Arcane System Upgrade // v2026.9.24 (Build #2126092404)
+
+### 🛡️ App State Preservation & Anti-Reset Architecture
+- **Eliminated Destructive Activity Lifecycle**: Removed destructive `finish()` calls on `MainActivity` during assistant and voice intent handling. Arcane now preserves running state, journal entries, active timers, and in-memory caches undisturbed in the background when redirecting to external or native voice assistants.
+- **SingleTask Launch Architecture & Task Affinity Unification**: Configured `MainActivity` with `android:launchMode="singleTask"` and unified application task affinity. Incoming Bluetooth voice triggers (`ACTION_VOICE_COMMAND`, `ACTION_ASSIST`, `ACTION_VOICE_ASSIST`) seamlessly route to the existing task's `onNewIntent` without spawning duplicate engine instances or restarting Flutter.
+- **Disaster-Proof Atomic Local Storage**: Hardened `LocalStorageService` with atomic file transactions (`.tmp` write followed by atomic filesystem rename), automated `.bak` backup rotation on every save, and intelligent corrupt-JSON recovery to ensure 2+ years of journal data and missions remain safe against unexpected OS process terminations.
+
+### 🎙️ Bulletproof Instant Mic Auto-Start Engine
+- **Automated Runtime Permission Orchestration**: Added native `RECORD_AUDIO` and `BLUETOOTH_CONNECT` runtime permission negotiation in `MainActivity.kt` and `SttService`. Speech recognition automatically prompts for permissions if missing and immediately engages listening upon grant without requiring extra user taps.
+- **Race-Condition-Proof Initial Greeting**: Resolved TTS initialization race condition in `NoraAiScreen` where delayed TTS engine initialization prevented auto-listening. Implemented safety timeout fallbacks and instant listening activation.
+- **One-Tap Waveform Orb Reactivation**: Enhanced the audio-reactive Live Link orb with gesture detection, allowing operators to instantly tap the orb at any time to re-engage speech recognition if paused or completed.
+- **Universal External Voice Mode Engagement**: Enhanced external assistant dispatch (ChatGPT, Google Assistant / Gemini, Claude, etc.) with verified voice intent extras (`open_voice`, `voice_mode`, `start_voice`) without clearing caller tasks.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.24 (Build #2126092403)
 
 ### 🎯 Custom Assistant Application & Activity Picker Screen

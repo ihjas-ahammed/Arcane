@@ -14,6 +14,11 @@ class LocalStorageService {
     return File('${directory.path}/arcane_local_cache_$userId.json');
   }
 
+  Future<File> _backupFile(String userId) async {
+    final directory = await getApplicationDocumentsDirectory();
+    return File('${directory.path}/arcane_local_cache_$userId.bak');
+  }
+
   Future<void> saveState(String userId, Map<String, dynamic> state) async {
     try {
       if (kIsWeb) {
@@ -23,9 +28,24 @@ class LocalStorageService {
         return;
       }
       final file = await _localFile(userId);
+      final backup = await _backupFile(userId);
+      final tempFile = File('${file.path}.tmp');
+
       // Offload heavy JSON serialization to a background isolate
       final jsonString = await compute(_encodeJson, state);
-      await file.writeAsString(jsonString, flush: true);
+
+      // 1. Atomic write: write complete data to .tmp and flush to disk
+      await tempFile.writeAsString(jsonString, flush: true);
+
+      // 2. Rotate previous valid cache into .bak for disaster recovery
+      if (await file.exists()) {
+        try {
+          await file.copy(backup.path);
+        } catch (_) {}
+      }
+
+      // 3. Atomically replace the destination file
+      await tempFile.rename(file.path);
     } catch (e) {
       debugPrint("LocalStorage Save Error: $e");
     }
@@ -41,10 +61,33 @@ class LocalStorageService {
       }
       final file = await _localFile(userId);
       if (await file.exists()) {
-        final contents = await file.readAsString();
-        if (contents.isEmpty) return null;
-        // Offload parsing to background isolate
-        return await compute(_decodeJson, contents);
+        try {
+          final contents = await file.readAsString();
+          if (contents.isNotEmpty) {
+            return await compute(_decodeJson, contents);
+          }
+        } catch (e) {
+          debugPrint("LocalStorage Primary Load Error: $e — Attempting backup recovery");
+        }
+      }
+
+      // Fallback: If primary file is missing or corrupted, attempt recovery from .bak
+      final backup = await _backupFile(userId);
+      if (await backup.exists()) {
+        try {
+          final bakContents = await backup.readAsString();
+          if (bakContents.isNotEmpty) {
+            final data = await compute(_decodeJson, bakContents);
+            debugPrint("Successfully recovered state from backup!");
+            // Restore primary from backup
+            try {
+              await backup.copy(file.path);
+            } catch (_) {}
+            return data;
+          }
+        } catch (bakError) {
+          debugPrint("LocalStorage Backup Recovery Error: $bakError");
+        }
       }
     } catch (e) {
       debugPrint("LocalStorage Load Error: $e");
