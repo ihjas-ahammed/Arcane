@@ -1,3 +1,17 @@
+# ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092706)
+
+### 📋 Briefing Refresh (Start Day + Tactical Briefing)
+- **No more crashes on old reports**: every field the AI returns is now parsed defensively, so an older or malformed saved Start Day report or Tactical Briefing renders with fallbacks instead of taking the whole card down.
+- **Goals at risk**: weekly and monthly goals that are trailing the pace needed to finish on time get a red `AT RISK · Nd LEFT` badge, and the AI is told about them so the day's highlight, obstacle plan and directives target them first.
+- **Contingency for tomorrow**: the end-of-day briefing now ends with one likely obstacle and an if-then plan, matching what Start Day already had.
+- **Less filler, more specifics**: prompts now demand plain second-person prose (no markdown inside the briefing), fewer gratitude items, shorter summaries, and finance feedback only when money actually moved. Recommended tasks show their *why*.
+- **Small fixes**: long names no longer overflow on narrow phones; the finance panel hides when the day had no income or expense; switching the inspected date clears a stale generation error.
+
+### 🛡️ Stability
+- Fixed 8 `BuildContext`-after-async crash risks (archived reports, task details, edit-log dialog, data recovery, database editor) and a batch of analyzer nits.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092705)
 
 ### 🛠️ Build Fix
