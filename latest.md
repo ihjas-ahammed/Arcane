@@ -1,3 +1,10 @@
+# ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092705)
+
+### 🛠️ Build Fix
+- **Fixed the Android release build**: build #2126092704 failed in `compileReleaseKotlin` with `Unresolved reference: getDefaultApps` (`LauncherBridge.kt:261`). The launcher rewrite kept the method-channel handler but dropped the function it calls. This restores the default-app lookup (dialer, SMS, browser, camera, email) used to build the initial dock, so #2126092704's launcher, update and Arcane Deck changes actually ship.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092704)
 
 ### ⚡ Instant Launcher Takeover (MIUI / HyperOS)
