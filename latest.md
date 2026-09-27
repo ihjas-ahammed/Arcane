@@ -1,3 +1,18 @@
+# ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092709)
+
+### 📈 Realtime Trading: Smart Money Protocol
+Inspired by Adam Sarhan's *Psychological Analysis* — trading is mostly psychology, and the mechanics that matter are entry, exit and risk, decided before the trade.
+
+- **Defense first, on every buy**: set a protective stop and a risk budget (0.25–1% of your portfolio) and tap **SIZE BY RISK**; the sheet shows what you lose if stopped, the stop distance, the position size and the gain needed to recover. A strict guard refuses buys above your max risk, and a daily buy cap stops machine-gun trading.
+- **Stops that actually fire**: a stop executes automatically when price hits it (logged as a STOP order, with a notification). You can raise it, move it to breakeven, or trail it — **never widen it**. At +5% the app nudges you to move to breakeven.
+- **Pre-trade gate**: five checks (best idea? early, not chasing? aligned with the trend — auto-hinted from the market regime; exit defined; edge in one line), Me / Crowd / Against notes, and a mood pick. FOMO, revenge, boredom and overconfidence get called out before you tap Execute.
+- **Journal**: every exit becomes a record with its R-multiple, holding period, exit reason and original plan. Review each one: did you follow the plan, process grade A/B/C, lesson learned — judge the decision, not the outcome.
+- **Stats that matter**: expectancy per trade (₹ and R), average win vs average loss, profit factor, streak and drawdown, plus an equity sparkline. Win rate is shown small on purpose. In a drawdown the suggested risk steps down (1% → 0.75 → 0.5 → 0.25).
+- **Risk rules** live in the trading settings; the guide sheet gains a "Smart Money Protocol" section with 8 cards.
+- Existing portfolios, holdings and orders load unchanged.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092708)
 
 ### 🧹 Code Health
