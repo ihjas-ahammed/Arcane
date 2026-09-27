@@ -50,7 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'HEALTH',
     'SCHEDULE',
     'PROJECTS',
-    'ANALYTICS',
+    'LOGBOOK',
     'WALLET',
   ];
 
@@ -176,7 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _DesktopNavItem(label: 'HEALTH', icon: MdiIcons.heartPulse),
     _DesktopNavItem(label: 'SCHEDULE', icon: MdiIcons.calendarClock),
     _DesktopNavItem(label: 'PROJECTS', icon: MdiIcons.rocketLaunchOutline),
-    _DesktopNavItem(label: 'INTEL', icon: MdiIcons.notebookOutline),
+    _DesktopNavItem(label: 'LOGBOOK', icon: MdiIcons.notebookOutline),
     _DesktopNavItem(label: 'WALLET', icon: MdiIcons.walletOutline),
   ];
 

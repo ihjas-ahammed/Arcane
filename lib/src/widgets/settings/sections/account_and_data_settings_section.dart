@@ -9,10 +9,18 @@ class AccountAndDataSettingsSection extends StatefulWidget {
   final AppProvider appProvider;
   final ThemeData theme;
 
+  /// Renders the "Access Credentials" card (password change, logout).
+  final bool includeCredentials;
+
+  /// Renders the "Data & System Reset" (danger zone) card.
+  final bool includeDangerZone;
+
   const AccountAndDataSettingsSection({
     super.key,
     required this.appProvider,
     required this.theme,
+    this.includeCredentials = true,
+    this.includeDangerZone = true,
   });
 
   @override
@@ -101,7 +109,7 @@ class _AccountAndDataSettingsSectionState
     return Column(
       children: [
         // 9. CREDENTIALS
-        if (appProvider.currentUser != null)
+        if (widget.includeCredentials && appProvider.currentUser != null)
           SettingsSectionCard(
             icon: MdiIcons.shieldAccountOutline,
             title: 'Access Credentials',
@@ -195,7 +203,8 @@ class _AccountAndDataSettingsSectionState
           ),
 
         // 10. DATA RESET
-        SettingsSectionCard(
+        if (widget.includeDangerZone)
+          SettingsSectionCard(
           icon: MdiIcons.databaseRemoveOutline,
           title: 'Data & System Reset',
           children: [

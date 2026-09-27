@@ -113,27 +113,27 @@ class _SettingsViewState extends State<SettingsView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 0. AUTO UPDATE & SYSTEM RELEASES
-              UpdateSettingsSection(appProvider: appProvider, theme: theme),
-
-              // 1. CLOUD SYNC
+              // 1. ACCOUNT & SYNC (credentials + cloud sync/backup)
+              AccountAndDataSettingsSection(
+                appProvider: appProvider,
+                theme: theme,
+                includeDangerZone: false,
+              ),
               CloudSyncSettingsSection(appProvider: appProvider, theme: theme),
 
-              // 2. SECURITY, PRIVACY & THEME
-              SecurityPrivacySettingsSection(appProvider: appProvider),
-
-              // 2.5 HOME LAUNCHER (default home / MIUI takeover)
+              // 2. HOME LAUNCHER (default home / MIUI takeover)
               const LauncherSettingsSection(),
 
-              // 3. AI MODELS
+              // 3. NOTIFICATIONS
+              NotificationsSettingsSection(appProvider: appProvider, theme: theme),
+
+              // 4. AI (models + advanced AI behavior)
               ModelConfigurationWidget(
                 appProvider: appProvider,
                 availableModels: _availableModels,
                 isFetching: _fetchingModels,
                 onFetch: () => _fetchModels(appProvider),
               ),
-
-              // 4. ADVANCED AI
               AdvancedAiSettingsSection(
                 appProvider: appProvider,
                 theme: theme,
@@ -141,17 +141,24 @@ class _SettingsViewState extends State<SettingsView> {
                 briefingPromptController: _customBriefingPromptController,
               ),
 
-              // 5 & 6. WEEKLY PROGRESS & UI CONFIG
+              // 5. UI (theme, weekly progress, interface config)
               UiAndProgressSettingsSection(appProvider: appProvider, theme: theme),
 
-              // 7. NOTIFICATIONS
-              NotificationsSettingsSection(appProvider: appProvider, theme: theme),
+              // 6. UPDATES
+              UpdateSettingsSection(appProvider: appProvider, theme: theme),
 
-              // 8, 8.5, 8.6. DIAGNOSTICS & ONBOARDING & TOOLS
+              // 7. SECURITY & PRIVACY
+              SecurityPrivacySettingsSection(appProvider: appProvider),
+
+              // 8. DIAGNOSTICS & TOOLS
               DiagnosticsAndToolsSection(appProvider: appProvider, theme: theme),
 
-              // 9 & 10. CREDENTIALS & DATA RESET
-              AccountAndDataSettingsSection(appProvider: appProvider, theme: theme),
+              // 9. DANGER ZONE (data & system reset)
+              AccountAndDataSettingsSection(
+                appProvider: appProvider,
+                theme: theme,
+                includeCredentials: false,
+              ),
             ],
           ),
         ),

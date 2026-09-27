@@ -7,7 +7,7 @@ import 'package:missions/src/screens/schedule/scheduled_reminders_screen.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 
-class NotificationsSettingsSection extends StatelessWidget {
+class NotificationsSettingsSection extends StatefulWidget {
   final AppProvider appProvider;
   final ThemeData theme;
 
@@ -16,6 +16,27 @@ class NotificationsSettingsSection extends StatelessWidget {
     required this.appProvider,
     required this.theme,
   });
+
+  @override
+  State<NotificationsSettingsSection> createState() => _NotificationsSettingsSectionState();
+}
+
+class _NotificationsSettingsSectionState extends State<NotificationsSettingsSection> {
+  // Kept alive for the widget's lifetime instead of being rebuilt (and losing
+  // cursor position / IME composition state) on every settings change, which
+  // is what happens on every keystroke since onChanged below calls
+  // setSettings, which notifies listeners and rebuilds this section.
+  late final TextEditingController _titleController =
+      TextEditingController(text: widget.appProvider.settings.energyNotificationTitle);
+  late final TextEditingController _bodyController =
+      TextEditingController(text: widget.appProvider.settings.energyNotificationBody);
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _bodyController.dispose();
+    super.dispose();
+  }
 
   String _fmtTime(int h, int m) {
     final dt = DateTime(2000, 1, 1, h, m);
@@ -37,9 +58,25 @@ class NotificationsSettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appProvider = widget.appProvider;
+    final theme = widget.theme;
     final s = appProvider.settings;
     final accent =
         appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
+    // Keep the controllers in sync if the underlying settings changed from
+    // elsewhere (e.g. data restore) without the user typing here.
+    if (_titleController.text != s.energyNotificationTitle) {
+      _titleController.value = _titleController.value.copyWith(
+        text: s.energyNotificationTitle,
+        selection: TextSelection.collapsed(offset: s.energyNotificationTitle.length),
+      );
+    }
+    if (_bodyController.text != s.energyNotificationBody) {
+      _bodyController.value = _bodyController.value.copyWith(
+        text: s.energyNotificationBody,
+        selection: TextSelection.collapsed(offset: s.energyNotificationBody.length),
+      );
+    }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 24),
@@ -296,10 +333,7 @@ class NotificationsSettingsSection extends StatelessWidget {
             if (s.energyNotificationsEnabled) ...[
               const SizedBox(height: 12),
               TextField(
-                controller: TextEditingController(text: s.energyNotificationTitle)
-                  ..selection = TextSelection.collapsed(
-                    offset: s.energyNotificationTitle.length,
-                  ),
+                controller: _titleController,
                 style: TextStyle(color: JweTheme.textWhite, fontSize: 13),
                 decoration: InputDecoration(
                   labelText: 'Notification Title',
@@ -318,10 +352,7 @@ class NotificationsSettingsSection extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               TextField(
-                controller: TextEditingController(text: s.energyNotificationBody)
-                  ..selection = TextSelection.collapsed(
-                    offset: s.energyNotificationBody.length,
-                  ),
+                controller: _bodyController,
                 style: TextStyle(color: JweTheme.textWhite, fontSize: 13),
                 decoration: InputDecoration(
                   labelText: 'Notification Text / Body',

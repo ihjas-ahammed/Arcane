@@ -34,7 +34,7 @@ class JweBottomNavBar extends StatelessWidget {
     _TabSpec(label: 'HEALTH',   icon: 'pulse'),
     _TabSpec(label: 'SCHEDULE', icon: 'calendar'),
     _TabSpec(label: 'PROJECTS', icon: 'projects'),
-    _TabSpec(label: 'INTEL',    icon: 'note'),
+    _TabSpec(label: 'LOGBOOK',  icon: 'note'),
     _TabSpec(label: 'WALLET',   icon: 'wallet'),
   ];
 
@@ -207,7 +207,7 @@ class JweBottomNavBar extends StatelessWidget {
                     const SizedBox(width: 52), // Gap for Nora circle
                     
                     Expanded(child: _buildTab(3)), // TOOLS
-                    Expanded(child: _buildTab(4)), // INTEL
+                    Expanded(child: _buildTab(4)), // LOGBOOK
                     Expanded(child: _buildTab(5)), // WALLET
                   ],
                 ),

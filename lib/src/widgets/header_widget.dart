@@ -108,7 +108,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
         IconButton(
           icon: Icon(MdiIcons.shieldAccount, color: JweTheme.textMuted, size: 22),
           onPressed: onOpenPersona,
-          tooltip: 'ARMORY',
+          tooltip: 'WELL-BEING',
         ),
         const SizedBox(width: 4),
       ],
@@ -170,31 +170,40 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _dateLabel(),
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 9.5,
-                      color: JweTheme.textMuted,
-                      letterSpacing: 1.2,
-                      fontWeight: FontWeight.w500,
+              // Flexible so the date shrinks (and ellipsizes) before this
+              // row pushes the strip into overflow on narrow phones; the
+              // clock stays a fixed, always-fully-visible width.
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        _dateLabel(),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 9.5,
+                          color: JweTheme.textMuted,
+                          letterSpacing: 1.2,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(width: 2, height: 2, color: JweTheme.lineSoft),
-                  const SizedBox(width: 6),
-                  Text(
-                    clock,
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 9.5,
-                      color: Theme.of(context).primaryColor,
-                      letterSpacing: 1.4,
-                      fontWeight: FontWeight.w600,
+                    const SizedBox(width: 6),
+                    Container(width: 2, height: 2, color: JweTheme.lineSoft),
+                    const SizedBox(width: 6),
+                    Text(
+                      clock,
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 9.5,
+                        color: Theme.of(context).primaryColor,
+                        letterSpacing: 1.4,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
