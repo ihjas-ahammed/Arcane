@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/models/project_models.dart';
+import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
@@ -449,11 +450,20 @@ class _ProjectsViewState extends State<ProjectsView> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<AppProvider>();
-    final projectsList = provider.projects;
-    final accentColor = provider.getSelectedTask()?.taskColor ?? JweTheme.accentAmber;
+    // Select only the fields this view renders with: watching the whole provider rebuilt
+    // this entire (potentially always-mounted) tab on every notifyListeners — finance/health
+    // edits, sync flags, etc — none of which this screen displays (mainTasks IS included,
+    // since per-project progress/streak below depend on linked task completion).
+    final (projectsList, activeProjectId, _, accentColor) =
+        context.select<AppProvider, (List<Project>, String?, List<MainTask>, Color)>((p) => (
+              p.projects,
+              p.activeProjectId,
+              p.mainTasks,
+              p.getSelectedTask()?.taskColor ?? JweTheme.accentAmber,
+            ));
+    final provider = context.read<AppProvider>();
 
-    if (provider.activeProjectId != null) {
+    if (activeProjectId != null) {
       final activeProject = projectsList.firstWhereOrNull((p) => p.id == provider.activeProjectId);
       if (activeProject != null) {
         return PopScope(

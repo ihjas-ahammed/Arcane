@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:missions/src/models/finance_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/dialogs/add_savings_log_dialog.dart';
@@ -17,8 +18,11 @@ class SavingsDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final goal = provider.savingsGoals.firstWhereOrNull((g) => g.id == goalId);
+    // Only savingsGoals feeds this screen — select it instead of watching the whole
+    // provider (avoids rebuilds from task timers, finance ledger edits, etc).
+    final savingsGoals = context.select<AppProvider, List<SavingsGoal>>((p) => p.savingsGoals);
+    final provider = context.read<AppProvider>();
+    final goal = savingsGoals.firstWhereOrNull((g) => g.id == goalId);
     
     if (goal == null) {
       return  Scaffold(backgroundColor: JweTheme.bgBase, body: SizedBox.shrink());

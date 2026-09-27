@@ -20,7 +20,9 @@ class SessionHistoryDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
+    // Only used below to call action methods — the displayed sessions come from the
+    // constructor-supplied subTask snapshot, so this never needs to watch for rebuilds.
+    final provider = context.read<AppProvider>();
     final sessions = subTask.sessions;
 
     return Drawer(

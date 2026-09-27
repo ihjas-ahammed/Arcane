@@ -315,7 +315,7 @@ Future<String?> _askName(BuildContext context) {
         FilledButton(onPressed: () => Navigator.pop(ctx, controller.text.trim().isEmpty ? 'Folder' : controller.text.trim()), child: const Text('CREATE')),
       ],
     ),
-  );
+  ).whenComplete(controller.dispose);
 }
 
 /// Menu for an item placed on home / shelf / dock (long-press without dragging).
@@ -1031,5 +1031,8 @@ void showAddWebApp(BuildContext context) {
         ),
       ],
     ),
-  );
+  ).whenComplete(() {
+    url.dispose();
+    name.dispose();
+  });
 }

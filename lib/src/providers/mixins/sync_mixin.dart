@@ -91,10 +91,12 @@ mixin SyncMixin on ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _saveLocalSnapshot({bool forceFlush = false}) async {
+  Future<void> _saveLocalSnapshot({bool forceFlush = false, Map<String, dynamic>? precomputedState}) async {
     if (currentUser == null) return;
     try {
-      final fullData = getFullAppState();
+      // Reuse a just-built state map when the caller already has one (e.g. right after a
+      // cloud save) instead of re-running getFullAppState()'s full serialization pass.
+      final fullData = precomputedState ?? getFullAppState();
       await _localStorageService.saveState(currentUser!.uid, fullData);
     } catch (e) {
       debugPrint("Local snapshot failed: $e");
@@ -254,7 +256,10 @@ mixin SyncMixin on ChangeNotifier {
         _dirtyCollections.clear();
         _hasUnsavedChanges = false;
         _lastSuccessfulSaveTimestamp = DateTime.now();
-        await _saveLocalSnapshot(forceFlush: true);
+        // appData was already built above for the cloud save — reuse it here instead of
+        // calling getFullAppState() (a full serialization pass over the entire app state)
+        // a second time back-to-back.
+        await _saveLocalSnapshot(forceFlush: true, precomputedState: appData);
         return true;
       }
       return false;

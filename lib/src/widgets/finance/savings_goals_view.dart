@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:missions/src/models/finance_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/screens/finance/savings_detail_screen.dart';
@@ -12,8 +13,9 @@ class SavingsGoalsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final goals = provider.savingsGoals;
+    // Only savingsGoals is rendered here; select it instead of watching the whole
+    // provider so unrelated changes elsewhere in the app don't rebuild this list.
+    final goals = context.select<AppProvider, List<SavingsGoal>>((p) => p.savingsGoals);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),

@@ -260,11 +260,25 @@ class LauncherService {
     _pruneMissing();
   }
 
-  /// Drops uninstalled apps from every area and folder (folders with < 2 items dissolve).
+  /// Whether a folder should auto-dissolve after a prune pass: only when it actually lost
+  /// items this pass (an uninstall) and that leaves it with fewer than 2. A folder the user
+  /// deliberately created with a single app — not yet grown, but untouched by this pass —
+  /// is left alone, instead of vanishing on the next app refresh.
+  @visibleForTesting
+  static bool shouldDissolveAfterPrune({required int itemsBefore, required int itemsAfter}) =>
+      itemsAfter < 2 && itemsAfter != itemsBefore;
+
+  /// Drops uninstalled apps from every area and folder (folders left with < 2 items by an
+  /// uninstall dissolve; see [shouldDissolveAfterPrune]).
   void _pruneMissing() {
     final nextFolders = <String, LauncherFolder>{};
+    final dissolve = <String>{};
     for (final f in folders.value.values) {
-      nextFolders[f.key] = f.copyWith(items: f.items.where(_byKey.containsKey).toList());
+      final kept = f.items.where(_byKey.containsKey).toList();
+      nextFolders[f.key] = f.copyWith(items: kept);
+      if (shouldDissolveAfterPrune(itemsBefore: f.items.length, itemsAfter: kept.length)) {
+        dissolve.add(f.key);
+      }
     }
     folders.value = Map.unmodifiable(nextFolders);
     for (final area in LauncherArea.values) {
@@ -272,8 +286,8 @@ class LauncherService {
       final kept = list.where(isValidKey).toList();
       if (kept.length != list.length) _saveArea(area, kept);
     }
-    for (final f in nextFolders.values.toList()) {
-      if (f.items.length < 2) _dissolveFolder(f.key);
+    for (final key in dissolve) {
+      _dissolveFolder(key);
     }
     _saveFolders();
   }

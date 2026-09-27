@@ -42,20 +42,23 @@ class SessionLogDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
+    // This drawer only ever renders task/session data — select mainTasks instead of
+    // watching the whole provider so finance/health/sync churn elsewhere doesn't rebuild it.
+    final mainTasks = context.select<AppProvider, List<MainTask>>((p) => p.mainTasks);
+    final provider = context.read<AppProvider>();
 
     MainTask? liveParentTask;
     SubTask? liveSubTask;
     try {
       liveParentTask =
-          provider.mainTasks.firstWhere((t) => t.id == parentTask.id);
+          mainTasks.firstWhere((t) => t.id == parentTask.id);
       liveSubTask =
           liveParentTask.subTasks.firstWhere((s) => s.id == subTask.id);
     } catch (e) {
       return const SizedBox.shrink();
     }
 
-    final recalibrated = TaskCalculations.recalculateAllTimeLogs(provider.mainTasks);
+    final recalibrated = TaskCalculations.recalculateAllTimeLogs(mainTasks);
     final sessions = List<TaskSession>.from(liveSubTask.sessions)
       ..sort((a, b) => b.startTime.compareTo(a.startTime));
 

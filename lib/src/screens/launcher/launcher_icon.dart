@@ -224,8 +224,10 @@ class LauncherIconCache {
           await Directory('${dir.path}/app/${_safe(pkg)}').delete(recursive: true);
         } catch (_) {}
       }
-      final prefix = _appSlot('$pkg/');
-      final stale = _slots.keys.where((k) => k.startsWith(prefix)).toList();
+      // Both own-profile apps (`pkg/activity`) and that package's pinned shortcuts
+      // (`sc:pkg/id@user`) need their cached icon reloaded.
+      final prefixes = [_appSlot('$pkg/'), _appSlot('sc:$pkg/')];
+      final stale = _slots.keys.where((k) => prefixes.any(k.startsWith)).toList();
       for (final id in stale) {
         _pendingApps.add(id.substring(2));
       }

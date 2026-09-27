@@ -247,9 +247,15 @@ class _LauncherDropSlotState extends State<LauncherDropSlot> {
         var index = list.indexOf(widget.itemKey);
         if (index < 0) return;
         if (zone == 1) index++;
-        if (from != null && from != widget.area) service.removeFromArea(from, dragged);
         if (from == widget.area && list.indexOf(dragged) < index) index--;
-        if (!service.addToArea(widget.area, dragged, index: index)) _full(context);
+        // Add to the target first (capacity-checked) before removing from the source, so a
+        // drop that doesn't fit (e.g. a full dock) leaves the item where it was instead of
+        // deleting it from its origin with nowhere to land.
+        if (!service.addToArea(widget.area, dragged, index: index)) {
+          _full(context);
+          return;
+        }
+        if (from != null && from != widget.area) service.removeFromArea(from, dragged);
       },
       builder: (context, candidates, _) {
         final hovering = candidates.isNotEmpty;

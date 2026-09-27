@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/theme/person_info_theme.dart';
@@ -16,7 +17,13 @@ class WellbeingDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appProvider = Provider.of<AppProvider>(context);
+    // Narrow the watch to skills/reflectionLogs/loadingTaskName — the only fields this
+    // drawer renders — instead of the whole provider (avoids rebuilds from unrelated
+    // finance/health/task-timer churn while this drawer is open).
+    final (skills, reflectionLogs, loadingTaskName) = context
+        .select<AppProvider, (List<Skill>, List<ReflectionLog>, String?)>(
+            (p) => (p.skills, p.reflectionLogs, p.loadingTaskName));
+    final appProvider = context.read<AppProvider>();
 
     return Drawer(
       width: 360,
@@ -67,9 +74,9 @@ class WellbeingDrawer extends StatelessWidget {
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemCount: appProvider.skills.length,
+              itemCount: skills.length,
               itemBuilder: (context, index) {
-                final skill = appProvider.skills[index];
+                final skill = skills[index];
                 return WellbeingCard(
                   skill: skill,
                   onTap: () {
@@ -79,7 +86,7 @@ class WellbeingDrawer extends StatelessWidget {
                     for (int i = 6; i >= 0; i--) {
                       final date = DateTime.now().subtract(Duration(days: i));
                       double dayXp = 0;
-                      for (var log in appProvider.reflectionLogs) {
+                      for (var log in reflectionLogs) {
                         if (log.timestamp.year == date.year && log.timestamp.month == date.month && log.timestamp.day == date.day) {
                           log.xpGained.forEach((k, v) {
                             if (WellbeingTheme.normalizeSkillName(k) == skill.name) {
@@ -109,11 +116,11 @@ class WellbeingDrawer extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: ElevatedButton.icon(
-              icon: appProvider.loadingTaskName == "Analyzing Weekly Wellbeing..."
+              icon: loadingTaskName == "Analyzing Weekly Wellbeing..."
                 ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: JweTheme.onAccent))
                 : Icon(MdiIcons.sync, size: 18, color: JweTheme.onAccent),
               label: Text(
-                appProvider.loadingTaskName == "Analyzing Weekly Wellbeing..." ? "PROCESSING..." : "SYNC 7-DAY PROGRESS",
+                loadingTaskName == "Analyzing Weekly Wellbeing..." ? "PROCESSING..." : "SYNC 7-DAY PROGRESS",
                 style: GoogleFonts.rajdhani(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -126,7 +133,7 @@ class WellbeingDrawer extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
               ),
-              onPressed: appProvider.loadingTaskName != null ? null : () async {
+              onPressed: loadingTaskName != null ? null : () async {
                 try {
                   await appProvider.syncWeeklyWellbeing();
                   if (context.mounted) {

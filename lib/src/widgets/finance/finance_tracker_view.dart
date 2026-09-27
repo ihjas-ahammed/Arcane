@@ -43,9 +43,14 @@ class _FinanceTrackerViewState extends State<FinanceTrackerView> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AppProvider>(context);
-    final accentColor =
-        provider.getSelectedTask()?.taskColor ?? JweTheme.accentAmber;
+    // Narrow the watch to what the ledger/budget/analytics tabs actually render —
+    // a full provider watch rebuilt all three tabs on every unrelated change
+    // (task timers, health logs, sync flags, etc).
+    final accentColor = context.select<AppProvider, Color>(
+        (p) => p.getSelectedTask()?.taskColor ?? JweTheme.accentAmber);
+    context.select<AppProvider, (List<FinanceTransaction>, List<FinanceCategory>, List<FinanceAccount>)>(
+        (p) => (p.transactions, p.categories, p.accounts));
+    final provider = context.read<AppProvider>();
 
     return DefaultTabController(
       length: 3,

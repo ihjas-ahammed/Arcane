@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
 
@@ -26,7 +28,10 @@ class HomeWidgetPublisher {
   String? _lastJournalKey;
   String? _lastBusKey;
 
+  Timer? _publishDebounce;
+
   void dispose() {
+    _publishDebounce?.cancel();
     _provider.removeListener(_onProviderChanged);
   }
 
@@ -40,15 +45,24 @@ class HomeWidgetPublisher {
   }
 
   void _onProviderChanged() {
-    // Cheap fire-and-forget — these are async but we don't need to await.
-    // ignore: discarded_futures
-    _publishTask();
-    // ignore: discarded_futures
-    _publishFinance();
-    // ignore: discarded_futures
-    _publishJournal();
-    // ignore: discarded_futures
-    _publishBus();
+    // AppProvider notifies on every edit anywhere (finance, health, sync flags, …),
+    // most of which don't touch what these widgets show. Coalesce bursts of changes
+    // (e.g. a cloud sync landing several fields at once) into one publish pass instead
+    // of re-resolving task/finance/journal/bus state on each individual notification —
+    // the OS widgets read a pushed sessionStart and tick themselves, so a short delay
+    // here is imperceptible.
+    _publishDebounce?.cancel();
+    _publishDebounce = Timer(const Duration(milliseconds: 400), () {
+      // Cheap fire-and-forget — these are async but we don't need to await.
+      // ignore: discarded_futures
+      _publishTask();
+      // ignore: discarded_futures
+      _publishFinance();
+      // ignore: discarded_futures
+      _publishJournal();
+      // ignore: discarded_futures
+      _publishBus();
+    });
   }
 
   // ── Task ───────────────────────────────────────────────────────────────
