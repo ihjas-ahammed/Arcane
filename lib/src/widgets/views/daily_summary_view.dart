@@ -110,7 +110,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     if (picked != null) {
       setState(() {
         _selectedDate = DateFormat('yyyy-MM-dd').format(picked);
-        _tempGeneratedBriefing = null; 
+        _tempGeneratedBriefing = null;
+        // Clear any stale generation error from the previously selected date so it
+        // doesn't get mistakenly shown against the newly selected date's briefing.
+        _briefingError = null;
+        _briefingStatus = null;
       });
     }
   }

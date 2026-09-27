@@ -70,27 +70,34 @@ class TacticalGratitudeBriefingSection extends StatelessWidget {
             if (text.isEmpty) return const SizedBox.shrink();
             final iconType = item['icon_type']?.toString().toLowerCase() ?? 'general';
 
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: JweTheme.accentTeal.withValues(alpha: 0.08),
-                border: Border.all(color: JweTheme.accentTeal.withValues(alpha: 0.3)),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(getIcon(iconType), size: 13, color: JweTheme.accentTeal),
-                  const SizedBox(width: 6),
-                  Text(
-                    text,
-                    style: GoogleFonts.inter(
-                      color: JweTheme.textWhite,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
+            return ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width - 56),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: JweTheme.accentTeal.withValues(alpha: 0.08),
+                  border: Border.all(color: JweTheme.accentTeal.withValues(alpha: 0.3)),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(getIcon(iconType), size: 13, color: JweTheme.accentTeal),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        text,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          color: JweTheme.textWhite,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           }),

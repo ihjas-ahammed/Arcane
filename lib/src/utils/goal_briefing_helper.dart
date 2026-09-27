@@ -185,6 +185,68 @@ class GoalBriefingHelper {
     );
   }
 
+  /// Returns the first calendar day of the period (week/month) that [goal] belongs to.
+  static DateTime getGoalPeriodStart(GoalModel goal) {
+    if (goal.scope == GoalScope.monthly) {
+      final parts = goal.dateKey.split('-');
+      final year = parts.isNotEmpty ? int.tryParse(parts[0]) : null;
+      final month = parts.length > 1 ? int.tryParse(parts[1]) : null;
+      if (year != null && month != null) {
+        return DateTime(year, month, 1);
+      }
+      return DateTime.now();
+    }
+    // Daily and weekly goals key off an explicit yyyy-MM-dd date (Monday for weekly).
+    return DateTime.tryParse(goal.dateKey) ?? DateTime.now();
+  }
+
+  /// Total number of days in [goal]'s period (7 for weekly, calendar days for monthly).
+  static int getGoalPeriodTotalDays(GoalModel goal) {
+    if (goal.scope == GoalScope.monthly) {
+      final start = getGoalPeriodStart(goal);
+      final nextMonth = DateTime(start.year, start.month + 1, 1);
+      return nextMonth.difference(start).inDays;
+    }
+    if (goal.scope == GoalScope.weekly) return 7;
+    return 1;
+  }
+
+  /// Whole calendar days remaining in [goal]'s period as of [date] (0 on the last day).
+  static int getGoalDaysRemaining(GoalModel goal, DateTime date) {
+    final start = getGoalPeriodStart(goal);
+    final totalDays = getGoalPeriodTotalDays(goal);
+    final periodEndExclusive = start.add(Duration(days: totalDays));
+    final today = DateTime(date.year, date.month, date.day);
+    final remaining = periodEndExclusive.difference(today).inDays;
+    return remaining.clamp(0, totalDays);
+  }
+
+  /// True when a weekly/monthly [goal] is trailing the pace it needs to finish on time.
+  /// Daily goals and already-completed goals are never flagged.
+  static bool isGoalAtRisk(GoalModel goal, DateTime date) {
+    if (goal.scope == GoalScope.daily) return false;
+    if (goal.getIsEffectiveCompleted()) return false;
+
+    final start = getGoalPeriodStart(goal);
+    final totalDays = getGoalPeriodTotalDays(goal);
+    if (totalDays <= 0) return false;
+
+    final today = DateTime(date.year, date.month, date.day);
+    final daysElapsed = (today.difference(start).inDays + 1).clamp(1, totalDays);
+    final expectedRatio = daysElapsed / totalDays;
+    final actualRatio = goal.getProgressRatio();
+
+    // Only flag once meaningful time has passed and the goal trails expected pace by a wide margin.
+    return expectedRatio >= 0.34 && (expectedRatio - actualRatio) >= 0.20;
+  }
+
+  /// All active weekly/monthly goals for [date] that are currently at risk of missing their deadline.
+  static List<GoalModel> getGoalsAtRisk(AppProvider provider, DateTime date) {
+    final weekly = provider.getGoalsForDate(date, GoalScope.weekly);
+    final monthly = provider.getGoalsForDate(date, GoalScope.monthly);
+    return [...weekly, ...monthly].where((g) => isGoalAtRisk(g, date)).toList();
+  }
+
   /// Yesterday's completed goals for motivation
   static List<GoalModel> getYesterdayCompletedGoals(AppProvider provider, DateTime date) {
     final yesterday = date.subtract(const Duration(days: 1));
@@ -243,7 +305,9 @@ class GoalBriefingHelper {
       buffer.writeln("\nACTIVE WEEKLY & MONTHLY GOALS EXPECTATIONS:");
       for (var g in [...weekly, ...monthly]) {
         final exp = getExpectedDailyIncrement(provider, g, date);
-        buffer.writeln("- [${g.scope.name.toUpperCase()}] ${g.title}: Expected increment today: ${exp.label}");
+        final atRisk = isGoalAtRisk(g, date);
+        final riskSuffix = atRisk ? " — AT RISK: behind pace, ${getGoalDaysRemaining(g, date)} day(s) left in period" : "";
+        buffer.writeln("- [${g.scope.name.toUpperCase()}] ${g.title}: Expected increment today: ${exp.label}$riskSuffix");
       }
     }
 
@@ -293,7 +357,9 @@ class GoalBriefingHelper {
       buffer.writeln("\nWEEKLY & MONTHLY GOALS TODAY'S INCREMENTS:");
       for (var g in [...weekly, ...monthly]) {
         final inc = getDailyBriefingIncrement(provider, g, date);
-        buffer.writeln("- [${g.scope.name.toUpperCase()}] ${g.title}: Increment today: ${inc.label} (Total progress: ${(g.getProgressRatio() * 100).toStringAsFixed(0)}%)");
+        final atRisk = isGoalAtRisk(g, date);
+        final riskSuffix = atRisk ? " — AT RISK: behind pace, ${getGoalDaysRemaining(g, date)} day(s) left in period" : "";
+        buffer.writeln("- [${g.scope.name.toUpperCase()}] ${g.title}: Increment today: ${inc.label} (Total progress: ${(g.getProgressRatio() * 100).toStringAsFixed(0)}%)$riskSuffix");
       }
     }
 

@@ -197,13 +197,15 @@ class StartDayGoalsSection extends StatelessWidget {
                     final expectedDelta = expInfo.ratioIncrement.clamp(0.0, 1.0 - currentRatio);
                     final projectedRatio = (currentRatio + expectedDelta).clamp(0.0, 1.0);
                     final defaultColor = g.scope == GoalScope.weekly ? JweTheme.accentCyan : JweTheme.accentAmber;
+                    final atRisk = GoalBriefingHelper.isGoalAtRisk(g, reportDate);
+                    final daysLeft = GoalBriefingHelper.getGoalDaysRemaining(g, reportDate);
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 6),
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: JweTheme.bgDeep.withValues(alpha: 0.4),
-                        border: Border.all(color: defaultColor.withValues(alpha: 0.2)),
+                        border: Border.all(color: atRisk ? JweTheme.accentRed.withValues(alpha: 0.4) : defaultColor.withValues(alpha: 0.2)),
                         borderRadius: BorderRadius.circular(3),
                       ),
                       child: Column(
@@ -238,6 +240,24 @@ class StartDayGoalsSection extends StatelessWidget {
                                   ),
                                 ),
                               ),
+                              if (atRisk) ...[
+                                Container(
+                                  margin: const EdgeInsets.only(right: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: JweTheme.accentRed.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                  child: Text(
+                                    'AT RISK · ${daysLeft}D LEFT',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: JweTheme.accentRed,
+                                      fontSize: 7.5,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
                               Text(
                                 '${(currentRatio * 100).round()}%',
                                 style: GoogleFonts.jetBrainsMono(

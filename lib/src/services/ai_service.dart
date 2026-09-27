@@ -1266,33 +1266,36 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
     ${previousQuotesContext != null && previousQuotesContext.isNotEmpty ? 'Previously Used Quotes & Reflections (STRICT EXCLUSION LIST - DO NOT REPEAT ANY OF THESE):\n$previousQuotesContext' : ''}
     ${financeText != null && financeText.isNotEmpty ? 'Today Finance Context: $financeText' : ''}
-    ${goalsText != null && goalsText.isNotEmpty ? 'Today Goals Context:\n$goalsText' : ''}
+    ${goalsText != null && goalsText.isNotEmpty ? 'Today Goals Context (goals flagged AT RISK are behind the pace needed to finish on time):\n$goalsText' : ''}
     ${customInstruction != null && customInstruction.isNotEmpty ? 'User Custom Instruction: $customInstruction' : ''}
 
     Apply the following principles - do NOT name them in your output, just use them:
     - Positive Psychology & Strengths-Based Reframing: focus on user strengths, achievements, and progress with an encouraging, optimistic reframe.
     - Emotional granularity (Susan David, "Emotional Agility"; Lisa Feldman Barrett): name specific authentic positive and grounding emotions.
     - Gratitude with specificity and brevity: short, punchy, concrete items rather than long sentences.
-    - Financial awareness: provide encouraging, constructive, and positive tactical feedback on financial choices logged today.
+    - Financial awareness: provide encouraging, constructive, and positive tactical feedback on financial choices logged today. If the finance context shows no income or expense at all, keep "ai_feedback" empty rather than inventing commentary.
     - Standard Operating Procedures (SOPs): Identify recurring operational friction, cognitive fatigue, routine workflows, or positive habits in today's day and suggest 3 high-leverage SOPs to systematize them.
     - QUOTING & UNIQUENESS MANDATE: All user quotes ("user_quote") MUST be taken EXCLUSIVELY from today's Current Logs (text written on the same day). NEVER quote text from Reflection History or previous days. Ensure that all quote reflections and AI insights are 100% unique, fresh, and never repeat past themes or phrased commentary.
 
     Tone: Warm, highly optimistic, deeply supportive, appreciative, and empowering. ALWAYS celebrate wins, highlight the user's strengths, and appreciate good efforts. NEVER give negative, critical, or unsolicited corrective advice. NEVER point out flaws or cognitive distortions in a negative way.
 
+    Writing rules for every string value: address the user directly as "you". Plain prose only — no markdown, no headers, no bullet/numbered list symbols inside any string. Be concise and concrete (specific to today's actual logs/goals/finance) rather than generic filler.
+
     Task:
-    1. "summary" (max 100 words): An uplifting, highly optimistic read of today celebrating wins and progress with 1-2 granular emotion words and an empowering positive reframe.
+    1. "summary" (max 80 words): An uplifting, highly optimistic read of today celebrating wins and progress with 1-2 granular emotion words and an empowering positive reframe.
     2. "quote_reflections": 2 to 4 items selecting the user's BEST, most positive, inspiring, or meaningful text/statements STRICTLY ONLY from today's Current Logs (same day text only), paired with warm AI appreciation and validation. Each item: "user_quote" (the exact or key excerpt of the user's good/positive text from today's Current Logs ONLY) and "ai_comment" (warm, appreciative, encouraging AI review/validation celebrating what the user wrote — DO NOT criticize, give negative advice, or point out flaws).
     3. "improvements": 1-3 specific capabilities the user is building or strengthening, expressed with optimism and pride.
     4. "grateful_people": EVERY person who earned appreciation today. "name", "relation", "reason", "express".
-    5. "grateful_today": At least 10 to 15 (min. 10) SHORT, CONCISE, and specific gratitude items (2 to 7 words each) covering small wins, nature, bodily comfort, food, tools, moments, people, learning, mind, and environment. Each with "text" and "icon_type" (people/nature/health/learning/work/home/food/social/growth/mind/moment/general).
+    5. "grateful_today": 6 to 10 SHORT, CONCISE, and specific gratitude items (2 to 7 words each) covering small wins, nature, bodily comfort, food, tools, moments, people, learning, mind, and environment. Each with "text" and "icon_type" (people/nature/health/learning/work/home/food/social/growth/mind/moment/general).
     6. "savor_moment": single best moment of the day in 2-3 sensory sentences.
     7. "small_win": today's most meaningful concrete progress step.
     8. "tomorrow_intention": positive implementation intention "When [cue], I will [action]".
     9. "suggested_activities": 2-3 fresh, exciting things/actions/experiments the user can try based on today's logs. Each: "activity", "reason".
-    10. "finance_briefing": summary of today's finance with "income", "expense", "net", and "ai_feedback" (1 short sentence of encouraging positive AI feedback).
+    10. "finance_briefing": summary of today's finance with "income", "expense", "net", and "ai_feedback" (1 short sentence of encouraging positive AI feedback, or empty string if there was no financial activity today).
     11. "suggested_sops": Exactly 3 suggested Standard Operating Procedures (SOPs) based on today's logs, reflections, challenges, or positive habits. For each SOP provide ONLY:
         - "title": concise, professional tactical protocol name (e.g. "Protocol: Evening Transition", "SOP: Deep Focus Recovery", "Protocol: Quick Task Clearance")
         - "description": 2-3 sentences specifying the situation/trigger condition and context when this procedure should be initiated. DO NOT provide steps or expected outcomes, write only the title and situation description.
+    12. "contingency": ONE realistic obstacle or friction point likely to show up tomorrow, inferred from today's actual patterns, goals context (especially anything AT RISK), or logs — plus a concrete if-then plan to route around it. Keep both fields to a single sentence each, still warm and constructive (not alarming). Format: {"risk": "string", "if_then": "string"}.
 
     Output JSON ONLY:
     {
@@ -1310,7 +1313,8 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
         {"title": "string", "description": "string"},
         {"title": "string", "description": "string"},
         {"title": "string", "description": "string"}
-      ]
+      ],
+      "contingency": {"risk": "string", "if_then": "string"}
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
@@ -1582,23 +1586,25 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     Reflections (Last 7 days): $reflectionsList
     Sessions (Last 7 days): $sessionsList
     ${knownPeopleText != null && knownPeopleText.isNotEmpty ? 'Known Contacts/People: $knownPeopleText' : ''}
-    ${goalsText != null && goalsText.isNotEmpty ? 'Goals Context:\n$goalsText' : ''}
+    ${goalsText != null && goalsText.isNotEmpty ? 'Goals Context (goals flagged AT RISK are behind the pace needed to finish on time):\n$goalsText' : ''}
     ${previousAuthorsContext != null && previousAuthorsContext.isNotEmpty ? 'PREVIOUSLY FEATURED AUTHORS & THINKERS (STRICT EXCLUSION LIST - NEVER REPEAT QUOTES FROM ANY OF THESE AUTHORS):\n$previousAuthorsContext' : ''}
     ${previousQuotesContext != null && previousQuotesContext.isNotEmpty ? 'PREVIOUSLY USED QUOTES (STRICT EXCLUSION LIST - NEVER REPEAT ANY OF THESE QUOTES):\n$previousQuotesContext' : ''}
 
     Tone: Highly optimistic, energizing, empowering, deeply supportive, and appreciative. ALWAYS encourage the user and highlight potential. NEVER give negative, critical, or adversarial advice.
 
+    Writing rules for every string value: address the user directly as "you". Plain prose only — no markdown, no headers, no bullet/numbered list symbols inside any string. Be concise and specific to today's actual reflections, sessions, and goals context rather than generic filler.
+
     Task:
-    1. "forecast" (40-80 words): An optimistic, energizing morning forecast celebrating recent momentum and setting an inspiring tone for the day.
+    1. "forecast" (40-70 words): An optimistic, energizing morning forecast celebrating recent momentum and setting an inspiring tone for the day.
     2. "yesterday_quote": A prominent positive, inspiring, or representative good quote/phrase from yesterday's reflections.
     3. "ai_today_advice": Warm, appreciative, and optimistic AI encouragement for today inspired by that yesterday quote — celebrating what the user wrote and boosting their momentum for today (DO NOT give negative or critical advice).
     4. "motivational_quote": A famous, deeply inspiring quote from a scientist, philosopher, writer, polymath, inventor, or historical figure that has NEVER been featured in previous morning briefings.
        CRITICAL EXCLUSION & UNIQUENESS MANDATE: You MUST NOT select a quote from ANY person, author, scientist, or thinker listed in the exclusion list above (e.g. if Marcus Aurelius, Richard Feynman, Carl Sagan, Seneca, Steve Jobs, or Leonardo da Vinci are in the list, DO NOT use any quotes by them). You MUST pick a completely fresh, never-used person and quote. Draw widely from world history, scientific pioneers, literature, and philosophy (e.g. Hypatia, Alexander von Humboldt, Rosalind Franklin, Lao Tzu, Buckminster Fuller, Mary Oliver, Jane Goodall, Hokusai, Alan Turing, Ibn Battuta, Rachel Carson, Srinivasa Ramanujan, Mary Shelley, Michael Faraday, Marie Curie, Blaise Pascal, Ada Lovelace, Ralph Waldo Emerson, Johannes Kepler, Lise Meitner, etc. - unless already in the exclusion list). Output format: {"quote": "string", "author": "string"}.
     5. "suggested_contacts": Pick 2-3 specific people from Known Contacts that the user should reach out to or check in with today. Format: [{"name": "string", "relation": "string", "type": "RECONNECT|FOLLOW UP|APPRECIATION|STAY IN TOUCH", "reason": "string"}].
-    6. "highlight": ONE sentence naming the single most leveraged task for today.
-    7. "obstacle_plan": "obstacle" and "if_then".
+    6. "highlight": ONE sentence naming the single most leveraged task for today. Prefer an AT RISK goal or an active goal's expected increment from the Goals Context when one exists; otherwise use the most impactful pending task from Sessions/Reflections context.
+    7. "obstacle_plan": "obstacle" (the most likely thing to derail today, informed by recent patterns or any AT RISK goal) and "if_then" (a concrete plan to route around it).
     8. "anticipate": one concrete thing today worth genuinely looking forward to.
-    9. "directives" (exactly 3): specific implementation intentions.
+    9. "directives" (exactly 3): specific implementation intentions for today, grounded in the actual Goals/Sessions context rather than generic advice.
 
     Output JSON ONLY:
     {

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/cards/briefing/tactical_allies_briefing_section.dart';
+import 'package:missions/src/widgets/cards/briefing/tactical_contingency_briefing_section.dart';
 import 'package:missions/src/widgets/cards/briefing/tactical_finance_briefing_section.dart';
 import 'package:missions/src/widgets/cards/briefing/tactical_goals_briefing_section.dart';
 import 'package:missions/src/widgets/cards/briefing/tactical_gratitude_briefing_section.dart';
@@ -12,6 +13,7 @@ import 'package:missions/src/widgets/cards/briefing/tactical_sops_briefing_secti
 import 'package:missions/src/widgets/ui/hud_components.dart';
 
 export 'package:missions/src/widgets/cards/briefing/tactical_allies_briefing_section.dart';
+export 'package:missions/src/widgets/cards/briefing/tactical_contingency_briefing_section.dart';
 export 'package:missions/src/widgets/cards/briefing/tactical_finance_briefing_section.dart';
 export 'package:missions/src/widgets/cards/briefing/tactical_goals_briefing_section.dart';
 export 'package:missions/src/widgets/cards/briefing/tactical_gratitude_briefing_section.dart';
@@ -36,18 +38,21 @@ class TacticalBriefingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final summary = briefingData['summary'] as String? ?? "No intel available.";
-    final quoteReflections = briefingData['quote_reflections'] as List<dynamic>? ?? [];
-    final improvements = briefingData['improvements'] as List<dynamic>? ?? [];
-    final gratefulPeople = briefingData['grateful_people'] as List<dynamic>? ?? [];
-    final gratefulToday = (briefingData['grateful_today'] as List<dynamic>?) ??
-        (briefingData['grateful_assets'] as List<dynamic>?) ??
-        [];
-    final savorMoment = briefingData['savor_moment'] as String? ?? '';
-    final smallWin = briefingData['small_win'] as String? ?? '';
-    final tomorrowIntention = briefingData['tomorrow_intention'] as String? ?? '';
-    final suggestedActivities = briefingData['suggested_activities'] as List<dynamic>? ?? [];
-    final financeBriefing = briefingData['finance_briefing'] as Map<String, dynamic>?;
+    List<dynamic> asList(dynamic v) => v is List ? v : const [];
+    Map<String, dynamic>? asMap(dynamic v) => v is Map ? Map<String, dynamic>.from(v) : null;
+
+    final summary = briefingData['summary']?.toString() ?? "No intel available.";
+    final quoteReflections = asList(briefingData['quote_reflections']);
+    final improvements = asList(briefingData['improvements']);
+    final gratefulPeople = asList(briefingData['grateful_people']);
+    final gratefulTodayRaw = briefingData['grateful_today'] ?? briefingData['grateful_assets'];
+    final gratefulToday = asList(gratefulTodayRaw);
+    final savorMoment = briefingData['savor_moment']?.toString() ?? '';
+    final smallWin = briefingData['small_win']?.toString() ?? '';
+    final tomorrowIntention = briefingData['tomorrow_intention']?.toString() ?? '';
+    final suggestedActivities = asList(briefingData['suggested_activities']);
+    final financeBriefing = asMap(briefingData['finance_briefing']);
+    final contingency = asMap(briefingData['contingency']);
     final rawSops = briefingData['suggested_sops'] ?? briefingData['suggestedSops'];
     final List<dynamic> suggestedSops;
     if (rawSops is List && rawSops.isNotEmpty) {
@@ -195,7 +200,10 @@ class TacticalBriefingCard extends StatelessWidget {
                 // Goal Tactical Intel Section
                 TacticalGoalsBriefingSection(briefingDate: date ?? DateTime.now()),
 
-                // Daily Finance Briefing HUD
+                // Contingency plan for tomorrow's likely friction point
+                TacticalContingencyBriefingSection(contingency: contingency),
+
+                // Daily Finance Briefing HUD (only rendered when there is real activity)
                 TacticalFinanceBriefingSection(financeBriefing: financeBriefing),
 
                 // Suggested New Activities based on day's log
@@ -207,8 +215,8 @@ class TacticalBriefingCard extends StatelessWidget {
                     padding: EdgeInsets.zero,
                   ),
                   const SizedBox(height: 8),
-                  ...suggestedActivities.map((act) {
-                    final m = act as Map<String, dynamic>;
+                  ...suggestedActivities.whereType<Map>().map((act) {
+                    final m = act;
                     return Container(
                       margin: const EdgeInsets.only(bottom: 6),
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -233,7 +241,7 @@ class TacticalBriefingCard extends StatelessWidget {
                                   ),
                                 ),
                                 TextSpan(
-                                  text: m['reason'] ?? '',
+                                  text: m['reason']?.toString() ?? '',
                                   style: GoogleFonts.saira(
                                     color: JweTheme.textMid,
                                     fontSize: 12,
@@ -316,8 +324,8 @@ class TacticalBriefingCard extends StatelessWidget {
                     padding: EdgeInsets.zero,
                   ),
                   const SizedBox(height: 10),
-                  ...improvements.map((imp) {
-                    final m = imp as Map<String, dynamic>;
+                  ...improvements.whereType<Map>().map((imp) {
+                    final m = imp;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Row(
@@ -337,7 +345,7 @@ class TacticalBriefingCard extends StatelessWidget {
                                   ),
                                 ),
                                 TextSpan(
-                                  text: m['insight'] ?? '',
+                                  text: m['insight']?.toString() ?? '',
                                   style: GoogleFonts.saira(
                                     color: JweTheme.textMid,
                                     fontSize: 13,

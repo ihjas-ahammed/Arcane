@@ -20,7 +20,8 @@ class StartDayInteractionsSection extends StatelessWidget {
 
     if (savedContacts != null && savedContacts!.isNotEmpty) {
       for (final c in savedContacts!) {
-        final map = c as Map<String, dynamic>;
+        if (c is! Map) continue;
+        final map = c;
         final typeStr = map['type']?.toString() ?? 'CHECK IN';
         Color color = JweTheme.accentCyan;
         IconData icon = MdiIcons.accountNetworkOutline;
@@ -35,10 +36,10 @@ class StartDayInteractionsSection extends StatelessWidget {
           icon = MdiIcons.heartFlash;
         }
         displaySuggestions.add({
-          'name': map['name'] ?? 'Contact',
-          'relation': map['relation'] ?? 'Friend',
+          'name': map['name']?.toString() ?? 'Contact',
+          'relation': map['relation']?.toString() ?? 'Friend',
           'type': typeStr,
-          'reason': map['reason'] ?? '',
+          'reason': map['reason']?.toString() ?? '',
           'icon': icon,
           'color': color,
         });
@@ -157,12 +158,15 @@ class StartDayInteractionsSection extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                (s['name'] as String).toUpperCase(),
-                                style: GoogleFonts.saira(
-                                  color: JweTheme.textWhite,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
+                              Flexible(
+                                child: Text(
+                                  (s['name']?.toString() ?? '').toUpperCase(),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.saira(
+                                    color: JweTheme.textWhite,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 6),

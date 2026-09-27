@@ -25,8 +25,9 @@ class TacticalAlliesBriefingSection extends StatelessWidget {
     final provider = Provider.of<AppProvider>(context);
 
     bool personNeedsUpdate(dynamic person) {
-      final p = person as Map<String, dynamic>;
-      final pName = p['name'] as String? ?? '';
+      if (person is! Map) return false;
+      final p = person;
+      final pName = p['name']?.toString() ?? '';
       final existing = provider.chatbotMemory.people.firstWhereOrNull(
           (e) => e.name.toLowerCase().trim() == pName.toLowerCase().trim());
       return existing != null &&
@@ -39,8 +40,9 @@ class TacticalAlliesBriefingSection extends StatelessWidget {
 
     final pendingIds = <String>[];
     for (final person in gratefulPeople) {
+      if (person is! Map) continue;
       if (personNeedsUpdate(person)) {
-        final pName = (person as Map<String, dynamic>)['name'] as String? ?? '';
+        final pName = person['name']?.toString() ?? '';
         final existing = provider.chatbotMemory.people.firstWhereOrNull(
             (e) => e.name.toLowerCase().trim() == pName.toLowerCase().trim());
         if (existing != null) pendingIds.add(existing.id);
@@ -82,10 +84,10 @@ class TacticalAlliesBriefingSection extends StatelessWidget {
             ),
         ]),
         const SizedBox(height: 10),
-        ...gratefulPeople.map((person) {
-          final p = person as Map<String, dynamic>;
-          final pName = p['name'] as String? ?? '';
-          final express = p['express'] as String? ?? '';
+        ...gratefulPeople.whereType<Map>().map((person) {
+          final p = person;
+          final pName = p['name']?.toString() ?? '';
+          final express = p['express']?.toString() ?? '';
           final existingPerson = provider.chatbotMemory.people.firstWhereOrNull(
               (e) => e.name.toLowerCase().trim() == pName.toLowerCase().trim());
 
@@ -113,12 +115,15 @@ class TacticalAlliesBriefingSection extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      pName.toUpperCase(),
-                      style: GoogleFonts.chakraPetch(
-                          fontWeight: FontWeight.bold,
-                          color: JweTheme.accentCyan,
-                          fontSize: 12),
+                    Flexible(
+                      child: Text(
+                        pName.toUpperCase(),
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.chakraPetch(
+                            fontWeight: FontWeight.bold,
+                            color: JweTheme.accentCyan,
+                            fontSize: 12),
+                      ),
                     ),
                     if (existingPerson != null && (needsUpdate || isUpdating))
                       InkWell(
@@ -148,7 +153,7 @@ class TacticalAlliesBriefingSection extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text(p['reason'] ?? '',
+                Text(p['reason']?.toString() ?? '',
                     style: GoogleFonts.inter(
                         color: JweTheme.textMid,
                         fontSize: 12,

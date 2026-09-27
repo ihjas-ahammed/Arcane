@@ -44,10 +44,16 @@ class StartDayReportCard extends StatefulWidget {
 class _StartDayReportCardState extends State<StartDayReportCard> {
   bool _isExpanded = false;
 
+  // Defensive readers so a malformed/older saved report never crashes the build.
+  static String? _str(dynamic v) => v?.toString();
+  static Map<String, dynamic>? _map(dynamic v) =>
+      v is Map ? Map<String, dynamic>.from(v) : null;
+
   void _startWithNora(BuildContext context) {
     final provider = Provider.of<AppProvider>(context, listen: false);
-    final forecast = widget.report['forecast'] as String? ?? "System Started.";
-    final directives = (widget.report['directives'] as List?)?.join(', ') ?? "";
+    final forecast = _str(widget.report['forecast']) ?? "System Started.";
+    final directivesRaw = widget.report['directives'];
+    final directives = directivesRaw is List ? directivesRaw.join(', ') : "";
 
     final customContext = """
     STARTUP CONTEXT:
@@ -71,27 +77,30 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
-    final forecast = widget.report['forecast'] as String? ??
-        widget.report['briefing'] as String? ??
+    final forecast = _str(widget.report['forecast']) ??
+        _str(widget.report['briefing']) ??
         "Systems nominal. Ready for input.";
-    final directives = (widget.report['directives'] as List<dynamic>?)
-            ?.map((e) => e.toString())
-            .toList() ??
-        [];
-    final highlight = widget.report['highlight'] as String? ?? '';
-    final anticipate = widget.report['anticipate'] as String? ?? '';
-    final obstaclePlan = widget.report['obstacle_plan'] as Map<String, dynamic>?;
-    final obstacle = obstaclePlan?['obstacle'] as String? ?? '';
-    final ifThen = obstaclePlan?['if_then'] as String? ?? '';
-    final metrics = widget.report['metrics'] as List<dynamic>?;
-    final snapshotTimeStr = widget.report['snapshot_time'] as String?;
-    final reportDate = snapshotTimeStr != null ? DateTime.parse(snapshotTimeStr) : DateTime.now();
+    final directivesRaw = widget.report['directives'];
+    final directives = directivesRaw is List
+        ? directivesRaw.map((e) => e.toString()).toList()
+        : <String>[];
+    final highlight = _str(widget.report['highlight']) ?? '';
+    final anticipate = _str(widget.report['anticipate']) ?? '';
+    final obstaclePlan = _map(widget.report['obstacle_plan']);
+    final obstacle = _str(obstaclePlan?['obstacle']) ?? '';
+    final ifThen = _str(obstaclePlan?['if_then']) ?? '';
+    final metricsRaw = widget.report['metrics'];
+    final metrics = metricsRaw is List ? metricsRaw : null;
+    final snapshotTimeStr = _str(widget.report['snapshot_time']);
+    final reportDate = snapshotTimeStr != null
+        ? (DateTime.tryParse(snapshotTimeStr) ?? DateTime.now())
+        : DateTime.now();
     final yesterday = reportDate.subtract(const Duration(days: 1));
     final yesterdayStr = DateFormat('yyyy-MM-dd').format(yesterday);
 
-    final yesterdayQuote = widget.report['yesterday_quote'] as String? ?? '';
-    final aiTodayAdvice = widget.report['ai_today_advice'] as String? ?? '';
-    final motivationalQuote = widget.report['motivational_quote'] as Map<String, dynamic>?;
+    final yesterdayQuote = _str(widget.report['yesterday_quote']) ?? '';
+    final aiTodayAdvice = _str(widget.report['ai_today_advice']) ?? '';
+    final motivationalQuote = _map(widget.report['motivational_quote']);
 
     return HudPanel(
       clip: HudClip.both,
@@ -359,7 +368,9 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
 
                   // Suggested Interactions
                   StartDayInteractionsSection(
-                    savedContacts: widget.report['suggested_contacts'] as List<dynamic>?,
+                    savedContacts: widget.report['suggested_contacts'] is List
+                        ? widget.report['suggested_contacts'] as List<dynamic>
+                        : null,
                     provider: provider,
                   ),
 

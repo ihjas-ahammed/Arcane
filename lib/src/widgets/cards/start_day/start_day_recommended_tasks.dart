@@ -165,6 +165,20 @@ class StartDayRecommendedTasks extends StatelessWidget {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
+                              if (sub.why.trim().isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  sub.why.trim(),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    color: JweTheme.textMuted,
+                                    fontSize: 10.5,
+                                    fontStyle: FontStyle.italic,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 2),
                               Row(
                                 children: [

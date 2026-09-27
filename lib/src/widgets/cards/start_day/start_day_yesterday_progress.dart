@@ -18,10 +18,12 @@ class StartDayYesterdayProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final yesterdayData = provider.completedByDay[yesterdayStr];
-    final completedSubs = yesterdayData?['subtasksCompleted'] as List<dynamic>? ?? [];
-    final taskTimes = yesterdayData?['taskTimes'] as Map<dynamic, dynamic>? ?? {};
+    final subtasksRaw = yesterdayData?['subtasksCompleted'];
+    final completedSubs = subtasksRaw is List ? subtasksRaw : const [];
+    final taskTimesRaw = yesterdayData?['taskTimes'];
+    final taskTimes = taskTimesRaw is Map ? taskTimesRaw : const {};
 
-    final bool hasAnyTime = taskTimes.values.any((v) => (v as num) > 0);
+    final bool hasAnyTime = taskTimes.values.any((v) => v is num && v > 0);
 
     if (completedSubs.isEmpty && !hasAnyTime) {
       return Column(
@@ -65,7 +67,7 @@ class StartDayYesterdayProgress extends StatelessWidget {
     // Prepare active time rows
     final timeRows = <Widget>[];
     taskTimes.forEach((taskId, timeSec) {
-      final secs = (timeSec as num).toInt();
+      final secs = timeSec is num ? timeSec.toInt() : 0;
       if (secs <= 0) return;
       final mainTask = provider.mainTasks.firstWhereOrNull((t) => t.id == taskId.toString());
       if (mainTask == null) return;
@@ -108,8 +110,9 @@ class StartDayYesterdayProgress extends StatelessWidget {
     // Prepare completed subtasks rows
     final subtaskRows = <Widget>[];
     for (final entry in completedSubs) {
-      final name = entry['name'] as String? ?? 'Unnamed Objective';
-      final parentTaskId = entry['parentTaskId'] as String? ?? '';
+      if (entry is! Map) continue;
+      final name = entry['name']?.toString() ?? 'Unnamed Objective';
+      final parentTaskId = entry['parentTaskId']?.toString() ?? '';
       final mainTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parentTaskId);
       final color = mainTask != null ? Color(int.parse('0xFF${mainTask.colorHex}')) : JweTheme.accentCyan;
 

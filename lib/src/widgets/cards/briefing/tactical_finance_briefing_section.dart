@@ -17,6 +17,16 @@ class TacticalFinanceBriefingSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (financeBriefing == null) return const SizedBox.shrink();
 
+    final income = num.tryParse(financeBriefing!['income']?.toString() ?? '') ?? 0;
+    final expense = num.tryParse(financeBriefing!['expense']?.toString() ?? '') ?? 0;
+    final feedback = financeBriefing!['ai_feedback']?.toString() ?? '';
+
+    // Hide the whole panel rather than showing a "₹0 / ₹0 / ₹0" snapshot when no
+    // financial activity was actually logged for the day.
+    if (income == 0 && expense == 0 && feedback.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
