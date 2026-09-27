@@ -1,434 +1,355 @@
-import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:missions/src/screens/launcher/launcher_models.dart';
+import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/launcher_service.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
+import 'package:missions/src/screens/launcher/launcher_wallpaper_painter.dart';
 import 'package:missions/src/screens/launcher/views/launcher_drawer_view.dart';
-import 'package:missions/src/screens/launcher/views/launcher_grid_view.dart';
 import 'package:missions/src/screens/launcher/views/launcher_home_view.dart';
-import 'package:missions/src/screens/launcher/views/launcher_search_view.dart';
-import 'package:missions/src/screens/launcher/views/launcher_space_view.dart';
+import 'package:missions/src/screens/launcher/views/launcher_sheets.dart';
 import 'package:missions/src/screens/launcher/views/launcher_widget_view.dart';
-import 'package:missions/src/screens/launcher/launcher_swipe_detector.dart';
 import 'package:missions/src/services/widget_action_router.dart';
 
+/// Arcane home-screen launcher.
+///
+/// Flow (Pixel-style, one surface):
+///   ┌ Arcane widgets ◀ swipe ▶ Home ┐   swipe up   → app drawer (search on top)
+///   └──────── PageView ─────────────┘   swipe down → system notification shade
+///   Arcane (the Missions app) slides over everything from its dock/drawer icon and
+///   stays alive underneath while hidden. HOME always returns here.
+///
+/// Off Android the launcher has no meaning, so the Arcane app is shown directly.
 class LauncherScreen extends StatefulWidget {
   final Widget arcaneChild;
 
-  const LauncherScreen({
-    super.key,
-    required this.arcaneChild,
-  });
+  const LauncherScreen({super.key, required this.arcaneChild});
 
   @override
   State<LauncherScreen> createState() => _LauncherScreenState();
 }
 
-class _LauncherScreenState extends State<LauncherScreen> {
-  LauncherScreenType _currentScreen = LauncherScreenType.home;
-  LauncherSpaceCategory _selectedCategory = LauncherSpaceCategory.all;
-  String? _toastMessage;
-  List<LauncherAppItem> _apps = [];
+class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStateMixin {
+  static const int _homePage = 1;
+
+  late final AnimationController _arcane = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+    reverseDuration: const Duration(milliseconds: 220),
+  );
+  late final AnimationController _drawer = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 260),
+  );
+  final PageController _pages = PageController(initialPage: _homePage);
+  final GlobalKey<LauncherDrawerViewState> _drawerKey = GlobalKey<LauncherDrawerViewState>();
+
+  bool _arcaneBuilt = false;
+  bool _launchedAsApp = false;
 
   @override
   void initState() {
     super.initState();
-    LauncherService.instance.init().then((_) {
-      if (mounted) {
-        setState(() {
-          _apps = LauncherService.instance.apps;
-        });
-      }
+    if (!LauncherNative.isSupported) return;
+
+    LauncherService.instance.init();
+    LauncherNative.attach();
+    LauncherNative.homePressed.addListener(_goHome);
+    LauncherNative.openArcaneRequested.addListener(_openArcaneFromIntent);
+    WidgetActionRouter.instance.tabRequest.addListener(_onTabRequest);
+    // Tapping the Arcane mark in the app header returns to the launcher.
+    WidgetActionRouter.instance.onBackPressed = _closeArcane;
+
+    // Build Arcane right after the launcher's first frame so its services (widget publishing,
+    // insight watcher, tab routing) run even if the user never opens it — without delaying boot.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_arcaneBuilt) setState(() => _arcaneBuilt = true);
     });
 
-    LauncherService.instance.appsNotifier.addListener(_onAppsChanged);
-
-    // Register safe back press handler so launcher never kills the Android Activity
-    WidgetActionRouter.instance.onBackPressed = _handleBackPress;
-  }
-
-  void _onAppsChanged() {
-    if (mounted) {
-      setState(() {
-        _apps = LauncherService.instance.appsNotifier.value;
-      });
-    }
+    // Opened from another launcher's icon, a widget deep link or the assistant: show Arcane at once.
+    LauncherNative.launchMode().then((mode) {
+      if (!mounted || mode == 'home') return;
+      _launchedAsApp = true;
+      _openArcane(animate: false);
+    });
   }
 
   @override
   void dispose() {
-    LauncherService.instance.appsNotifier.removeListener(_onAppsChanged);
-    if (WidgetActionRouter.instance.onBackPressed == _handleBackPress) {
+    LauncherNative.homePressed.removeListener(_goHome);
+    LauncherNative.openArcaneRequested.removeListener(_openArcaneFromIntent);
+    WidgetActionRouter.instance.tabRequest.removeListener(_onTabRequest);
+    if (WidgetActionRouter.instance.onBackPressed == _closeArcane) {
       WidgetActionRouter.instance.onBackPressed = null;
     }
+    _arcane.dispose();
+    _drawer.dispose();
+    _pages.dispose();
     super.dispose();
   }
 
-  void _handleBackPress() {
-    if (!mounted) return;
-    if (_currentScreen == LauncherScreenType.arcane) {
-      setState(() => _currentScreen = LauncherScreenType.home);
-    } else if (_currentScreen != LauncherScreenType.home) {
-      setState(() => _currentScreen = LauncherScreenType.home);
+  // ── Navigation ──────────────────────────────────────────────
+
+  void _openArcane({bool animate = true}) {
+    if (!_arcaneBuilt) setState(() => _arcaneBuilt = true);
+    _closeDrawer(animate: false);
+    LauncherService.instance.recordArcaneOpen();
+    if (animate) {
+      _arcane.forward();
+    } else {
+      _arcane.value = 1;
     }
-    // If already at LauncherScreenType.home, do NOTHING. Never allow the app to finish.
   }
 
-  void _showToast(String message) {
-    if (!mounted) return;
-    setState(() => _toastMessage = message);
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted && _toastMessage == message) {
-        setState(() => _toastMessage = null);
+  void _openArcaneFromIntent() {
+    _launchedAsApp = true;
+    _openArcane();
+  }
+
+  void _onTabRequest() {
+    if (WidgetActionRouter.instance.tabRequest.value != null) _openArcane();
+  }
+
+  void _closeArcane() => _arcane.reverse();
+
+  /// HOME button: dismiss everything and land on the home page.
+  void _goHome() {
+    final nav = WidgetActionRouter.instance.navigatorKey.currentState;
+    nav?.popUntil((r) => r.isFirst);
+    FocusManager.instance.primaryFocus?.unfocus();
+    _launchedAsApp = false;
+    if (_arcane.value > 0) {
+      _arcane.reverse();
+      _closeDrawer(animate: false);
+    } else if (_drawer.value > 0) {
+      _closeDrawer();
+    }
+    if (_pages.hasClients && (_pages.page ?? _homePage).round() != _homePage) {
+      _pages.animateToPage(_homePage, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+    }
+  }
+
+  void _openDrawer({bool focusSearch = false}) {
+    _drawer.animateTo(1, curve: Curves.easeOutCubic);
+    if (focusSearch) _drawerKey.currentState?.focusSearch();
+    if (_drawer.value == 0) HapticFeedback.selectionClick();
+  }
+
+  void _closeDrawer({bool animate = true}) {
+    _drawerKey.currentState?.reset();
+    if (animate) {
+      _drawer.animateBack(0, curve: Curves.easeOutCubic);
+    } else {
+      _drawer.value = 0;
+    }
+  }
+
+  Future<void> _handleBack() async {
+    if (_drawer.value > 0) {
+      _closeDrawer();
+    } else if (_arcane.value > 0) {
+      if (_launchedAsApp && !await LauncherNative.isDefaultLauncher()) {
+        // Opened like a normal app while another launcher is default: back leaves the app.
+        SystemNavigator.pop();
+        return;
       }
+      _closeArcane();
+    } else if (_pages.hasClients && (_pages.page ?? _homePage).round() != _homePage) {
+      _pages.animateToPage(_homePage, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+    } else if (!await LauncherNative.isDefaultLauncher()) {
+      SystemNavigator.pop();
+    }
+    // Default launcher on its home page: back does nothing, like every Android home screen.
+  }
+
+  void _launch(LauncherApp app) {
+    if (app.isArcane) {
+      _openArcane();
+      return;
+    }
+    LauncherService.instance.launch(app).then((ok) {
+      if (!ok && mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text('${app.displayLabel} could not be opened')));
+      }
+    });
+    // Collapse the drawer after the app window has covered it.
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted && _drawer.value > 0) _closeDrawer(animate: false);
     });
   }
 
-  void _navigateTo(LauncherScreenType type) {
-    setState(() => _currentScreen = type);
+  // ── Home gestures ───────────────────────────────────────────
+
+  double _dragStartDrawer = 0;
+
+  void _onVerticalDragStart(DragStartDetails d) => _dragStartDrawer = _drawer.value;
+
+  void _onVerticalDragUpdate(DragUpdateDetails d) {
+    final h = MediaQuery.sizeOf(context).height;
+    final delta = -(d.primaryDelta ?? 0) / (h * 0.85);
+    if (_dragStartDrawer == 0 && _drawer.value == 0 && delta < 0) return; // downward: handled on end
+    _drawer.value = (_drawer.value + delta).clamp(0.0, 1.0);
   }
 
-  void _onLaunchApp(LauncherAppItem app) {
-    if (app.isArcaneApp) {
-      _navigateTo(LauncherScreenType.arcane);
+  void _onVerticalDragEnd(DragEndDetails d) {
+    final v = d.primaryVelocity ?? 0;
+    if (_drawer.value == 0 && v > 300) {
+      LauncherNative.expandNotifications();
       return;
     }
-
-    _showToast('Launching ${app.label}...');
-    LauncherService.instance.launchApp(app);
-  }
-
-  void _onAction(String action) {
-    if (action == 'phone') {
-      _showToast('Opening Phone...');
-      LauncherService.instance.launchApp(
-        const LauncherAppItem(
-          id: 'phone',
-          label: 'Phone',
-          package: 'com.google.android.dialer',
-          intentAction: 'phone',
-          icon: Icons.phone,
-        ),
-      );
-    } else if (action == 'messages') {
-      _showToast('Opening Messages...');
-      LauncherService.instance.launchApp(
-        const LauncherAppItem(
-          id: 'messages',
-          label: 'Messages',
-          package: 'com.google.android.apps.messaging',
-          intentAction: 'messages',
-          icon: Icons.message,
-        ),
-      );
-    } else if (action == 'camera') {
-      _showToast('Opening Camera...');
-      LauncherService.instance.launchApp(
-        const LauncherAppItem(
-          id: 'camera',
-          label: 'Camera',
-          package: 'com.google.android.GoogleCamera',
-          intentAction: 'camera',
-          icon: Icons.camera,
-        ),
-      );
-    } else if (action == 'clock') {
-      _showToast('Opening Clock...');
-      LauncherService.instance.launchApp(
-        const LauncherAppItem(
-          id: 'clock',
-          label: 'Clock',
-          package: 'com.google.android.deskclock',
-          intentAction: 'clock',
-          icon: Icons.access_time,
-        ),
-      );
-    } else if (action == 'gallery') {
-      _showToast('Opening Gallery...');
-      LauncherService.instance.launchApp(
-        const LauncherAppItem(
-          id: 'gallery',
-          label: 'Gallery',
-          package: 'com.google.android.apps.photos',
-          intentAction: 'gallery',
-          icon: Icons.image,
-        ),
-      );
-    } else if (action == 'notes') {
-      _showToast('Opening Notes...');
-      LauncherService.instance.launchApp(
-        const LauncherAppItem(
-          id: 'notes',
-          label: 'Notes',
-          package: 'com.google.android.keep',
-          icon: Icons.note,
-        ),
-      );
-    } else if (action == 'settings') {
-      _showToast('Opening Settings...');
-      LauncherService.instance.launchApp(
-        const LauncherAppItem(
-          id: 'settings',
-          label: 'Settings',
-          package: 'com.android.settings',
-          intentAction: 'settings',
-          icon: Icons.settings,
-        ),
-      );
+    if (v < -300 || (v.abs() <= 300 && _drawer.value > 0.35)) {
+      _openDrawer();
+    } else {
+      _closeDrawer();
     }
   }
+
+  // ── Build ───────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final screenWidth = mediaQuery.size.width;
-    final isDesktopOrWebMockup = (kIsWeb || screenWidth > 520);
+    if (!LauncherNative.isSupported) return widget.arcaneChild;
+
+    final isLight = LauncherTheme.isLight;
+    final overlay = SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+      statusBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
+      statusBarBrightness: isLight ? Brightness.light : Brightness.dark,
+      systemNavigationBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
+    );
 
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        _handleBackPress();
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleBack();
       },
-      child: Scaffold(
-        backgroundColor: isDesktopOrWebMockup
-            ? const Color(0xFF020203)
-            : LauncherTheme.bg,
-        body: isDesktopOrWebMockup
-            ? _buildWebPhoneMockup(context)
-            : _buildPhoneContent(context, isMockup: false),
-      ),
-    );
-  }
-
-  /// Web and Desktop Prototyping Phone Mockup frame conforming to the user's HTML design:
-  /// width: 390px, height: min(844px, 94vh), border-radius: 44px, border: 2px solid var(--red),
-  /// box-shadow: 0 0 0 6px #0a0b0e, 0 0 0 7px #25070c, 0 0 40px rgba(255,43,63,.35)
-  Widget _buildWebPhoneMockup(BuildContext context) {
-    final mediaHeight = MediaQuery.of(context).size.height;
-    final phoneHeight = math.min(844.0, mediaHeight * 0.94);
-    const phoneWidth = 390.0;
-    final isLight = LauncherTheme.isLight;
-
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: isLight ? const Color(0xFFE2DDD2) : const Color(0xFF040609),
-      child: Center(
-        child: Container(
-          width: phoneWidth,
-          height: phoneHeight,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(44),
-            border: Border.all(
-              color: isLight ? const Color(0xFFCBC4B6) : const Color(0xFF1E222B),
-              width: 1.5,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Launcher surface — skipped entirely (no layout/paint/tickers) while Arcane covers it.
+          AnimatedBuilder(
+            animation: _arcane,
+            builder: (context, child) => Offstage(
+              offstage: _arcane.value == 1,
+              child: TickerMode(enabled: _arcane.value < 1, child: child!),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isLight ? 0.12 : 0.65),
-                blurRadius: 36,
-                spreadRadius: 4,
-                offset: const Offset(0, 10),
+            child: AnnotatedRegion<SystemUiOverlayStyle>(
+              value: overlay,
+              // A Scaffold (not bare Material) so launcher snackbars have a host; the drawer
+              // handles the keyboard inset itself.
+              child: Scaffold(
+                backgroundColor: LauncherTheme.bg,
+                resizeToAvoidBottomInset: false,
+                body: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    RepaintBoundary(
+                      child: CustomPaint(painter: LauncherWallpaperPainter(isLight: isLight)),
+                    ),
+                    _buildPages(),
+                    _buildDrawer(),
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(42),
-            child: _buildPhoneContent(context, isMockup: true),
-          ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildPhoneContent(BuildContext context, {required bool isMockup}) {
-    return Container(
-      color: LauncherTheme.bg,
-      child: SafeArea(
-        top: !isMockup,
-        bottom: !isMockup,
-        child: Stack(
-          children: [
-            // Active Screen View
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 320),
-              transitionBuilder: (child, animation) {
-                if (child.key == const ValueKey('drawer')) {
-                  // Drawer slides up from bottom
-                  final offsetAnim = Tween<Offset>(
-                    begin: const Offset(0, 0.12),
-                    end: Offset.zero,
-                  ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
-                  return SlideTransition(
-                    position: offsetAnim,
-                    child: FadeTransition(opacity: animation, child: child),
-                  );
-                } else if (child.key == const ValueKey('arcane')) {
-                  // Arcane slides up smoothly
-                  final offsetAnim = Tween<Offset>(
-                    begin: const Offset(0, 0.08),
-                    end: Offset.zero,
-                  ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
-                  return SlideTransition(
-                    position: offsetAnim,
-                    child: FadeTransition(opacity: animation, child: child),
-                  );
-                }
-                return FadeTransition(opacity: animation, child: child);
+          // Arcane — built on first open, then kept alive (state, timers, services) while hidden.
+          if (_arcaneBuilt)
+            AnimatedBuilder(
+              animation: _arcane,
+              builder: (context, child) {
+                final t = Curves.easeOutCubic.transform(_arcane.value);
+                return Offstage(
+                  offstage: _arcane.value == 0,
+                  child: TickerMode(
+                    enabled: _arcane.value > 0,
+                    child: FractionalTranslation(
+                      translation: Offset(0, 1 - t),
+                      child: child,
+                    ),
+                  ),
+                );
               },
-              child: _buildCurrentView(),
+              child: RepaintBoundary(child: widget.arcaneChild),
             ),
-
-            // Toast Floating Notification
-            if (_toastMessage != null)
-              Positioned(
-                left: 20,
-                right: 20,
-                bottom: 40,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF14070A),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: LauncherTheme.red, width: 1),
-                      boxShadow: [
-                        BoxShadow(
-                          color: LauncherTheme.redDim,
-                          blurRadius: 20,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      _toastMessage!,
-                      textAlign: TextAlign.center,
-                      style: LauncherTheme.rajdhani(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildCurrentView() {
-    switch (_currentScreen) {
-      case LauncherScreenType.home:
-        return LauncherHomeView(
-          key: const ValueKey('home'),
-          onOpenSpace: () => _navigateTo(LauncherScreenType.space),
-          onOpenSearch: () => _navigateTo(LauncherScreenType.search),
-          onOpenWidget: () => _navigateTo(LauncherScreenType.widget),
-          onOpenDrawer: () => _navigateTo(LauncherScreenType.drawer),
-          onSwipeUpToArcane: () => _navigateTo(LauncherScreenType.arcane),
-          onAction: _onAction,
+  Widget _buildPages() {
+    return AnimatedBuilder(
+      animation: _drawer,
+      builder: (context, child) {
+        final t = _drawer.value;
+        return IgnorePointer(
+          ignoring: t > 0.5,
+          child: Opacity(opacity: (1 - t * 1.4).clamp(0.0, 1.0), child: child),
         );
+      },
+      child: PageView(
+        controller: _pages,
+        physics: const ClampingScrollPhysics(),
+        children: [
+          LauncherWidgetView(onOpenArcane: _openArcane),
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onVerticalDragStart: _onVerticalDragStart,
+            onVerticalDragUpdate: _onVerticalDragUpdate,
+            onVerticalDragEnd: _onVerticalDragEnd,
+            onLongPress: () => showLauncherHomeMenu(context, onOpenArcaneWidgets: () {
+              _pages.animateToPage(0, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+            }),
+            child: LauncherHomeView(
+              onLaunch: _launch,
+              onOpenDrawer: () => _openDrawer(),
+              onOpenSearch: () => _openDrawer(focusSearch: true),
+              onOpenArcane: _openArcane,
+              onOpenWidgetsPage: () =>
+                  _pages.animateToPage(0, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-      case LauncherScreenType.space:
-        return LauncherSpaceView(
-          key: const ValueKey('space'),
-          onBack: () => _navigateTo(LauncherScreenType.home),
-          onSelectSpace: (category) {
-            setState(() => _selectedCategory = category);
-            _navigateTo(LauncherScreenType.grid);
-          },
-          onAddSpace: () {
-            _showToast('Configure New App Space');
-            _navigateTo(LauncherScreenType.widget);
-          },
-          onHome: () => _navigateTo(LauncherScreenType.home),
-        );
-
-      case LauncherScreenType.grid:
-        final filteredApps = _selectedCategory == LauncherSpaceCategory.all
-            ? _apps
-            : _apps.where((a) => a.category == _selectedCategory || a.isHot).toList();
-
-        return LauncherGridView(
-          key: const ValueKey('grid'),
-          apps: filteredApps.isNotEmpty ? filteredApps : _apps,
-          onOpenSearch: () => _navigateTo(LauncherScreenType.search),
-          onOpenDrawer: () => _navigateTo(LauncherScreenType.drawer),
-          onLaunchApp: _onLaunchApp,
-          onHome: () => _navigateTo(LauncherScreenType.home),
-        );
-
-      case LauncherScreenType.search:
-        return LauncherSearchView(
-          key: const ValueKey('search'),
-          apps: _apps,
-          onBack: () => _navigateTo(LauncherScreenType.home),
-          onLaunchApp: _onLaunchApp,
-          onAction: _onAction,
-          onHome: () => _navigateTo(LauncherScreenType.home),
-        );
-
-      case LauncherScreenType.widget:
-        return LauncherWidgetView(
-          key: const ValueKey('widget'),
-          onBack: () => _navigateTo(LauncherScreenType.home),
-          onWidgetAdded: (name) => _showToast('Widget $name Updated'),
-          onHome: () => _navigateTo(LauncherScreenType.home),
-          onOpenArcane: () => _navigateTo(LauncherScreenType.arcane),
-          onAction: _onAction,
-        );
-
-      case LauncherScreenType.drawer:
-        return LauncherDrawerView(
-          key: const ValueKey('drawer'),
-          apps: _apps,
-          onLaunchApp: _onLaunchApp,
-          onClose: () => _navigateTo(LauncherScreenType.grid),
-          onHome: () => _navigateTo(LauncherScreenType.home),
-        );
-
-      case LauncherScreenType.arcane:
-        // App's original screens with pull-down gesture or top handle tap to return to launcher home
-        return LauncherSwipeDetector(
-          key: const ValueKey('arcane'),
-          behavior: HitTestBehavior.translucent,
-          onSwipeDown: () => _navigateTo(LauncherScreenType.home),
-          child: Stack(
-            children: [
-              widget.arcaneChild,
-              // Top pull-down bar with pill handle (tap or swipe down returns to launcher)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: InkWell(
-                    onTap: () => _navigateTo(LauncherScreenType.home),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      height: 28,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      alignment: Alignment.center,
-                      child: Container(
-                        width: 44,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: LauncherTheme.text.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+  Widget _buildDrawer() {
+    return AnimatedBuilder(
+      animation: _drawer,
+      builder: (context, child) {
+        final t = _drawer.value;
+        // Kept mounted (offstage) so search text, scroll offset and focus survive, but costs nothing hidden.
+        return Offstage(
+          offstage: t == 0,
+          child: TickerMode(
+            enabled: t > 0,
+            child: FractionalTranslation(
+              translation: Offset(0, (1 - Curves.easeOut.transform(t)) * 0.9),
+              child: Opacity(opacity: t.clamp(0.0, 1.0), child: child),
+            ),
           ),
         );
-    }
+      },
+      child: LauncherDrawerView(
+        key: _drawerKey,
+        onLaunch: _launch,
+        onClose: () => _closeDrawer(),
+        onDragClose: (delta) {
+          final h = MediaQuery.sizeOf(context).height;
+          _drawer.value = (_drawer.value - delta / (h * 0.85)).clamp(0.0, 1.0);
+        },
+        onDragCloseEnd: (velocity) {
+          if (velocity > 300 || _drawer.value < 0.65) {
+            _closeDrawer();
+          } else {
+            _openDrawer();
+          }
+        },
+      ),
+    );
   }
 }

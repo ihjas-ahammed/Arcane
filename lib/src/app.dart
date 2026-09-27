@@ -44,17 +44,24 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AppProvider>(
-      builder: (context, appProvider, child) {
-        final themeMode = appProvider.settings.themeMode;
+    // Only the fields the app shell actually uses. A plain Consumer here rebuilt the whole
+    // MaterialApp (theme, launcher, navigator) on every AppProvider notification.
+    return Selector<AppProvider, (String, Color, bool, bool, bool)>(
+      selector: (_, p) => (
+        p.settings.themeMode,
+        p.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed,
+        p.authLoading,
+        p.currentUser == null,
+        p.settings.hasCompletedTour,
+      ),
+      builder: (context, shell, child) {
+        final appProvider = context.read<AppProvider>();
+        final (themeMode, currentTaskColor, _, _, _) = shell;
         final isSystemDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
         final bool isLightTheme = themeMode == 'light' || (themeMode == 'system' && !isSystemDark);
 
         // Sync JweTheme brightness
         JweTheme.isLight = isLightTheme;
-
-        final Color currentTaskColor =
-            appProvider.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed;
 
         // Sync JweTheme and AppTheme accent colors dynamically
         JweTheme.accentAmber = currentTaskColor;

@@ -1,3 +1,27 @@
+# ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092701)
+
+### 🏠 Launcher Rebuilt as a Real Android Home App
+- **New Pixel-style flow**: one home surface. **Swipe up** for the app drawer (search on top), **swipe down** for the real notification shade, **swipe right** for the Arcane widgets page. Arcane itself slides over the launcher from its dock/drawer icon and stays alive underneath, and the **HOME button always returns** to the home page (closing Arcane, the drawer and any open screens).
+- **No fake system chrome**: removed the drawn status bar, gesture pill and "Launching…" toasts. The launcher is edge-to-edge under the real Android status and navigation bars.
+- **Real app icons everywhere**: every app shows its own original icon (rendered natively, batched and disk-cached for instant boots), with a glyph only while an icon is still loading.
+- **Customizable dock**: up to 6 slots, defaulting to your system phone, messages, Arcane, browser and camera apps. Long-press a dock icon to replace the app or change its icon; long-press the dock to reorder, add or remove slots.
+- **Custom icons + icon packs**: pick any app's original icon (including its own), any drawable from an installed ADW/Nova-compatible icon pack, or a tactical glyph, per app. You can also apply an icon pack globally with automatic per-app matching from its `appfilter.xml`.
+- **Real Android widgets**: add any installed app widget to the home screen with the full bind-permission and configure flow, then resize, reorder, reconfigure or remove it. Arcane now also accepts `requestPinAppWidget` as the default launcher, so "Pin to home" buttons (including Arcane's own) place widgets directly.
+- **App drawer**: suggested apps (frecency), fast search with web-search fallback, and long-press actions: add to dock, change icon, hide, app info and uninstall. It refreshes live when apps are installed, updated or removed.
+- **Arcane widgets page**: the fake Wi-Fi/Bluetooth/airplane/GPS/torch toggles now show real device state. The torch toggles for real, and the others open the matching system panels. The fake "widget library" was replaced with real Android widget placement.
+
+### 🔐 Home-App Correctness
+- **Back works again inside Arcane**: removed the native back override that swallowed every back press, so in-app screens pop normally while the home screen itself never exits.
+- **Launcher no longer shows over the lock screen**: only assistant and voice intents may appear over the keyguard now. It used to be a static manifest flag on the home activity.
+- Manifest: pin-widget intent filter, `EXPAND_STATUS_BAR`, `REQUEST_DELETE_PACKAGES`.
+
+### 🚀 Performance Audit
+- **App shell no longer rebuilds on every state change**: `MaterialApp` and `HomeScreen` now select only the fields they render (theme mode, task color, auth/tour state, active project) instead of watching all of `AppProvider`.
+- **Market engine pauses in the background**: the 1s micro-tick and 4s quote polls stop while Arcane isn't visible, which matters now that the launcher process is always alive.
+- **Launcher rendering**: minute-aligned home clock (no per-second rebuilds), per-second widget-page clock isolated to its text, provider-scoped status chip, launcher surface fully offstage (no layout, paint or tickers) while Arcane is open, and debounced notes and launch-stat writes.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.24 (Build #2126092405)
 
 ### 🔄 Universal Cloud & Realtime Database Synchronization Engine

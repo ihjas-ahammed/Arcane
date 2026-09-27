@@ -249,16 +249,22 @@ class _HomeScreenState extends State<HomeScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isLargeScreen = screenWidth > 900;
 
-    final appProvider = context.watch<AppProvider>();
-    final themeMode = appProvider.settings.themeMode;
+    // Select only what the shell renders; watching the whole provider rebuilt the scaffold,
+    // header and tab stack on every notifyListeners (timers, sync, finance ticks, …).
+    final (themeMode, selectedTaskColor, activeProjectName) =
+        context.select<AppProvider, (String, Color?, String?)>((p) {
+      final pid = p.activeProjectId;
+      final name = pid == null ? null : p.projects.firstWhereOrNull((x) => x.id == pid)?.name;
+      return (p.settings.themeMode, p.getSelectedTask()?.taskColor, name);
+    });
+    final appProvider = context.read<AppProvider>();
     final isSystemDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     final bool isLightTheme = themeMode == 'light' || (themeMode == 'system' && !isSystemDark);
 
     // Sync JweTheme brightness
     JweTheme.isLight = isLightTheme;
 
-    final Color currentTaskColor =
-        appProvider.getSelectedTask()?.taskColor ?? JweTheme.accentCyan;
+    final Color currentTaskColor = selectedTaskColor ?? JweTheme.accentCyan;
 
     // Sync JweTheme and AppTheme accent colors dynamically
     JweTheme.accentAmber = currentTaskColor;
@@ -306,15 +312,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     String headerLabel = _viewTitles[_selectedIndex];
     Widget? customLeading;
-    if (_selectedIndex == 3 && appProvider.activeProjectId != null) {
-      final project = appProvider.projects.firstWhereOrNull((p) => p.id == appProvider.activeProjectId);
-      if (project != null) {
-        headerLabel = 'PROJECT: ${project.name}';
-        customLeading = IconButton(
-          icon:  Icon(Icons.arrow_back, color: JweTheme.textWhite, size: 18),
-          onPressed: () => appProvider.setActiveProjectId(null),
-        );
-      }
+    if (_selectedIndex == 3 && activeProjectName != null) {
+      headerLabel = 'PROJECT: $activeProjectName';
+      customLeading = IconButton(
+        icon:  Icon(Icons.arrow_back, color: JweTheme.textWhite, size: 18),
+        onPressed: () => appProvider.setActiveProjectId(null),
+      );
     }
 
     return Theme(

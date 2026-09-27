@@ -26,7 +26,6 @@ import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.view.WindowManager
-import android.window.OnBackInvokedDispatcher
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -41,6 +40,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
     private var pendingPermissionResult: MethodChannel.Result? = null
     private var pendingStartListening = false
     private val PERMISSION_REQUEST_CODE = 2001
+    private var launcherBridge: LauncherBridge? = null
 
     companion object {
         const val CHANNEL = "arcane/widget"
@@ -107,36 +107,53 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableLockScreenDisplay()
         initTts()
-        handleAssistantIntent(intent)
-        registerBackCallback()
+        if (!handleAssistantIntent(intent)) disableLockScreenDisplay()
+        launcherBridge?.handlePinRequest(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        enableLockScreenDisplay()
-        handleAssistantIntent(intent)
+        // Only assistant / voice intents may surface over the keyguard. As the HOME
+        // activity, showing over the lock screen would expose the launcher and user data.
+        if (!handleAssistantIntent(intent)) disableLockScreenDisplay()
+        launcherBridge?.onNewIntent(intent)
     }
 
-    private fun registerBackCallback() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            try {
-                onBackInvokedDispatcher.registerOnBackInvokedCallback(
-                    OnBackInvokedDispatcher.PRIORITY_DEFAULT
-                ) {
-                    channel?.invokeMethod("onBackPressed", null)
-                    assistantMethodChannel?.invokeMethod("onBackPressed", null)
-                }
-            } catch (_: Exception) {}
+    // Back is handled by Flutter (root PopScope in LauncherScreen), so in-app routes
+    // pop normally and the home screen itself never finishes.
+
+    override fun onStart() {
+        super.onStart()
+        launcherBridge?.onStart()
+    }
+
+    override fun onStop() {
+        launcherBridge?.onStop()
+        super.onStop()
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (launcherBridge?.onActivityResult(requestCode, resultCode, data) == true) return
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    private fun disableLockScreenDisplay() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                setShowWhenLocked(false)
+                setTurnScreenOn(false)
+            } else {
+                @Suppress("DEPRECATION")
+                window.clearFlags(
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                )
+            }
+        } catch (_: Exception) {
         }
-    }
-
-    override fun onBackPressed() {
-        // As an Android Home Screen launcher, Arcane must never finish or kill itself on back press.
-        channel?.invokeMethod("onBackPressed", null)
-        assistantMethodChannel?.invokeMethod("onBackPressed", null)
     }
 
     /**
@@ -578,6 +595,11 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         ttsMethodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, TTS_CHANNEL)
         sttMethodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, STT_CHANNEL)
         assistantMethodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ASSISTANT_CHANNEL)
+        launcherBridge?.dispose()
+        launcherBridge = LauncherBridge(this, flutterEngine.dartExecutor.binaryMessenger).also { bridge ->
+            flutterEngine.platformViewsController.registry
+                .registerViewFactory(LauncherBridge.VIEW_TYPE, bridge.WidgetViewFactory())
+        }
         engineAlive = true
 
         // TTS method channel handler
@@ -926,6 +948,8 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
 
     override fun onDestroy() {
         engineAlive = false
+        launcherBridge?.dispose()
+        launcherBridge = null
         channel = null
         ttsMethodChannel = null
         sttMethodChannel = null

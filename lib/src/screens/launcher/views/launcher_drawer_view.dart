@@ -1,255 +1,293 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/screens/launcher/launcher_icon.dart';
 import 'package:missions/src/screens/launcher/launcher_models.dart';
-import 'package:missions/src/screens/launcher/launcher_swipe_detector.dart';
+import 'package:missions/src/screens/launcher/launcher_native.dart';
+import 'package:missions/src/screens/launcher/launcher_service.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
+import 'package:missions/src/screens/launcher/views/launcher_sheets.dart';
 
-class LauncherDrawerView extends StatelessWidget {
-  final List<LauncherAppItem> apps;
-  final Function(LauncherAppItem app) onLaunchApp;
+/// All-apps drawer with search on top. Pull down at the top of the list to close.
+class LauncherDrawerView extends StatefulWidget {
+  final ValueChanged<LauncherApp> onLaunch;
   final VoidCallback onClose;
-  final VoidCallback onHome;
+
+  /// Finger moved down by `delta` px while closing by drag.
+  final ValueChanged<double> onDragClose;
+
+  /// Drag released with downward `velocity` (px/s).
+  final ValueChanged<double> onDragCloseEnd;
 
   const LauncherDrawerView({
     super.key,
-    required this.apps,
-    required this.onLaunchApp,
+    required this.onLaunch,
     required this.onClose,
-    required this.onHome,
+    required this.onDragClose,
+    required this.onDragCloseEnd,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final isLight = LauncherTheme.isLight;
+  State<LauncherDrawerView> createState() => LauncherDrawerViewState();
+}
 
-    return LauncherSwipeDetector(
-      behavior: HitTestBehavior.opaque,
-      onSwipeDown: onClose,
-      child: Column(
-        children: [
-          // ── Drawer Handle Bar ────────────────────────────────────
-          InkWell(
-            onTap: onClose,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 10, bottom: 6),
-              child: Column(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: LauncherTheme.text.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Icon(
-                    MdiIcons.chevronDown,
-                    color: LauncherTheme.text.withValues(alpha: 0.8),
-                    size: 20,
-                  ),
-                ],
-              ),
-            ),
-          ),
+class LauncherDrawerViewState extends State<LauncherDrawerView> {
+  final TextEditingController _query = TextEditingController();
+  final FocusNode _focus = FocusNode();
+  final ScrollController _scroll = ScrollController();
+  bool _dragClosing = false;
 
-          // ── Drawer Head: ALL APPS & Total Count ──────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(26, 6, 26, 14),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  'ALL APPS',
-                  style: LauncherTheme.rajdhani(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 2.5,
-                    color: LauncherTheme.text,
-                  ),
-                ),
-                Text(
-                  '${apps.length} APPS',
-                  style: LauncherTheme.rajdhani(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 1.5,
-                    color: LauncherTheme.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // ── 4-Column Apps Grid ──────────────────────────────────
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: GridView.builder(
-                physics: const BouncingScrollPhysics(),
-                itemCount: apps.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.88,
-                ),
-                itemBuilder: (context, index) {
-                  final app = apps[index];
-                  return _buildDrawerAppItem(app);
-                },
-              ),
-            ),
-          ),
-
-          // ── Dots Indicator ──────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: LauncherTheme.red,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: LauncherTheme.red,
-                        blurRadius: 6,
-                        spreadRadius: 1,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: isLight ? const Color(0xFFC8BFB2) : const Color(0xFF353944),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: isLight ? const Color(0xFFC8BFB2) : const Color(0xFF353944),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // ── Home Indicator ───────────────────────────────────────
-          GestureDetector(
-            onTap: onHome,
-            child: Container(
-              width: 120,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: LauncherTheme.text.withValues(alpha: 0.85),
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _query.addListener(_onQuery);
   }
 
-  Widget _buildDrawerAppItem(LauncherAppItem app) {
-    if (app.isHot) {
-      return InkWell(
-        onTap: () => onLaunchApp(app),
-        borderRadius: BorderRadius.circular(14),
+  @override
+  void dispose() {
+    _query.dispose();
+    _focus.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  String _lastQuery = '';
+  void _onQuery() {
+    if (_query.text == _lastQuery) return;
+    _lastQuery = _query.text;
+    setState(() {});
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+  }
+
+  void focusSearch() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focus.requestFocus();
+    });
+  }
+
+  void reset() {
+    _focus.unfocus();
+    if (_query.text.isNotEmpty) _query.clear();
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+  }
+
+  void _submit(List<LauncherApp> results) {
+    final q = _query.text.trim();
+    if (q.isEmpty) return;
+    if (results.isNotEmpty) {
+      widget.onLaunch(results.first);
+    } else {
+      LauncherNative.openWebSearch(q);
+    }
+  }
+
+  bool _onScroll(ScrollNotification n) {
+    if (n is OverscrollNotification && n.overscroll < 0 && n.dragDetails != null) {
+      if (!_dragClosing) {
+        _dragClosing = true;
+        _focus.unfocus();
+      }
+      widget.onDragClose(n.dragDetails!.delta.dy);
+    } else if (_dragClosing && n is ScrollUpdateNotification && n.dragDetails != null) {
+      widget.onDragClose(n.dragDetails!.delta.dy);
+    } else if (_dragClosing && n is ScrollEndNotification) {
+      _dragClosing = false;
+      widget.onDragCloseEnd(n.dragDetails?.primaryVelocity ?? 0);
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final columns = (media.size.width / 86).floor().clamp(4, 6);
+    final service = LauncherService.instance;
+
+    return Material(
+      color: LauncherTheme.bg.withValues(alpha: 0.97),
+      child: Padding(
+        padding: EdgeInsets.only(top: media.padding.top, bottom: media.viewInsets.bottom),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            AspectRatio(
-              aspectRatio: 1.0,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFFF3B4E), Color(0xFFC4101F)],
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFFF6B78), width: 1.5),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x80FF2B3F),
-                      blurRadius: 14,
-                      spreadRadius: 2,
+            // Handle + search. Dragging here closes the drawer too.
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onVerticalDragUpdate: (d) => widget.onDragClose(d.primaryDelta ?? 0),
+              onVerticalDragEnd: (d) => widget.onDragCloseEnd(d.primaryVelocity ?? 0),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(color: LauncherTheme.line, borderRadius: BorderRadius.circular(2)),
+                    ),
+                    Row(
+                      children: [
+                        Expanded(child: _buildSearchField()),
+                        IconButton(
+                          tooltip: 'Launcher settings',
+                          onPressed: () => showLauncherSettings(context),
+                          icon: Icon(MdiIcons.tuneVariant, color: LauncherTheme.text, size: 22),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                child: Center(
-                  child: Icon(app.icon, size: 28, color: Colors.white),
-                ),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              app.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: LauncherTheme.rajdhani(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: LauncherTheme.text,
+            Expanded(
+              child: ListenableBuilder(
+                listenable: Listenable.merge([service.apps, service.hidden]),
+                builder: (context, _) {
+                  final q = _query.text.trim();
+                  final hidden = service.hidden.value;
+                  final List<LauncherApp> apps = q.isEmpty
+                      ? service.apps.value.where((a) => !hidden.contains(a.key)).toList()
+                      : service.search(q);
+                  final suggestions = q.isEmpty ? service.suggestions(limit: columns) : const <LauncherApp>[];
+
+                  return NotificationListener<ScrollNotification>(
+                    onNotification: _onScroll,
+                    child: CustomScrollView(
+                      controller: _scroll,
+                      physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+                      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                      slivers: [
+                        if (suggestions.isNotEmpty) ...[
+                          _sectionLabel('SUGGESTED'),
+                          _grid(suggestions, columns),
+                          SliverToBoxAdapter(
+                            child: Divider(color: LauncherTheme.line, height: 20, indent: 16, endIndent: 16),
+                          ),
+                        ],
+                        if (q.isNotEmpty) _sectionLabel(apps.isEmpty ? 'NO APPS FOUND' : 'APPS'),
+                        _grid(apps, columns),
+                        if (q.isNotEmpty) SliverToBoxAdapter(child: _webSearchTile(q)),
+                        SliverPadding(padding: EdgeInsets.only(bottom: media.padding.bottom + 16)),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    return InkWell(
-      onTap: () => onLaunchApp(app),
-      borderRadius: BorderRadius.circular(14),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AspectRatio(
-            aspectRatio: 1.0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: LauncherTheme.panel,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: LauncherTheme.line),
+  Widget _buildSearchField() {
+    return TextField(
+      controller: _query,
+      focusNode: _focus,
+      textInputAction: TextInputAction.go,
+      onSubmitted: (_) => _submit(LauncherService.instance.search(_query.text)),
+      style: LauncherTheme.rajdhani(fontSize: 16, fontWeight: FontWeight.w600),
+      cursorColor: LauncherTheme.red,
+      decoration: InputDecoration(
+        isDense: true,
+        filled: true,
+        fillColor: LauncherTheme.panel2,
+        hintText: 'Search apps',
+        hintStyle: LauncherTheme.rajdhani(fontSize: 15, fontWeight: FontWeight.w600, color: LauncherTheme.muted),
+        prefixIcon: Icon(MdiIcons.magnify, color: LauncherTheme.muted, size: 20),
+        suffixIcon: _query.text.isEmpty
+            ? null
+            : IconButton(
+                icon: Icon(MdiIcons.close, size: 18, color: LauncherTheme.muted),
+                onPressed: _query.clear,
               ),
-              child: Center(
-                child: Icon(
-                  app.icon,
-                  size: 24,
-                  color: LauncherTheme.text.withValues(alpha: 0.85),
-                ),
-              ),
-            ),
+        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: LauncherTheme.line)),
+        enabledBorder:
+            OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: LauncherTheme.line)),
+        focusedBorder:
+            OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: LauncherTheme.redSoft)),
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String text) => SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 6),
+          child: Text(text,
+              style: LauncherTheme.rajdhani(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 2, color: LauncherTheme.muted)),
+        ),
+      );
+
+  Widget _grid(List<LauncherApp> apps, int columns) {
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          mainAxisExtent: 92,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, i) => _AppTile(
+            app: apps[i],
+            onTap: () => widget.onLaunch(apps[i]),
+            onLongPress: () {
+              HapticFeedback.mediumImpact();
+              _focus.unfocus();
+              showAppActionsSheet(context, apps[i]);
+            },
           ),
-          const SizedBox(height: 4),
-          Text(
-            app.label,
+          childCount: apps.length,
+        ),
+      ),
+    );
+  }
+
+  Widget _webSearchTile(String q) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: ListTile(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: LauncherTheme.line)),
+        tileColor: LauncherTheme.panel,
+        leading: Icon(MdiIcons.web, color: LauncherTheme.red),
+        title: Text('Search the web for "$q"',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: LauncherTheme.rajdhani(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: LauncherTheme.muted,
+            style: LauncherTheme.rajdhani(fontSize: 15, fontWeight: FontWeight.w600)),
+        onTap: () => LauncherNative.openWebSearch(q),
+      ),
+    );
+  }
+}
+
+class _AppTile extends StatelessWidget {
+  final LauncherApp app;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const _AppTile({required this.app, required this.onTap, required this.onLongPress});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            LauncherAppIcon(app: app, size: 50),
+            const SizedBox(height: 6),
+            Text(
+              app.displayLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: LauncherTheme.rajdhani(fontSize: 12.5, fontWeight: FontWeight.w600, letterSpacing: 0.2, height: 1.1),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

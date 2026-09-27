@@ -13,7 +13,7 @@ enum MarketConnectionStatus {
   disconnected,
 }
 
-class BinanceMarketService extends ChangeNotifier {
+class BinanceMarketService extends ChangeNotifier with WidgetsBindingObserver {
   static BinanceMarketService? _instance;
   static BinanceMarketService get instance => _instance ??= BinanceMarketService();
 
@@ -271,6 +271,43 @@ class BinanceMarketService extends ChangeNotifier {
     _fetchIndianMarkets();
     _loadAllBinanceUniverse();
 
+    if (!_lifecycleObserved) {
+      _lifecycleObserved = true;
+      WidgetsBinding.instance.addObserver(this);
+    }
+    _startFastTimers();
+
+    // Sweep all remaining Indian assets in background every 30 seconds
+    _indianMarketPollTimer?.cancel();
+    _indianMarketPollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _fetchIndianMarkets();
+    });
+  }
+
+  bool _lifecycleObserved = false;
+  bool _backgrounded = false;
+
+  /// The 1s/4s timers only feed on-screen quotes. Arcane is also the home launcher, so its
+  /// process stays alive while other apps are in front — pause them there to save battery/CPU.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final background = state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached;
+    if (background == _backgrounded || _isDisposed) return;
+    _backgrounded = background;
+    if (background) {
+      _visibleIndianPollTimer?.cancel();
+      _activeCryptoPollTimer?.cancel();
+      _microTickTimer?.cancel();
+    } else {
+      _startFastTimers();
+    }
+  }
+
+  void _startFastTimers() {
+    if (_backgrounded) return;
+
     // Fast 4-second parallel poll for all visible Indian assets
     _visibleIndianPollTimer?.cancel();
     _visibleIndianPollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
@@ -287,12 +324,6 @@ class BinanceMarketService extends ChangeNotifier {
     _microTickTimer?.cancel();
     _microTickTimer = Timer.periodic(const Duration(milliseconds: 1000), (_) {
       _runMicroTickPulse();
-    });
-
-    // Sweep all remaining Indian assets in background every 30 seconds
-    _indianMarketPollTimer?.cancel();
-    _indianMarketPollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      _fetchIndianMarkets();
     });
   }
 
@@ -1314,6 +1345,7 @@ class BinanceMarketService extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    if (_lifecycleObserved) WidgetsBinding.instance.removeObserver(this);
     _reconnectTimer?.cancel();
     _indianMarketPollTimer?.cancel();
     _visibleIndianPollTimer?.cancel();

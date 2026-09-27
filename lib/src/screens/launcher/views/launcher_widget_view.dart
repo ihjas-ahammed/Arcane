@@ -4,8 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/providers/app_provider.dart';
-import 'package:missions/src/screens/launcher/launcher_swipe_detector.dart';
+import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
+import 'package:missions/src/screens/launcher/views/launcher_sheets.dart';
 import 'package:missions/src/screens/settings/homescreen_widgets_preview_screen.dart';
 import 'package:missions/src/services/home_widget_service.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
@@ -15,64 +16,54 @@ import 'package:missions/src/widgets/homescreen_widgets.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum _WidgetTab { all, protocols, hud, library }
+enum _WidgetTab { all, protocols, hud }
 
-/// Dedicated Widget Screen hosting both Arcane's original widgets and cyber tactical HUD widgets.
-/// Features:
-/// - Live Arcane widgets (Task Hero, Day Plan, Finance, Journal, Bus Route) connected to AppProvider
-/// - Interactive task engagement (start/pause sessions from the widget)
-/// - Tactical HUD widgets (Live Military Clock, Focus Gauge, System Diagnostics Matrix, Quick Scratchpad)
-/// - SharedPreferences-backed persistent Tactical Notes
-/// - Direct synchronization with native Android Home Screen AppWidgets
-/// - Full Dual Theme parity (Dark / Light mode)
+/// Arcane widgets page (left of the launcher home): live Arcane cards, tactical HUD with
+/// real system controls, persistent notes, and the entry point for Android home widgets.
 class LauncherWidgetView extends StatefulWidget {
-  final VoidCallback onBack;
-  final Function(String widgetName) onWidgetAdded;
-  final VoidCallback onHome;
   final VoidCallback onOpenArcane;
-  final Function(String action)? onAction;
 
-  const LauncherWidgetView({
-    super.key,
-    required this.onBack,
-    required this.onWidgetAdded,
-    required this.onHome,
-    required this.onOpenArcane,
-    this.onAction,
-  });
+  const LauncherWidgetView({super.key, required this.onOpenArcane});
 
   @override
   State<LauncherWidgetView> createState() => _LauncherWidgetViewState();
 }
 
-class _LauncherWidgetViewState extends State<LauncherWidgetView> {
-  late Timer _clockTimer;
-  DateTime _now = DateTime.now();
+class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBindingObserver {
+  Timer? _clockTimer;
+
+  /// Only the clock text listens to this, so the per-second tick never rebuilds the page.
+  final ValueNotifier<DateTime> _clock = ValueNotifier<DateTime>(DateTime.now());
 
   _WidgetTab _activeTab = _WidgetTab.all;
   bool _isSyncing = false;
 
-  // Widget Added states
-  final Set<String> _addedWidgets = {'Clock', 'Focus', 'Task Hero', 'System'};
-
-  // System Toggles
-  bool _wifiOn = true;
-  bool _btOn = false;
-  bool _planeOn = false;
-  bool _torchOn = false;
-  bool _locOn = false;
+  /// Real device state from LauncherNative.getSystemStatus.
+  Map<String, bool> _system = const {};
 
   // Tactical Notes Controller & Persistence
   final TextEditingController _notesController = TextEditingController();
   static const String _notesPrefKey = 'arcane_launcher_quick_notes';
+  Timer? _notesSave;
 
   @override
   void initState() {
     super.initState();
-    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _now = DateTime.now());
-    });
+    WidgetsBinding.instance.addObserver(this);
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) => _clock.value = DateTime.now());
     _loadNotes();
+    _refreshSystem();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Wi-Fi / Bluetooth / location are changed in system panels; re-read on return.
+    if (state == AppLifecycleState.resumed) _refreshSystem();
+  }
+
+  Future<void> _refreshSystem() async {
+    final status = await LauncherNative.getSystemStatus();
+    if (mounted) setState(() => _system = status);
   }
 
   Future<void> _loadNotes() async {
@@ -85,29 +76,25 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> {
     } catch (_) {}
   }
 
-  Future<void> _saveNotes(String val) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_notesPrefKey, val);
-    } catch (_) {}
+  void _saveNotes(String val) {
+    // Debounced: one write after typing pauses instead of one per keystroke.
+    _notesSave?.cancel();
+    _notesSave = Timer(const Duration(milliseconds: 600), () async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_notesPrefKey, val);
+      } catch (_) {}
+    });
   }
 
   @override
   void dispose() {
-    _clockTimer.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _clockTimer?.cancel();
+    _clock.dispose();
+    _notesSave?.cancel();
     _notesController.dispose();
     super.dispose();
-  }
-
-  void _handleAdd(String name) {
-    setState(() {
-      if (_addedWidgets.contains(name)) {
-        _addedWidgets.remove(name);
-      } else {
-        _addedWidgets.add(name);
-      }
-    });
-    widget.onWidgetAdded(name);
   }
 
   Future<void> _syncAllWidgets(AppProvider provider) async {
@@ -129,22 +116,14 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> {
     final isLight = LauncherTheme.isLight;
     final provider = Provider.of<AppProvider>(context);
 
-    return LauncherSwipeDetector(
-      behavior: HitTestBehavior.translucent,
-      onSwipeDown: widget.onBack,
+    return SafeArea(
       child: Column(
         children: [
           // ── Header ──────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            padding: const EdgeInsets.fromLTRB(20, 12, 16, 12),
             child: Row(
               children: [
-                IconButton(
-                  onPressed: widget.onBack,
-                  icon: Icon(MdiIcons.arrowLeft, color: LauncherTheme.text, size: 22),
-                  tooltip: 'Back to Launcher',
-                ),
-                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,8 +204,6 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> {
                   _buildTabChip('PROTOCOLS', _WidgetTab.protocols),
                   const SizedBox(width: 8),
                   _buildTabChip('TACTICAL HUD', _WidgetTab.hud),
-                  const SizedBox(width: 8),
-                  _buildTabChip('LIBRARY', _WidgetTab.library),
                 ],
               ),
             ),
@@ -268,28 +245,31 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> {
                   const SizedBox(height: 20),
                 ],
 
-                // 3. Widget Library & Add
-                if (_activeTab == _WidgetTab.all || _activeTab == _WidgetTab.library) ...[
-                  _buildSectionHeader('WIDGET LIBRARY', 'MODULAR SHORTCUTS & LAUNCH CARDS'),
+                // 3. Android home-screen widgets (hosted on the launcher home page)
+                if (_activeTab == _WidgetTab.all) ...[
+                  _buildSectionHeader('ANDROID WIDGETS', 'ANY INSTALLED APP WIDGET, ON YOUR HOME PAGE'),
                   const SizedBox(height: 10),
-                  _buildLibraryGrid(provider),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(46),
+                      side: BorderSide(color: LauncherTheme.redSoft),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => showWidgetPicker(context),
+                    icon: Icon(MdiIcons.plus, color: LauncherTheme.red, size: 18),
+                    label: Text(
+                      'ADD ANDROID WIDGET',
+                      style: LauncherTheme.rajdhani(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.5,
+                        color: LauncherTheme.red,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 20),
                 ],
               ],
-            ),
-          ),
-
-          // ── Home Indicator (Gesture Pill) ───────────────────────
-          GestureDetector(
-            onTap: widget.onHome,
-            child: Container(
-              width: 120,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: LauncherTheme.text.withValues(alpha: 0.85),
-                borderRadius: BorderRadius.circular(4),
-              ),
             ),
           ),
         ],
@@ -528,8 +508,6 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> {
   Widget _buildTacticalClockAndFocus(AppProvider provider) {
     final live = WidgetsStudioResolvers.resolveLiveTask(provider);
     final isLight = LauncherTheme.isLight;
-    final timeStr = DateFormat('HH:mm:ss').format(_now);
-    final dateStr = DateFormat('EEE, d MMM yyyy').format(_now).toUpperCase();
     final focusPct = (live.progress * 100).clamp(0, 100).toInt();
 
     return Row(
@@ -564,23 +542,29 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> {
                     Icon(MdiIcons.radar, size: 14, color: LauncherTheme.red),
                   ],
                 ),
-                Text(
-                  timeStr,
-                  style: LauncherTheme.rajdhani(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                    color: LauncherTheme.text,
-                    height: 1.0,
+                ValueListenableBuilder<DateTime>(
+                  valueListenable: _clock,
+                  builder: (_, now, __) => Text(
+                    DateFormat('HH:mm:ss').format(now),
+                    style: LauncherTheme.rajdhani(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                      color: LauncherTheme.text,
+                      height: 1.0,
+                    ),
                   ),
                 ),
-                Text(
-                  dateStr,
-                  style: LauncherTheme.rajdhani(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.2,
-                    color: LauncherTheme.muted,
+                ValueListenableBuilder<DateTime>(
+                  valueListenable: _clock,
+                  builder: (_, now, __) => Text(
+                    DateFormat('EEE, d MMM yyyy').format(now).toUpperCase(),
+                    style: LauncherTheme.rajdhani(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
+                      color: LauncherTheme.muted,
+                    ),
                   ),
                 ),
               ],
@@ -687,20 +671,20 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> {
               _buildSystemMatrixToggle(
                 icon: MdiIcons.wifi,
                 label: 'WiFi',
-                isOn: _wifiOn,
-                onTap: () => setState(() => _wifiOn = !_wifiOn),
+                isOn: _system['wifi'] ?? false,
+                onTap: () => LauncherNative.openSystemPanel('wifi'),
               ),
               _buildSystemMatrixToggle(
                 icon: MdiIcons.bluetooth,
                 label: 'Bluetooth',
-                isOn: _btOn,
-                onTap: () => setState(() => _btOn = !_btOn),
+                isOn: _system['bluetooth'] ?? false,
+                onTap: () => LauncherNative.openSystemPanel('bluetooth'),
               ),
               _buildSystemMatrixToggle(
                 icon: MdiIcons.airplane,
                 label: 'Airplane',
-                isOn: _planeOn,
-                onTap: () => setState(() => _planeOn = !_planeOn),
+                isOn: _system['airplane'] ?? false,
+                onTap: () => LauncherNative.openSystemPanel('airplane'),
               ),
               _buildSystemMatrixToggle(
                 icon: isLight ? MdiIcons.weatherSunny : MdiIcons.moonWaningCrescent,
@@ -714,14 +698,19 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> {
               _buildSystemMatrixToggle(
                 icon: MdiIcons.flashlight,
                 label: 'Torch',
-                isOn: _torchOn,
-                onTap: () => setState(() => _torchOn = !_torchOn),
+                isOn: _system['torch'] ?? false,
+                onTap: () async {
+                  final on = !(_system['torch'] ?? false);
+                  if (await LauncherNative.setTorch(on) && mounted) {
+                    setState(() => _system = {..._system, 'torch': on});
+                  }
+                },
               ),
               _buildSystemMatrixToggle(
                 icon: MdiIcons.crosshairsGps,
                 label: 'GPS',
-                isOn: _locOn,
-                onTap: () => setState(() => _locOn = !_locOn),
+                isOn: _system['location'] ?? false,
+                onTap: () => LauncherNative.openSystemPanel('location'),
               ),
             ],
           ),
@@ -840,127 +829,6 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> {
   }
 
   // ── Widget Library: 2-Column Grid ─────────────────────────────
-  Widget _buildLibraryGrid(AppProvider provider) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 14,
-      childAspectRatio: 1.15,
-      children: [
-        _buildLibraryCard(
-          name: 'Clock',
-          icon: MdiIcons.clockOutline,
-          preview: Text(
-            DateFormat('HH:mm').format(_now),
-            style: LauncherTheme.rajdhani(
-              fontSize: 32,
-              fontWeight: FontWeight.w600,
-              color: LauncherTheme.text,
-            ),
-          ),
-        ),
-        _buildLibraryCard(
-          name: 'Focus',
-          icon: MdiIcons.target,
-          preview: Center(
-            child: Icon(MdiIcons.chartDonut, size: 40, color: LauncherTheme.red),
-          ),
-        ),
-        _buildLibraryCard(
-          name: 'Quick Apps',
-          icon: MdiIcons.apps,
-          preview: Center(
-            child: Icon(MdiIcons.viewGridOutline, size: 36, color: LauncherTheme.text),
-          ),
-        ),
-        _buildLibraryCard(
-          name: 'Quote',
-          icon: MdiIcons.formatQuoteClose,
-          preview: Text(
-            '"A calmer mind for a brighter day."',
-            style: LauncherTheme.rajdhani(
-              fontSize: 12,
-              color: LauncherTheme.muted,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLibraryCard({
-    required String name,
-    required IconData icon,
-    required Widget preview,
-  }) {
-    final isAdded = _addedWidgets.contains(name);
-
-    return InkWell(
-      onTap: () => _handleAdd(name),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: LauncherTheme.panel,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isAdded ? LauncherTheme.red : LauncherTheme.line,
-            width: isAdded ? 1.5 : 1.0,
-          ),
-          boxShadow: isAdded
-              ? [
-                  BoxShadow(
-                    color: LauncherTheme.redDim,
-                    blurRadius: 12,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(icon, size: 16, color: isAdded ? LauncherTheme.red : LauncherTheme.muted),
-                if (isAdded)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: LauncherTheme.red,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'ACTIVE',
-                      style: GoogleFonts.rajdhani(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const Spacer(),
-            preview,
-            const Spacer(),
-            Text(
-              name,
-              style: LauncherTheme.rajdhani(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: LauncherTheme.text,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // ── Frame Container for Android Widgets ────────────────────────
   Widget _buildResponsiveWidgetFrame({
     required String title,
