@@ -409,6 +409,21 @@ class LauncherBridge(
         return info?.activityInfo?.packageName == activity.packageName
     }
 
+    /** Packages the system resolves for the classic dock roles (dialer, SMS, browser, camera, …). */
+    private fun getDefaultApps(): Map<String, String?> {
+        fun resolve(intent: Intent): String? = try {
+            val ri = pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            ri?.activityInfo?.packageName?.takeUnless { it == "android" }
+        } catch (_: Exception) { null }
+        return mapOf(
+            "phone" to resolve(Intent(Intent.ACTION_DIAL)),
+            "messages" to resolve(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:"))),
+            "browser" to resolve(Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com"))),
+            "camera" to resolve(Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)),
+            "email" to resolve(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"))),
+        )
+    }
+
     // ── Apps ─────────────────────────────────────────────────────────────────
 
     private val launcherApps: LauncherApps?
