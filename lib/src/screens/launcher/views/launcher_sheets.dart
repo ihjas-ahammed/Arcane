@@ -6,6 +6,7 @@ import 'package:missions/src/screens/launcher/launcher_models.dart';
 import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/launcher_service.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
+import 'package:missions/src/screens/launcher/views/launcher_takeover_settings.dart';
 
 // ── Shared chrome ─────────────────────────────────────────────
 
@@ -123,6 +124,11 @@ class _LauncherSettingsState extends State<_LauncherSettings> {
           color: _isDefault == true ? null : LauncherTheme.red,
           subtitle: 'Opens Android default-apps settings',
         ),
+        if (_isDefault != true)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: LauncherTakeoverSettings(),
+          ),
         ValueListenableBuilder<String?>(
           valueListenable: service.iconPack,
           builder: (_, pack, __) => _action(

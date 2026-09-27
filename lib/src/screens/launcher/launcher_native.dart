@@ -63,6 +63,22 @@ class LauncherNative {
   static Future<bool> isDefaultLauncher() async => await _invoke<bool>('isDefaultLauncher') ?? false;
   static Future<bool> openHomeSettings() async => await _invoke<bool>('openHomeSettings') ?? false;
 
+  /// True when Arcane is the default home app, or the takeover mode is on and its service is running.
+  static Future<bool> actsAsHome() async => await _invoke<bool>('actsAsHome') ?? false;
+
+  // ── Takeover mode (MIUI / HyperOS: open over the stock launcher) ──
+  static Future<Map<String, dynamic>> getTakeoverStatus() async {
+    final raw = await _invoke<Map<dynamic, dynamic>>('getTakeoverStatus');
+    return raw == null ? const {} : Map<String, dynamic>.from(raw);
+  }
+
+  static Future<void> setTakeoverEnabled(bool enabled) => _invoke<bool>('setTakeoverEnabled', {'enabled': enabled});
+  static Future<bool> openAccessibilitySettings() async => await _invoke<bool>('openAccessibilitySettings') ?? false;
+
+  /// [page]: `autostart` or `permissions` (background pop-up windows).
+  static Future<bool> openMiuiPermissions(String page) async =>
+      await _invoke<bool>('openMiuiPermissions', {'page': page}) ?? false;
+
   static Future<List<Map<String, dynamic>>> getApps() async {
     final raw = await _invoke<List<dynamic>>('getApps');
     if (raw == null) return const [];

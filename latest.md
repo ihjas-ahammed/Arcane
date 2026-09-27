@@ -1,3 +1,13 @@
+# ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092702)
+
+### 🏠 MIUI / HyperOS Launcher Takeover
+- **"Open Arcane over default launcher" mode**: for phones that force their stock home app (MIUI / HyperOS). When it's on, Arcane opens on top every time the stock home screen comes up (HOME button, closing an app, unlocking), so it works just like being the default home app.
+- **One switch in Settings → Home Launcher** (also in the launcher's own settings sheet), with a guided setup: turn on the "Arcane Launcher" accessibility service, plus MIUI **Autostart** and **"Display pop-up windows while running in background"** shortcuts, each with a live status check.
+- **Privacy-minimal service**: it only listens for window-state changes (which app came to the front). It never reads screen content or typing. The stock launcher's recents and pop-ups are ignored, and repeat triggers are debounced.
+- **Home-screen back behavior**: with takeover active, Back on Arcane's home screen does nothing (like a real home app) instead of exiting.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092701)
 
 ### 🏠 Launcher Rebuilt as a Real Android Home App

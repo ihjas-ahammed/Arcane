@@ -188,6 +188,27 @@ class LauncherBridge(
                 if (isHomeIntent(activity.intent) || isPinRequest(activity.intent)) "home" else "app"
             )
             "isDefaultLauncher" -> result.success(isDefaultLauncher())
+            // Default home app, or the MIUI-style takeover mode that opens us over the stock launcher.
+            "actsAsHome" -> result.success(
+                isDefaultLauncher() ||
+                    (LauncherTakeoverService.isEnabled(activity) && LauncherTakeoverService.isServiceEnabled(activity))
+            )
+            "getTakeoverStatus" -> result.success(mapOf(
+                "enabled" to LauncherTakeoverService.isEnabled(activity),
+                "serviceEnabled" to LauncherTakeoverService.isServiceEnabled(activity),
+                "isDefault" to isDefaultLauncher(),
+                "isMiui" to isMiui(),
+                "stockLaunchers" to LauncherTakeoverService.otherHomePackages(activity).toList(),
+            ))
+            "setTakeoverEnabled" -> {
+                LauncherTakeoverService.setEnabled(activity, call.argument<Boolean>("enabled") ?: false)
+                result.success(true)
+            }
+            "openAccessibilitySettings" -> {
+                val direct = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                result.success(startSafely(direct))
+            }
+            "openMiuiPermissions" -> result.success(openMiuiPermissions(call.argument<String>("page") ?: "autostart"))
             "openHomeSettings" -> result.success(startSafely(Intent(Settings.ACTION_HOME_SETTINGS)))
             "getApps" -> background(result) { getApps() }
             "getDefaultApps" -> background(result) { getDefaultApps() }
@@ -279,6 +300,43 @@ class LauncherBridge(
         true
     } catch (_: Exception) {
         false
+    }
+
+    private fun isMiui(): Boolean {
+        if (Build.MANUFACTURER.equals("Xiaomi", true) || Build.BRAND.equals("Redmi", true) || Build.BRAND.equals("POCO", true)) {
+            return true
+        }
+        return try {
+            val clazz = Class.forName("android.os.SystemProperties")
+            val value = clazz.getMethod("get", String::class.java).invoke(null, "ro.miui.ui.version.name") as? String
+            !value.isNullOrEmpty()
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * MIUI/HyperOS gate background activity starts behind their own permissions ("Autostart" and
+     * "Display pop-up windows while running in the background"); open those pages when present.
+     */
+    private fun openMiuiPermissions(page: String): Boolean {
+        val pkg = activity.packageName
+        val candidates = when (page) {
+            "autostart" -> listOf(
+                Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")),
+                Intent("miui.intent.action.OP_AUTO_START").addCategory(Intent.CATEGORY_DEFAULT),
+            )
+            else -> listOf(
+                Intent("miui.intent.action.APP_PERM_EDITOR")
+                    .setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity")
+                    .putExtra("extra_pkgname", pkg),
+                Intent("miui.intent.action.APP_PERM_EDITOR")
+                    .setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.AppPermissionsEditorActivity")
+                    .putExtra("extra_pkgname", pkg),
+            )
+        }
+        for (intent in candidates) if (startSafely(intent)) return true
+        return startSafely(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg")))
     }
 
     private fun isDefaultLauncher(): Boolean {

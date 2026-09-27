@@ -10,6 +10,7 @@ import 'package:missions/src/widgets/settings/sections/cloud_sync_settings_secti
 import 'package:missions/src/widgets/settings/sections/diagnostics_and_tools_section.dart';
 import 'package:missions/src/widgets/settings/sections/notifications_settings_section.dart';
 import 'package:missions/src/widgets/settings/sections/security_privacy_settings_section.dart';
+import 'package:missions/src/widgets/settings/sections/launcher_settings_section.dart';
 import 'package:missions/src/widgets/settings/sections/ui_and_progress_settings_section.dart';
 import 'package:missions/src/widgets/settings/sections/update_settings_section.dart';
 
@@ -120,6 +121,9 @@ class _SettingsViewState extends State<SettingsView> {
 
               // 2. SECURITY, PRIVACY & THEME
               SecurityPrivacySettingsSection(appProvider: appProvider),
+
+              // 2.5 HOME LAUNCHER (default home / MIUI takeover)
+              const LauncherSettingsSection(),
 
               // 3. AI MODELS
               ModelConfigurationWidget(

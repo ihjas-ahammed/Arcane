@@ -148,18 +148,18 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
     if (_drawer.value > 0) {
       _closeDrawer();
     } else if (_arcane.value > 0) {
-      if (_launchedAsApp && !await LauncherNative.isDefaultLauncher()) {
-        // Opened like a normal app while another launcher is default: back leaves the app.
+      if (_launchedAsApp && !await LauncherNative.actsAsHome()) {
+        // Opened like a normal app while another launcher is home (and no takeover): back leaves the app.
         SystemNavigator.pop();
         return;
       }
       _closeArcane();
     } else if (_pages.hasClients && (_pages.page ?? _homePage).round() != _homePage) {
       _pages.animateToPage(_homePage, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
-    } else if (!await LauncherNative.isDefaultLauncher()) {
+    } else if (!await LauncherNative.actsAsHome()) {
       SystemNavigator.pop();
     }
-    // Default launcher on its home page: back does nothing, like every Android home screen.
+    // Acting as home (default or takeover) on its home page: back does nothing, like any home screen.
   }
 
   void _launch(LauncherApp app) {
