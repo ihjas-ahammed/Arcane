@@ -1,3 +1,10 @@
+# ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092708)
+
+### 🧹 Code Health
+- **Analyzer at zero**: 0 errors, 0 warnings (was 17 warnings: unused imports, locals, a field and a helper), and deprecation notices cut from 242 to 42 by moving every `Color.withOpacity` call to the precise `withValues(alpha:)` API. No visual change intended; this removes the precision-loss warnings and keeps the codebase ready for the next Flutter upgrade.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092707)
 
 ### 🧭 Main Menu & Settings Refresh
