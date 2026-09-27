@@ -62,7 +62,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
       builder: (context) => const InitializeActionPlanDialog(),
     );
 
-    if (result != null && mounted) {
+    if (result != null && context.mounted) {
       final name = result['name']!;
       final why = result['why']!;
       

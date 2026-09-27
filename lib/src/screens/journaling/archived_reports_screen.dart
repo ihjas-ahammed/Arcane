@@ -87,7 +87,7 @@ class _ArchivedReportsScreenState extends State<ArchivedReportsScreen> {
         await provider.saveWeeklyReport(dateId, regenerated);
       }
 
-      if (mounted) {
+      if (context.mounted) {
         Navigator.of(context, rootNavigator: true).pop(); // Dismiss loading dialog
         setState(() {}); // Refresh list
         ScaffoldMessenger.of(context).showSnackBar(
@@ -98,7 +98,7 @@ class _ArchivedReportsScreenState extends State<ArchivedReportsScreen> {
         );
       }
     } catch (e) {
-      if (mounted) {
+      if (context.mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

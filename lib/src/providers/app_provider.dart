@@ -441,8 +441,11 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
               final reply = item['reply'] as String? ?? 'yes';
               final lower = reply.toLowerCase();
               int lvl = 5;
-              if (lower == 'yes' || lower.contains('tired')) lvl = 2;
-              else if (lower == 'no' || lower.contains('good') || lower.contains('energetic')) lvl = 8;
+              if (lower == 'yes' || lower.contains('tired')) {
+                lvl = 2;
+              } else if (lower == 'no' || lower.contains('good') || lower.contains('energetic')) {
+                lvl = 8;
+              }
               addEnergyLog(
                 todayStr,
                 EnergyLog(

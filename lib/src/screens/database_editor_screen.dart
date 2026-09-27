@@ -60,7 +60,9 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
         setState(() {
           _localData = _ensureStringMap(importedData);
         });
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data loaded into editor. Review and Commit.")));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data loaded into editor. Review and Commit.")));
+        }
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Import failed: $e")));

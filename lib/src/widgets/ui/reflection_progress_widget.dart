@@ -34,11 +34,17 @@ class ReflectionProgressWidget extends StatelessWidget {
       }
       
       final h = log.timestamp.hour;
-      if (h >= 0 && h < 8) wake = true;
-      else if (h >= 8 && h < 12) morn = true;
-      else if (h >= 12 && h < 16) aft = true;
-      else if (h >= 16 && h < 19) eve = true;
-      else if (h >= 19 && h <= 23) night = true;
+      if (h >= 0 && h < 8) {
+        wake = true;
+      } else if (h >= 8 && h < 12) {
+        morn = true;
+      } else if (h >= 12 && h < 16) {
+        aft = true;
+      } else if (h >= 16 && h < 19) {
+        eve = true;
+      } else if (h >= 19 && h <= 23) {
+        night = true;
+      }
     }
 
     // Auto-fill logic

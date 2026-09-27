@@ -83,7 +83,7 @@ class _EditLogDialogState extends State<EditLogDialog> {
              );
              if (confirm == true) {
                widget.onDelete();
-               if (mounted) Navigator.pop(context);
+               if (context.mounted) Navigator.pop(context);
              }
           },
           style: TextButton.styleFrom(foregroundColor: AppTheme.fhAccentRed),

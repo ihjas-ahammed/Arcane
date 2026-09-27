@@ -1193,7 +1193,9 @@ class TaskActions {
       end: end, 
       allTasks: _provider.mainTasks,
       targetSubTaskId: subTaskId,
-    )) return false;
+    )) {
+      return false;
+    }
 
     final session = TaskSession(id: IdGenerator.generateSessionId(), startTime: start, endTime: end);
 
@@ -1261,7 +1263,9 @@ class TaskActions {
       allTasks: _provider.mainTasks, 
       excludeSessionId: sessionId,
       targetSubTaskId: subTaskId,
-    )) return;
+    )) {
+      return;
+    }
 
     final provisionalTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {

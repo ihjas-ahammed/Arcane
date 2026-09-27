@@ -23,7 +23,7 @@ class SkillDetailScreen extends StatefulWidget {
 }
 
 class _SkillDetailScreenState extends State<SkillDetailScreen> {
-  String _selectedMetric = "ELO RATING";
+  final String _selectedMetric = "ELO RATING";
   bool _showAllLogs = false;
 
   @override

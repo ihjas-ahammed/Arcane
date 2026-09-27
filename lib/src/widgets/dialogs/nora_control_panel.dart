@@ -40,11 +40,11 @@ class _NoraControlPanelState extends State<NoraControlPanel> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context, listen: false);
-    final availableModels = [
+    final availableModels = <String>{
       ...provider.settings.liveModels,
       ...provider.settings.liteModels,
       ...provider.settings.heavyModels,
-    ].toSet().toList();
+    }.toList();
 
     return Container(
       color: AppTheme.fhBgDeepDark,

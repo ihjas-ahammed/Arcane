@@ -166,7 +166,7 @@ class _ResourceChipBuilder extends StatelessWidget {
         final item = provider.chatbotMemory.gratitudeList.where((g) => g.id == id).firstOrNull;
         if (item == null) return const SizedBox.shrink(); 
         var name = item.name;
-        if(item.name.length > 30) name = name.substring(0,30)+"...";
+        if(item.name.length > 30) name = "${name.substring(0,30)}...";
 
         return InkWell(
           onTap: () {

@@ -51,15 +51,15 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
   }
 
   Future<void> _createLocalBackup() async {
+    final provider = context.read<AppProvider>();
     try {
       final docsDir = await getApplicationDocumentsDirectory();
       final backupDir = Directory('${docsDir.path}/backups');
       if (!await backupDir.exists()) await backupDir.create(recursive: true);
-      
+
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
       final file = File('${backupDir.path}/manual_backup_$timestamp.json');
-      
-      final provider = context.read<AppProvider>();
+
       final data = provider.getAppStateAsMap();
       
       await file.writeAsString(jsonEncode(data));

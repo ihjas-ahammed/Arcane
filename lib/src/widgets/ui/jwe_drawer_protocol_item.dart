@@ -133,7 +133,7 @@ class JweDrawerProtocolItem extends StatelessWidget {
               const SizedBox(width: 12),
               if (pctLabel != null) ...[
                 Text(
-                  '${pctLabel}%',
+                  '$pctLabel%',
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,

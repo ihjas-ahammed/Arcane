@@ -26,11 +26,17 @@ class JweReflectionProgress extends StatelessWidget {
     for (var log in logs) {
       if (lastLog == null || log.timestamp.isAfter(lastLog.timestamp)) lastLog = log;
       final h = log.timestamp.hour;
-      if (h < 8) wake = true;
-      else if (h < 12) morn = true;
-      else if (h < 16) aft = true;
-      else if (h < 19) eve = true;
-      else night = true;
+      if (h < 8) {
+        wake = true;
+      } else if (h < 12) {
+        morn = true;
+      } else if (h < 16) {
+        aft = true;
+      } else if (h < 19) {
+        eve = true;
+      } else {
+        night = true;
+      }
     }
     if (night) { eve = true; aft = true; morn = true; wake = true; }
     else if (eve) { aft = true; morn = true; wake = true; }
