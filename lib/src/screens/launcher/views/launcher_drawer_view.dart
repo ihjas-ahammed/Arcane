@@ -6,6 +6,7 @@ import 'package:missions/src/screens/launcher/launcher_models.dart';
 import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/launcher_service.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
+import 'package:missions/src/screens/launcher/views/launcher_items.dart';
 import 'package:missions/src/screens/launcher/views/launcher_sheets.dart';
 
 /// All-apps drawer with search on top. Pull down at the top of the list to close.
@@ -140,12 +141,14 @@ class LauncherDrawerViewState extends State<LauncherDrawerView> {
             ),
             Expanded(
               child: ListenableBuilder(
-                listenable: Listenable.merge([service.apps, service.hidden]),
+                listenable: Listenable.merge([service.apps, service.hidden, service.drawerFolders, service.folders]),
                 builder: (context, _) {
                   final q = _query.text.trim();
                   final hidden = service.hidden.value;
+                  final inFolders = service.appsInDrawerFolders;
+                  final folderKeys = q.isEmpty ? service.drawerFolders.value.where(service.isValidKey).toList() : const <String>[];
                   final List<LauncherApp> apps = q.isEmpty
-                      ? service.apps.value.where((a) => !hidden.contains(a.key)).toList()
+                      ? service.apps.value.where((a) => !hidden.contains(a.key) && !inFolders.contains(a.key)).toList()
                       : service.search(q);
                   final suggestions = q.isEmpty ? service.suggestions(limit: columns) : const <LauncherApp>[];
 
@@ -163,6 +166,7 @@ class LauncherDrawerViewState extends State<LauncherDrawerView> {
                             child: Divider(color: LauncherTheme.line, height: 20, indent: 16, endIndent: 16),
                           ),
                         ],
+                        if (folderKeys.isNotEmpty) _folderGrid(folderKeys, columns),
                         if (q.isNotEmpty) _sectionLabel(apps.isEmpty ? 'NO APPS FOUND' : 'APPS'),
                         _grid(apps, columns),
                         if (q.isNotEmpty) SliverToBoxAdapter(child: _webSearchTile(q)),
@@ -227,16 +231,43 @@ class LauncherDrawerViewState extends State<LauncherDrawerView> {
           mainAxisExtent: 92,
         ),
         delegate: SliverChildBuilderDelegate(
-          (context, i) => _AppTile(
-            app: apps[i],
+          (context, i) => LauncherDraggableItem(
+            itemKey: apps[i].key,
+            from: null,
             onTap: () => widget.onLaunch(apps[i]),
-            onLongPress: () {
-              HapticFeedback.mediumImpact();
+            onMenu: () {
               _focus.unfocus();
               showAppActionsSheet(context, apps[i]);
             },
+            child: _AppTile(app: apps[i]),
           ),
           childCount: apps.length,
+        ),
+      ),
+    );
+  }
+
+  Widget _folderGrid(List<String> keys, int columns) {
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: columns, mainAxisExtent: 92),
+        delegate: SliverChildBuilderDelegate(
+          (context, i) => LauncherDropSlot(
+            area: LauncherArea.drawer,
+            itemKey: keys[i],
+            child: LauncherDraggableItem(
+              itemKey: keys[i],
+              from: LauncherArea.drawer,
+              onTap: () => LauncherActions.open(context, keys[i]),
+              onMenu: () => showPlacedItemSheet(context, area: LauncherArea.drawer, itemKey: keys[i]),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                child: LauncherItemTile(itemKey: keys[i], iconSize: 50),
+              ),
+            ),
+          ),
+          childCount: keys.length,
         ),
       ),
     );
@@ -261,33 +292,26 @@ class LauncherDrawerViewState extends State<LauncherDrawerView> {
 
 class _AppTile extends StatelessWidget {
   final LauncherApp app;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
 
-  const _AppTile({required this.app, required this.onTap, required this.onLongPress});
+  const _AppTile({required this.app});
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            LauncherAppIcon(app: app, size: 50),
-            const SizedBox(height: 6),
-            Text(
-              app.displayLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: LauncherTheme.rajdhani(fontSize: 12.5, fontWeight: FontWeight.w600, letterSpacing: 0.2, height: 1.1),
-            ),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          LauncherAppIcon(app: app, size: 50),
+          const SizedBox(height: 6),
+          Text(
+            app.displayLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: LauncherTheme.rajdhani(fontSize: 12.5, fontWeight: FontWeight.w600, letterSpacing: 0.2, height: 1.1),
+          ),
+        ],
       ),
     );
   }

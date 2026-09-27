@@ -41,6 +41,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
     private var pendingStartListening = false
     private val PERMISSION_REQUEST_CODE = 2001
     private var launcherBridge: LauncherBridge? = null
+    private var updateBridge: UpdateBridge? = null
 
     companion object {
         const val CHANNEL = "arcane/widget"
@@ -107,6 +108,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent?.getBooleanExtra(LauncherTakeoverService.EXTRA_TAKEOVER, false) == true) suppressTransition()
         initTts()
         if (!handleAssistantIntent(intent)) disableLockScreenDisplay()
         launcherBridge?.handlePinRequest(intent)
@@ -117,8 +119,22 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         setIntent(intent)
         // Only assistant / voice intents may surface over the keyguard. As the HOME
         // activity, showing over the lock screen would expose the launcher and user data.
+        if (intent.getBooleanExtra(LauncherTakeoverService.EXTRA_TAKEOVER, false)) suppressTransition()
         if (!handleAssistantIntent(intent)) disableLockScreenDisplay()
         launcherBridge?.onNewIntent(intent)
+    }
+
+    /** No open/close animation when the takeover service swaps the stock launcher for us. */
+    private fun suppressTransition() {
+        try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                overrideActivityTransition(android.app.Activity.OVERRIDE_TRANSITION_OPEN, 0, 0)
+            } else {
+                @Suppress("DEPRECATION")
+                overridePendingTransition(0, 0)
+            }
+        } catch (_: Exception) {
+        }
     }
 
     // Back is handled by Flutter (root PopScope in LauncherScreen), so in-app routes
@@ -595,6 +611,8 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         ttsMethodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, TTS_CHANNEL)
         sttMethodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, STT_CHANNEL)
         assistantMethodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ASSISTANT_CHANNEL)
+        updateBridge?.dispose()
+        updateBridge = UpdateBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         launcherBridge?.dispose()
         launcherBridge = LauncherBridge(this, flutterEngine.dartExecutor.binaryMessenger).also { bridge ->
             flutterEngine.platformViewsController.registry
@@ -950,6 +968,8 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         engineAlive = false
         launcherBridge?.dispose()
         launcherBridge = null
+        updateBridge?.dispose()
+        updateBridge = null
         channel = null
         ttsMethodChannel = null
         sttMethodChannel = null

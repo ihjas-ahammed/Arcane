@@ -1,3 +1,30 @@
+# ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092704)
+
+### ⚡ Instant Launcher Takeover (MIUI / HyperOS)
+- **No stock launcher flash**: the takeover now starts Arcane with a zero-duration transition, skips window animations, and lands directly on the home page in the first frame (no slide or pager animation). The window backdrop matches the launcher colors, so nothing flashes while Flutter draws.
+- **Faster detection**: the accessibility service only listens to the stock launcher's windows, and the debounce dropped from 700 ms to 350 ms.
+
+### 📲 In-App Updates Fixed
+- **Root cause**: every build from the same day shared one APK URL, and the update metadata was committed before CI finished building. The app could download the previous APK (from the CDN or its own cache), which Android then refused to install, or the update prompt kept coming back.
+- **Unique per-build APKs** (`missions-v<version>-b<build>-<abi>.apk`), cache-busted downloads, and the device's ABI-specific APK picked automatically.
+- **Update is only announced once its APK actually exists.** The downloaded APK's version code is verified before installing, and a stale cached APK is re-downloaded.
+- **Clear install guidance**: if "Install unknown apps" isn't allowed, Arcane opens that setting and tells you what to do, instead of failing silently.
+- CI now rebases before pushing its build commit (no lost build metadata) and publishes only the current build's APKs.
+
+### 🗂️ Launcher: Every App, Folders, Drag & Drop
+- **All apps, from every profile**: MIUI Dual Apps / Second Space and work-profile apps now appear, with the system badge.
+- **Chrome web apps**: installed web apps (WebAPKs) appear as apps. Pinned web-app shortcuts are read and launched when Arcane is the default home app, and Chrome's "Install app" / "Add to Home screen" now pins straight onto Arcane's home. **Add web app** lets you add any site as an icon (it opens the installed web app if there is one).
+- **Folders everywhere**: drop an app onto another app (home, dock or quick apps) to make a folder, or use **Add to folder…** (home or drawer folders). You can rename, add, move out, remove or delete. Folders work in the dock too.
+- **Drag & drop**: long-press any app in the drawer and drag it. The drawer drops away to reveal home, where you can place it on the home grid, onto the dock, or into a folder. Hover the screen edge to flip to the widgets page and drop it in Quick Apps. Dragging from home or the dock shows a **Remove** zone, and dropping at an icon's edge reorders.
+- **App shortcuts** in the long-press menu (as the default home app), plus "Add to home screen" and "Remove shortcut / web app" actions.
+
+### 🎛️ Arcane Deck (Widget Space Redesign)
+- **Daily Pulse**: a time-aware greeting and a dual ring (day elapsed plus live mission progress), with time left today and the next mission.
+- **Command row**: one-tap Focus/Pause, Journal, Expense, Nora and Bus, through the same router as the Android home widgets.
+- **Quick Apps shelf**: drag apps here for one-tap access next to your live Arcane widgets.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092703)
 
 ### 🛠️ Build Fix

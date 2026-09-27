@@ -42,15 +42,21 @@ class LauncherIconSpec {
   int get hashCode => Object.hash(appKey, pack, drawable, glyph);
 }
 
-/// Launcher state: installed apps, dock, hosted widgets, icon pack + per-app icon choices,
-/// hidden apps and launch statistics. Everything is persisted and restored instantly at boot,
-/// then refreshed from the package manager in the background.
+/// Launcher state: installed apps (+ pinned shortcuts, web links, other profiles), the dock,
+/// home and shelf app areas, folders, hosted widgets, icon pack + per-app icon choices, hidden
+/// apps and launch statistics. Everything is persisted and restored instantly at boot, then
+/// refreshed from the package manager in the background.
 class LauncherService {
   LauncherService._();
   static final LauncherService instance = LauncherService._();
 
   static const _kApps = 'launcher_v4_apps';
   static const _kDock = 'launcher_v4_dock';
+  static const _kHome = 'launcher_v4_home';
+  static const _kShelf = 'launcher_v4_shelf';
+  static const _kDrawerFolders = 'launcher_v4_drawer_folders';
+  static const _kFolders = 'launcher_v4_folders';
+  static const _kWeb = 'launcher_v4_web';
   static const _kWidgets = 'launcher_v4_widgets';
   static const _kIconPack = 'launcher_v4_icon_pack';
   static const _kOverrides = 'launcher_v4_icon_overrides';
@@ -58,12 +64,24 @@ class LauncherService {
   static const _kStats = 'launcher_v4_stats';
 
   static const int maxDockSlots = 6;
+  static const int maxHomeItems = 40;
 
-  /// All launchable apps, sorted by label. Arcane is always present.
+  /// All launchable entries, sorted by label. Arcane is always present.
   final ValueNotifier<List<LauncherApp>> apps = ValueNotifier<List<LauncherApp>>(const [LauncherApp.arcane]);
 
-  /// Dock app keys, left → right.
+  /// Dock keys (apps or `folder:` keys), left → right.
   final ValueNotifier<List<String>> dock = ValueNotifier<List<String>>(const []);
+
+  /// App/folder keys placed on the home page, in grid order.
+  final ValueNotifier<List<String>> home = ValueNotifier<List<String>>(const []);
+
+  /// App/folder keys on the Arcane widgets page's quick-app shelf.
+  final ValueNotifier<List<String>> shelf = ValueNotifier<List<String>>(const []);
+
+  /// Folder keys shown at the top of the app drawer.
+  final ValueNotifier<List<String>> drawerFolders = ValueNotifier<List<String>>(const []);
+
+  final ValueNotifier<Map<String, LauncherFolder>> folders = ValueNotifier<Map<String, LauncherFolder>>(const {});
 
   /// Android AppWidgets on the home screen, top → bottom.
   final ValueNotifier<List<LauncherWidgetEntry>> widgets = ValueNotifier<List<LauncherWidgetEntry>>(const []);
@@ -76,10 +94,16 @@ class LauncherService {
   /// Bumped whenever icon resolution changes (pack switched, override set, pack map loaded).
   final ValueNotifier<int> iconsRevision = ValueNotifier<int>(0);
 
+  /// Whether Android lets Arcane read pinned shortcuts (only as the default home app).
+  final ValueNotifier<bool> shortcutsAvailable = ValueNotifier<bool>(false);
+
   Map<String, LauncherIconOverride> _overrides = {};
   Map<String, String> _packMap = const {};
   final Map<String, List<int>> _stats = {}; // key → [launchCount, lastLaunchedMillis]
   Map<String, LauncherApp> _byKey = {LauncherApp.arcane.key: LauncherApp.arcane};
+  List<LauncherApp> _systemApps = const [];
+  List<LauncherApp> _shortcuts = const [];
+  List<LauncherApp> _webLinks = const [];
   SharedPreferences? _prefs;
   Future<void>? _initFuture;
   Timer? _statsSave;
@@ -90,7 +114,11 @@ class LauncherService {
   Future<void> _init() async {
     final prefs = _prefs = await SharedPreferences.getInstance();
 
-    _setApps(_decodeList(prefs.getString(_kApps)).map(LauncherApp.fromJson).toList());
+    final cached = _decodeList(prefs.getString(_kApps)).map(LauncherApp.fromJson).toList();
+    _systemApps = cached.where((a) => a.kind != LauncherAppKind.web).toList();
+    _shortcuts = const [];
+    _webLinks = _decodeList(prefs.getString(_kWeb)).map(LauncherApp.fromJson).toList();
+    _rebuildApps();
 
     final savedDock = prefs.getStringList(_kDock);
     if (savedDock != null) {
@@ -99,6 +127,13 @@ class LauncherService {
     } else {
       dock.value = [LauncherApp.arcane.key];
     }
+    home.value = List.unmodifiable(prefs.getStringList(_kHome) ?? const <String>[]);
+    shelf.value = List.unmodifiable(prefs.getStringList(_kShelf) ?? const <String>[]);
+    drawerFolders.value = List.unmodifiable(prefs.getStringList(_kDrawerFolders) ?? const <String>[]);
+    folders.value = Map.unmodifiable({
+      for (final f in _decodeList(prefs.getString(_kFolders)).map(LauncherFolder.fromJson))
+        if (f.id.isNotEmpty) f.key: f,
+    });
 
     widgets.value = List.unmodifiable(_decodeList(prefs.getString(_kWidgets)).map(LauncherWidgetEntry.fromJson));
     hidden.value = Set.unmodifiable(prefs.getStringList(_kHidden) ?? const <String>[]);
@@ -120,6 +155,7 @@ class LauncherService {
     LauncherNative.attach();
     LauncherNative.packagesChanged.addListener(_onPackagesChanged);
     LauncherNative.widgetPinned.addListener(_onWidgetPinned);
+    LauncherNative.shortcutPinned.addListener(_onShortcutPinned);
 
     // Background refreshes; the cached state above is already on screen.
     unawaited(refreshApps());
@@ -144,8 +180,12 @@ class LauncherService {
     return const {};
   }
 
-  void _setApps(List<LauncherApp> list) {
-    final byKey = <String, LauncherApp>{for (final a in list) if (a.package.isNotEmpty) a.key: a};
+  void _rebuildApps() {
+    final byKey = <String, LauncherApp>{};
+    for (final a in [..._systemApps, ..._shortcuts, ..._webLinks]) {
+      if (a.kind == LauncherAppKind.app && a.package.isEmpty) continue;
+      byKey[a.key] = a;
+    }
     if (!byKey.values.any((a) => a.isArcane)) byKey[LauncherApp.arcane.key] = LauncherApp.arcane;
     final sorted = byKey.values.toList()
       ..sort((a, b) => a.displayLabel.toLowerCase().compareTo(b.displayLabel.toLowerCase()));
@@ -154,6 +194,11 @@ class LauncherService {
   }
 
   LauncherApp? appForKey(String key) => _byKey[key];
+
+  LauncherFolder? folderForKey(String key) => folders.value[key];
+
+  /// True for keys that currently resolve to something launchable or openable.
+  bool isValidKey(String key) => LauncherFolder.isFolderKey(key) ? folders.value.containsKey(key) : _byKey.containsKey(key);
 
   LauncherApp get arcaneApp => apps.value.firstWhere((a) => a.isArcane, orElse: () => LauncherApp.arcane);
 
@@ -169,21 +214,68 @@ class LauncherService {
     unawaited(refreshApps());
   }
 
+  void _onShortcutPinned() {
+    final m = LauncherNative.shortcutPinned.value;
+    if (m == null) return;
+    final sc = LauncherApp.shortcut(
+      package: m['package'] as String? ?? '',
+      id: m['id'] as String? ?? '',
+      label: m['label'] as String? ?? '',
+      user: (m['user'] as num?)?.toInt() ?? -1,
+    );
+    _shortcuts = [..._shortcuts.where((s) => s.key != sc.key), sc];
+    _rebuildApps();
+    // Like any launcher: a freshly installed web app / shortcut lands on the home screen.
+    addToArea(LauncherArea.home, sc.key);
+    unawaited(refreshApps());
+  }
+
   Future<void> refreshApps() async {
     if (!LauncherNative.isSupported) return;
-    final raw = await LauncherNative.getApps();
+    final results = await Future.wait([
+      LauncherNative.getApps(),
+      LauncherNative.getPinnedShortcuts(),
+      LauncherNative.shortcutsAvailable(),
+    ]);
+    final raw = results[0] as List<Map<String, dynamic>>;
+    final pinned = results[1] as List<Map<String, dynamic>>;
+    shortcutsAvailable.value = results[2] as bool;
     if (raw.isEmpty) return;
-    final list = raw.map(LauncherApp.fromJson).where((a) => a.package.isNotEmpty).toList();
-    _setApps(list);
-    unawaited(_prefs?.setString(_kApps, jsonEncode(list.map((a) => a.toJson()).toList())));
 
-    // Drop dock slots / hidden entries whose app was uninstalled.
-    final validDock = dock.value.where(_byKey.containsKey).toList();
-    if (!_dockConfigured) {
-      await _buildDefaultDock();
-    } else if (validDock.length != dock.value.length) {
-      _saveDock(validDock);
+    _systemApps = raw.map(LauncherApp.fromJson).where((a) => a.package.isNotEmpty).toList();
+    _shortcuts = [
+      for (final m in pinned)
+        if (m['enabled'] != false)
+          LauncherApp.shortcut(
+            package: m['package'] as String? ?? '',
+            id: m['id'] as String? ?? '',
+            label: m['label'] as String? ?? '',
+            user: (m['user'] as num?)?.toInt() ?? -1,
+          ),
+    ];
+    _rebuildApps();
+    unawaited(_prefs?.setString(_kApps, jsonEncode([..._systemApps, ..._shortcuts].map((a) => a.toJson()).toList())));
+
+    if (!_dockConfigured) await _buildDefaultDock();
+    _pruneMissing();
+  }
+
+  /// Drops uninstalled apps from every area and folder (folders with < 2 items dissolve).
+  void _pruneMissing() {
+    final nextFolders = <String, LauncherFolder>{};
+    for (final f in folders.value.values) {
+      nextFolders[f.key] = f.copyWith(items: f.items.where(_byKey.containsKey).toList());
     }
+    folders.value = Map.unmodifiable(nextFolders);
+    for (final area in LauncherArea.values) {
+      final list = areaList(area).value;
+      final kept = list.where(isValidKey).toList();
+      if (kept.length != list.length) _saveArea(area, kept);
+    }
+    for (final f in nextFolders.values.toList()) {
+      if (f.items.length < 2) _dissolveFolder(f.key);
+    }
+    _saveFolders();
   }
 
   Future<void> _buildDefaultDock() async {
@@ -191,7 +283,7 @@ class LauncherService {
     LauncherApp? byPackage(String? pkg) {
       if (pkg == null) return null;
       for (final a in apps.value) {
-        if (a.package == pkg) return a;
+        if (a.package == pkg && a.kind == LauncherAppKind.app && !a.isOtherProfile) return a;
       }
       return null;
     }
@@ -206,32 +298,74 @@ class LauncherService {
     add(arcaneApp);
     add(byPackage(roles['browser']));
     add(byPackage(roles['camera']));
-    _saveDock(slots);
+    _saveArea(LauncherArea.dock, slots);
   }
 
-  // ── Dock ────────────────────────────────────────────────────
+  // ── Areas (dock / home / shelf / drawer folders) ────────────
 
-  void _saveDock(List<String> keys) {
-    _dockConfigured = true;
-    dock.value = List.unmodifiable(keys.take(maxDockSlots));
-    unawaited(_prefs?.setStringList(_kDock, dock.value));
+  ValueNotifier<List<String>> areaList(LauncherArea area) => switch (area) {
+        LauncherArea.dock => dock,
+        LauncherArea.home => home,
+        LauncherArea.shelf => shelf,
+        LauncherArea.drawer => drawerFolders,
+      };
+
+  int _areaCapacity(LauncherArea area) => switch (area) {
+        LauncherArea.dock => maxDockSlots,
+        LauncherArea.home => maxHomeItems,
+        LauncherArea.shelf => 24,
+        LauncherArea.drawer => 30,
+      };
+
+  void _saveArea(LauncherArea area, List<String> keys) {
+    final notifier = areaList(area);
+    notifier.value = List.unmodifiable(keys.take(_areaCapacity(area)));
+    final prefKey = switch (area) {
+      LauncherArea.dock => _kDock,
+      LauncherArea.home => _kHome,
+      LauncherArea.shelf => _kShelf,
+      LauncherArea.drawer => _kDrawerFolders,
+    };
+    if (area == LauncherArea.dock) _dockConfigured = true;
+    unawaited(_prefs?.setStringList(prefKey, notifier.value));
   }
 
-  void setDockSlot(int index, String appKey) {
+  bool isAreaFull(LauncherArea area) => areaList(area).value.length >= _areaCapacity(area);
+
+  /// Adds [key] to [area] (at [index], default end). Already there → moved to [index].
+  bool addToArea(LauncherArea area, String key, {int? index}) {
+    final list = List<String>.from(areaList(area).value);
+    final existing = list.indexOf(key);
+    if (existing >= 0) list.removeAt(existing);
+    if (existing < 0 && list.length >= _areaCapacity(area)) return false;
+    final at = (index ?? list.length).clamp(0, list.length);
+    list.insert(at, key);
+    _saveArea(area, list);
+    return true;
+  }
+
+  void removeFromArea(LauncherArea area, String key) {
+    final list = areaList(area).value;
+    if (!list.contains(key)) return;
+    _saveArea(area, list.where((k) => k != key).toList());
+  }
+
+  /// Dock compatibility helpers used by the dock editor.
+  void setDockSlot(int index, String key) {
     final next = List<String>.from(dock.value);
-    final existing = next.indexOf(appKey);
+    final existing = next.indexOf(key);
     if (index < next.length) {
       if (existing >= 0 && existing != index) next[existing] = next[index];
-      next[index] = appKey;
+      next[index] = key;
     } else if (existing < 0) {
-      next.add(appKey);
+      next.add(key);
     }
-    _saveDock(next);
+    _saveArea(LauncherArea.dock, next);
   }
 
   void removeDockSlot(int index) {
     if (index < 0 || index >= dock.value.length) return;
-    _saveDock(List<String>.from(dock.value)..removeAt(index));
+    _saveArea(LauncherArea.dock, List<String>.from(dock.value)..removeAt(index));
   }
 
   void moveDockSlot(int from, int to) {
@@ -239,7 +373,170 @@ class LauncherService {
     if (from < 0 || from >= next.length) return;
     final item = next.removeAt(from);
     next.insert(to.clamp(0, next.length), item);
-    _saveDock(next);
+    _saveArea(LauncherArea.dock, next);
+  }
+
+  /// Drag-and-drop: [dragged] dropped onto [targetKey] in [area].
+  /// Folder target → added to it. App target → both become a new folder in the target's place.
+  /// A move from another area (not the drawer, which copies) removes it from its origin.
+  void dropOnto(LauncherArea area, String targetKey, String dragged, {LauncherArea? from}) {
+    if (targetKey == dragged) return;
+    if (LauncherFolder.isFolderKey(dragged)) {
+      // Folders don't nest: treat as a reorder next to the target.
+      final idx = areaList(area).value.indexOf(targetKey);
+      if (from != null && from != area) removeFromArea(from, dragged);
+      addToArea(area, dragged, index: idx < 0 ? null : idx);
+      return;
+    }
+    if (from != null && from != area) removeFromArea(from, dragged);
+    if (LauncherFolder.isFolderKey(targetKey)) {
+      addToFolder(targetKey, dragged);
+      if (from == area) removeFromArea(area, dragged);
+      return;
+    }
+    final list = List<String>.from(areaList(area).value)..remove(dragged);
+    final idx = list.indexOf(targetKey);
+    if (idx < 0) return;
+    final targetApp = appForKey(targetKey);
+    final draggedApp = appForKey(dragged);
+    final folder = _createFolder(
+      [targetKey, dragged],
+      name: _suggestFolderName(targetApp, draggedApp),
+    );
+    list[idx] = folder.key;
+    _saveArea(area, list);
+  }
+
+  // ── Folders ─────────────────────────────────────────────────
+
+  void _saveFolders() {
+    unawaited(_prefs?.setString(_kFolders, jsonEncode(folders.value.values.map((f) => f.toJson()).toList())));
+  }
+
+  LauncherFolder _createFolder(List<String> items, {String name = 'Folder'}) {
+    final id = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+    final folder = LauncherFolder(id: id, name: name, items: List.unmodifiable(items));
+    folders.value = Map.unmodifiable({...folders.value, folder.key: folder});
+    _saveFolders();
+    return folder;
+  }
+
+  /// New empty-named folder holding [items], placed in [area].
+  LauncherFolder createFolderIn(LauncherArea area, List<String> items, {required String name}) {
+    final folder = _createFolder(items, name: name);
+    addToArea(area, folder.key);
+    return folder;
+  }
+
+  static String _suggestFolderName(LauncherApp? a, LauncherApp? b) {
+    final pa = a?.package.toLowerCase() ?? '';
+    final pb = b?.package.toLowerCase() ?? '';
+    bool both(bool Function(String) test) => test(pa) && test(pb);
+    if (both((p) => p.contains('google'))) return 'Google';
+    if (both((p) => p.contains('game') || p.contains('play.games'))) return 'Games';
+    if (a?.kind == LauncherAppKind.shortcut || a?.kind == LauncherAppKind.web) return 'Web';
+    return 'Folder';
+  }
+
+  void addToFolder(String folderKey, String appKey) {
+    final f = folders.value[folderKey];
+    if (f == null || f.items.contains(appKey) || LauncherFolder.isFolderKey(appKey)) return;
+    folders.value = Map.unmodifiable({...folders.value, folderKey: f.copyWith(items: [...f.items, appKey])});
+    _saveFolders();
+  }
+
+  void renameFolder(String folderKey, String name) {
+    final f = folders.value[folderKey];
+    if (f == null) return;
+    final clean = name.trim().isEmpty ? 'Folder' : name.trim();
+    folders.value = Map.unmodifiable({...folders.value, folderKey: f.copyWith(name: clean)});
+    _saveFolders();
+  }
+
+  void reorderFolder(String folderKey, int from, int to) {
+    final f = folders.value[folderKey];
+    if (f == null || from < 0 || from >= f.items.length) return;
+    final items = List<String>.from(f.items);
+    final item = items.removeAt(from);
+    items.insert(to.clamp(0, items.length), item);
+    folders.value = Map.unmodifiable({...folders.value, folderKey: f.copyWith(items: items)});
+    _saveFolders();
+  }
+
+  /// Removes [appKey] from the folder. [placeIn] puts it into that area instead of dropping it.
+  void removeFromFolder(String folderKey, String appKey, {LauncherArea? placeIn}) {
+    final f = folders.value[folderKey];
+    if (f == null) return;
+    final items = f.items.where((k) => k != appKey).toList();
+    folders.value = Map.unmodifiable({...folders.value, folderKey: f.copyWith(items: items)});
+    if (placeIn != null) addToArea(placeIn, appKey);
+    if (items.length < 2) {
+      _dissolveFolder(folderKey);
+    }
+    _saveFolders();
+  }
+
+  /// Replaces the folder with its last item (if any) wherever it's placed, then deletes it.
+  void _dissolveFolder(String folderKey) {
+    final f = folders.value[folderKey];
+    final remaining = f?.items.firstOrNull;
+    for (final area in LauncherArea.values) {
+      final list = List<String>.from(areaList(area).value);
+      final i = list.indexOf(folderKey);
+      if (i < 0) continue;
+      if (remaining != null && area != LauncherArea.drawer && !list.contains(remaining)) {
+        list[i] = remaining;
+      } else {
+        list.removeAt(i);
+      }
+      _saveArea(area, list);
+    }
+    folders.value = Map.unmodifiable({...folders.value}..remove(folderKey));
+    _saveFolders();
+  }
+
+  /// Deletes a folder; its apps stay installed (and in the drawer).
+  void deleteFolder(String folderKey) {
+    final f = folders.value[folderKey];
+    if (f == null) return;
+    for (final area in LauncherArea.values) {
+      removeFromArea(area, folderKey);
+    }
+    folders.value = Map.unmodifiable({...folders.value}..remove(folderKey));
+    _saveFolders();
+  }
+
+  /// Keys of apps that live inside drawer folders (hidden from the drawer's A–Z list).
+  Set<String> get appsInDrawerFolders => {
+        for (final fk in drawerFolders.value) ...?folders.value[fk]?.items,
+      };
+
+  // ── Web links ───────────────────────────────────────────────
+
+  void addWebLink(String url, String label) {
+    var clean = url.trim();
+    if (clean.isEmpty) return;
+    if (!clean.contains('://')) clean = 'https://$clean';
+    final link = LauncherApp.web(url: clean, label: label.trim().isEmpty ? Uri.tryParse(clean)?.host ?? clean : label.trim());
+    _webLinks = [..._webLinks.where((w) => w.key != link.key), link];
+    unawaited(_prefs?.setString(_kWeb, jsonEncode(_webLinks.map((w) => w.toJson()).toList())));
+    _rebuildApps();
+    addToArea(LauncherArea.home, link.key);
+  }
+
+  void removeWebLink(String key) {
+    _webLinks = _webLinks.where((w) => w.key != key).toList();
+    unawaited(_prefs?.setString(_kWeb, jsonEncode(_webLinks.map((w) => w.toJson()).toList())));
+    _rebuildApps();
+    _pruneMissing();
+  }
+
+  /// Unpins a pinned shortcut (Chrome web app) from Arcane.
+  Future<void> removeShortcut(LauncherApp sc) async {
+    await LauncherNative.unpinShortcut(sc.package, sc.shortcutId ?? '', user: sc.user);
+    _shortcuts = _shortcuts.where((s) => s.key != sc.key).toList();
+    _rebuildApps();
+    _pruneMissing();
   }
 
   // ── Hidden apps ─────────────────────────────────────────────
@@ -255,7 +552,7 @@ class LauncherService {
 
   LauncherIconOverride? overrideFor(String appKey) => _overrides[appKey];
 
-  /// Resolution order: explicit choice → active icon pack → the app's original icon.
+  /// Resolution order: explicit choice → active icon pack → the entry's original icon.
   LauncherIconSpec iconFor(LauncherApp app) {
     final o = _overrides[app.key];
     if (o != null) {
@@ -269,8 +566,8 @@ class LauncherService {
       }
     }
     final pack = iconPack.value;
-    if (pack != null) {
-      final drawable = _packMap[app.key];
+    if (pack != null && app.kind == LauncherAppKind.app) {
+      final drawable = _packMap[app.componentKey];
       if (drawable != null) return LauncherIconSpec.pack(pack, drawable);
     }
     return LauncherIconSpec.app(app.key);
@@ -365,7 +662,11 @@ class LauncherService {
 
   Future<bool> launch(LauncherApp app) {
     _recordLaunch(app.key);
-    return LauncherNative.launchApp(app.package, app.activity);
+    return switch (app.kind) {
+      LauncherAppKind.app => LauncherNative.launchApp(app.package, app.activity, user: app.user),
+      LauncherAppKind.shortcut => LauncherNative.launchShortcut(app.package, app.shortcutId ?? '', user: app.user),
+      LauncherAppKind.web => LauncherNative.openUrl(app.url ?? ''),
+    };
   }
 
   void _recordLaunch(String key) {

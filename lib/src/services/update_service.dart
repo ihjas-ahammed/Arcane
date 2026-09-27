@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:missions/src/models/update_model.dart';
 import 'package:open_filex/open_filex.dart';
@@ -8,6 +9,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
 class UpdateService {
+  static const MethodChannel _native = MethodChannel('arcane/update');
+
   static const List<String> _updateMetadataUrls = [
     'https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/update_info.json',
     'https://raw.githubusercontent.com/ihjas-ahammed/Arcane/main/builds/update_info.json',
@@ -204,6 +207,13 @@ class UpdateService {
       );
 
       if (isNewer) {
+        // The metadata can be committed before CI has finished building the APK it points
+        // to. Only announce the update once that exact APK is actually downloadable.
+        final apkUrl = await resolveApkUrl(updateModel);
+        if (!await _isDownloadable(client, apkUrl, updateModel.versionCode)) {
+          debugPrint('[UpdateService] APK for #$remoteVersionCode not published yet: $apkUrl');
+          return null;
+        }
         // Proactively clean older versions from cache
         await clearOldApks(updateModel.versionedApkFilename);
         return updateModel;
@@ -211,6 +221,37 @@ class UpdateService {
       return null;
     } finally {
       client.close();
+    }
+  }
+
+  /// Picks the split APK matching this device's ABI (falls back to `apk_url`).
+  Future<String> resolveApkUrl(UpdateModel update) async {
+    if (update.apkArchUrls.isNotEmpty && Platform.isAndroid) {
+      try {
+        final abis = await _native.invokeListMethod<String>('supportedAbis') ?? const <String>[];
+        for (final abi in abis) {
+          final url = update.apkArchUrls[abi];
+          if (url != null && url.isNotEmpty) return url;
+        }
+      } catch (_) {}
+    }
+    return update.apkUrl;
+  }
+
+  /// Cache-busting query so the raw.githubusercontent CDN never serves a previous file.
+  static Uri _bust(String url, int versionCode) {
+    final uri = Uri.parse(url);
+    return uri.replace(queryParameters: {...uri.queryParameters, 'v': '$versionCode'});
+  }
+
+  Future<bool> _isDownloadable(http.Client client, String url, int versionCode) async {
+    if (url.isEmpty) return false;
+    try {
+      final res = await client.head(_bust(url, versionCode)).timeout(const Duration(seconds: 8));
+      return res.statusCode == 200;
+    } catch (_) {
+      // Network hiccup on HEAD only: don't hide a real update, the download reports errors itself.
+      return true;
     }
   }
 
@@ -314,17 +355,20 @@ class UpdateService {
       } catch (_) {}
     }
 
-    final downloadUrl = update.apkUrl;
+    final downloadUrl = await resolveApkUrl(update);
     if (downloadUrl.isEmpty) {
       throw Exception('Update download URL is empty in update metadata');
     }
 
     final client = http.Client();
     try {
-      final request = http.Request('GET', Uri.parse(downloadUrl));
+      final request = http.Request('GET', _bust(downloadUrl, update.versionCode));
       request.headers['Cache-Control'] = 'no-cache';
       final response = await client.send(request);
 
+      if (response.statusCode == 404) {
+        throw Exception('Build #${update.versionCode} is still being published by CI. Try again in a few minutes.');
+      }
       if (response.statusCode != 200) {
         throw Exception('Download failed with HTTP status ${response.statusCode}');
       }
@@ -346,6 +390,15 @@ class UpdateService {
 
       if (await tempFile.length() < 1024 * 1024) {
         throw Exception('Downloaded APK is corrupt or too small (< 1MB)');
+      }
+
+      // Android rejects an APK that isn't newer than the installed app, so verify first.
+      final archiveCode = await apkVersionCode(tempFile.path);
+      if (archiveCode > 0 && update.versionCode > 0 && archiveCode < update.versionCode) {
+        throw Exception(
+          'The server returned an older build (#$archiveCode instead of #${update.versionCode}). '
+          'The new build is still propagating. Try again in a few minutes.',
+        );
       }
 
       if (await targetFile.exists()) {
@@ -371,12 +424,31 @@ class UpdateService {
     }
   }
 
-  /// Prompts Android package installer to install the downloaded APK
-  Future<bool> installApk(String filePath) async {
+  /// Version code inside a downloaded APK (-1 when unreadable / off-Android).
+  Future<int> apkVersionCode(String path) async {
+    if (!Platform.isAndroid) return -1;
+    try {
+      return await _native.invokeMethod<int>('archiveVersionCode', {'path': path}) ?? -1;
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  /// Opens the system installer for [filePath]. Returns null on success, otherwise a message
+  /// saying exactly what to do next.
+  Future<String?> installApk(String filePath) async {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
-        throw Exception('APK file not found at path: $filePath');
+        return 'The downloaded update file is missing. Tap download again.';
+      }
+
+      if (Platform.isAndroid) {
+        final allowed = await _native.invokeMethod<bool>('canInstallPackages') ?? true;
+        if (!allowed) {
+          await _native.invokeMethod<bool>('openInstallPermission');
+          return 'Allow "Install unknown apps" for Arcane in the screen that just opened, then tap Install again.';
+        }
       }
 
       final result = await OpenFilex.open(
@@ -385,10 +457,20 @@ class UpdateService {
       );
 
       debugPrint('[UpdateService] OpenFilex result: ${result.type} - ${result.message}');
-      return result.type == ResultType.done;
+      switch (result.type) {
+        case ResultType.done:
+          return null;
+        case ResultType.permissionDenied:
+          if (Platform.isAndroid) await _native.invokeMethod<bool>('openInstallPermission');
+          return 'Allow "Install unknown apps" for Arcane, then tap Install again.';
+        case ResultType.noAppToOpen:
+          return 'No package installer is available on this device.';
+        default:
+          return 'Could not open the installer: ${result.message}';
+      }
     } catch (e) {
       debugPrint('[UpdateService] Failed to launch installer: $e');
-      return false;
+      return 'Could not open the installer: $e';
     }
   }
 }

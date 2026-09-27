@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/screens/launcher/launcher_models.dart';
 import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/launcher_service.dart';
@@ -7,6 +9,7 @@ import 'package:missions/src/screens/launcher/launcher_theme.dart';
 import 'package:missions/src/screens/launcher/launcher_wallpaper_painter.dart';
 import 'package:missions/src/screens/launcher/views/launcher_drawer_view.dart';
 import 'package:missions/src/screens/launcher/views/launcher_home_view.dart';
+import 'package:missions/src/screens/launcher/views/launcher_items.dart';
 import 'package:missions/src/screens/launcher/views/launcher_sheets.dart';
 import 'package:missions/src/screens/launcher/views/launcher_widget_view.dart';
 import 'package:missions/src/services/widget_action_router.dart';
@@ -59,6 +62,9 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
     WidgetActionRouter.instance.tabRequest.addListener(_onTabRequest);
     // Tapping the Arcane mark in the app header returns to the launcher.
     WidgetActionRouter.instance.onBackPressed = _closeArcane;
+    LauncherActions.launch = _launch;
+    LauncherActions.dragMoved = _onItemDragMoved;
+    LauncherActions.dragEnded = _onItemDragEnded;
 
     // Build Arcane right after the launcher's first frame so its services (widget publishing,
     // insight watcher, tab routing) run even if the user never opens it — without delaying boot.
@@ -82,6 +88,12 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
     if (WidgetActionRouter.instance.onBackPressed == _closeArcane) {
       WidgetActionRouter.instance.onBackPressed = null;
     }
+    if (LauncherActions.launch == _launch) {
+      LauncherActions.launch = null;
+      LauncherActions.dragMoved = null;
+      LauncherActions.dragEnded = null;
+    }
+    _edgeTimer?.cancel();
     _arcane.dispose();
     _drawer.dispose();
     _pages.dispose();
@@ -114,10 +126,18 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
 
   /// HOME button: dismiss everything and land on the home page.
   void _goHome() {
+    final instant = LauncherNative.lastHomeInstant;
     final nav = WidgetActionRouter.instance.navigatorKey.currentState;
     nav?.popUntil((r) => r.isFirst);
     FocusManager.instance.primaryFocus?.unfocus();
     _launchedAsApp = false;
+    if (instant) {
+      // Takeover swap over the stock launcher: be on home in the very first frame.
+      _arcane.value = 0;
+      _closeDrawer(animate: false);
+      if (_pages.hasClients && (_pages.page ?? _homePage).round() != _homePage) _pages.jumpToPage(_homePage);
+      return;
+    }
     if (_arcane.value > 0) {
       _arcane.reverse();
       _closeDrawer(animate: false);
@@ -176,6 +196,112 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
     Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted && _drawer.value > 0) _closeDrawer(animate: false);
     });
+  }
+
+  // ── Drag & drop ─────────────────────────────────────────────
+
+  bool _resetDrawerAfterDrag = false;
+  Timer? _edgeTimer;
+
+  /// An app started moving: dragged out of the drawer → reveal home underneath (without
+  /// resetting the drawer, which would dispose the tile carrying the drag).
+  void _onItemDragMoved(LauncherDragData data) {
+    if (_drawer.value > 0) {
+      _resetDrawerAfterDrag = true;
+      FocusManager.instance.primaryFocus?.unfocus();
+      _drawer.animateBack(0, duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
+    }
+  }
+
+  void _onItemDragEnded() {
+    _edgeTimer?.cancel();
+    if (_resetDrawerAfterDrag) {
+      _resetDrawerAfterDrag = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _drawerKey.currentState?.reset());
+    }
+  }
+
+  /// Hovering a screen edge while dragging flips between the widgets page and home.
+  void _hoverEdge(int page) {
+    if (_edgeTimer?.isActive ?? false) return;
+    _edgeTimer = Timer(const Duration(milliseconds: 420), () {
+      if (!_pages.hasClients || (_pages.page ?? _homePage).round() == page) return;
+      HapticFeedback.selectionClick();
+      _pages.animateToPage(page, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
+    });
+  }
+
+  Widget _buildDragChrome() {
+    return ValueListenableBuilder<LauncherDragData?>(
+      valueListenable: LauncherActions.active,
+      builder: (context, drag, _) {
+        if (drag == null) return const SizedBox.shrink();
+        final top = MediaQuery.paddingOf(context).top;
+        Widget edge({required bool left}) => Positioned(
+              top: top + 70,
+              bottom: 120,
+              left: left ? 0 : null,
+              right: left ? null : 0,
+              width: 26,
+              child: DragTarget<LauncherDragData>(
+                onWillAcceptWithDetails: (_) {
+                  _hoverEdge(left ? 0 : _homePage);
+                  return false;
+                },
+                onLeave: (_) => _edgeTimer?.cancel(),
+                builder: (_, __, ___) => const SizedBox.expand(),
+              ),
+            );
+        return Stack(
+          children: [
+            edge(left: true),
+            edge(left: false),
+            if (drag.from != null)
+              Positioned(
+                top: top + 6,
+                left: 40,
+                right: 40,
+                child: DragTarget<LauncherDragData>(
+                  onAcceptWithDetails: (d) {
+                    HapticFeedback.mediumImpact();
+                    final from = d.data.from;
+                    if (from != null) LauncherService.instance.removeFromArea(from, d.data.key);
+                  },
+                  builder: (context, candidates, _) {
+                    final hot = candidates.isNotEmpty;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 120),
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: hot ? LauncherTheme.red : LauncherTheme.panel.withValues(alpha: 0.92),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: LauncherTheme.red),
+                      ),
+                      alignment: Alignment.center,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(MdiIcons.closeCircleOutline, size: 18, color: hot ? Colors.white : LauncherTheme.red),
+                          const SizedBox(width: 8),
+                          Text(
+                            'REMOVE',
+                            style: LauncherTheme.rajdhani(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 2,
+                              color: hot ? Colors.white : LauncherTheme.red,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        );
+      },
+    );
   }
 
   // ── Home gestures ───────────────────────────────────────────
@@ -250,6 +376,7 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
                     ),
                     _buildPages(),
                     _buildDrawer(),
+                    _buildDragChrome(),
                   ],
                 ),
               ),

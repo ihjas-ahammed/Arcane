@@ -14,6 +14,9 @@ class LauncherNative {
   /// Fired when the user presses HOME while Arcane is the default launcher.
   static final ValueNotifier<int> homePressed = ValueNotifier<int>(0);
 
+  /// Whether the latest [homePressed] came from the takeover service (skip all animation).
+  static bool lastHomeInstant = false;
+
   /// Fired when the activity is re-entered from a non-home intent (app icon, widget deep link, assistant).
   static final ValueNotifier<int> openArcaneRequested = ValueNotifier<int>(0);
 
@@ -23,6 +26,9 @@ class LauncherNative {
   /// A widget pinned via AppWidgetManager.requestPinAppWidget, already bound (`id`, `provider`, `label`, …).
   static final ValueNotifier<Map<String, dynamic>?> widgetPinned = ValueNotifier<Map<String, dynamic>?>(null);
 
+  /// A shortcut pinned to Arcane (Chrome "Install app" / "Add to Home screen").
+  static final ValueNotifier<Map<String, dynamic>?> shortcutPinned = ValueNotifier<Map<String, dynamic>?>(null);
+
   static bool _attached = false;
 
   static void attach() {
@@ -31,10 +37,15 @@ class LauncherNative {
     _channel.setMethodCallHandler((call) async {
       switch (call.method) {
         case 'homePressed':
+          final args = call.arguments;
+          lastHomeInstant = args is Map && args['instant'] == true;
           homePressed.value++;
           break;
         case 'openArcane':
           openArcaneRequested.value++;
+          break;
+        case 'shortcutPinned':
+          if (call.arguments is Map) shortcutPinned.value = Map<String, dynamic>.from(call.arguments as Map);
           break;
         case 'widgetPinned':
           if (call.arguments is Map) widgetPinned.value = Map<String, dynamic>.from(call.arguments as Map);
@@ -96,15 +107,37 @@ class LauncherNative {
     return out;
   }
 
-  /// [items]: `{key, package, activity}` maps. Returns key → PNG bytes.
-  static Future<Map<String, Uint8List?>> getAppIcons(List<Map<String, String>> items, {int size = 144}) async {
+  /// [items]: `{key, kind, package, activity|shortcutId, user}` maps. Returns key → PNG bytes.
+  static Future<Map<String, Uint8List?>> getAppIcons(List<Map<String, Object?>> items, {int size = 144}) async {
     final raw = await _invoke<Map<dynamic, dynamic>>('getAppIcons', {'items': items, 'size': size});
     if (raw == null) return const {};
     return raw.map((k, v) => MapEntry(k as String, v as Uint8List?));
   }
 
-  static Future<bool> launchApp(String package, String? activity) async =>
-      await _invoke<bool>('launchApp', {'package': package, 'activity': activity}) ?? false;
+  static Future<bool> launchApp(String package, String? activity, {int user = -1}) async =>
+      await _invoke<bool>('launchApp', {'package': package, 'activity': activity, 'user': user}) ?? false;
+
+  // ── Shortcuts (Chrome web apps, pinned + per-app shortcuts) ──
+  /// False unless Arcane is the default home app (Android only lets that app read shortcuts).
+  static Future<bool> shortcutsAvailable() async => await _invoke<bool>('shortcutsAvailable') ?? false;
+
+  static Future<List<Map<String, dynamic>>> getPinnedShortcuts() async {
+    final raw = await _invoke<List<dynamic>>('getPinnedShortcuts');
+    if (raw == null) return const [];
+    return raw.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getAppShortcuts(String package, {int user = -1}) async {
+    final raw = await _invoke<List<dynamic>>('getAppShortcuts', {'package': package, 'user': user});
+    if (raw == null) return const [];
+    return raw.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+  }
+
+  static Future<bool> launchShortcut(String package, String id, {int user = -1}) async =>
+      await _invoke<bool>('launchShortcut', {'package': package, 'id': id, 'user': user}) ?? false;
+  static Future<bool> unpinShortcut(String package, String id, {int user = -1}) async =>
+      await _invoke<bool>('unpinShortcut', {'package': package, 'id': id, 'user': user}) ?? false;
+  static Future<bool> openUrl(String url) async => await _invoke<bool>('openUrl', {'url': url}) ?? false;
   static Future<bool> appInfo(String package) async => await _invoke<bool>('appInfo', {'package': package}) ?? false;
   static Future<bool> uninstall(String package) async => await _invoke<bool>('uninstall', {'package': package}) ?? false;
   static Future<bool> expandNotifications() async => await _invoke<bool>('expandNotifications') ?? false;

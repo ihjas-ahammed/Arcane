@@ -12,7 +12,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
+import android.content.pm.LauncherActivityInfo
 import android.content.pm.LauncherApps
+import android.content.pm.ShortcutInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -27,6 +29,8 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
+import android.os.UserHandle
+import android.os.UserManager
 import android.provider.Settings
 import android.view.View
 import android.view.ViewGroup
@@ -95,6 +99,33 @@ class LauncherBridge(
         channel.setMethodCallHandler(this)
         registerPackageReceiver()
         registerTorchCallback()
+        registerLauncherAppsCallback()
+    }
+
+    private var launcherAppsCallback: LauncherApps.Callback? = null
+
+    /** Pinned-shortcut and other-profile package changes (the broadcast only covers our own profile). */
+    private fun registerLauncherAppsCallback() {
+        val la = launcherApps ?: return
+        val cb = object : LauncherApps.Callback() {
+            override fun onPackageRemoved(packageName: String?, user: UserHandle?) = changed(packageName)
+            override fun onPackageAdded(packageName: String?, user: UserHandle?) = changed(packageName)
+            override fun onPackageChanged(packageName: String?, user: UserHandle?) = changed(packageName)
+            override fun onPackagesAvailable(packageNames: Array<out String>?, user: UserHandle?, replacing: Boolean) =
+                changed(packageNames?.firstOrNull())
+            override fun onPackagesUnavailable(packageNames: Array<out String>?, user: UserHandle?, replacing: Boolean) =
+                changed(packageNames?.firstOrNull())
+            override fun onShortcutsChanged(packageName: String, shortcuts: MutableList<ShortcutInfo>, user: UserHandle) =
+                changed(packageName)
+
+            private fun changed(pkg: String?) {
+                main.post { channel.invokeMethod("packagesChanged", pkg ?: "") }
+            }
+        }
+        try {
+            la.registerCallback(cb, main)
+            launcherAppsCallback = cb
+        } catch (_: Exception) {}
     }
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -109,6 +140,8 @@ class LauncherBridge(
 
     fun dispose() {
         channel.setMethodCallHandler(null)
+        launcherAppsCallback?.let { cb -> try { launcherApps?.unregisterCallback(cb) } catch (_: Exception) {} }
+        launcherAppsCallback = null
         packageReceiver?.let { try { activity.unregisterReceiver(it) } catch (_: Exception) {} }
         packageReceiver = null
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -125,7 +158,8 @@ class LauncherBridge(
 
     fun isPinRequest(intent: Intent?): Boolean =
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            intent?.action == LauncherApps.ACTION_CONFIRM_PIN_APPWIDGET
+            (intent?.action == LauncherApps.ACTION_CONFIRM_PIN_APPWIDGET ||
+                intent?.action == LauncherApps.ACTION_CONFIRM_PIN_SHORTCUT)
 
     /**
      * Another app (or Arcane itself) called AppWidgetManager.requestPinAppWidget and Android
@@ -137,7 +171,18 @@ class LauncherBridge(
         try {
             val la = appContext.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
             val request = la.getPinItemRequest(intent) ?: return true
-            if (request.requestType != LauncherApps.PinItemRequest.REQUEST_TYPE_APPWIDGET || !request.isValid) return true
+            if (!request.isValid) return true
+            if (request.requestType == LauncherApps.PinItemRequest.REQUEST_TYPE_SHORTCUT) {
+                // Chrome "Install app" / "Add to Home screen" and any app's pin-shortcut request.
+                val si = request.shortcutInfo ?: return true
+                if (try { request.accept() } catch (_: Exception) { false }) {
+                    val me = Process.myUserHandle()
+                    val serial = if (si.userHandle == me) -1L else serialOf(si.userHandle)
+                    channel.invokeMethod("shortcutPinned", describeShortcut(si, serial))
+                }
+                return true
+            }
+            if (request.requestType != LauncherApps.PinItemRequest.REQUEST_TYPE_APPWIDGET) return true
             val info = request.getAppWidgetProviderInfo(activity) ?: return true
             startWidgetFlow(info.provider) { desc ->
                 val id = (desc?.get("id") as? Int) ?: return@startWidgetFlow
@@ -158,7 +203,9 @@ class LauncherBridge(
         if (handlePinRequest(intent)) {
             channel.invokeMethod("homePressed", null)
         } else if (isHomeIntent(intent)) {
-            channel.invokeMethod("homePressed", null)
+            // Takeover swaps (MIUI) must land on home instantly, with no Flutter-side animation.
+            val instant = intent.getBooleanExtra(LauncherTakeoverService.EXTRA_TAKEOVER, false)
+            channel.invokeMethod("homePressed", mapOf("instant" to instant))
         } else {
             channel.invokeMethod("openArcane", null)
         }
@@ -212,13 +259,30 @@ class LauncherBridge(
             "openHomeSettings" -> result.success(startSafely(Intent(Settings.ACTION_HOME_SETTINGS)))
             "getApps" -> background(result) { getApps() }
             "getDefaultApps" -> background(result) { getDefaultApps() }
+            "getPinnedShortcuts" -> background(result) { getPinnedShortcuts() }
+            "shortcutsAvailable" -> result.success(shortcutsAvailable())
+            "getAppShortcuts" -> {
+                val pkg = call.argument<String>("package") ?: ""
+                val serial = call.argument<Number>("user")?.toLong()
+                background(result) { getAppShortcuts(pkg, serial) }
+            }
+            "launchShortcut" -> result.success(
+                launchShortcut(call.argument<String>("package") ?: "", call.argument<String>("id") ?: "", call.argument<Number>("user")?.toLong())
+            )
+            "unpinShortcut" -> result.success(
+                unpinShortcut(call.argument<String>("package") ?: "", call.argument<String>("id") ?: "", call.argument<Number>("user")?.toLong())
+            )
+            "openUrl" -> {
+                val url = call.argument<String>("url") ?: ""
+                result.success(url.isNotEmpty() && startSafely(Intent(Intent.ACTION_VIEW, Uri.parse(url))))
+            }
             "getAppIcons" -> {
-                val items = call.argument<List<Map<String, String>>>("items") ?: emptyList()
+                val items = call.argument<List<Map<String, Any?>>>("items") ?: emptyList()
                 val size = call.argument<Int>("size") ?: 144
                 background(result) { getAppIcons(items, size) }
             }
             "launchApp" -> result.success(
-                launchApp(call.argument<String>("package") ?: "", call.argument<String>("activity"))
+                launchApp(call.argument<String>("package") ?: "", call.argument<String>("activity"), call.argument<Number>("user")?.toLong())
             )
             "appInfo" -> {
                 val pkg = call.argument<String>("package") ?: ""
@@ -347,20 +411,43 @@ class LauncherBridge(
 
     // ── Apps ─────────────────────────────────────────────────────────────────
 
+    private val launcherApps: LauncherApps?
+        get() = appContext.getSystemService(Context.LAUNCHER_APPS_SERVICE) as? LauncherApps
+    private val userManager: UserManager
+        get() = appContext.getSystemService(Context.USER_SERVICE) as UserManager
+
+    private fun serialOf(user: UserHandle): Long = userManager.getSerialNumberForUser(user)
+
+    /** Own profile → null; other profiles (MIUI Dual Apps / Second Space, work profile) → its handle. */
+    private fun userFor(serial: Long?): UserHandle =
+        if (serial == null || serial < 0) Process.myUserHandle()
+        else userManager.getUserForSerialNumber(serial) ?: Process.myUserHandle()
+
+    private fun profiles(): List<UserHandle> =
+        (try { launcherApps?.profiles?.takeIf { it.isNotEmpty() } } catch (_: Exception) { null })
+            ?: listOf(Process.myUserHandle())
+
+    /** Every launchable activity in every profile the launcher may show. */
     private fun getApps(): List<Map<String, Any?>> {
         val list = mutableListOf<Map<String, Any?>>()
-        val la = appContext.getSystemService(Context.LAUNCHER_APPS_SERVICE) as? LauncherApps
-        val activities = la?.getActivityList(null, Process.myUserHandle())
-        if (activities != null) {
-            for (info in activities) {
-                val ai = info.applicationInfo
-                list.add(mapOf(
-                    "package" to info.componentName.packageName,
-                    "activity" to info.componentName.className,
-                    "label" to (info.label?.toString()?.trim().takeUnless { it.isNullOrEmpty() } ?: info.componentName.packageName),
-                    "isSystem" to ((ai.flags and ApplicationInfo.FLAG_SYSTEM) != 0 && (ai.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) == 0),
-                    "installTime" to info.firstInstallTime,
-                ))
+        val la = launcherApps
+        if (la != null) {
+            val me = Process.myUserHandle()
+            for (user in profiles()) {
+                val own = user == me
+                val serial = if (own) -1L else serialOf(user)
+                val activities = try { la.getActivityList(null, user) } catch (_: Exception) { emptyList<LauncherActivityInfo>() }
+                for (info in activities) {
+                    val ai = info.applicationInfo
+                    list.add(mapOf(
+                        "package" to info.componentName.packageName,
+                        "activity" to info.componentName.className,
+                        "label" to (info.label?.toString()?.trim().takeUnless { it.isNullOrEmpty() } ?: info.componentName.packageName),
+                        "isSystem" to ((ai.flags and ApplicationInfo.FLAG_SYSTEM) != 0 && (ai.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) == 0),
+                        "installTime" to info.firstInstallTime,
+                        "user" to serial,
+                    ))
+                }
             }
         } else {
             val query = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
@@ -372,62 +459,150 @@ class LauncherBridge(
                     "label" to ri.loadLabel(pm).toString(),
                     "isSystem" to ((ai.flags and ApplicationInfo.FLAG_SYSTEM) != 0),
                     "installTime" to 0L,
+                    "user" to -1L,
                 ))
             }
         }
         return list
     }
 
-    /** Packages the system resolves for the classic dock roles (dialer, SMS, browser, camera, …). */
-    private fun getDefaultApps(): Map<String, String?> {
-        fun resolve(intent: Intent): String? = try {
-            val ri = pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
-            ri?.activityInfo?.packageName?.takeUnless { it == "android" }
-        } catch (_: Exception) { null }
-        return mapOf(
-            "phone" to resolve(Intent(Intent.ACTION_DIAL)),
-            "messages" to resolve(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:"))),
-            "browser" to resolve(Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com"))),
-            "camera" to resolve(Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)),
-            "email" to resolve(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"))),
-        )
-    }
-
-    private fun getAppIcons(items: List<Map<String, String>>, size: Int): Map<String, ByteArray?> {
+    /**
+     * items: `{key, kind(app|shortcut), package, activity|shortcutId, user}` → PNG per key.
+     * Other-profile icons carry the system badge (Dual Apps / work briefcase).
+     */
+    private fun getAppIcons(items: List<Map<String, Any?>>, size: Int): Map<String, ByteArray?> {
         val out = HashMap<String, ByteArray?>()
+        val la = launcherApps
+        val density = activity.resources.displayMetrics.densityDpi
         for (item in items) {
-            val key = item["key"] ?: continue
-            val pkg = item["package"] ?: continue
-            val act = item["activity"]
-            val drawable = try {
-                if (!act.isNullOrEmpty()) pm.getActivityIcon(ComponentName(pkg, act)) else pm.getApplicationIcon(pkg)
+            val key = item["key"] as? String ?: continue
+            val pkg = item["package"] as? String ?: continue
+            val serial = (item["user"] as? Number)?.toLong()
+            val user = userFor(serial)
+            val primary: Drawable? = try {
+                if (item["kind"] == "shortcut") {
+                    val si = findShortcut(pkg, item["shortcutId"] as? String ?: "", user)
+                    si?.let { if (Build.VERSION.SDK_INT >= 25) la?.getShortcutIconDrawable(it, density) else null }
+                } else {
+                    val act = item["activity"] as? String
+                    if (serial != null && serial >= 0 && la != null && !act.isNullOrEmpty()) {
+                        la.resolveActivity(Intent(Intent.ACTION_MAIN).setComponent(ComponentName(pkg, act)), user)?.getBadgedIcon(density)
+                    } else if (!act.isNullOrEmpty()) {
+                        pm.getActivityIcon(ComponentName(pkg, act))
+                    } else {
+                        pm.getApplicationIcon(pkg)
+                    }
+                }
             } catch (_: Exception) {
-                try { pm.getApplicationIcon(pkg) } catch (_: Exception) { null }
+                null
             }
+            val drawable: Drawable? = primary ?: (try { pm.getApplicationIcon(pkg) } catch (_: Exception) { null })
             out[key] = drawable?.let { encode(it, size) }
         }
         return out
     }
 
-    private fun launchApp(pkg: String, act: String?): Boolean {
+    private fun launchApp(pkg: String, act: String?, serial: Long?): Boolean {
         if (pkg.isEmpty()) return false
+        val user = userFor(serial)
         if (!act.isNullOrEmpty()) {
             val cn = ComponentName(pkg, act)
             try {
-                val la = appContext.getSystemService(Context.LAUNCHER_APPS_SERVICE) as? LauncherApps
+                val la = launcherApps
                 if (la != null) {
-                    la.startMainActivity(cn, Process.myUserHandle(), null, null)
+                    la.startMainActivity(cn, user, null, null)
                     return true
                 }
             } catch (_: Exception) {}
-            val intent = Intent(Intent.ACTION_MAIN)
-                .addCategory(Intent.CATEGORY_LAUNCHER)
-                .setComponent(cn)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-            if (startSafely(intent)) return true
+            if (user == Process.myUserHandle()) {
+                val intent = Intent(Intent.ACTION_MAIN)
+                    .addCategory(Intent.CATEGORY_LAUNCHER)
+                    .setComponent(cn)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+                if (startSafely(intent)) return true
+            }
         }
         val launch = pm.getLaunchIntentForPackage(pkg) ?: return false
         return startSafely(launch)
+    }
+
+    // ── Shortcuts (Chrome web apps, "Add to Home screen", app shortcuts) ───────
+
+    /** Only the default home app may read/launch other apps' shortcuts. */
+    private fun shortcutsAvailable(): Boolean =
+        Build.VERSION.SDK_INT >= 25 && try { launcherApps?.hasShortcutHostPermission() == true } catch (_: Exception) { false }
+
+    private fun findShortcut(pkg: String, id: String, user: UserHandle): ShortcutInfo? {
+        if (Build.VERSION.SDK_INT < 25 || id.isEmpty() || !shortcutsAvailable()) return null
+        val q = LauncherApps.ShortcutQuery()
+            .setPackage(pkg)
+            .setShortcutIds(listOf(id))
+            .setQueryFlags(
+                LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED or
+                    LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
+                    LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST
+            )
+        return try { launcherApps?.getShortcuts(q, user)?.firstOrNull() } catch (_: Exception) { null }
+    }
+
+    private fun describeShortcut(si: ShortcutInfo, serial: Long): Map<String, Any?> {
+        if (Build.VERSION.SDK_INT < 25) return emptyMap()
+        return mapOf(
+            "package" to si.`package`,
+            "id" to si.id,
+            "label" to (si.shortLabel?.toString()?.takeIf { it.isNotBlank() } ?: si.longLabel?.toString() ?: si.id),
+            "user" to serial,
+            "enabled" to si.isEnabled,
+        )
+    }
+
+    /** Shortcuts pinned to this launcher — Chrome web apps / "Add to Home screen" land here. */
+    private fun getPinnedShortcuts(): List<Map<String, Any?>> {
+        if (Build.VERSION.SDK_INT < 25 || !shortcutsAvailable()) return emptyList()
+        val la = launcherApps ?: return emptyList()
+        val me = Process.myUserHandle()
+        val out = mutableListOf<Map<String, Any?>>()
+        for (user in profiles()) {
+            val serial = if (user == me) -1L else serialOf(user)
+            val q = LauncherApps.ShortcutQuery().setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED)
+            val list = try { la.getShortcuts(q, user) } catch (_: Exception) { null } ?: continue
+            for (si in list) out.add(describeShortcut(si, serial))
+        }
+        return out
+    }
+
+    /** Dynamic + manifest shortcuts of one app (long-press menu). */
+    private fun getAppShortcuts(pkg: String, serial: Long?): List<Map<String, Any?>> {
+        if (Build.VERSION.SDK_INT < 25 || !shortcutsAvailable()) return emptyList()
+        val q = LauncherApps.ShortcutQuery()
+            .setPackage(pkg)
+            .setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST)
+        val list = try { launcherApps?.getShortcuts(q, userFor(serial)) } catch (_: Exception) { null } ?: return emptyList()
+        return list.sortedBy { it.rank }.take(6).map { describeShortcut(it, serial ?: -1L) }
+    }
+
+    private fun launchShortcut(pkg: String, id: String, serial: Long?): Boolean {
+        if (Build.VERSION.SDK_INT < 25 || !shortcutsAvailable()) return false
+        return try {
+            launcherApps?.startShortcut(pkg, id, null, null, userFor(serial))
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun unpinShortcut(pkg: String, id: String, serial: Long?): Boolean {
+        if (Build.VERSION.SDK_INT < 25 || !shortcutsAvailable()) return false
+        val la = launcherApps ?: return false
+        val user = userFor(serial)
+        return try {
+            val q = LauncherApps.ShortcutQuery().setPackage(pkg).setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED)
+            val keep = (la.getShortcuts(q, user) ?: emptyList()).map { it.id }.filter { it != id }
+            la.pinShortcuts(pkg, keep, user)
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private fun encode(drawable: Drawable, size: Int): ByteArray {

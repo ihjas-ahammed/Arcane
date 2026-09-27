@@ -6,6 +6,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
+import 'package:missions/src/screens/launcher/views/launcher_command_deck.dart';
 import 'package:missions/src/screens/launcher/views/launcher_sheets.dart';
 import 'package:missions/src/screens/settings/homescreen_widgets_preview_screen.dart';
 import 'package:missions/src/services/home_widget_service.dart';
@@ -129,7 +130,7 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'WIDGET STATION',
+                        'ARCANE DECK',
                         style: LauncherTheme.rajdhani(
                           fontSize: 21,
                           fontWeight: FontWeight.w700,
@@ -140,7 +141,7 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'ARCANE PROTOCOLS & HUD WIDGETS',
+                        'COMMANDS · QUICK APPS · LIVE WIDGETS',
                         style: LauncherTheme.rajdhani(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -217,6 +218,9 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               physics: const BouncingScrollPhysics(),
               children: [
+                // 0. Command deck: pulse, one-tap actions, drag-and-drop quick apps
+                if (_activeTab == _WidgetTab.all) LauncherCommandDeck(onOpenArcane: widget.onOpenArcane),
+
                 // 1. Arcane Protocols (Original Widgets)
                 if (_activeTab == _WidgetTab.all || _activeTab == _WidgetTab.protocols) ...[
                   _buildSectionHeader('ARCANE PROTOCOLS', 'OPERATIONAL AGENTS & DASHBOARDS'),

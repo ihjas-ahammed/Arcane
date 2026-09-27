@@ -4,11 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/providers/app_provider.dart';
-import 'package:missions/src/screens/launcher/launcher_icon.dart';
 import 'package:missions/src/screens/launcher/launcher_models.dart';
 import 'package:missions/src/screens/launcher/launcher_service.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
 import 'package:missions/src/screens/launcher/views/launcher_app_widget.dart';
+import 'package:missions/src/screens/launcher/views/launcher_items.dart';
 import 'package:missions/src/screens/launcher/views/launcher_sheets.dart';
 import 'package:missions/src/screens/settings/widgets_studio/widgets_studio.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
@@ -50,7 +50,7 @@ class LauncherHomeView extends StatelessWidget {
               ],
             ),
           ),
-          const Expanded(child: _HomeWidgets()),
+          const Expanded(child: _HomeSpace()),
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 6, 18, 0),
             child: _SearchPill(onTap: onOpenSearch, onDrawer: onOpenDrawer),
@@ -215,36 +215,55 @@ class _ArcaneGlanceChip extends StatelessWidget {
   }
 }
 
-class _HomeWidgets extends StatelessWidget {
-  const _HomeWidgets();
+/// Home page body: the user's placed apps/folders (drag targets) above their Android widgets.
+class _HomeSpace extends StatelessWidget {
+  const _HomeSpace();
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<List<LauncherWidgetEntry>>(
-      valueListenable: LauncherService.instance.widgets,
-      builder: (context, entries, _) {
-        if (entries.isEmpty) {
-          return Center(
-            child: Text(
-              'LONG-PRESS TO ADD WIDGETS',
-              style: LauncherTheme.rajdhani(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 2,
-                color: LauncherTheme.muted.withValues(alpha: 0.6),
+    final service = LauncherService.instance;
+    return LauncherAreaDropZone(
+      area: LauncherArea.home,
+      child: ListenableBuilder(
+        listenable: Listenable.merge([service.widgets, service.home, LauncherActions.active]),
+        builder: (context, _) {
+          final entries = service.widgets.value;
+          final hasApps = service.home.value.isNotEmpty;
+          final dragging = LauncherActions.active.value != null;
+          if (entries.isEmpty && !hasApps) {
+            return Center(
+              child: Text(
+                dragging ? 'DROP HERE TO PLACE ON HOME' : 'LONG-PRESS TO ADD WIDGETS · DRAG APPS HERE',
+                style: LauncherTheme.rajdhani(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 2,
+                  color: dragging ? LauncherTheme.red : LauncherTheme.muted.withValues(alpha: 0.6),
+                ),
               ),
-            ),
+            );
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            itemCount: entries.length + 1,
+            itemBuilder: (context, i) {
+              if (i == 0) {
+                return hasApps
+                    ? const Padding(
+                        padding: EdgeInsets.only(bottom: 10),
+                        child: LauncherAreaGrid(area: LauncherArea.home, iconSize: 52),
+                      )
+                    : const SizedBox.shrink();
+              }
+              final entry = entries[i - 1];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: LauncherAppWidget(key: ValueKey(entry.id), entry: entry),
+              );
+            },
           );
-        }
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          itemCount: entries.length,
-          itemBuilder: (context, i) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: LauncherAppWidget(key: ValueKey(entries[i].id), entry: entries[i]),
-          ),
-        );
-      },
+        },
+      ),
     );
   }
 }
@@ -303,68 +322,57 @@ class _Dock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final service = LauncherService.instance;
-    return ListenableBuilder(
-      listenable: Listenable.merge([service.dock, service.apps]),
-      builder: (context, _) {
-        final slots = [
-          for (final key in service.dock.value)
-            if (service.appForKey(key) case final app?) app,
-        ];
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onLongPress: () => showDockEditor(context),
-          child: SizedBox(
-            height: 64,
-            child: slots.isEmpty
-                ? Center(
-                    child: TextButton.icon(
-                      onPressed: () => showDockEditor(context),
-                      icon: Icon(MdiIcons.plus, size: 18, color: LauncherTheme.red),
-                      label: Text('ADD DOCK APPS',
-                          style: LauncherTheme.rajdhani(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.5, color: LauncherTheme.red)),
+    return LauncherAreaDropZone(
+      area: LauncherArea.dock,
+      child: ListenableBuilder(
+        listenable: Listenable.merge([service.dock, service.apps, service.folders]),
+        builder: (context, _) {
+          final keys = service.dock.value.where(service.isValidKey).toList();
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onLongPress: () => showDockEditor(context),
+            child: SizedBox(
+              height: 66,
+              child: keys.isEmpty
+                  ? Center(
+                      child: TextButton.icon(
+                        onPressed: () => showDockEditor(context),
+                        icon: Icon(MdiIcons.plus, size: 18, color: LauncherTheme.red),
+                        label: Text('ADD DOCK APPS',
+                            style: LauncherTheme.rajdhani(
+                                fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.5, color: LauncherTheme.red)),
+                      ),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        for (final key in keys)
+                          LauncherDropSlot(
+                            area: LauncherArea.dock,
+                            itemKey: key,
+                            child: LauncherDraggableItem(
+                              itemKey: key,
+                              from: LauncherArea.dock,
+                              onTap: () => LauncherActions.open(context, key),
+                              onMenu: () {
+                                HapticFeedback.mediumImpact();
+                                showPlacedItemSheet(context, area: LauncherArea.dock, itemKey: key);
+                              },
+                              child: Semantics(
+                                button: true,
+                                label: service.appForKey(key)?.displayLabel ?? service.folderForKey(key)?.name,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(5),
+                                  child: LauncherItemTile(itemKey: key, iconSize: 52, showLabel: false),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      for (var i = 0; i < slots.length; i++)
-                        _DockIcon(
-                          app: slots[i],
-                          onTap: () => onLaunch(slots[i]),
-                          onLongPress: () {
-                            HapticFeedback.mediumImpact();
-                            showDockSlotSheet(context, index: i, app: slots[i]);
-                          },
-                        ),
-                    ],
-                  ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _DockIcon extends StatelessWidget {
-  final LauncherApp app;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-
-  const _DockIcon({required this.app, required this.onTap, required this.onLongPress});
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: app.displayLabel,
-      button: true,
-      child: InkResponse(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        radius: 32,
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: LauncherAppIcon(app: app, size: 52),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

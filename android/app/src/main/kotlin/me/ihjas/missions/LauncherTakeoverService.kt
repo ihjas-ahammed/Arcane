@@ -1,6 +1,7 @@
 package me.ihjas.missions
 
 import android.accessibilityservice.AccessibilityService
+import android.app.ActivityOptions
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -24,7 +25,8 @@ class LauncherTakeoverService : AccessibilityService() {
     companion object {
         private const val PREFS = "arcane_launcher"
         private const val KEY_ENABLED = "takeover_enabled"
-        private const val DEBOUNCE_MS = 700L
+        const val EXTRA_TAKEOVER = "arcane_takeover"
+        private const val DEBOUNCE_MS = 350L
         private const val HOME_CACHE_MS = 30_000L
 
         fun isEnabled(context: Context): Boolean =
@@ -72,6 +74,16 @@ class LauncherTakeoverService : AccessibilityService() {
     private fun refreshHomePackages() {
         homePackages = try { otherHomePackages(this) } catch (_: Exception) { emptySet() }
         homeResolvedAt = SystemClock.elapsedRealtime()
+        // Only get woken for the stock launcher's windows: less event traffic, faster reaction.
+        try {
+            val info = serviceInfo
+            if (info != null && homePackages.isNotEmpty()) {
+                info.packageNames = homePackages.toTypedArray()
+                info.notificationTimeout = 0
+                serviceInfo = info
+            }
+        } catch (_: Exception) {
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -100,14 +112,24 @@ class LauncherTakeoverService : AccessibilityService() {
         val intent = Intent(Intent.ACTION_MAIN)
             .addCategory(Intent.CATEGORY_HOME)
             .setClass(this, MainActivity::class.java)
+            .putExtra(EXTRA_TAKEOVER, true)
             .addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
-                    Intent.FLAG_ACTIVITY_NO_ANIMATION
+                    Intent.FLAG_ACTIVITY_NO_ANIMATION or
+                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
             )
-        try {
-            startActivity(intent)
+        // Zero-duration custom animation: the stock launcher is replaced in the same frame
+        // instead of Arcane sliding/fading in over it.
+        val options = try {
+            ActivityOptions.makeCustomAnimation(this, 0, 0).toBundle()
         } catch (_: Exception) {
+            null
+        }
+        try {
+            startActivity(intent, options)
+        } catch (_: Exception) {
+            try { startActivity(intent) } catch (_: Exception) {}
         }
     }
 

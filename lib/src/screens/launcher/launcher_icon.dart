@@ -6,6 +6,7 @@ import 'package:missions/src/screens/launcher/launcher_models.dart';
 import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/launcher_service.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
+import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 /// Loads real app / icon-pack icons as [MemoryImage]s.
@@ -74,12 +75,18 @@ class LauncherIconCache {
 
   static String _safe(String s) => s.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
 
+  /// Package a key belongs to (`pkg/act`, `pkg/act@user`, `sc:pkg/id@user`, `web:url`).
+  static String _pkgOf(String appKey) {
+    if (appKey.startsWith('web:')) return '_web';
+    final body = appKey.startsWith('sc:') ? appKey.substring(3) : appKey;
+    final slash = body.indexOf('/');
+    return slash < 0 ? body : body.substring(0, slash);
+  }
+
   File? _appFile(String appKey) {
     final dir = _dir;
     if (dir == null) return null;
-    final slash = appKey.indexOf('/');
-    final pkg = slash < 0 ? appKey : appKey.substring(0, slash);
-    return File('${dir.path}/app/${_safe(pkg)}/${_safe(appKey)}.png');
+    return File('${dir.path}/app/${_safe(_pkgOf(appKey))}/${_safe(appKey)}.png');
   }
 
   File? _packFile(String pack, String drawable) {
@@ -117,15 +124,38 @@ class LauncherIconCache {
       }
     }
 
-    // 2. Native rendering, in chunks so the first screenful lands quickly.
+    // 2. Web links: the site's own icon.
+    final webKeys = missingApps.where((k) => k.startsWith('web:')).toList();
+    missingApps.removeWhere((k) => k.startsWith('web:'));
+    for (final key in webKeys) {
+      final bytes = await _fetchFavicon(key.substring(4));
+      if (bytes != null) {
+        _publish(_appSlot(key), bytes);
+        unawaited(_writeFile(_appFile(key), bytes));
+      }
+    }
+
+    // 3. Native rendering, in chunks so the first screenful lands quickly.
     const chunk = 24;
     for (var i = 0; i < missingApps.length; i += chunk) {
       final part = missingApps.sublist(i, (i + chunk).clamp(0, missingApps.length));
-      final items = <Map<String, String>>[];
+      final items = <Map<String, Object?>>[];
       for (final key in part) {
+        final app = LauncherService.instance.appForKey(key);
+        if (app != null) {
+          items.add({
+            'key': key,
+            'kind': app.kind == LauncherAppKind.shortcut ? 'shortcut' : 'app',
+            'package': app.package,
+            'activity': app.activity,
+            'shortcutId': app.shortcutId,
+            'user': app.user,
+          });
+          continue;
+        }
         final slash = key.indexOf('/');
-        if (slash <= 0) continue;
-        items.add({'key': key, 'package': key.substring(0, slash), 'activity': key.substring(slash + 1)});
+        if (slash <= 0 || key.startsWith('sc:')) continue;
+        items.add({'key': key, 'kind': 'app', 'package': key.substring(0, slash), 'activity': key.substring(slash + 1)});
       }
       final result = await LauncherNative.getAppIcons(items, size: renderSize);
       for (final key in part) {
@@ -149,6 +179,18 @@ class LauncherIconCache {
         }
       }
     }
+  }
+
+  static Future<Uint8List?> _fetchFavicon(String url) async {
+    final host = Uri.tryParse(url)?.host;
+    if (host == null || host.isEmpty) return null;
+    try {
+      final res = await http
+          .get(Uri.parse('https://www.google.com/s2/favicons?domain=$host&sz=128'))
+          .timeout(const Duration(seconds: 6));
+      if (res.statusCode == 200 && res.bodyBytes.length > 100) return res.bodyBytes;
+    } catch (_) {}
+    return null;
   }
 
   void _publish(String id, Uint8List bytes) {

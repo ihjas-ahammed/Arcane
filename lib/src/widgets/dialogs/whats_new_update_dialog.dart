@@ -114,13 +114,12 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
   Future<void> _startDownloadAndInstall({bool forceRedownload = false}) async {
     if (!forceRedownload && _cachedFile != null) {
       final exists = await _cachedFile!.exists();
-      if (exists && await _cachedFile!.length() > 1024 * 1024) {
-        final success = await widget.updateService.installApk(_cachedFile!.path);
-        if (!success && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please grant package installation permission to install the update.')),
-          );
-        }
+      final cachedCode = exists ? await widget.updateService.apkVersionCode(_cachedFile!.path) : -1;
+      // A cached APK from an earlier same-day build would be rejected by Android; re-download it.
+      final stale = cachedCode > 0 && widget.update.versionCode > 0 && cachedCode < widget.update.versionCode;
+      if (exists && !stale && await _cachedFile!.length() > 1024 * 1024) {
+        final error = await widget.updateService.installApk(_cachedFile!.path);
+        if (mounted) setState(() => _errorMessage = error);
         return;
       }
     }
@@ -170,18 +169,14 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
         });
 
         // Launch installer immediately
-        final success = await widget.updateService.installApk(file.path);
-        if (!success && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Update downloaded to cache! Please confirm install.')),
-          );
-        }
+        final error = await widget.updateService.installApk(file.path);
+        if (mounted) setState(() => _errorMessage = error);
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isDownloading = false;
-          _errorMessage = 'Download failed: $e';
+          _errorMessage = 'Download failed: ${e.toString().replaceFirst('Exception: ', '')}';
         });
       }
     }

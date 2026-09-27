@@ -61,6 +61,7 @@
             <!-- As the home app, accept AppWidgetManager.requestPinAppWidget() from any app -->
             <intent-filter>
                 <action android:name="android.content.pm.action.CONFIRM_PIN_APPWIDGET"/>
+                <action android:name="android.content.pm.action.CONFIRM_PIN_SHORTCUT"/>
             </intent-filter>
             <!-- Home-screen widget deep links (arcane://widget?action=…) -->
             <intent-filter>

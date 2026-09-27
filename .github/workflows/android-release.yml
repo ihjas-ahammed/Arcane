@@ -73,7 +73,9 @@ jobs:
               continue
             fi
             ABI=$(basename "$apk" | sed 's/app-//' | sed 's/-release.apk//')
-            cp "$apk" "builds/missions-v${VERSION}-${ABI}.apk"
+            # Build code in the name: several builds a day must never share a URL, or the
+            # raw.githubusercontent CDN / in-app cache can hand out the previous APK.
+            cp "$apk" "builds/missions-v${VERSION}-b${VCODE}-${ABI}.apk"
           done
 
           # Automatically update update_info.json and latest.json
@@ -83,12 +85,12 @@ jobs:
             "version_name": "${VERSION}",
             "published_at": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
             "min_supported_version_code": 2026010101,
-            "apk_filename": "missions-v${VERSION}-arm64-v8a.apk",
-            "apk_url": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/${BRANCH}/builds/missions-v${VERSION}-arm64-v8a.apk",
+            "apk_filename": "missions-v${VERSION}-b${VCODE}-arm64-v8a.apk",
+            "apk_url": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/${BRANCH}/builds/missions-v${VERSION}-b${VCODE}-arm64-v8a.apk",
             "apk_arch_urls": {
-              "arm64-v8a": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/${BRANCH}/builds/missions-v${VERSION}-arm64-v8a.apk",
-              "armeabi-v7a": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/${BRANCH}/builds/missions-v${VERSION}-armeabi-v7a.apk",
-              "x86_64": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/${BRANCH}/builds/missions-v${VERSION}-x86_64.apk"
+              "arm64-v8a": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/${BRANCH}/builds/missions-v${VERSION}-b${VCODE}-arm64-v8a.apk",
+              "armeabi-v7a": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/${BRANCH}/builds/missions-v${VERSION}-b${VCODE}-armeabi-v7a.apk",
+              "x86_64": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/${BRANCH}/builds/missions-v${VERSION}-b${VCODE}-x86_64.apk"
             },
             "changelog_url": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/${BRANCH}/builds/latest.md"
           }
@@ -109,15 +111,19 @@ jobs:
           if git diff --quiet && git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "chore: add Android builds v${{ steps.version.outputs.vname }} [skip ci]"
-            git push origin HEAD:${{ github.ref_name }}
+            git commit -m "chore: add Android builds v${{ steps.version.outputs.vname }} (#${{ steps.version.outputs.vcode }}) [skip ci]"
+            # A newer commit may have landed while we were building; never lose the builds commit.
+            for attempt in 1 2 3; do
+              git pull --rebase origin ${{ github.ref_name }} && git push origin HEAD:${{ github.ref_name }} && break
+              sleep 5
+            done
           fi
 
       - name: Publish GitHub Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v1
         with:
-          files: builds/missions-*.apk
+          files: builds/missions-v${{ steps.version.outputs.vname }}-b${{ steps.version.outputs.vcode }}-*.apk
           tag_name: build-${{ github.run_number }}
           name: Build ${{ github.run_number }}
           body: |
