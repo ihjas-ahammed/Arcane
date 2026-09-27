@@ -101,3 +101,5 @@ macos/Flutter/Flutter- আরো একবার.h
 lib/src/config/api_keys.dart
 lib/firebase_options.dart.superpowers/
 .graphify/
+graphify-out/cache/
+graphify-out/2026-*/

@@ -38,7 +38,14 @@ class RunningTaskHomeWidget extends StatelessWidget {
     this.dayPlannerWidgetCheckable = false,
     this.topFiveTasks = const [],
     this.multitaskTasks = const [],
+    this.onPrimaryAction,
+    this.onSecondaryAction,
+    this.onFinishAction,
   });
+
+  final VoidCallback? onPrimaryAction;
+  final VoidCallback? onSecondaryAction;
+  final VoidCallback? onFinishAction;
 
   HudTone _toneFor(Color c) {
     if (c == JweTheme.accentCyan || c == _neonCyan) return HudTone.cyan;
@@ -93,6 +100,9 @@ class RunningTaskHomeWidget extends StatelessWidget {
       neonRed: _neonRed,
       toneFor: _toneFor,
       ringLabel: _ringLabel,
+      onPrimaryAction: onPrimaryAction,
+      onSecondaryAction: onSecondaryAction,
+      onFinishAction: onFinishAction,
     );
   }
 }

@@ -168,4 +168,42 @@ class AssistantRoutingService {
       return false;
     }
   }
+
+  /// Launches an application package.
+  Future<bool> launchPackage(String package) async {
+    try {
+      final success = await _channel.invokeMethod<bool>('launchPackage', {
+        'package': package,
+      });
+      return success ?? false;
+    } catch (e) {
+      debugPrint('[AssistantRoutingService] Error launching package $package: $e');
+      return false;
+    }
+  }
+
+  /// Launches a system intent action (phone, messages, camera, clock, settings, gallery).
+  Future<bool> launchIntentAction(String action) async {
+    try {
+      final success = await _channel.invokeMethod<bool>('launchIntentAction', {
+        'action': action,
+      });
+      return success ?? false;
+    } catch (e) {
+      debugPrint('[AssistantRoutingService] Error launching action $action: $e');
+      return false;
+    }
+  }
+
+  /// Fetches PNG bytes for an installed app's icon.
+  Future<Uint8List?> getAppIcon(String package) async {
+    try {
+      final bytes = await _channel.invokeMethod<Uint8List>('getAppIcon', {
+        'package': package,
+      });
+      return bytes;
+    } catch (e) {
+      return null;
+    }
+  }
 }

@@ -6,6 +6,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
@@ -13,15 +17,20 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.AlarmClock
+import android.provider.MediaStore
+import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.view.WindowManager
+import android.window.OnBackInvokedDispatcher
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.ByteArrayOutputStream
 import java.util.Locale
 
 class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
@@ -101,6 +110,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         enableLockScreenDisplay()
         initTts()
         handleAssistantIntent(intent)
+        registerBackCallback()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -108,6 +118,25 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         setIntent(intent)
         enableLockScreenDisplay()
         handleAssistantIntent(intent)
+    }
+
+    private fun registerBackCallback() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            try {
+                onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                    OnBackInvokedDispatcher.PRIORITY_DEFAULT
+                ) {
+                    channel?.invokeMethod("onBackPressed", null)
+                    assistantMethodChannel?.invokeMethod("onBackPressed", null)
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    override fun onBackPressed() {
+        // As an Android Home Screen launcher, Arcane must never finish or kill itself on back press.
+        channel?.invokeMethod("onBackPressed", null)
+        assistantMethodChannel?.invokeMethod("onBackPressed", null)
     }
 
     /**
@@ -800,6 +829,74 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                     routeAudioToBluetooth(enable)
                     result.success(true)
                 }
+                "launchPackage" -> {
+                    val pkg = call.argument<String>("package") ?: ""
+                    if (pkg.isNotEmpty()) {
+                        val pm = packageManager
+                        val intent = pm.getLaunchIntentForPackage(pkg)
+                        if (intent != null) {
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            try {
+                                startActivity(intent)
+                                result.success(true)
+                            } catch (_: Exception) {
+                                result.success(false)
+                            }
+                        } else {
+                            result.success(false)
+                        }
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "launchIntentAction" -> {
+                    val action = call.argument<String>("action") ?: ""
+                    val intent = when (action.lowercase()) {
+                        "phone" -> Intent(Intent.ACTION_DIAL)
+                        "messages" -> Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MESSAGING)
+                        "camera" -> Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)
+                        "settings" -> Intent(Settings.ACTION_SETTINGS)
+                        "clock" -> Intent(AlarmClock.ACTION_SHOW_ALARMS)
+                        "gallery" -> Intent(Intent.ACTION_VIEW).apply { type = "image/*" }
+                        "home_settings" -> Intent(Settings.ACTION_HOME_SETTINGS)
+                        else -> null
+                    }
+                    if (intent != null) {
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        try {
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (_: Exception) {
+                            result.success(false)
+                        }
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "getAppIcon" -> {
+                    val pkg = call.argument<String>("package") ?: ""
+                    if (pkg.isEmpty()) {
+                        result.success(null)
+                        return@setMethodCallHandler
+                    }
+                    Thread {
+                        try {
+                            val pm = packageManager
+                            val iconDrawable = pm.getApplicationIcon(pkg)
+                            val bitmap = drawableToBitmap(iconDrawable)
+                            val stream = ByteArrayOutputStream()
+                            bitmap.compress(Bitmap.CompressFormat.PNG, 85, stream)
+                            val byteArray = stream.toByteArray()
+                            Handler(Looper.getMainLooper()).post {
+                                result.success(byteArray)
+                            }
+                        } catch (_: Exception) {
+                            Handler(Looper.getMainLooper()).post {
+                                result.success(null)
+                            }
+                        }
+                    }.start()
+                }
                 else -> result.notImplemented()
             }
         }
@@ -812,6 +909,19 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                 pendingAssistantAction = null
             }, 300)
         }
+    }
+
+    private fun drawableToBitmap(drawable: Drawable): Bitmap {
+        if (drawable is BitmapDrawable) {
+            return drawable.bitmap
+        }
+        val width = drawable.intrinsicWidth.coerceAtLeast(48).coerceAtMost(192)
+        val height = drawable.intrinsicHeight.coerceAtLeast(48).coerceAtMost(192)
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return bitmap
     }
 
     override fun onDestroy() {

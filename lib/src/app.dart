@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:missions/src/screens/home_screen.dart';
 import 'package:missions/src/screens/login_screen.dart';
@@ -10,7 +10,20 @@ import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/widgets/common/insight_watcher.dart';
+import 'package:missions/src/screens/launcher/launcher_screen.dart';
 import 'package:provider/provider.dart';
+
+class AppScrollBehavior extends MaterialScrollBehavior {
+  const AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+      };
+}
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -54,23 +67,11 @@ class _MyAppState extends State<MyApp> {
 
         return MaterialApp(
           title: 'Missions',
+          scrollBehavior: const AppScrollBehavior(),
           navigatorKey: WidgetActionRouter.instance.navigatorKey,
           scaffoldMessengerKey: rootScaffoldMessengerKey,
           builder: (context, child) {
-            final isDesktop = defaultTargetPlatform == TargetPlatform.linux ||
-                defaultTargetPlatform == TargetPlatform.macOS ||
-                defaultTargetPlatform == TargetPlatform.windows;
-            if (isDesktop) return child!;
-            // On mobile/web constrain to phone-sized column
-            return Container(
-              color: isLightTheme ? AppTheme.fhLightBgDeepDark : Colors.black,
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  child: child,
-                ),
-              ),
-            );
+            return child!;
           },
           theme: AppTheme.getThemeData(
               primaryAccent: isLightTheme
@@ -78,33 +79,35 @@ class _MyAppState extends State<MyApp> {
                   : AppTheme.fhAccentTealFixed,
               isLightTheme: isLightTheme),
           debugShowCheckedModeBanner: false,
-          home: appProvider.authLoading
-              ? Scaffold(
-                  backgroundColor: isLightTheme ? AppTheme.fhLightBgDeepDark : AppTheme.fhBgDeepDark,
-                  body: Center(
-                    child: CircularProgressIndicator(
-                      color: isLightTheme ? AppTheme.fhLightTextPrimary : AppTheme.fhAccentTeal,
+          home: LauncherScreen(
+            arcaneChild: appProvider.authLoading
+                ? Scaffold(
+                    backgroundColor: isLightTheme ? AppTheme.fhLightBgDeepDark : AppTheme.fhBgDeepDark,
+                    body: Center(
+                      child: CircularProgressIndicator(
+                        color: isLightTheme ? AppTheme.fhLightTextPrimary : AppTheme.fhAccentTeal,
+                      ),
                     ),
-                  ),
-                )
-              : appProvider.currentUser == null
-                  ? const LoginScreen()
-                  : !appProvider.settings.hasCompletedTour
-                      ? Theme(
-                          data: AppTheme.getThemeData(
-                              primaryAccent: AppTheme.fhAccentTealFixed,
-                              isLightTheme: isLightTheme),
-                          child: const AppTourScreen(),
-                        )
-                      : Theme(
-                          data: AppTheme.getThemeData(
-                              primaryAccent: currentTaskColor,
-                              isLightTheme: isLightTheme),
-                          child: HomeWidgetHost(
-                            provider: appProvider,
-                            child: const InsightWatcher(child: HomeScreen()),
+                  )
+                : appProvider.currentUser == null
+                    ? const LoginScreen()
+                    : !appProvider.settings.hasCompletedTour
+                        ? Theme(
+                            data: AppTheme.getThemeData(
+                                primaryAccent: AppTheme.fhAccentTealFixed,
+                                isLightTheme: isLightTheme),
+                            child: const AppTourScreen(),
+                          )
+                        : Theme(
+                            data: AppTheme.getThemeData(
+                                primaryAccent: currentTaskColor,
+                                isLightTheme: isLightTheme),
+                            child: HomeWidgetHost(
+                              provider: appProvider,
+                              child: const InsightWatcher(child: HomeScreen()),
+                            ),
                           ),
-                        ),
+          ),
         );
       },
     );

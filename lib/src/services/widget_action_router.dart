@@ -72,9 +72,14 @@ class WidgetActionRouter {
             provider.handleEnergyReply(reply, notificationId: notifId);
           }
         }
+      } else if (call.method == 'onBackPressed') {
+        onBackPressed?.call();
       }
     });
   }
+
+  /// Hook for the Launcher root to handle system back button events safely without killing the activity.
+  VoidCallback? onBackPressed;
 
   void handle(String action, {bool silent = false}) {
     final ctx = navigatorKey.currentContext;

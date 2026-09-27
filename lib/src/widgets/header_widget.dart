@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/services/widget_action_router.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:provider/provider.dart';
@@ -52,9 +53,13 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
         alignment: Alignment.centerLeft,
         child: Padding(
           padding: const EdgeInsets.only(left: 16),
-          child: ArcaneAppIcon(
-            size: 16,
-            color: Theme.of(context).primaryColor,
+          child: InkWell(
+            onTap: () => WidgetActionRouter.instance.onBackPressed?.call(),
+            borderRadius: BorderRadius.circular(4),
+            child: ArcaneAppIcon(
+              size: 16,
+              color: Theme.of(context).primaryColor,
+            ),
           ),
         ),
       ),

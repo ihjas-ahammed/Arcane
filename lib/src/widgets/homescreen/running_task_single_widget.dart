@@ -17,6 +17,9 @@ class RunningTaskSingleWidget extends StatelessWidget {
   final Color neonRed;
   final HudTone Function(Color) toneFor;
   final String Function(double) ringLabel;
+  final VoidCallback? onPrimaryAction;
+  final VoidCallback? onSecondaryAction;
+  final VoidCallback? onFinishAction;
 
   const RunningTaskSingleWidget({
     super.key,
@@ -31,6 +34,9 @@ class RunningTaskSingleWidget extends StatelessWidget {
     required this.neonRed,
     required this.toneFor,
     required this.ringLabel,
+    this.onPrimaryAction,
+    this.onSecondaryAction,
+    this.onFinishAction,
   });
 
   @override
@@ -253,6 +259,7 @@ class RunningTaskSingleWidget extends StatelessWidget {
                             icon: isRunning ? MdiIcons.pause : MdiIcons.play,
                             primary: !isRunning && hasTask,
                             accent: isRunning ? neonRed : neonCyan,
+                            onPressed: onPrimaryAction,
                           ),
                         ),
                         if (hasTask && isCheckpoint) ...[
@@ -263,6 +270,7 @@ class RunningTaskSingleWidget extends StatelessWidget {
                             primary: false,
                             accent: neonCyan,
                             width: 80,
+                            onPressed: onSecondaryAction,
                           ),
                         ],
                         const SizedBox(width: 8),
@@ -272,6 +280,7 @@ class RunningTaskSingleWidget extends StatelessWidget {
                           primary: false,
                           accent: hasTask ? JweTheme.accentAmber : JweTheme.textMuted,
                           width: 80,
+                          onPressed: onFinishAction,
                         ),
                       ],
                     ),

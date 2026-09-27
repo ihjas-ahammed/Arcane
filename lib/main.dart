@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -43,6 +44,16 @@ Future<void> _initFirebase() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Launcher anti-kill safety: prevent unhandled exceptions from terminating the launcher process
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('[LauncherSafety] FlutterError handled: ${details.exception}');
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('[LauncherSafety] Uncaught async error suppressed: $error');
+    return true; // Mark as handled to prevent OS/process kill
+  };
 
   try {
     await _initFirebase();

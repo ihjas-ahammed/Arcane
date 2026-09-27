@@ -26,31 +26,35 @@ class RunningTaskActionButton extends StatelessWidget {
     final fg = primary ? JweTheme.onAccent : accent;
     final border = Border.all(color: accent, width: 1.2);
 
-    return Container(
-      width: width,
-      height: 30,
-      decoration: BoxDecoration(
-        color: bg,
-        border: border,
-        borderRadius: BorderRadius.circular(3),
-      ),
-      alignment: Alignment.center,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: fg),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: GoogleFonts.rajdhani(
-              color: fg,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(3),
+      child: Container(
+        width: width,
+        height: 30,
+        decoration: BoxDecoration(
+          color: bg,
+          border: border,
+          borderRadius: BorderRadius.circular(3),
+        ),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: fg),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: GoogleFonts.rajdhani(
+                color: fg,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
