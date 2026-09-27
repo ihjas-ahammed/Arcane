@@ -48,7 +48,7 @@ class JweProgressBar extends StatelessWidget {
                   margin: EdgeInsets.only(right: i == segments - 1 ? 0 : 2),
                   decoration: BoxDecoration(
                     color: on ? color : ArcStrokes.hairline,
-                    boxShadow: on ? [BoxShadow(color: color.withOpacity(0.4), blurRadius: 3)] : null,
+                    boxShadow: on ? [BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 3)] : null,
                   ),
                 ),
               );

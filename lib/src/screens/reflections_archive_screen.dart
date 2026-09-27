@@ -260,7 +260,7 @@ class _ReflectionsArchiveScreenState extends State<ReflectionsArchiveScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children:[
-                            Icon(MdiIcons.folderOpenOutline, size: 48, color: JweTheme.textMuted.withOpacity(0.5)),
+                            Icon(MdiIcons.folderOpenOutline, size: 48, color: JweTheme.textMuted.withValues(alpha: 0.5)),
                             const SizedBox(height: 16),
                              Text("NO RECORDS FOUND.", style: TextStyle(color: JweTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
                           ],

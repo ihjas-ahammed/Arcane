@@ -173,10 +173,10 @@ class FinanceCharts extends StatelessWidget {
         borderData: FlBorderData(show: false),
         lineBarsData: [
           LineChartBarData(
-            spots: incSpots, color: JweTheme.accentCyan, isCurved: true, dotData:  FlDotData(show: false), barWidth: 2, belowBarData: BarAreaData(show: true, color: JweTheme.accentCyan.withOpacity(0.1))
+            spots: incSpots, color: JweTheme.accentCyan, isCurved: true, dotData:  FlDotData(show: false), barWidth: 2, belowBarData: BarAreaData(show: true, color: JweTheme.accentCyan.withValues(alpha: 0.1))
           ),
           LineChartBarData(
-            spots: expSpots, color: JweTheme.accentRed, isCurved: true, dotData:  FlDotData(show: false), barWidth: 2, dashArray: [5, 5], belowBarData: BarAreaData(show: true, color: JweTheme.accentRed.withOpacity(0.1))
+            spots: expSpots, color: JweTheme.accentRed, isCurved: true, dotData:  FlDotData(show: false), barWidth: 2, dashArray: [5, 5], belowBarData: BarAreaData(show: true, color: JweTheme.accentRed.withValues(alpha: 0.1))
           )
         ]
       )

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:missions/src/theme/app_theme.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui; // Needed for gradient shaders
 import 'package:missions/src/theme/arc/arc_theme.dart';
@@ -66,11 +65,11 @@ class _DendroElementPainter extends CustomPainter {
 
     // --- GROUP 1: BACKGROUND ORNAMENT (The dark grey pattern) ---
     final spikePaint = Paint()
-      ..color = cSpikes.withOpacity(0.4)
+      ..color = cSpikes.withValues(alpha: 0.4)
       ..style = PaintingStyle.fill;
 
     final spikeStrokePaint = Paint()
-      ..color = cSpikes.withOpacity(0.5)
+      ..color = cSpikes.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
 
@@ -111,7 +110,7 @@ class _DendroElementPainter extends CustomPainter {
 
     // 1b. Inner decorative circle
     final circlePaint = Paint()
-      ..color = cSpikes.withOpacity(0.3)
+      ..color = cSpikes.withValues(alpha: 0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 8;
     canvas.drawCircle(Offset.zero, 42, circlePaint);
@@ -140,7 +139,7 @@ class _DendroElementPainter extends CustomPainter {
     // I will adapt the "Style" to a full 360 ring for usability, but keep the exact stroke style.
     
     final bgRingPaint = Paint()
-      ..color = cRingInactive.withOpacity(0.3)
+      ..color = cRingInactive.withValues(alpha: 0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 5
       ..strokeCap = StrokeCap.round;
@@ -205,7 +204,7 @@ class _DendroElementPainter extends CustomPainter {
     
     // Add Glow to Icon
     final iconGlowPaint = Paint()
-      ..color = ArcAccents.ringGreenBright.withOpacity(0.6)
+      ..color = ArcAccents.ringGreenBright.withValues(alpha: 0.6)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);

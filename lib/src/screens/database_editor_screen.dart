@@ -94,7 +94,7 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5))),
+                border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.5))),
               ),
               child: Row(
                 children: [

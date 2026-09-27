@@ -41,7 +41,7 @@ class _AiGenerationPromptDialogState extends State<AiGenerationPromptDialog> {
               style:   TextStyle(color: AppTheme.fhTextPrimary),
               decoration: InputDecoration(
                 hintText: widget.hintText,
-                hintStyle: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.5), fontSize: 13),
+                hintStyle: TextStyle(color: AppTheme.fhTextSecondary.withValues(alpha: 0.5), fontSize: 13),
                 filled: true,
                 fillColor: ArcSurfaces.inputFill,
                 border: const OutlineInputBorder(borderRadius: BorderRadius.zero),

@@ -85,7 +85,7 @@ class TherapyReportScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
                         border: Border.all(color: JweTheme.accentCyan),
-                        color: JweTheme.accentCyan.withOpacity(0.1),
+                        color: JweTheme.accentCyan.withValues(alpha: 0.1),
                       ),
                       child: Row(
                         children: [

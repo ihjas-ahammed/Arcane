@@ -204,7 +204,7 @@ class WeeklyRawMetricsSection extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: JweTheme.bgBase.withOpacity(0.4),
+                      color: JweTheme.bgBase.withValues(alpha: 0.4),
                       border: Border.all(color: JweTheme.lineSoft),
                     ),
                     child: Column(
@@ -238,7 +238,7 @@ class WeeklyRawMetricsSection extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: JweTheme.bgBase.withOpacity(0.4),
+                      color: JweTheme.bgBase.withValues(alpha: 0.4),
                       border: Border.all(color: JweTheme.lineSoft),
                     ),
                     child: Column(

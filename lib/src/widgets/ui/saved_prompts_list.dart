@@ -43,7 +43,7 @@ class SavedPromptsList extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppTheme.fhBgDark,
                   border: Border.all(
-                      color: AppTheme.fhBorderColor.withOpacity(0.2)),
+                      color: AppTheme.fhBorderColor.withValues(alpha: 0.2)),
                 ),
                 child: ListTile(
                   title: Text(

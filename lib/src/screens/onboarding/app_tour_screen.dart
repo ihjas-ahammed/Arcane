@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
-import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/widgets/onboarding/tour_slide.dart';
 import 'package:missions/src/models/task_models.dart';
@@ -70,7 +69,7 @@ class _AppTourScreenState extends State<AppTourScreen> {
         title: "SYSTEM OVERVIEW",
         subtitle: "START WITH WHY?!",
         content: "Productivity apps feel like a chore because they treat life as a sterile checklist.\n\nTask Dominion bridges the gap between gaming and reality. By treating life as a series of tactical operations complete with post-action debriefs and biometrics, self-improvement becomes engaging and structured.\n\nYou are not just surviving. You are managing a complex system: You.",
-        visual: Icon(Icons.architecture, size: 80, color: JweTheme.accentCyan.withOpacity(0.5)),
+        visual: Icon(Icons.architecture, size: 80, color: JweTheme.accentCyan.withValues(alpha: 0.5)),
         accentColor: JweTheme.accentCyan,
       ),
       TourSlide(
@@ -109,7 +108,7 @@ class _AppTourScreenState extends State<AppTourScreen> {
                 filled: true,
                 fillColor: JweTheme.bgBase,
                 hintText: "Paste Gemini API Key here (Optional)",
-                hintStyle: TextStyle(color: JweTheme.textMuted.withOpacity(0.5)),
+                hintStyle: TextStyle(color: JweTheme.textMuted.withValues(alpha: 0.5)),
                 border:  OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
                 focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: ArcAccents.violet)),
               ),

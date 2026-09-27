@@ -73,7 +73,7 @@ class _ActionPlanOutcomeCardState extends State<ActionPlanOutcomeCard> {
             hintText: "Result or Reward...",
             hintStyle:   TextStyle(color: AppTheme.fhTextDisabled),
             filled: true,
-            fillColor: AppTheme.fhBgDark.withOpacity(0.5),
+            fillColor: AppTheme.fhBgDark.withValues(alpha: 0.5),
             border:   OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
             enabledBorder:   OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
             focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: widget.accentColor)),

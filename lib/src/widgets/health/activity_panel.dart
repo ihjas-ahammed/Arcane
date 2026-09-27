@@ -21,7 +21,7 @@ class ActivityPanel extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: SpideyTheme.bgPanel,
         shape: BeveledRectangleBorder(
-          side: BorderSide(color: SpideyTheme.spideyRed.withOpacity(0.6)),
+          side: BorderSide(color: SpideyTheme.spideyRed.withValues(alpha: 0.6)),
           borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(6), bottomRight: Radius.circular(6)),
         ),

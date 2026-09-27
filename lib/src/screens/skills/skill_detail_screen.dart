@@ -5,7 +5,6 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:provider/provider.dart';
 import 'package:missions/src/models/tracked_skill_model.dart';
 import 'package:missions/src/providers/app_provider.dart';
-import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/helpers.dart';
 import 'package:missions/src/widgets/dialogs/add_edit_skill_dialog.dart';
 import 'package:missions/src/widgets/dialogs/add_edit_skill_log_dialog.dart';

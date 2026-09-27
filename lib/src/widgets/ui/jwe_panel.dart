@@ -34,7 +34,7 @@ class JwePanel extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: color.withOpacity(0.20))),
+                  border: Border(bottom: BorderSide(color: color.withValues(alpha: 0.20))),
                 ),
                 child: Row(children: [
                   Container(width: 4, height: 12, color: color),

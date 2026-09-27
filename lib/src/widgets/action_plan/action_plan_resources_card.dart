@@ -8,7 +8,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:missions/src/providers/app_provider.dart';
-import 'package:missions/src/models/task_models.dart';
 
 class ActionPlanResourcesCard extends StatelessWidget {
   final String initialResources;
@@ -114,7 +113,7 @@ class ActionPlanResourcesCard extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppTheme.fhBgDark.withOpacity(0.5),
+            color: AppTheme.fhBgDark.withValues(alpha: 0.5),
             border: Border.all(color: AppTheme.fhBorderColor),
           ),
           child: selectedIds.isEmpty
@@ -178,8 +177,8 @@ class _ResourceChipBuilder extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: accentColor.withOpacity(0.1),
-              border: Border.all(color: accentColor.withOpacity(0.5)),
+              color: accentColor.withValues(alpha: 0.1),
+              border: Border.all(color: accentColor.withValues(alpha: 0.5)),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(

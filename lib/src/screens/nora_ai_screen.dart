@@ -271,7 +271,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                     decoration: BoxDecoration(
                       color: AppTheme.fhBgDark,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+                      border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [
@@ -383,7 +383,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
             padding: const EdgeInsets.only(right: 8.0),
             child: ActionChip(
               backgroundColor: AppTheme.fhBgMedium,
-              side: BorderSide(color: AppTheme.fhAccentPurple.withOpacity(0.3)),
+              side: BorderSide(color: AppTheme.fhAccentPurple.withValues(alpha: 0.3)),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               label: Text(
                 _suggestions[index],
@@ -494,14 +494,14 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                               shape: BoxShape.circle,
                               gradient: RadialGradient(
                                 colors: [
-                                  orbColor.withOpacity(0.8),
-                                  orbColor.withOpacity(0.2),
+                                  orbColor.withValues(alpha: 0.8),
+                                  orbColor.withValues(alpha: 0.2),
                                   Colors.transparent,
                                 ],
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: orbColor.withOpacity(0.4),
+                                  color: orbColor.withValues(alpha: 0.4),
                                   blurRadius: 50,
                                   spreadRadius: _audioOutputEnabled ? 15 : 5,
                                 ),
@@ -528,10 +528,10 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                     margin: const EdgeInsets.symmetric(horizontal: 24),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: (isLight ? JweTheme.panel : AppTheme.fhBgMedium).withOpacity(0.9),
+                      color: (isLight ? JweTheme.panel : AppTheme.fhBgMedium).withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: accentColor.withOpacity(0.4),
+                        color: accentColor.withValues(alpha: 0.4),
                       ),
                     ),
                     child: Row(
@@ -569,8 +569,8 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: _audioOutputEnabled 
-                          ? accentColor.withOpacity(0.3) 
-                          : Colors.red.withOpacity(0.3),
+                          ? accentColor.withValues(alpha: 0.3) 
+                          : Colors.red.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Column(
@@ -776,10 +776,10 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
-                  color: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withOpacity(0.18),
+                  color: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(
-                    color: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withOpacity(0.4),
+                    color: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withValues(alpha: 0.4),
                   ),
                 ),
                 child: Row(
@@ -849,7 +849,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             DrawerHeader(
-              decoration: BoxDecoration(color: AppTheme.fhBgDark, border: Border(bottom: BorderSide(color: AppTheme.fhAccentPurple.withOpacity(0.5)))),
+              decoration: BoxDecoration(color: AppTheme.fhBgDark, border: Border(bottom: BorderSide(color: AppTheme.fhAccentPurple.withValues(alpha: 0.5)))),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -877,7 +877,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.fhAccentPurple,
-                  side: BorderSide(color: AppTheme.fhAccentPurple.withOpacity(0.5)),
+                  side: BorderSide(color: AppTheme.fhAccentPurple.withValues(alpha: 0.5)),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
@@ -900,7 +900,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                   final isSelected = session.id == memory.activeNoraSessionId;
                   return ListTile(
                     selected: isSelected,
-                    selectedTileColor: AppTheme.fhAccentPurple.withOpacity(0.1),
+                    selectedTileColor: AppTheme.fhAccentPurple.withValues(alpha: 0.1),
                     leading: Icon(
                       sessionPersona.isBuiltIn ? MdiIcons.robotOutline : MdiIcons.movieOpenOutline,
                       color: isSelected ? AppTheme.fhAccentPurple : AppTheme.fhTextSecondary,
@@ -930,7 +930,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(MdiIcons.creation, size: 64, color: AppTheme.fhTextDisabled.withOpacity(0.2)),
+                    Icon(MdiIcons.creation, size: 64, color: AppTheme.fhTextDisabled.withValues(alpha: 0.2)),
                     const SizedBox(height: 16),
                       Text("NO ACTIVE LINK", style: TextStyle(color: AppTheme.fhTextSecondary, fontFamily: AppTheme.fontDisplay, fontSize: 20)),
                     const SizedBox(height: 24),
@@ -963,9 +963,9 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: AppTheme.fhAccentPurple.withOpacity(0.15),
+                              color: AppTheme.fhAccentPurple.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: AppTheme.fhAccentPurple.withOpacity(0.3)),
+                              border: Border.all(color: AppTheme.fhAccentPurple.withValues(alpha: 0.3)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -999,8 +999,8 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                                     padding: const EdgeInsets.all(20),
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      color: AppTheme.fhAccentPurple.withOpacity(0.1),
-                                      border: Border.all(color: AppTheme.fhAccentPurple.withOpacity(0.3)),
+                                      color: AppTheme.fhAccentPurple.withValues(alpha: 0.1),
+                                      border: Border.all(color: AppTheme.fhAccentPurple.withValues(alpha: 0.3)),
                                     ),
                                     child: Icon(MdiIcons.creation, size: 48, color: AppTheme.fhAccentPurple),
                                   ).animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
@@ -1055,7 +1055,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
                     padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 8, top: 8, left: 16, right: 16),
                     decoration: BoxDecoration(
                       color: AppTheme.fhBgDark,
-                      border: Border(top: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3))),
+                      border: Border(top: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.3))),
                     ),
                     child: Row(
                       children: [

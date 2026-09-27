@@ -43,7 +43,7 @@ class TextBlock extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: JweTheme.bgDeep.withOpacity(0.4),
+            color: JweTheme.bgDeep.withValues(alpha: 0.4),
             border: Border(left: BorderSide(color: accent, width: 2)),
           ),
           child: Text(
@@ -116,8 +116,8 @@ class GTDItemCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        border: Border.all(color: color.withOpacity(0.3)),
+        color: color.withValues(alpha: 0.1),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -171,7 +171,7 @@ class FrictionCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: JweTheme.bgDeep.withOpacity(0.6),
+        color: JweTheme.bgDeep.withValues(alpha: 0.6),
         border: Border(left: BorderSide(color: JweTheme.accentRed, width: 3)),
       ),
       child: Column(
@@ -179,7 +179,7 @@ class FrictionCard extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            color: JweTheme.accentRed.withOpacity(0.15),
+            color: JweTheme.accentRed.withValues(alpha: 0.15),
             child: Row(
               children: [
                 Icon(MdiIcons.alertCircleOutline, size: 14, color: JweTheme.accentRed),
@@ -239,7 +239,7 @@ class IdentityCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: JweTheme.bgDeep.withOpacity(0.6),
+        color: JweTheme.bgDeep.withValues(alpha: 0.6),
         border: Border(left: BorderSide(color: JweTheme.accentCyan, width: 3)),
       ),
       child: Column(
@@ -341,8 +341,8 @@ class EnergyColumn extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
-        border: Border.all(color: color.withOpacity(0.3)),
+        color: color.withValues(alpha: 0.06),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -401,7 +401,7 @@ class GratefulPersonCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: JweTheme.bgBase.withOpacity(0.6),
+        color: JweTheme.bgBase.withValues(alpha: 0.6),
         border: Border(
           left: BorderSide(color: JweTheme.accentAmber, width: 2),
         ),
@@ -424,9 +424,9 @@ class GratefulPersonCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: JweTheme.accentAmber.withOpacity(0.12),
+                  color: JweTheme.accentAmber.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: JweTheme.accentAmber.withOpacity(0.4), width: 0.8),
+                  border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.4), width: 0.8),
                 ),
                 child: Text(
                   cat.toUpperCase(),

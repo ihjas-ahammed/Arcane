@@ -4,10 +4,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
-import 'package:missions/src/theme/arc/arc_theme.dart';
-import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/valorant/valorant_button.dart';
-import 'package:uuid/uuid.dart';
 
 class CreateCharacterDialog extends StatefulWidget {
   final AppProvider provider;
@@ -133,7 +130,7 @@ class _CreateCharacterDialogState extends State<CreateCharacterDialog> {
       backgroundColor: AppTheme.fhBgDeepDark,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: AppTheme.fhAccentPurple.withOpacity(0.4), width: 1.5),
+        side: BorderSide(color: AppTheme.fhAccentPurple.withValues(alpha: 0.4), width: 1.5),
       ),
       child: Container(
         width: 600,
@@ -179,7 +176,7 @@ class _CreateCharacterDialogState extends State<CreateCharacterDialog> {
                 decoration: BoxDecoration(
                   color: AppTheme.fhBgDark,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+                  border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
@@ -260,9 +257,9 @@ class _CreateCharacterDialogState extends State<CreateCharacterDialog> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
           decoration: BoxDecoration(
-            color: isSelected ? AppTheme.fhAccentPurple.withOpacity(0.2) : Colors.transparent,
+            color: isSelected ? AppTheme.fhAccentPurple.withValues(alpha: 0.2) : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
-            border: isSelected ? Border.all(color: AppTheme.fhAccentPurple.withOpacity(0.6)) : null,
+            border: isSelected ? Border.all(color: AppTheme.fhAccentPurple.withValues(alpha: 0.6)) : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -338,7 +335,7 @@ class _CreateCharacterDialogState extends State<CreateCharacterDialog> {
             children: _quickSuggestions.map((s) {
               return ActionChip(
                 backgroundColor: AppTheme.fhBgDark,
-                side: BorderSide(color: AppTheme.fhAccentPurple.withOpacity(0.3)),
+                side: BorderSide(color: AppTheme.fhAccentPurple.withValues(alpha: 0.3)),
                 label: Text(s, style: TextStyle(color: AppTheme.fhTextPrimary, fontSize: 11)),
                 onPressed: () {
                   _inputController.text = s;
@@ -358,9 +355,9 @@ class _CreateCharacterDialogState extends State<CreateCharacterDialog> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppTheme.fhAccentPurple.withOpacity(0.12),
+            color: AppTheme.fhAccentPurple.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppTheme.fhAccentPurple.withOpacity(0.4)),
+            border: Border.all(color: AppTheme.fhAccentPurple.withValues(alpha: 0.4)),
           ),
           child: Row(
             children: [
@@ -424,7 +421,7 @@ class _CreateCharacterDialogState extends State<CreateCharacterDialog> {
                 decoration: BoxDecoration(
                   color: AppTheme.fhBgDark,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.4)),
+                  border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.4)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,

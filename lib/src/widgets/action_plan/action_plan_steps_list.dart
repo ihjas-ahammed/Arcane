@@ -181,7 +181,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.3)))
+            border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)))
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -280,8 +280,8 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
             padding: const EdgeInsets.all(16),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5)),
-              color: AppTheme.fhBgDark.withOpacity(0.5)
+              border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
+              color: AppTheme.fhBgDark.withValues(alpha: 0.5)
             ),
             child:   Text("No steps defined yet.", style: TextStyle(color: AppTheme.fhTextDisabled, fontSize: 12)),
           )
@@ -388,7 +388,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
                     enabledBorder:   OutlineInputBorder(borderSide: BorderSide(color: AppTheme.fhBorderColor)),
                     focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: widget.accentColor)),
                     filled: true,
-                    fillColor: AppTheme.fhBgDark.withOpacity(0.5),
+                    fillColor: AppTheme.fhBgDark.withValues(alpha: 0.5),
                     isDense: true,
                     contentPadding: const EdgeInsets.all(12),
                   ),
@@ -404,7 +404,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: _aiMode
-                        ? widget.accentColor.withOpacity(0.18)
+                        ? widget.accentColor.withValues(alpha: 0.18)
                         : Colors.transparent,
                     border: Border.all(
                       color: _aiMode
@@ -425,7 +425,7 @@ class _ActionPlanStepsListState extends State<ActionPlanStepsList> {
                 child: Container(
                   width: 40, height: 40,
                   margin: const EdgeInsets.only(top: 2),
-                  color: widget.accentColor.withOpacity(0.2),
+                  color: widget.accentColor.withValues(alpha: 0.2),
                   alignment: Alignment.center,
                   child: _aiLoading
                       ? SizedBox(

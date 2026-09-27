@@ -189,7 +189,7 @@ class _AddGratitudeDialogState extends State<AddGratitudeDialog> {
   InputDecoration _inputDecoration({String? hint}) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(color: PersonInfoTheme.textGrey.withOpacity(0.5)),
+      hintStyle: TextStyle(color: PersonInfoTheme.textGrey.withValues(alpha: 0.5)),
       filled: true,
       fillColor: PersonInfoTheme.bgDark,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),

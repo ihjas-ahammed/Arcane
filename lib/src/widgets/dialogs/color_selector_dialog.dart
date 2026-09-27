@@ -58,7 +58,7 @@ class ColorSelectorDialog extends StatelessWidget {
                     width: 3,
                   ),
                   boxShadow: isSelected
-                      ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 8)]
+                      ? [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 8)]
                       : null,
                 ),
               ),

@@ -26,7 +26,7 @@ class ValorantTextStyles {
   );
 
   static TextStyle get body => GoogleFonts.roboto(
-    color: ValorantColors.white.withOpacity(0.9),
+    color: ValorantColors.white.withValues(alpha: 0.9),
     fontSize: 14,
     height: 1.5,
   );

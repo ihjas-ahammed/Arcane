@@ -42,7 +42,7 @@ class _WeeklyPeopleLogWidgetState extends State<WeeklyPeopleLogWidget> {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: JweTheme.bgBase.withOpacity(0.3),
+          color: JweTheme.bgBase.withValues(alpha: 0.3),
           border: Border.all(color: JweTheme.lineSoft),
         ),
         child: Text(
@@ -55,9 +55,9 @@ class _WeeklyPeopleLogWidgetState extends State<WeeklyPeopleLogWidget> {
 
     return Container(
       decoration: BoxDecoration(
-        color: JweTheme.bgBase.withOpacity(0.4),
+        color: JweTheme.bgBase.withValues(alpha: 0.4),
         border: Border.all(
-          color: _isExpanded ? JweTheme.accentCyan.withOpacity(0.6) : JweTheme.lineSoft,
+          color: _isExpanded ? JweTheme.accentCyan.withValues(alpha: 0.6) : JweTheme.lineSoft,
           width: _isExpanded ? 1.5 : 1.0,
         ),
         borderRadius: BorderRadius.circular(4),
@@ -79,7 +79,7 @@ class _WeeklyPeopleLogWidgetState extends State<WeeklyPeopleLogWidget> {
                       color: JweTheme.accentCyan,
                       borderRadius: BorderRadius.circular(2),
                       boxShadow: [
-                        BoxShadow(color: JweTheme.accentCyan.withOpacity(0.5), blurRadius: 6),
+                        BoxShadow(color: JweTheme.accentCyan.withValues(alpha: 0.5), blurRadius: 6),
                       ],
                     ),
                   ),
@@ -158,8 +158,8 @@ class _WeeklyPeopleLogWidgetState extends State<WeeklyPeopleLogWidget> {
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
               decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: JweTheme.accentCyan.withOpacity(0.2))),
-                color: JweTheme.accentCyan.withOpacity(0.03),
+                border: Border(top: BorderSide(color: JweTheme.accentCyan.withValues(alpha: 0.2))),
+                color: JweTheme.accentCyan.withValues(alpha: 0.03),
               ),
               child: Column(
                 children: widget.sortedCategories.map((category) {
@@ -225,9 +225,9 @@ class _PeopleCategoryTileState extends State<PeopleCategoryTile> {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
-        color: JweTheme.bgBase.withOpacity(0.3),
+        color: JweTheme.bgBase.withValues(alpha: 0.3),
         border: Border(
-          left: BorderSide(color: JweTheme.accentCyan.withOpacity(0.6), width: 2),
+          left: BorderSide(color: JweTheme.accentCyan.withValues(alpha: 0.6), width: 2),
         ),
       ),
       child: Column(

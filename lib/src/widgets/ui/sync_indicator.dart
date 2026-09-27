@@ -17,9 +17,9 @@ class SyncIndicator extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: AppTheme.fhBgDark.withOpacity(0.9),
+            color: AppTheme.fhBgDark.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppTheme.fhAccentTeal.withOpacity(0.5)),
+            border: Border.all(color: AppTheme.fhAccentTeal.withValues(alpha: 0.5)),
             boxShadow: [
               BoxShadow(
                 color: ArcEffects.shadow(0.3),

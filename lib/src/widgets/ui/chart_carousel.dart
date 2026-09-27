@@ -26,7 +26,6 @@ class ChartCarousel extends StatefulWidget {
 
 class _ChartCarouselState extends State<ChartCarousel> {
   final PageController _controller = PageController();
-  int _index = 0;
 
   @override
   void dispose() {
@@ -51,7 +50,6 @@ class _ChartCarouselState extends State<ChartCarousel> {
         height: widget.height,
         child: PageView(
           controller: _controller,
-          onPageChanged: (i) => setState(() => _index = i),
           children: List.generate(widget.pages.length, (i) {
             final page = widget.pages[i];
             final c = _toneColor(page.tone);

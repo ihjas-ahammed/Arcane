@@ -28,7 +28,7 @@ class ValorantButton extends StatelessWidget {
             border: Border.all(
               color: isPrimary
                   ? ValorantColors.red
-                  : ValorantColors.white.withOpacity(0.5),
+                  : ValorantColors.white.withValues(alpha: 0.5),
             ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24),

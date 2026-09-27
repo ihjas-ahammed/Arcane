@@ -25,13 +25,6 @@ class JweDrawerProtocolItem extends StatelessWidget {
     required this.icon,
   });
 
-  HudTone _toneFor(Color c) {
-    if (c == JweTheme.accentCyan) return HudTone.cyan;
-    if (c == JweTheme.accentTeal) return HudTone.teal;
-    if (c == JweTheme.accentRed) return HudTone.red;
-    return HudTone.amber;
-  }
-
   String _hexCode(String id) {
     final h = id.hashCode.abs() % 99 + 1;
     return h.toString().padLeft(2, '0');
@@ -50,7 +43,6 @@ class JweDrawerProtocolItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final appProvider = context.watch<AppProvider>();
     final color = task.taskColor;
-    final tone = _toneFor(color);
 
     final todaySec = task.dailyTimeSpent;
     final yesterdaySec = appProvider.getYesterdaysTimeForTask(task.id);

@@ -457,7 +457,7 @@ class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
               color: JweTheme.isLight ? JweTheme.panel : AppTheme.fhBgDark,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withOpacity(0.4),
+                color: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withValues(alpha: 0.4),
               ),
             ),
             child: Column(
@@ -555,9 +555,9 @@ class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
                     icon: const Icon(Icons.touch_app, size: 16),
                     label: const Text("BROWSE APPS & ACTIVITIES"),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withOpacity(0.15),
+                      backgroundColor: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withValues(alpha: 0.15),
                       foregroundColor: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
-                      side: BorderSide(color: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withOpacity(0.4)),
+                      side: BorderSide(color: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withValues(alpha: 0.4)),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1),
                     ),

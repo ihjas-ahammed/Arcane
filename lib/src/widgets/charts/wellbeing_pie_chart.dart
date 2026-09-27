@@ -39,7 +39,7 @@ class WellbeingPieChart extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(MdiIcons.chartDonut, color: JweTheme.textMuted.withOpacity(0.3), size: 32),
+            Icon(MdiIcons.chartDonut, color: JweTheme.textMuted.withValues(alpha: 0.3), size: 32),
             const SizedBox(height: 8),
             Text("NO XP DATA", style: GoogleFonts.rajdhani(color: JweTheme.textMuted, fontSize: 16, fontWeight: FontWeight.bold)),
           ],
@@ -77,7 +77,7 @@ class WellbeingPieChart extends StatelessWidget {
             sections: entries.map((e) {
               final isSelected = e.key == selectedVirtue;
               return PieChartSectionData(
-                color: WellbeingTheme.getColor(e.key).withOpacity(isSelected ? 1.0 : 0.7),
+                color: WellbeingTheme.getColor(e.key).withValues(alpha: isSelected ? 1.0 : 0.7),
                 value: e.value.toDouble(),
                 title: '',
                 radius: isSelected ? 20 : 15,

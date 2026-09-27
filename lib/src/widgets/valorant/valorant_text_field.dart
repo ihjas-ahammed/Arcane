@@ -35,8 +35,8 @@ class ValorantTextField extends StatelessWidget {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: AppTheme.fhBgDark.withOpacity(0.5),
-            border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5)),
+            color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+            border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
           ),
           child: Row(
             children: [
@@ -54,7 +54,7 @@ class ValorantTextField extends StatelessWidget {
                   decoration: InputDecoration(
                     hintText: hint,
                     hintStyle: TextStyle(
-                      color: AppTheme.fhTextSecondary.withOpacity(0.5),
+                      color: AppTheme.fhTextSecondary.withValues(alpha: 0.5),
                       fontStyle: FontStyle.italic,
                     ),
                     contentPadding: const EdgeInsets.all(12),

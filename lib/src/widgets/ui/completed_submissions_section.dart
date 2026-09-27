@@ -47,7 +47,7 @@ class _CompletedSubmissionsSectionState extends State<CompletedSubmissionsSectio
           child: ExpansionTile(
             tilePadding: const EdgeInsets.symmetric(horizontal: 4),
             leading: Icon(MdiIcons.archiveCheckOutline,
-                color: widget.parentTask.taskColor.withOpacity(0.7), size: 20),
+                color: widget.parentTask.taskColor.withValues(alpha: 0.7), size: 20),
             title: Text(
               _searchQuery.isEmpty
                   ? "ARCHIVED MISSIONS (${widget.completedSubtasks.length})"
@@ -80,12 +80,12 @@ class _CompletedSubmissionsSectionState extends State<CompletedSubmissionsSectio
                     isDense: true,
                     hintText: "SEARCH ARCHIVED MISSIONS...",
                     hintStyle: GoogleFonts.jetBrainsMono(
-                      color: AppTheme.fhTextSecondary.withOpacity(0.5),
+                      color: AppTheme.fhTextSecondary.withValues(alpha: 0.5),
                       fontSize: 11,
                     ),
                     prefixIcon: Icon(
                       MdiIcons.magnify,
-                      color: widget.parentTask.taskColor.withOpacity(0.7),
+                      color: widget.parentTask.taskColor.withValues(alpha: 0.7),
                       size: 18,
                     ),
                     suffixIcon: _searchQuery.isNotEmpty
@@ -100,18 +100,18 @@ class _CompletedSubmissionsSectionState extends State<CompletedSubmissionsSectio
                           )
                         : null,
                     filled: true,
-                    fillColor: AppTheme.fhBgDark.withOpacity(0.3),
+                    fillColor: AppTheme.fhBgDark.withValues(alpha: 0.3),
                     contentPadding: const EdgeInsets.symmetric(vertical: 8),
                     enabledBorder: OutlineInputBorder(
                       borderSide: BorderSide(
-                        color: AppTheme.fhBorderColor.withOpacity(0.15),
+                        color: AppTheme.fhBorderColor.withValues(alpha: 0.15),
                         width: 1,
                       ),
                       borderRadius: BorderRadius.zero,
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderSide: BorderSide(
-                        color: widget.parentTask.taskColor.withOpacity(0.5),
+                        color: widget.parentTask.taskColor.withValues(alpha: 0.5),
                         width: 1,
                       ),
                       borderRadius: BorderRadius.zero,
@@ -127,7 +127,7 @@ class _CompletedSubmissionsSectionState extends State<CompletedSubmissionsSectio
                     child: Text(
                       "NO MATCHING MISSIONS FOUND",
                       style: GoogleFonts.jetBrainsMono(
-                        color: AppTheme.fhTextSecondary.withOpacity(0.5),
+                        color: AppTheme.fhTextSecondary.withValues(alpha: 0.5),
                         fontSize: 11,
                         letterSpacing: 1.0,
                       ),

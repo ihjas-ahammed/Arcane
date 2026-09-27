@@ -144,7 +144,7 @@ class _XpBadge extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
             color: JweTheme.amberSoft,
-            border: Border.all(color: JweTheme.accentAmber.withOpacity(0.55)),
+            border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.55)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -200,7 +200,7 @@ class _SectionLabel extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
-          Expanded(child: Container(height: 1, color: color.withOpacity(0.20))),
+          Expanded(child: Container(height: 1, color: color.withValues(alpha: 0.20))),
           if (trailing != null) ...[
             const SizedBox(width: 6),
             Text(
@@ -298,8 +298,8 @@ class _SkillChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.10),
-            border: Border.all(color: color.withOpacity(0.45)),
+            color: color.withValues(alpha: 0.10),
+            border: Border.all(color: color.withValues(alpha: 0.45)),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -322,7 +322,7 @@ class _SkillChip extends StatelessWidget {
               Text(
                 'XP',
                 style: GoogleFonts.jetBrainsMono(
-                  color: color.withOpacity(0.7),
+                  color: color.withValues(alpha: 0.7),
                   fontSize: 8,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 1.2,
@@ -351,7 +351,7 @@ class _TransmissionBlock extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
             decoration: BoxDecoration(
-              color: JweTheme.bgBase.withOpacity(0.85),
+              color: JweTheme.bgBase.withValues(alpha: 0.85),
               border:  Border(
                 left: BorderSide(color: JweTheme.accentAmber, width: 2),
               ),
@@ -392,7 +392,7 @@ class _Footer extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: JweTheme.amberSoft,
-              border: Border.all(color: JweTheme.accentAmber.withOpacity(0.6)),
+              border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.6)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,

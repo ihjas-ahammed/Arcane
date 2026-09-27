@@ -22,7 +22,7 @@ class ReflectionLogCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isSelected ? JweTheme.accentCyan.withOpacity(0.1) : JweTheme.panel,
+        color: isSelected ? JweTheme.accentCyan.withValues(alpha: 0.1) : JweTheme.panel,
         border: Border.all(
           color: isSelected ? JweTheme.accentCyan : JweTheme.border, 
           width: isSelected ? 2.0 : 1.0
@@ -54,8 +54,8 @@ class ReflectionLogCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: JweTheme.accentAmber.withOpacity(0.1),
-                          border: Border.all(color: JweTheme.accentAmber.withOpacity(0.5))
+                          color: JweTheme.accentAmber.withValues(alpha: 0.1),
+                          border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.5))
                         ),
                         child: Text(
                           "+${formatCompactXp(totalXp)} XP", 

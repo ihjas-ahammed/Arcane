@@ -71,10 +71,10 @@ class _TaskGenerationRowState extends State<TaskGenerationRow> {
       decoration: BoxDecoration(
         color: _isSelected
             ? AppTheme.fhBgDark
-            : AppTheme.fhBgDark.withOpacity(0.3),
+            : AppTheme.fhBgDark.withValues(alpha: 0.3),
         border: Border.all(
             color: _isSelected
-                ? AppTheme.fhAccentTeal.withOpacity(0.5)
+                ? AppTheme.fhAccentTeal.withValues(alpha: 0.5)
                 : Colors.transparent),
         borderRadius: BorderRadius.circular(4),
       ),

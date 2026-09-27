@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
-import 'package:missions/src/theme/arc/arc_theme.dart';
-import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/valorant/valorant_button.dart';
 import 'package:uuid/uuid.dart';
 
@@ -102,7 +99,7 @@ class _NoraMemorySpaceSheetState extends State<NoraMemorySpaceSheet> {
       decoration: BoxDecoration(
         color: AppTheme.fhBgDeepDark,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        border: Border.all(color: AppTheme.fhAccentPurple.withOpacity(0.4), width: 1.5),
+        border: Border.all(color: AppTheme.fhAccentPurple.withValues(alpha: 0.4), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -116,7 +113,7 @@ class _NoraMemorySpaceSheetState extends State<NoraMemorySpaceSheet> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.fhAccentPurple.withOpacity(0.15),
+                      color: AppTheme.fhAccentPurple.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(MdiIcons.brain, color: AppTheme.fhAccentPurple, size: 22),
@@ -197,7 +194,7 @@ class _NoraMemorySpaceSheetState extends State<NoraMemorySpaceSheet> {
               decoration: BoxDecoration(
                 color: AppTheme.fhBgDark,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.fhAccentPurple.withOpacity(0.5)),
+                border: Border.all(color: AppTheme.fhAccentPurple.withValues(alpha: 0.5)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,7 +264,7 @@ class _NoraMemorySpaceSheetState extends State<NoraMemorySpaceSheet> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(MdiIcons.brain, size: 48, color: AppTheme.fhTextDisabled.withOpacity(0.25)),
+                        Icon(MdiIcons.brain, size: 48, color: AppTheme.fhTextDisabled.withValues(alpha: 0.25)),
                         const SizedBox(height: 12),
                         Text(
                           memories.isEmpty ? "Memory Space is currently empty." : "No matching memories found.",
@@ -292,7 +289,7 @@ class _NoraMemorySpaceSheetState extends State<NoraMemorySpaceSheet> {
                         decoration: BoxDecoration(
                           color: AppTheme.fhBgDark,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.4)),
+                          border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.4)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,9 +345,9 @@ class _NoraMemorySpaceSheetState extends State<NoraMemorySpaceSheet> {
                                   return Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.fhAccentPurple.withOpacity(0.12),
+                                      color: AppTheme.fhAccentPurple.withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: AppTheme.fhAccentPurple.withOpacity(0.3)),
+                                      border: Border.all(color: AppTheme.fhAccentPurple.withValues(alpha: 0.3)),
                                     ),
                                     child: Text(
                                       "#$t",

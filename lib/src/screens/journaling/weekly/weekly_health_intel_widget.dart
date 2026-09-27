@@ -27,8 +27,8 @@ class HealthMetricTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
-        border: Border.all(color: color.withOpacity(0.25)),
+        color: color.withValues(alpha: 0.06),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Column(
@@ -93,7 +93,7 @@ class HealthIntelView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: JweTheme.accentTeal.withOpacity(0.06),
+        color: JweTheme.accentTeal.withValues(alpha: 0.06),
         border: Border(left: BorderSide(color: JweTheme.accentTeal, width: 3)),
       ),
       child: Column(
@@ -234,7 +234,7 @@ class WeeklyHealthTelemetrySummary extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: JweTheme.bgBase.withOpacity(0.4),
+        color: JweTheme.bgBase.withValues(alpha: 0.4),
         border: Border.all(color: JweTheme.lineSoft),
         borderRadius: BorderRadius.circular(4),
       ),

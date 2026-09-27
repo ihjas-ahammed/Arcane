@@ -197,10 +197,10 @@ class _GratitudeDayTileState extends State<GratitudeDayTile> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: JweTheme.bgBase.withOpacity(0.45),
+        color: JweTheme.bgBase.withValues(alpha: 0.45),
         border: Border(
           left: BorderSide(
-            color: rawItems.isNotEmpty ? JweTheme.accentCyan : JweTheme.textMuted.withOpacity(0.4),
+            color: rawItems.isNotEmpty ? JweTheme.accentCyan : JweTheme.textMuted.withValues(alpha: 0.4),
             width: 2.5,
           ),
         ),
@@ -235,7 +235,7 @@ class _GratitudeDayTileState extends State<GratitudeDayTile> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                           decoration: BoxDecoration(
-                            color: JweTheme.accentCyan.withOpacity(0.12),
+                            color: JweTheme.accentCyan.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: Text(

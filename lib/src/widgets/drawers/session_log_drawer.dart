@@ -204,7 +204,7 @@ class SessionLogDrawer extends StatelessWidget {
                                   height: 40,
                                   decoration: BoxDecoration(
                                     color: liveParentTask!.taskColor
-                                        .withOpacity(0.5),
+                                        .withValues(alpha: 0.5),
                                     borderRadius: BorderRadius.circular(2),
                                   ),
                                 ),

@@ -52,7 +52,7 @@ class ValorantFormField extends StatelessWidget {
           ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: AppTheme.fhBgDark.withOpacity(0.5),
+            fillColor: AppTheme.fhBgDark.withValues(alpha: 0.5),
             contentPadding: const EdgeInsets.all(16),
             prefixIcon: prefixIcon != null ? Icon(prefixIcon, color: AppTheme.fhTextSecondary) : null,
             suffixIcon: suffixIcon,
@@ -62,7 +62,7 @@ class ValorantFormField extends StatelessWidget {
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5)),
+              borderSide: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
             ),
             focusedBorder:   OutlineInputBorder(
               borderRadius: BorderRadius.zero,

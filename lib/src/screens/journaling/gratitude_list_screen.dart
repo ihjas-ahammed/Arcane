@@ -122,7 +122,7 @@ class _GratitudeListScreenState extends State<GratitudeListScreen> {
                 style:  TextStyle(color: PersonInfoTheme.textWhite, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: "SEARCH ASSETS...",
-                  hintStyle: TextStyle(color: PersonInfoTheme.textGrey.withOpacity(0.5), fontSize: 12, letterSpacing: 1.0),
+                  hintStyle: TextStyle(color: PersonInfoTheme.textGrey.withValues(alpha: 0.5), fontSize: 12, letterSpacing: 1.0),
                   prefixIcon:  Icon(Icons.search, color: PersonInfoTheme.spideyCyan, size: 20),
                   filled: true,
                   fillColor: PersonInfoTheme.bgPanel,
@@ -139,7 +139,7 @@ class _GratitudeListScreenState extends State<GratitudeListScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(MdiIcons.handHeart, size: 64, color: PersonInfoTheme.textGrey.withOpacity(0.2)),
+                        Icon(MdiIcons.handHeart, size: 64, color: PersonInfoTheme.textGrey.withValues(alpha: 0.2)),
                         const SizedBox(height: 16),
                         Text(_searchQuery.isEmpty ? "NO ENTRIES YET" : "NO MATCHES FOUND", style: GoogleFonts.rajdhani(color: PersonInfoTheme.textGrey, fontSize: 20, fontWeight: FontWeight.bold)),
                       ],
@@ -174,7 +174,7 @@ class _GratitudeListScreenState extends State<GratitudeListScreen> {
                             leading: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: PersonInfoTheme.spideyCyan.withOpacity(0.1),
+                                color: PersonInfoTheme.spideyCyan.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(4)
                               ),
                               child: Icon(_getIconForType(item.type), color: PersonInfoTheme.spideyCyan, size: 20),

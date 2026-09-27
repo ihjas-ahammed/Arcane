@@ -57,7 +57,7 @@ class TourSlide extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               border: Border(left: BorderSide(color: accentColor, width: 3)),
-              color: JweTheme.panel.withOpacity(0.5),
+              color: JweTheme.panel.withValues(alpha: 0.5),
             ),
             child: Text(
               content,

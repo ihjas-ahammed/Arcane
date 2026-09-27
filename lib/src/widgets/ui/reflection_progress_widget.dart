@@ -59,7 +59,7 @@ class ReflectionProgressWidget extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.fhBgDark,
-        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5)),
+        border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(

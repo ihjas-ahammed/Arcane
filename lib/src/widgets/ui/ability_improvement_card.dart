@@ -19,7 +19,7 @@ class AbilityImprovementCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.fhBgDark,
-        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.2)),
+        border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: IntrinsicHeight(
@@ -30,8 +30,8 @@ class AbilityImprovementCard extends StatelessWidget {
             Container(
               width: 48,
               decoration: BoxDecoration(
-                color: AppTheme.fhAccentGreen.withOpacity(0.1),
-                border: Border(right: BorderSide(color: AppTheme.fhAccentGreen.withOpacity(0.3))),
+                color: AppTheme.fhAccentGreen.withValues(alpha: 0.1),
+                border: Border(right: BorderSide(color: AppTheme.fhAccentGreen.withValues(alpha: 0.3))),
               ),
               child: Center(
                 child: Column(

@@ -36,7 +36,7 @@ class ProtocolControlPanel extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5))),
+              border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.5))),
               color: AppTheme.fhBgDark,
             ),
             child: Row(
@@ -76,9 +76,9 @@ class ProtocolControlPanel extends StatelessWidget {
                   onTap: () => onSelect(protocol.id),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: isSelected ? protocol.taskColor.withOpacity(0.1) : Colors.transparent,
+                      color: isSelected ? protocol.taskColor.withValues(alpha: 0.1) : Colors.transparent,
                       border: Border.all(
-                        color: isSelected ? protocol.taskColor : AppTheme.fhBorderColor.withOpacity(0.3),
+                        color: isSelected ? protocol.taskColor : AppTheme.fhBorderColor.withValues(alpha: 0.3),
                         width: isSelected ? 2 : 1
                       ),
                       borderRadius: BorderRadius.circular(4), 

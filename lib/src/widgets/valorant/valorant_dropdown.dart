@@ -33,8 +33,8 @@ class ValorantDropdown<T> extends StatelessWidget {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: AppTheme.fhBgDark.withOpacity(0.5),
-            border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.5)),
+            color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+            border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.5)),
           ),
           child: Row(
             children: [

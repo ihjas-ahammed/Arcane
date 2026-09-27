@@ -98,7 +98,7 @@ class LogbookScreen extends StatelessWidget {
                             .copyWith(fontWeight: FontWeight.bold),
                       ),
                       PieChartSectionData(
-                        color: ValorantColors.white.withOpacity(0.2),
+                        color: ValorantColors.white.withValues(alpha: 0.2),
                         value: 30,
                         title: '30%',
                         radius: 18,
@@ -149,11 +149,11 @@ class LogbookScreen extends StatelessWidget {
                   show: true,
                   drawVerticalLine: true,
                   getDrawingHorizontalLine: (value) => FlLine(
-                    color: ValorantColors.white.withOpacity(0.05),
+                    color: ValorantColors.white.withValues(alpha: 0.05),
                     strokeWidth: 1,
                   ),
                   getDrawingVerticalLine: (value) => FlLine(
-                    color: ValorantColors.white.withOpacity(0.05),
+                    color: ValorantColors.white.withValues(alpha: 0.05),
                     strokeWidth: 1,
                   ),
                 ),
@@ -176,7 +176,7 @@ class LogbookScreen extends StatelessWidget {
                     dotData: FlDotData(show: true),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: ValorantColors.red.withOpacity(0.1),
+                      color: ValorantColors.red.withValues(alpha: 0.1),
                     ),
                   ),
                 ],
@@ -218,7 +218,7 @@ class LogbookScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 8.0),
             child: Container(
-              color: ValorantColors.white.withOpacity(0.03),
+              color: ValorantColors.white.withValues(alpha: 0.03),
               padding: const EdgeInsets.all(12),
               child: Row(
                 children: [

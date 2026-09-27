@@ -22,8 +22,8 @@ class TaskInfoCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.fhBgDark.withOpacity(0.5),
-        border: Border.all(color: AppTheme.fhBorderColor.withOpacity(0.3)),
+        color: AppTheme.fhBgDark.withValues(alpha: 0.5),
+        border: Border.all(color: AppTheme.fhBorderColor.withValues(alpha: 0.3)),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -63,7 +63,7 @@ class TaskInfoCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: AppTheme.fhTextSecondary.withOpacity(0.6), fontSize: 9, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(color: AppTheme.fhTextSecondary.withValues(alpha: 0.6), fontSize: 9, fontWeight: FontWeight.bold)),
         const SizedBox(height: 2),
         Text(DateFormat('MMM dd, yyyy').format(date), style:   TextStyle(color: AppTheme.fhTextSecondary, fontSize: 11, fontFamily: 'RobotoMono')),
       ],

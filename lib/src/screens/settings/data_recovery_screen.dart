@@ -246,7 +246,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                               margin: const EdgeInsets.only(bottom: 8),
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: JweTheme.border.withOpacity(0.3),
+                                color: JweTheme.border.withValues(alpha: 0.3),
                                 border:  Border(left: BorderSide(color: JweTheme.textMuted, width: 2))
                               ),
                               child: Row(

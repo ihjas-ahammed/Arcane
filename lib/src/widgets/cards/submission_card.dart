@@ -282,7 +282,7 @@ class SubmissionCard extends StatelessWidget {
                     child: Container(
                       width: 56,
                       decoration: BoxDecoration(
-                        color: isRunning ? accent.withOpacity(0.18) : Colors.transparent,
+                        color: isRunning ? accent.withValues(alpha: 0.18) : Colors.transparent,
                         border: Border(left: BorderSide(color: JweTheme.lineSoft)),
                       ),
                       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [

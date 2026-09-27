@@ -87,7 +87,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               decoration: BoxDecoration(
                 color: JweTheme.cyanSoft,
-                border: Border.all(color: JweTheme.accentCyan.withOpacity(0.4), width: 1),
+                border: Border.all(color: JweTheme.accentCyan.withValues(alpha: 0.4), width: 1),
               ),
               child:   SizedBox(
                 width: 10, height: 10,

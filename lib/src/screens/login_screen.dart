@@ -123,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: JweTheme.accentRed.withOpacity(0.08),
+                                    color: JweTheme.accentRed.withValues(alpha: 0.08),
                                     border:   Border(
                                       left: BorderSide(color: JweTheme.accentRed, width: 3),
                                     ),
@@ -219,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
               decoration: BoxDecoration(
                 color: JweTheme.amberSoft,
                 shape: BoxShape.circle,
-                border: Border.all(color: JweTheme.accentAmber.withOpacity(0.6), width: 1),
+                border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.6), width: 1),
               ),
               child: Icon(Icons.shield_moon, size: 18, color: JweTheme.accentAmber),
             ),
@@ -365,7 +365,7 @@ class _TacticalGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final gridPaint = Paint()
-      ..color = JweTheme.accentAmber.withOpacity(0.03)
+      ..color = JweTheme.accentAmber.withValues(alpha: 0.03)
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
@@ -378,14 +378,14 @@ class _TacticalGridPainter extends CustomPainter {
     }
 
     final scanPaint = Paint()
-      ..color = JweTheme.accentCyan.withOpacity(0.04)
+      ..color = JweTheme.accentCyan.withValues(alpha: 0.04)
       ..strokeWidth = 1;
     for (double y = 0; y < size.height; y += spacing * 4) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), scanPaint);
     }
 
     final cornerPaint = Paint()
-      ..color = JweTheme.accentAmber.withOpacity(0.18)
+      ..color = JweTheme.accentAmber.withValues(alpha: 0.18)
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
     const cs = 20.0;

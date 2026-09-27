@@ -67,7 +67,7 @@ class _WeeklyCompletedLogWidgetState extends State<WeeklyCompletedLogWidget> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: JweTheme.bgBase.withOpacity(0.3),
+              color: JweTheme.bgBase.withValues(alpha: 0.3),
               border: Border.all(color: JweTheme.lineSoft),
             ),
             child: Text(
@@ -228,10 +228,10 @@ class _NestedCompletedNodeWidgetState extends State<NestedCompletedNodeWidget> {
         ),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: JweTheme.bgBase.withOpacity(0.5),
+          color: JweTheme.bgBase.withValues(alpha: 0.5),
           border: Border(
             left: BorderSide(
-              color: isSubtask ? color : JweTheme.textMuted.withOpacity(0.5),
+              color: isSubtask ? color : JweTheme.textMuted.withValues(alpha: 0.5),
               width: 2,
             ),
           ),
@@ -273,9 +273,9 @@ class _NestedCompletedNodeWidgetState extends State<NestedCompletedNodeWidget> {
       return Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
-          color: JweTheme.bgBase.withOpacity(0.4),
+          color: JweTheme.bgBase.withValues(alpha: 0.4),
           border: Border.all(
-            color: _isExpanded ? color.withOpacity(0.6) : JweTheme.lineSoft,
+            color: _isExpanded ? color.withValues(alpha: 0.6) : JweTheme.lineSoft,
             width: _isExpanded ? 1.5 : 1.0,
           ),
           borderRadius: BorderRadius.circular(4),
@@ -297,7 +297,7 @@ class _NestedCompletedNodeWidgetState extends State<NestedCompletedNodeWidget> {
                         color: color,
                         borderRadius: BorderRadius.circular(2),
                         boxShadow: [
-                          BoxShadow(color: color.withOpacity(0.5), blurRadius: 6),
+                          BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 6),
                         ],
                       ),
                     ),
@@ -342,8 +342,8 @@ class _NestedCompletedNodeWidgetState extends State<NestedCompletedNodeWidget> {
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                 decoration: BoxDecoration(
-                  border: Border(top: BorderSide(color: color.withOpacity(0.2))),
-                  color: color.withOpacity(0.04),
+                  border: Border(top: BorderSide(color: color.withValues(alpha: 0.2))),
+                  color: color.withValues(alpha: 0.04),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -371,9 +371,9 @@ class _NestedCompletedNodeWidgetState extends State<NestedCompletedNodeWidget> {
         left: 8.0 * widget.depth,
       ),
       decoration: BoxDecoration(
-        color: JweTheme.bgBase.withOpacity(0.35),
+        color: JweTheme.bgBase.withValues(alpha: 0.35),
         border: Border(
-          left: BorderSide(color: color.withOpacity(0.7), width: 2.5),
+          left: BorderSide(color: color.withValues(alpha: 0.7), width: 2.5),
         ),
       ),
       child: Column(
@@ -408,7 +408,7 @@ class _NestedCompletedNodeWidgetState extends State<NestedCompletedNodeWidget> {
                             Text(
                               '${node.children.length} SUB-ITEM${node.children.length > 1 ? 'S' : ''}',
                               style: GoogleFonts.jetBrainsMono(
-                                color: color.withOpacity(0.9),
+                                color: color.withValues(alpha: 0.9),
                                 fontSize: 8,
                                 fontWeight: FontWeight.bold,
                               ),

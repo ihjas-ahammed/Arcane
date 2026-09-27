@@ -67,7 +67,7 @@ class _QuickTherapyScreenState extends State<QuickTherapyScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: JweTheme.accentRed.withOpacity(0.1),
+                      color: JweTheme.accentRed.withValues(alpha: 0.1),
                       border: Border.all(color: JweTheme.accentRed, width: 2),
                     ),
                     child: Row(

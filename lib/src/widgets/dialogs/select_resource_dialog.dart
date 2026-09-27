@@ -79,7 +79,7 @@ class _SelectResourceDialogState extends State<SelectResourceDialog> {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withOpacity(0.5)))),
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.fhBorderColor.withValues(alpha: 0.5)))),
             child: Row(
               children: [
                 Icon(MdiIcons.databaseSearchOutline, color: widget.accentColor),
@@ -98,7 +98,7 @@ class _SelectResourceDialogState extends State<SelectResourceDialog> {
               style:   TextStyle(color: AppTheme.fhTextPrimary, fontSize: 14),
               decoration: InputDecoration(
                 hintText: "SEARCH...",
-                hintStyle: TextStyle(color: AppTheme.fhTextDisabled.withOpacity(0.5), fontSize: 12, letterSpacing: 1.0),
+                hintStyle: TextStyle(color: AppTheme.fhTextDisabled.withValues(alpha: 0.5), fontSize: 12, letterSpacing: 1.0),
                 prefixIcon:   Icon(Icons.search, color: AppTheme.fhTextSecondary, size: 18),
                 filled: true,
                 fillColor: AppTheme.fhBgDark,
@@ -128,8 +128,8 @@ class _SelectResourceDialogState extends State<SelectResourceDialog> {
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: isSelected ? widget.accentColor.withOpacity(0.1) : AppTheme.fhBgDark,
-                          border: Border.all(color: isSelected ? widget.accentColor : AppTheme.fhBorderColor.withOpacity(0.5)),
+                          color: isSelected ? widget.accentColor.withValues(alpha: 0.1) : AppTheme.fhBgDark,
+                          border: Border.all(color: isSelected ? widget.accentColor : AppTheme.fhBorderColor.withValues(alpha: 0.5)),
                         ),
                         child: Row(
                           children: [

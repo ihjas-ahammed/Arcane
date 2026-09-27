@@ -28,7 +28,7 @@ class _ReflectionEditorState extends State<ReflectionEditor> {
               decoration: BoxDecoration(
                 border: Border(
                     bottom: BorderSide(
-                        color: ValorantColors.white.withOpacity(0.1))),
+                        color: ValorantColors.white.withValues(alpha: 0.1))),
               ),
               child: Row(
                 children: [

@@ -138,7 +138,7 @@ class _ArchivedReportsScreenState extends State<ArchivedReportsScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(MdiIcons.fileDocumentOutline, size: 64, color: AppTheme.fhTextDisabled.withOpacity(0.3)),
+                  Icon(MdiIcons.fileDocumentOutline, size: 64, color: AppTheme.fhTextDisabled.withValues(alpha: 0.3)),
                   const SizedBox(height: 16),
                   Text(
                     "NO ARCHIVED REPORTS",
@@ -172,7 +172,7 @@ class _ArchivedReportsScreenState extends State<ArchivedReportsScreen> {
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
                   color: AppTheme.fhBgDark,
-                  border: Border.all(color: accent.withOpacity(0.3)),
+                  border: Border.all(color: accent.withValues(alpha: 0.3)),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: ListTile(
@@ -180,7 +180,7 @@ class _ArchivedReportsScreenState extends State<ArchivedReportsScreen> {
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: accent.withOpacity(0.1),
+                      color: accent.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(

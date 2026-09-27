@@ -1,4 +1,3 @@
-import 'dart:async';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
@@ -199,9 +198,6 @@ class TaskHeaderCard extends StatelessWidget {
         ? TaskCalculations.getHistoricalTodaySeconds(phxSub, provider.mainTasks)
         : TaskCalculations.getTodaySeconds(phxSub, timerState, provider.mainTasks);
 
-    final hours = (displayBaseTime / 3600).floor();
-    final minutes = ((displayBaseTime / 60) % 60).floor();
-    final timeDisplay = '${hours}H ${minutes.toString().padLeft(2, '0')}M';
 
     final hierarchical = phxSub.calculateProgress();
 

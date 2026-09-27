@@ -242,7 +242,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                                   letterSpacing: 1.4,
                                   height: 1,
                                   shadows: [
-                                    Shadow(color: JweTheme.accentAmber.withOpacity(0.4), blurRadius: 14),
+                                    Shadow(color: JweTheme.accentAmber.withValues(alpha: 0.4), blurRadius: 14),
                                   ],
                                 ),
                               ).animate().fadeIn(delay: 120.ms).slideX(begin: -0.05, end: 0),
@@ -280,7 +280,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                         Text(
                           weekRangeLabel.toUpperCase(),
                           style: GoogleFonts.jetBrainsMono(
-                            color: JweTheme.accentAmber.withOpacity(0.8),
+                            color: JweTheme.accentAmber.withValues(alpha: 0.8),
                             fontSize: 10,
                             letterSpacing: 2.0,
                           ),
@@ -298,7 +298,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: HudPanel(
-                  background: JweTheme.bgBase.withOpacity(0.5),
+                  background: JweTheme.bgBase.withValues(alpha: 0.5),
                   allBrackets: false,
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -336,7 +336,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: JweTheme.accentAmber.withOpacity(0.08),
+                            color: JweTheme.accentAmber.withValues(alpha: 0.08),
                             border: Border(left: BorderSide(color: JweTheme.accentAmber, width: 3)),
                           ),
                           child: Text(
@@ -360,7 +360,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: HudPanel(
-                background: JweTheme.bgBase.withOpacity(0.5),
+                background: JweTheme.bgBase.withValues(alpha: 0.5),
                 allBrackets: false,
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -391,7 +391,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: HudPanel(
-                background: JweTheme.bgBase.withOpacity(0.5),
+                background: JweTheme.bgBase.withValues(alpha: 0.5),
                 allBrackets: false,
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -421,7 +421,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: HudPanel(
-                background: JweTheme.bgBase.withOpacity(0.5),
+                background: JweTheme.bgBase.withValues(alpha: 0.5),
                 allBrackets: false,
                 padding: const EdgeInsets.all(16),
                 child: WeeklyGratitudeDividedByDaysWidget(
@@ -436,7 +436,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: HudPanel(
-                background: JweTheme.bgBase.withOpacity(0.5),
+                background: JweTheme.bgBase.withValues(alpha: 0.5),
                 allBrackets: false,
                 padding: const EdgeInsets.all(16),
                 child: WeeklyRawMetricsSection(
@@ -453,7 +453,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: HudPanel(
-                  background: JweTheme.bgBase.withOpacity(0.5),
+                  background: JweTheme.bgBase.withValues(alpha: 0.5),
                   allBrackets: false,
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -499,7 +499,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: HudPanel(
-                  background: JweTheme.bgBase.withOpacity(0.5),
+                  background: JweTheme.bgBase.withValues(alpha: 0.5),
                   allBrackets: false,
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -541,7 +541,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: HudPanel(
-                  background: JweTheme.bgBase.withOpacity(0.5),
+                  background: JweTheme.bgBase.withValues(alpha: 0.5),
                   allBrackets: false,
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -588,7 +588,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: JweTheme.accentCyan.withOpacity(0.06),
+                            color: JweTheme.accentCyan.withValues(alpha: 0.06),
                             border: Border(left: BorderSide(color: JweTheme.accentCyan, width: 3)),
                           ),
                           child: Column(

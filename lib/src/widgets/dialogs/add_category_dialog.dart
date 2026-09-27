@@ -4,7 +4,6 @@ import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/finance_models.dart';
 import 'package:missions/src/utils/finance_helpers.dart';
 import 'package:provider/provider.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AddCategoryDialog extends StatefulWidget {
