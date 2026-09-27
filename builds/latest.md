@@ -1,3 +1,45 @@
+# ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092709)
+
+### 📈 Realtime Trading: Smart Money Protocol
+Inspired by Adam Sarhan's *Psychological Analysis* — trading is mostly psychology, and the mechanics that matter are entry, exit and risk, decided before the trade.
+
+- **Defense first, on every buy**: set a protective stop and a risk budget (0.25–1% of your portfolio) and tap **SIZE BY RISK**; the sheet shows what you lose if stopped, the stop distance, the position size and the gain needed to recover. A strict guard refuses buys above your max risk, and a daily buy cap stops machine-gun trading.
+- **Stops that actually fire**: a stop executes automatically when price hits it (logged as a STOP order, with a notification). You can raise it, move it to breakeven, or trail it — **never widen it**. At +5% the app nudges you to move to breakeven.
+- **Pre-trade gate**: five checks (best idea? early, not chasing? aligned with the trend — auto-hinted from the market regime; exit defined; edge in one line), Me / Crowd / Against notes, and a mood pick. FOMO, revenge, boredom and overconfidence get called out before you tap Execute.
+- **Journal**: every exit becomes a record with its R-multiple, holding period, exit reason and original plan. Review each one: did you follow the plan, process grade A/B/C, lesson learned — judge the decision, not the outcome.
+- **Stats that matter**: expectancy per trade (₹ and R), average win vs average loss, profit factor, streak and drawdown, plus an equity sparkline. Win rate is shown small on purpose. In a drawdown the suggested risk steps down (1% → 0.75 → 0.5 → 0.25).
+- **Risk rules** live in the trading settings; the guide sheet gains a "Smart Money Protocol" section with 8 cards.
+- Existing portfolios, holdings and orders load unchanged.
+
+---
+
+# ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092708)
+
+### 🧹 Code Health
+- **Analyzer at zero**: 0 errors, 0 warnings (was 17 warnings: unused imports, locals, a field and a helper), and deprecation notices cut from 242 to 42 by moving every `Color.withOpacity` call to the precise `withValues(alpha:)` API. No visual change intended; this removes the precision-loss warnings and keeps the codebase ready for the next Flutter upgrade.
+
+---
+
+# ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092707)
+
+### 🧭 Main Menu & Settings Refresh
+- **Menu regrouped** into Daily Ops, Journal & Mind, Tools, Device & Launcher and System, with accurate one-line descriptions and the app version at the bottom.
+- **Previously hidden features are now one tap away**: Nora AI (was long-press only), Skills, People & Relationships, Reflections Archive, Archived Reports, Advanced Protocols (simulators), Scheduled Reminders and a dedicated Home Launcher page (default-home + MIUI takeover + customization sheet).
+- **Settings reordered** Account & Sync → Launcher → Notifications → AI → UI → Updates → Security → Diagnostics → Danger Zone.
+- The 5th tab is now called **LOGBOOK** everywhere (it was INTEL on the nav bar and ANALYTICS in the header). Header no longer overflows on narrow phones. Energy-reminder text fields no longer lose what you're typing.
+
+### 🚀 Performance
+- **Autosave does half the work**: the app state was being serialized twice per save cycle (local + cloud); it's now built once and reused.
+- **Home-screen widgets** are updated once per burst of changes instead of on every single provider notification.
+- Projects, Finance (tracker, savings) and the session/well-being drawers now rebuild only when the data they show changes, not on every timer tick or sync flag.
+
+### 🏠 Launcher Fixes
+- Dragging an app onto the edge of a **full** dock/area no longer makes it vanish; it stays where it was if there's no room.
+- A folder you just created with one app is no longer silently dissolved on the next refresh; only folders that actually lost an app (uninstall) dissolve.
+- Pinned web-app/shortcut icons refresh when their app updates. Fixed two leaked text controllers in the launcher sheets.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092706)
 
 ### 📋 Briefing Refresh (Start Day + Tactical Briefing)
