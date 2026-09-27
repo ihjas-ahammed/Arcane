@@ -1,3 +1,23 @@
+# ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092707)
+
+### 🧭 Main Menu & Settings Refresh
+- **Menu regrouped** into Daily Ops, Journal & Mind, Tools, Device & Launcher and System, with accurate one-line descriptions and the app version at the bottom.
+- **Previously hidden features are now one tap away**: Nora AI (was long-press only), Skills, People & Relationships, Reflections Archive, Archived Reports, Advanced Protocols (simulators), Scheduled Reminders and a dedicated Home Launcher page (default-home + MIUI takeover + customization sheet).
+- **Settings reordered** Account & Sync → Launcher → Notifications → AI → UI → Updates → Security → Diagnostics → Danger Zone.
+- The 5th tab is now called **LOGBOOK** everywhere (it was INTEL on the nav bar and ANALYTICS in the header). Header no longer overflows on narrow phones. Energy-reminder text fields no longer lose what you're typing.
+
+### 🚀 Performance
+- **Autosave does half the work**: the app state was being serialized twice per save cycle (local + cloud); it's now built once and reused.
+- **Home-screen widgets** are updated once per burst of changes instead of on every single provider notification.
+- Projects, Finance (tracker, savings) and the session/well-being drawers now rebuild only when the data they show changes, not on every timer tick or sync flag.
+
+### 🏠 Launcher Fixes
+- Dragging an app onto the edge of a **full** dock/area no longer makes it vanish; it stays where it was if there's no room.
+- A folder you just created with one app is no longer silently dissolved on the next refresh; only folders that actually lost an app (uninstall) dissolve.
+- Pinned web-app/shortcut icons refresh when their app updates. Fixed two leaked text controllers in the launcher sheets.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092706)
 
 ### 📋 Briefing Refresh (Start Day + Tactical Briefing)
