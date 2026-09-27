@@ -306,13 +306,13 @@ class LauncherBridge(
         if (Build.MANUFACTURER.equals("Xiaomi", true) || Build.BRAND.equals("Redmi", true) || Build.BRAND.equals("POCO", true)) {
             return true
         }
-        return try {
+        val value: String? = try {
             val clazz = Class.forName("android.os.SystemProperties")
-            val value = clazz.getMethod("get", String::class.java).invoke(null, "ro.miui.ui.version.name") as? String
-            !value.isNullOrEmpty()
+            clazz.getMethod("get", String::class.java).invoke(null, "ro.miui.ui.version.name") as? String
         } catch (_: Exception) {
-            false
+            null
         }
+        return !value.isNullOrEmpty()
     }
 
     /**

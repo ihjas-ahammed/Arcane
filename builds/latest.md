@@ -1,3 +1,10 @@
+# ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092703)
+
+### 🛠️ Build Fix
+- **Fixed the Android release build**: a Kotlin parsing error in the launcher's MIUI detection (`as? String` followed by a line starting with `!`) was read as the type `String!` and stopped `compileReleaseKotlin`. This build ships the launcher rebuild and the MIUI/HyperOS takeover mode from builds #2126092701 and #2126092702.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092702)
 
 ### 🏠 MIUI / HyperOS Launcher Takeover
