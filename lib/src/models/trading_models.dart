@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/models/trading_psychology_models.dart';
 
 /// Asset category for filtering
 enum TradingAssetCategory {
@@ -919,6 +920,13 @@ class CryptoHolding {
   final bool hasReachedHigher;  // True if position has ever been in profit / reached a higher high
   final DateTime? peakTimestamp;
 
+  // Smart Money Protocol: defense-first fields (all optional for backward compatibility)
+  final double? stopPrice;          // current protective stop (native price); can only rise
+  final double? initialStopPrice;   // the stop set at (or shortly after) entry
+  final double? plannedRiskINR;     // total planned risk still open on this position
+  final DateTime? openedAt;         // when the position was first opened
+  final TradePlan? plan;            // the defense-first plan attached at entry
+
   CryptoHolding({
     required this.symbol,
     required this.coinName,
@@ -929,6 +937,11 @@ class CryptoHolding {
     double? peakPrice,
     this.hasReachedHigher = false,
     this.peakTimestamp,
+    this.stopPrice,
+    this.initialStopPrice,
+    this.plannedRiskINR,
+    this.openedAt,
+    this.plan,
   }) : peakPrice = peakPrice ?? avgBuyPriceUSDT;
 
   CryptoSymbol? get symbolInfo => CryptoSymbol.fromRaw(symbol);
@@ -983,6 +996,12 @@ class CryptoHolding {
     double? peakPrice,
     bool? hasReachedHigher,
     DateTime? peakTimestamp,
+    double? stopPrice,
+    double? initialStopPrice,
+    double? plannedRiskINR,
+    DateTime? openedAt,
+    TradePlan? plan,
+    bool clearStop = false,
   }) {
     return CryptoHolding(
       symbol: symbol ?? this.symbol,
@@ -994,6 +1013,11 @@ class CryptoHolding {
       peakPrice: peakPrice ?? this.peakPrice,
       hasReachedHigher: hasReachedHigher ?? this.hasReachedHigher,
       peakTimestamp: peakTimestamp ?? this.peakTimestamp,
+      stopPrice: clearStop ? null : (stopPrice ?? this.stopPrice),
+      initialStopPrice: clearStop ? null : (initialStopPrice ?? this.initialStopPrice),
+      plannedRiskINR: plannedRiskINR ?? this.plannedRiskINR,
+      openedAt: openedAt ?? this.openedAt,
+      plan: plan ?? this.plan,
     );
   }
 
@@ -1007,6 +1031,11 @@ class CryptoHolding {
         'peakPrice': peakPrice,
         'hasReachedHigher': hasReachedHigher,
         'peakTimestamp': peakTimestamp?.toIso8601String(),
+        'stopPrice': stopPrice,
+        'initialStopPrice': initialStopPrice,
+        'plannedRiskINR': plannedRiskINR,
+        'openedAt': openedAt?.toIso8601String(),
+        'plan': plan?.toJson(),
       };
 
   factory CryptoHolding.fromJson(Map<String, dynamic> json) {
@@ -1024,6 +1053,11 @@ class CryptoHolding {
       peakTimestamp: json['peakTimestamp'] != null
           ? DateTime.tryParse(json['peakTimestamp'] as String)
           : null,
+      stopPrice: (json['stopPrice'] as num?)?.toDouble(),
+      initialStopPrice: (json['initialStopPrice'] as num?)?.toDouble(),
+      plannedRiskINR: (json['plannedRiskINR'] as num?)?.toDouble(),
+      openedAt: json['openedAt'] != null ? DateTime.tryParse(json['openedAt'] as String) : null,
+      plan: json['plan'] is Map ? TradePlan.fromJson(Map<String, dynamic>.from(json['plan'] as Map)) : null,
     );
   }
 }
@@ -1099,7 +1133,7 @@ class MultiTimeframeMarketTelemetry {
 }
 
 enum OrderSide { buy, sell }
-enum TradingOrderType { market, limit }
+enum TradingOrderType { market, limit, stop }
 enum OrderStatus { pending, filled, cancelled }
 
 /// Simulated trade order
@@ -1117,6 +1151,8 @@ class TradingOrder {
   final DateTime createdAt;
   final DateTime? filledAt;
   final String currency; // 'INR' or 'USD'
+  final TradePlan? plan; // the defense-first plan attached to a BUY order
+  final String? note; // e.g. 'PROTECTIVE STOP HIT @ 94.50'
 
   TradingOrder({
     required this.id,
@@ -1132,6 +1168,8 @@ class TradingOrder {
     required this.createdAt,
     this.filledAt,
     this.currency = 'USD',
+    this.plan,
+    this.note,
   });
 
   bool get isBuy => side == OrderSide.buy;
@@ -1150,6 +1188,8 @@ class TradingOrder {
     double? executedPriceUSDT,
     double? totalINR,
     DateTime? filledAt,
+    TradePlan? plan,
+    String? note,
   }) {
     return TradingOrder(
       id: id,
@@ -1165,6 +1205,8 @@ class TradingOrder {
       createdAt: createdAt,
       filledAt: filledAt ?? this.filledAt,
       currency: currency,
+      plan: plan ?? this.plan,
+      note: note ?? this.note,
     );
   }
 
@@ -1182,6 +1224,8 @@ class TradingOrder {
         'createdAt': createdAt.toIso8601String(),
         'filledAt': filledAt?.toIso8601String(),
         'currency': currency,
+        'plan': plan?.toJson(),
+        'note': note,
       };
 
   factory TradingOrder.fromJson(Map<String, dynamic> json) => TradingOrder(
@@ -1207,6 +1251,8 @@ class TradingOrder {
         createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
         filledAt: json['filledAt'] != null ? DateTime.tryParse(json['filledAt'] as String) : null,
         currency: json['currency'] as String? ?? (json['symbol']?.toString().contains('.NS') == true ? 'INR' : 'USD'),
+        plan: json['plan'] is Map ? TradePlan.fromJson(Map<String, dynamic>.from(json['plan'] as Map)) : null,
+        note: json['note'] as String?,
       );
 }
 

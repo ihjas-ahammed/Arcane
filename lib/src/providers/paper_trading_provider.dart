@@ -3,8 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:missions/src/models/trading_models.dart';
+import 'package:missions/src/models/trading_psychology_models.dart';
 import 'package:missions/src/services/binance_market_service.dart';
 import 'package:missions/src/services/notification_service.dart';
+import 'package:missions/src/utils/trading_risk_math.dart' as risk_math;
 
 class TradeExecutionResult {
   final bool success;
@@ -55,6 +57,19 @@ class PaperTradingProvider extends ChangeNotifier {
   final List<TradingOrder> _orders = [];
   List<TradingOrder> get orders => List.unmodifiable(_orders);
 
+  // ── Smart Money Protocol state ────────────────────────────────────
+  final List<TradeRecord> _tradeRecords = []; // newest first
+  List<TradeRecord> get tradeRecords => List.unmodifiable(_tradeRecords);
+
+  TradingRiskSettings _riskSettings = const TradingRiskSettings();
+  TradingRiskSettings get riskSettings => _riskSettings;
+
+  final List<EquitySnapshot> _equitySnapshots = [];
+  List<EquitySnapshot> get equitySnapshots => List.unmodifiable(_equitySnapshots);
+
+  double _equityPeakINR = defaultStartingBalance;
+  double get equityPeakINR => _equityPeakINR;
+
   List<TradingOrder> get pendingOrders =>
       _orders.where((o) => o.isPending).toList(growable: false);
 
@@ -87,7 +102,9 @@ class PaperTradingProvider extends ChangeNotifier {
 
   void _onMarketTicksUpdated() {
     checkLimitOrders(marketService.ticks);
+    checkProtectiveStops(marketService.ticks);
     _evaluateTrailingPeakAlerts(marketService.ticks);
+    recordEquitySnapshot(marketService.ticks);
     notifyListeners();
   }
 
@@ -139,7 +156,17 @@ class PaperTradingProvider extends ChangeNotifier {
     _holdings.clear();
     _orders.clear();
     _lossAlertsTriggered.clear();
+    // Risk settings persist across a reset; the journal & equity curve do not.
+    _tradeRecords.clear();
+    _equitySnapshots.clear();
+    _equityPeakINR = balance;
     await _saveToStorage(notifyCloud: true);
+    notifyListeners();
+  }
+
+  Future<void> updateRiskSettings(TradingRiskSettings settings) async {
+    _riskSettings = settings;
+    await _saveToStorage();
     notifyListeners();
   }
 
@@ -226,6 +253,8 @@ class PaperTradingProvider extends ChangeNotifier {
     required OrderSide side,
     required double quantity,
     required double currentPriceUSDT, // Native price (INR for NSE, USD for Crypto)
+    TradePlan? plan,
+    double? stopPrice,
   }) {
     final sym = symbol.toUpperCase();
     final asset = TradingAsset.fromSymbol(sym);
@@ -260,6 +289,32 @@ class PaperTradingProvider extends ChangeNotifier {
         );
       }
 
+      // ── Smart Money Protocol guards ──────────────────────────────
+      final cap = _riskSettings.dailyTradeCap;
+      if (cap > 0 && tradesToday >= cap) {
+        return TradeExecutionResult(
+          success: false,
+          message: 'MACHINE-GUN GUARD: $tradesToday buys already today. Plan your trades when the market is closed.',
+        );
+      }
+
+      if (_riskSettings.strictRiskGuard &&
+          plan?.riskPercentOfPortfolio != null &&
+          plan!.riskPercentOfPortfolio! > _riskSettings.maxRiskPercent + 1e-9) {
+        return TradeExecutionResult(
+          success: false,
+          message:
+              'RISK RULE: this idea risks ${plan.riskPercentOfPortfolio!.toStringAsFixed(2)}% of the portfolio; your max is ${_riskSettings.maxRiskPercent.toStringAsFixed(2)}%. Reduce size or move the stop closer.',
+        );
+      }
+
+      if (_riskSettings.requireChecklist && (plan?.checklistScore ?? 0) < 3) {
+        return TradeExecutionResult(
+          success: false,
+          message: 'GATE: tick at least 3 of 5 checks before buying.',
+        );
+      }
+
       _cashBalance -= totalCostINR;
 
       final existing = _holdings[sym];
@@ -274,6 +329,11 @@ class PaperTradingProvider extends ChangeNotifier {
           quantity: newQty,
           avgBuyPriceUSDT: newAvg,
           totalCostINR: newCost,
+          stopPrice: _mergeStop(existing.stopPrice, stopPrice),
+          initialStopPrice: existing.initialStopPrice ?? stopPrice,
+          plannedRiskINR: (existing.plannedRiskINR ?? 0.0) + (plan?.plannedRiskINR ?? 0.0),
+          openedAt: existing.openedAt ?? DateTime.now(),
+          plan: existing.plan ?? plan,
         );
       } else {
         _holdings[sym] = CryptoHolding(
@@ -283,6 +343,11 @@ class PaperTradingProvider extends ChangeNotifier {
           avgBuyPriceUSDT: currentPriceUSDT,
           totalCostINR: totalCostINR,
           currency: asset.currency,
+          stopPrice: (stopPrice != null && stopPrice > 0) ? stopPrice : null,
+          initialStopPrice: stopPrice,
+          plannedRiskINR: plan?.plannedRiskINR,
+          openedAt: DateTime.now(),
+          plan: plan,
         );
       }
 
@@ -303,9 +368,11 @@ class PaperTradingProvider extends ChangeNotifier {
         createdAt: DateTime.now(),
         filledAt: DateTime.now(),
         currency: asset.currency,
+        plan: plan,
       );
 
       _orders.insert(0, order);
+      recordEquitySnapshot(marketService.ticks);
       _saveToStorage();
       notifyListeners();
 
@@ -319,64 +386,150 @@ class PaperTradingProvider extends ChangeNotifier {
         order: order,
       );
     } else {
-      // Sell
-      final availableQty = getAvailableCoinQuantity(sym);
-      if (quantity > availableQty) {
-        return TradeExecutionResult(
-          success: false,
-          message:
-              'Insufficient balance. Available to sell: ${availableQty.toStringAsFixed(2)} $sym',
-        );
-      }
-
-      final existing = _holdings[sym]!;
-      final proceedsINR = totalCostINR;
-      _cashBalance += proceedsINR;
-
-      if (quantity >= existing.quantity - 1e-7) {
-        _holdings.remove(sym);
-        _lossAlertsTriggered.remove(sym);
-        marketService.removePinnedSymbol(sym);
-      } else {
-        final fractionSold = quantity / existing.quantity;
-        final remainingCost = existing.totalCostINR * (1.0 - fractionSold);
-        final remainingQty = existing.quantity - quantity;
-        _holdings[sym] = existing.copyWith(
-          quantity: remainingQty,
-          totalCostINR: remainingCost,
-        );
-      }
-
-      final order = TradingOrder(
-        id: const Uuid().v4(),
-        symbol: sym,
+      return _executeSell(
+        sym: sym,
+        asset: asset,
         coinName: coinName,
-        side: OrderSide.sell,
-        orderType: TradingOrderType.market,
+        isIndian: isIndian,
         quantity: quantity,
-        targetPriceUSDT: currentPriceUSDT,
-        executedPriceUSDT: currentPriceUSDT,
-        totalINR: proceedsINR,
-        status: OrderStatus.filled,
-        createdAt: DateTime.now(),
-        filledAt: DateTime.now(),
-        currency: asset.currency,
-      );
-
-      _orders.insert(0, order);
-      _saveToStorage();
-      notifyListeners();
-
-      final unitStr = isIndian
-          ? '₹${currentPriceUSDT.toStringAsFixed(2)}'
-          : '\$${currentPriceUSDT.toStringAsFixed(2)}';
-
-      return TradeExecutionResult(
-        success: true,
-        message: 'Successfully sold ${isIndian ? quantity.toInt() : quantity.toStringAsFixed(4)} $sym at $unitStr',
-        order: order,
+        currentPriceNative: currentPriceUSDT,
+        proceedsINR: totalCostINR,
+        orderType: TradingOrderType.market,
+        exitReason: TradeExitReason.manual,
       );
     }
+  }
+
+  /// Merges an incoming stop price with an existing one: a stop can only rise.
+  double? _mergeStop(double? existingStop, double? incomingStop) {
+    final e = existingStop ?? 0.0;
+    final i = incomingStop ?? 0.0;
+    final merged = e > i ? e : i;
+    return merged > 0 ? merged : existingStop;
+  }
+
+  /// Shared sell execution path used by market sells, protective stop fills,
+  /// and (indirectly) limit sell fills. Records the journal entry BEFORE the
+  /// holding is mutated or removed.
+  TradeExecutionResult _executeSell({
+    required String sym,
+    required TradingAsset asset,
+    required String coinName,
+    required bool isIndian,
+    required double quantity,
+    required double currentPriceNative,
+    required double proceedsINR,
+    required TradingOrderType orderType,
+    required TradeExitReason exitReason,
+    String? note,
+  }) {
+    final availableQty = getAvailableCoinQuantity(sym);
+    if (quantity > availableQty) {
+      return TradeExecutionResult(
+        success: false,
+        message: 'Insufficient balance. Available to sell: ${availableQty.toStringAsFixed(2)} $sym',
+      );
+    }
+
+    final existing = _holdings[sym]!;
+    _recordClose(sym, quantity, currentPriceNative, proceedsINR, exitReason);
+    _cashBalance += proceedsINR;
+
+    if (quantity >= existing.quantity - 1e-7) {
+      _holdings.remove(sym);
+      _lossAlertsTriggered.remove(sym);
+      marketService.removePinnedSymbol(sym);
+    } else {
+      final fractionSold = quantity / existing.quantity;
+      final remainingCost = existing.totalCostINR * (1.0 - fractionSold);
+      final remainingQty = existing.quantity - quantity;
+      final remainingRisk =
+          existing.plannedRiskINR == null ? null : existing.plannedRiskINR! * (1.0 - fractionSold);
+      _holdings[sym] = existing.copyWith(
+        quantity: remainingQty,
+        totalCostINR: remainingCost,
+        plannedRiskINR: remainingRisk,
+      );
+    }
+
+    final order = TradingOrder(
+      id: const Uuid().v4(),
+      symbol: sym,
+      coinName: coinName,
+      side: OrderSide.sell,
+      orderType: orderType,
+      quantity: quantity,
+      targetPriceUSDT: currentPriceNative,
+      executedPriceUSDT: currentPriceNative,
+      totalINR: proceedsINR,
+      status: OrderStatus.filled,
+      createdAt: DateTime.now(),
+      filledAt: DateTime.now(),
+      currency: asset.currency,
+      note: note,
+    );
+
+    _orders.insert(0, order);
+    recordEquitySnapshot(marketService.ticks);
+    _saveToStorage();
+    notifyListeners();
+
+    final unitStr = isIndian
+        ? '₹${currentPriceNative.toStringAsFixed(2)}'
+        : '\$${currentPriceNative.toStringAsFixed(2)}';
+
+    return TradeExecutionResult(
+      success: true,
+      message: 'Successfully sold ${isIndian ? quantity.toInt() : quantity.toStringAsFixed(4)} $sym at $unitStr',
+      order: order,
+    );
+  }
+
+  /// Records a closed (or partially closed) round trip into the journal.
+  /// Must be called BEFORE the holding is mutated or removed.
+  void _recordClose(
+    String sym,
+    double qtySold,
+    double exitPriceNative,
+    double proceedsINR,
+    TradeExitReason reason,
+  ) {
+    final holding = _holdings[sym];
+    if (holding == null || holding.quantity <= 0 || qtySold <= 0) return;
+
+    final fraction = (qtySold / holding.quantity).clamp(0.0, 1.0);
+    final costINR = holding.totalCostINR * fraction;
+    final plannedRisk = holding.plannedRiskINR == null ? null : holding.plannedRiskINR! * fraction;
+    final openedAt = holding.openedAt ?? _earliestBuyFilledAt(sym) ?? DateTime.now();
+
+    final record = TradeRecord(
+      id: const Uuid().v4(),
+      symbol: sym,
+      coinName: holding.coinName,
+      currency: holding.currency,
+      quantity: qtySold,
+      entryAvgPrice: holding.avgBuyPriceUSDT,
+      exitAvgPrice: exitPriceNative,
+      costINR: costINR,
+      proceedsINR: proceedsINR,
+      plannedRiskINR: plannedRisk,
+      openedAt: openedAt,
+      closedAt: DateTime.now(),
+      exitReason: reason,
+      plan: holding.plan,
+    );
+
+    _tradeRecords.insert(0, record);
+  }
+
+  DateTime? _earliestBuyFilledAt(String sym) {
+    DateTime? earliest;
+    for (final o in _orders) {
+      if (o.isBuy && o.symbol.toUpperCase() == sym.toUpperCase() && o.filledAt != null) {
+        if (earliest == null || o.filledAt!.isBefore(earliest)) earliest = o.filledAt;
+      }
+    }
+    return earliest;
   }
 
   TradeExecutionResult createLimitOrder({
@@ -384,6 +537,7 @@ class PaperTradingProvider extends ChangeNotifier {
     required OrderSide side,
     required double quantity,
     required double targetPriceUSDT,
+    TradePlan? plan,
   }) {
     final sym = symbol.toUpperCase();
     final asset = TradingAsset.fromSymbol(sym);
@@ -438,6 +592,7 @@ class PaperTradingProvider extends ChangeNotifier {
       status: OrderStatus.pending,
       createdAt: DateTime.now(),
       currency: asset.currency,
+      plan: plan,
     );
 
     _orders.insert(0, order);
@@ -489,6 +644,8 @@ class PaperTradingProvider extends ChangeNotifier {
           }
 
           final existing = _holdings[order.symbol.toUpperCase()];
+          final planStop = order.plan?.stopPrice;
+          final planRisk = order.plan?.plannedRiskINR;
           if (existing != null) {
             final newQty = existing.quantity + order.quantity;
             final newCost = existing.totalCostINR + executedTotalINR;
@@ -497,6 +654,11 @@ class PaperTradingProvider extends ChangeNotifier {
               quantity: newQty,
               avgBuyPriceUSDT: newAvg,
               totalCostINR: newCost,
+              stopPrice: _mergeStop(existing.stopPrice, planStop),
+              initialStopPrice: existing.initialStopPrice ?? planStop,
+              plannedRiskINR: (existing.plannedRiskINR ?? 0.0) + (planRisk ?? 0.0),
+              openedAt: existing.openedAt ?? DateTime.now(),
+              plan: existing.plan ?? order.plan,
             );
           } else {
             _holdings[order.symbol.toUpperCase()] = CryptoHolding(
@@ -506,6 +668,11 @@ class PaperTradingProvider extends ChangeNotifier {
               avgBuyPriceUSDT: currentPrice,
               totalCostINR: executedTotalINR,
               currency: order.currency,
+              stopPrice: (planStop != null && planStop > 0) ? planStop : null,
+              initialStopPrice: planStop,
+              plannedRiskINR: planRisk,
+              openedAt: DateTime.now(),
+              plan: order.plan,
             );
           }
 
@@ -513,8 +680,17 @@ class PaperTradingProvider extends ChangeNotifier {
           marketService.addPinnedSymbol(order.symbol.toUpperCase());
         } else {
           // Sell
-          _cashBalance += executedTotalINR;
           final existing = _holdings[order.symbol.toUpperCase()];
+          if (existing != null) {
+            _recordClose(
+              order.symbol.toUpperCase(),
+              order.quantity,
+              currentPrice,
+              executedTotalINR,
+              TradeExitReason.limitFilled,
+            );
+          }
+          _cashBalance += executedTotalINR;
           if (existing != null) {
             if (order.quantity >= existing.quantity - 1e-7) {
               _holdings.remove(order.symbol.toUpperCase());
@@ -522,9 +698,12 @@ class PaperTradingProvider extends ChangeNotifier {
               marketService.removePinnedSymbol(order.symbol.toUpperCase());
             } else {
               final frac = order.quantity / existing.quantity;
+              final remainingRisk =
+                  existing.plannedRiskINR == null ? null : existing.plannedRiskINR! * (1.0 - frac);
               _holdings[order.symbol.toUpperCase()] = existing.copyWith(
                 quantity: existing.quantity - order.quantity,
                 totalCostINR: existing.totalCostINR * (1.0 - frac),
+                plannedRiskINR: remainingRisk,
               );
             }
           }
@@ -542,6 +721,7 @@ class PaperTradingProvider extends ChangeNotifier {
     }
 
     if (updated) {
+      recordEquitySnapshot(ticks);
       _saveToStorage();
       notifyListeners();
     }
@@ -605,6 +785,226 @@ class PaperTradingProvider extends ChangeNotifier {
     if (holdingsModified) {
       _saveToStorage(notifyCloud: false);
     }
+  }
+
+  // ── Smart Money Protocol: protective stops ───────────────────────
+
+  /// Sells any holding whose live price has fallen to or through its
+  /// protective stop. Called on every tick, before the trailing-peak alert.
+  void checkProtectiveStops(Map<String, CryptoPriceTick> ticks) {
+    if (_holdings.isEmpty) return;
+
+    final hits = <MapEntry<String, double>>[];
+    for (final entry in _holdings.entries) {
+      final stop = entry.value.stopPrice;
+      if (stop == null || stop <= 0) continue;
+      final tick = ticks[entry.key];
+      if (tick == null || tick.price <= 0) continue;
+      if (tick.price <= stop) {
+        if (getAvailableCoinQuantity(entry.key) <= 0) continue;
+        hits.add(MapEntry(entry.key, tick.price));
+      }
+    }
+
+    for (final hit in hits) {
+      final sym = hit.key;
+      final price = hit.value;
+      final holding = _holdings[sym];
+      if (holding == null) continue;
+
+      final qty = getAvailableCoinQuantity(sym);
+      if (qty <= 0) continue;
+
+      final asset = TradingAsset.fromSymbol(sym);
+      final isIndian = asset.isIndianMarket || asset.currency == 'INR';
+      final proceedsINR = isIndian ? qty * price : qty * price * _usdtToInrRate;
+
+      final result = _executeSell(
+        sym: sym,
+        asset: asset,
+        coinName: holding.coinName,
+        isIndian: isIndian,
+        quantity: qty,
+        currentPriceNative: price,
+        proceedsINR: proceedsINR,
+        orderType: TradingOrderType.stop,
+        exitReason: TradeExitReason.stopHit,
+        note: 'PROTECTIVE STOP HIT @ ${price.toStringAsFixed(2)}',
+      );
+
+      if (result.success) {
+        try {
+          NotificationService.instance.showTradingAlert(
+            title: 'STOP HIT // ${holding.coinName.toUpperCase()}',
+            body:
+                '${holding.coinName} ($sym) hit its protective stop at ${isIndian ? '₹' : '\$'}${price.toStringAsFixed(2)}. Position closed for ${isIndian ? '₹' : '\$'}${proceedsINR.toStringAsFixed(2)}.',
+            payload: 'trading:$sym',
+          );
+        } catch (_) {
+          // NotificationService may be un-initialized in tests / headless runs.
+        }
+      }
+    }
+  }
+
+  /// Sets (or raises) a holding's protective stop. A stop can only be raised,
+  /// never lowered — the defense-first rule that gives the app its name.
+  TradeExecutionResult setProtectiveStop(String symbol, double newStop) {
+    final sym = symbol.toUpperCase();
+    final holding = _holdings[sym];
+    if (holding == null) {
+      return TradeExecutionResult(success: false, message: 'No open position for $sym.');
+    }
+    if (newStop <= 0) {
+      return TradeExecutionResult(success: false, message: 'Stop price must be greater than zero.');
+    }
+
+    final tick = marketService.getTick(sym);
+    final currentPrice = (tick != null && tick.price > 0) ? tick.price : holding.avgBuyPriceUSDT;
+
+    if (newStop >= currentPrice) {
+      return TradeExecutionResult(success: false, message: 'A stop must sit below the current price.');
+    }
+
+    if (holding.stopPrice != null && newStop < holding.stopPrice!) {
+      return TradeExecutionResult(
+        success: false,
+        message:
+            "NEVER WIDEN A STOP: it's at ${holding.stopPrice!.toStringAsFixed(2)}. You can raise it, exit, or leave it.",
+      );
+    }
+
+    _holdings[sym] = holding.copyWith(
+      stopPrice: newStop,
+      initialStopPrice: holding.initialStopPrice ?? newStop,
+    );
+    _saveToStorage();
+    notifyListeners();
+
+    try {
+      NotificationService.instance.showTradingAlert(
+        title: 'STOP UPDATED // ${holding.coinName.toUpperCase()}',
+        body: 'Protective stop for $sym set to ${newStop.toStringAsFixed(2)}.',
+        payload: 'trading:$sym',
+      );
+    } catch (_) {
+      // NotificationService may be un-initialized in tests / headless runs.
+    }
+
+    return TradeExecutionResult(success: true, message: 'Stop set to ${newStop.toStringAsFixed(2)}.');
+  }
+
+  /// Raises the stop to breakeven (the average entry price).
+  TradeExecutionResult raiseStopToBreakeven(String symbol) {
+    final sym = symbol.toUpperCase();
+    final holding = _holdings[sym];
+    if (holding == null) {
+      return TradeExecutionResult(success: false, message: 'No open position for $sym.');
+    }
+    final tick = marketService.getTick(sym);
+    final currentPrice = (tick != null && tick.price > 0) ? tick.price : holding.avgBuyPriceUSDT;
+    if (currentPrice <= holding.avgBuyPriceUSDT) {
+      return TradeExecutionResult(
+        success: false,
+        message: 'Price must be above your average entry to move the stop to breakeven.',
+      );
+    }
+    return setProtectiveStop(sym, holding.avgBuyPriceUSDT);
+  }
+
+  /// Trails the stop a fixed percentage below the current live price.
+  TradeExecutionResult trailStop(String symbol, double percentBelowCurrent) {
+    final sym = symbol.toUpperCase();
+    final holding = _holdings[sym];
+    if (holding == null) {
+      return TradeExecutionResult(success: false, message: 'No open position for $sym.');
+    }
+    final tick = marketService.getTick(sym);
+    final currentPrice = (tick != null && tick.price > 0) ? tick.price : holding.avgBuyPriceUSDT;
+    final newStop = currentPrice * (1 - percentBelowCurrent / 100);
+    return setProtectiveStop(sym, newStop);
+  }
+
+  /// True when a position is up 5%+ and its stop hasn't been moved to (or past) breakeven yet.
+  bool shouldSuggestBreakeven(CryptoHolding h, double currentPrice) {
+    if (h.avgBuyPriceUSDT <= 0) return false;
+    final gainPercent = (currentPrice - h.avgBuyPriceUSDT) / h.avgBuyPriceUSDT * 100;
+    return gainPercent >= 5 && (h.stopPrice == null || h.stopPrice! < h.avgBuyPriceUSDT);
+  }
+
+  /// Number of BUY orders filled today (local date) — feeds the daily trade cap guard.
+  int get tradesToday {
+    final now = DateTime.now();
+    return _orders.where((o) {
+      final filledAt = o.filledAt;
+      return o.isBuy &&
+          o.isFilled &&
+          filledAt != null &&
+          filledAt.year == now.year &&
+          filledAt.month == now.month &&
+          filledAt.day == now.day;
+    }).length;
+  }
+
+  // ── Smart Money Protocol: journal, stats & equity curve ──────────
+
+  /// Records (or updates) today's equity snapshot. Cheap: one entry per
+  /// calendar day, same-day calls replace the latest value.
+  void recordEquitySnapshot(Map<String, CryptoPriceTick> ticks) {
+    final now = DateTime.now();
+    final value = totalPortfolioValueINR(ticks);
+    if (value > _equityPeakINR) _equityPeakINR = value;
+
+    if (_equitySnapshots.isNotEmpty) {
+      final last = _equitySnapshots.last;
+      final sameDay =
+          last.at.year == now.year && last.at.month == now.month && last.at.day == now.day;
+      if (sameDay) {
+        _equitySnapshots[_equitySnapshots.length - 1] = EquitySnapshot(at: now, valueINR: value);
+        return;
+      }
+    }
+
+    _equitySnapshots.add(EquitySnapshot(at: now, valueINR: value));
+    while (_equitySnapshots.length > 400) {
+      _equitySnapshots.removeAt(0);
+    }
+  }
+
+  /// Expectancy / drawdown statistics computed from the trade journal.
+  SmartMoneyStats statsFor(Map<String, CryptoPriceTick> ticks) {
+    return SmartMoneyStats.compute(
+      records: _tradeRecords,
+      snapshots: _equitySnapshots,
+      currentEquityINR: totalPortfolioValueINR(ticks),
+      startingEquityINR: defaultStartingBalance,
+    );
+  }
+
+  /// The risk percent the drawdown ladder currently suggests, derived from
+  /// the configured base risk and the account's current drawdown.
+  double suggestedRiskPercentFor(Map<String, CryptoPriceTick> ticks) {
+    final stats = statsFor(ticks);
+    return risk_math.suggestedRiskPercent(_riskSettings.baseRiskPercent, stats.currentDrawdownPercent);
+  }
+
+  /// Attaches a post-trade review (process grade, lesson, followed-plan) to a journal entry.
+  Future<void> reviewTrade(
+    String recordId, {
+    bool? followedPlan,
+    String? processGrade,
+    String? lesson,
+  }) async {
+    final idx = _tradeRecords.indexWhere((r) => r.id == recordId);
+    if (idx == -1) return;
+    _tradeRecords[idx] = _tradeRecords[idx].copyWith(
+      followedPlan: followedPlan,
+      processGrade: processGrade,
+      lesson: lesson,
+      reviewedAt: DateTime.now(),
+    );
+    await _saveToStorage();
+    notifyListeners();
   }
 
   /// Computes aggregate 1-hour market trend across owned holdings or active assets
@@ -770,6 +1170,10 @@ class PaperTradingProvider extends ChangeNotifier {
         'orders': _orders.map((o) => o.toJson()).toList(),
         'lossAlertsTriggered': _lossAlertsTriggered.toList(),
         'lastModified': _lastModified,
+        'tradeRecords': _tradeRecords.map((r) => r.toJson()).toList(),
+        'riskSettings': _riskSettings.toJson(),
+        'equitySnapshots': _equitySnapshots.map((s) => s.toJson()).toList(),
+        'equityPeakINR': _equityPeakINR,
       };
 
   void loadState(Map<String, dynamic> data, {bool force = false}) {
@@ -816,6 +1220,33 @@ class PaperTradingProvider extends ChangeNotifier {
         _lossAlertsTriggered.add(a.toString());
       }
     }
+
+    _tradeRecords.clear();
+    final trList = data['tradeRecords'] as List?;
+    if (trList != null) {
+      for (final item in trList) {
+        if (item is Map) {
+          _tradeRecords.add(TradeRecord.fromJson(Map<String, dynamic>.from(item)));
+        }
+      }
+    }
+
+    final riskSettingsMap = data['riskSettings'];
+    _riskSettings = riskSettingsMap is Map
+        ? TradingRiskSettings.fromJson(Map<String, dynamic>.from(riskSettingsMap))
+        : const TradingRiskSettings();
+
+    _equitySnapshots.clear();
+    final esList = data['equitySnapshots'] as List?;
+    if (esList != null) {
+      for (final item in esList) {
+        if (item is Map) {
+          _equitySnapshots.add(EquitySnapshot.fromJson(Map<String, dynamic>.from(item)));
+        }
+      }
+    }
+
+    _equityPeakINR = (data['equityPeakINR'] as num?)?.toDouble() ?? _cashBalance;
 
     // Pin holding symbols for live market ticker updates
     for (final sym in _holdings.keys) {

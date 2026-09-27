@@ -6,6 +6,7 @@ import 'package:missions/src/providers/paper_trading_provider.dart';
 import 'package:missions/src/screens/trading/trading_asset_detail_screen.dart';
 import 'package:missions/src/screens/trading/trading_guide_sheet.dart';
 import 'package:missions/src/screens/trading/trading_settings_dialog.dart';
+import 'package:missions/src/screens/trading/trading_smart_money_widgets.dart';
 import 'package:missions/src/services/binance_market_service.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
@@ -26,7 +27,7 @@ class _RealtimeTradingScreenState extends State<RealtimeTradingScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _provider = PaperTradingProvider.instance;
     _provider.marketService.start();
   }
@@ -120,10 +121,13 @@ class _RealtimeTradingScreenState extends State<RealtimeTradingScreen>
                   labelColor: JweTheme.accentCyan,
                   unselectedLabelColor: JweTheme.textMuted,
                   labelStyle: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
                   tabs: [
                     const Tab(text: 'MARKETS'),
                     Tab(text: 'PORTFOLIO (${_provider.holdings.length})'),
                     Tab(text: 'ORDERS (${_provider.orders.length})'),
+                    Tab(text: 'JOURNAL (${_provider.tradeRecords.length})'),
                   ],
                 ),
               ),
@@ -292,6 +296,7 @@ class _RealtimeTradingScreenState extends State<RealtimeTradingScreen>
                     ),
                     _PortfolioTab(provider: _provider),
                     _OrdersTab(provider: _provider),
+                    JournalTab(provider: _provider),
                   ],
                 ),
               ),
@@ -763,43 +768,58 @@ class _PortfolioTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final holdings = provider.holdings.values.toList();
+    final ticks = provider.marketService.ticks;
     final inrFormat = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 0);
     final inrDecimalFormat = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 2);
 
     if (holdings.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.pie_chart_outline_rounded, color: JweTheme.textMuted, size: 48),
-              const SizedBox(height: 12),
-              Text(
-                'NO ACTIVE POSITIONS',
-                style: GoogleFonts.jetBrainsMono(
-                  color: JweTheme.textWhite,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: SmartMoneyStatsCard(provider: provider, ticks: ticks),
+          ),
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.pie_chart_outline_rounded, color: JweTheme.textMuted, size: 48),
+                    const SizedBox(height: 12),
+                    Text(
+                      'NO ACTIVE POSITIONS',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.textWhite,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'You hold 100% in virtual cash (${inrFormat.format(provider.cashBalance)}).\nSelect an Indian stock or crypto pair from the Markets tab to execute your first paper trade.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(color: JweTheme.textMuted, fontSize: 11.5, height: 1.4),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                'You hold 100% in virtual cash (${inrFormat.format(provider.cashBalance)}).\nSelect an Indian stock or crypto pair from the Markets tab to execute your first paper trade.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(color: JweTheme.textMuted, fontSize: 11.5, height: 1.4),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       );
     }
 
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      itemCount: holdings.length,
-      itemBuilder: (context, index) {
+      itemCount: holdings.length + 1,
+      itemBuilder: (context, rawIndex) {
+        if (rawIndex == 0) {
+          return SmartMoneyStatsCard(provider: provider, ticks: ticks);
+        }
+        final index = rawIndex - 1;
         final holding = holdings[index];
         final asset = holding.assetInfo;
         final tick = provider.marketService.getTick(holding.symbol);
@@ -1037,6 +1057,13 @@ class _PortfolioTab extends StatelessWidget {
                     ],
                   ),
                 ],
+                const Divider(height: 16),
+                HoldingStopRow(
+                  provider: provider,
+                  holding: holding,
+                  currentPrice: currentPrice,
+                  isIndianAsset: asset.isIndianAsset,
+                ),
               ],
             ),
           ),
@@ -1145,14 +1172,29 @@ class _OrdersTab extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                           decoration: BoxDecoration(
-                            color: JweTheme.panel2,
+                            color: order.orderType == TradingOrderType.stop
+                                ? JweTheme.accentRed.withValues(alpha: 0.16)
+                                : JweTheme.panel2,
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: Text(
                             order.orderType.name.toUpperCase(),
-                            style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 8.5),
+                            style: GoogleFonts.jetBrainsMono(
+                              color: order.orderType == TradingOrderType.stop
+                                  ? JweTheme.accentRed
+                                  : JweTheme.textMuted,
+                              fontSize: 8.5,
+                              fontWeight: order.orderType == TradingOrderType.stop ? FontWeight.bold : FontWeight.normal,
+                            ),
                           ),
                         ),
+                        if (order.plan != null) ...[
+                          const SizedBox(width: 6),
+                          SmartMoneyTinyChip(
+                            label: 'GATE ${order.plan!.checklistScore}/${order.plan!.checklistTotal}',
+                            color: JweTheme.accentCyan,
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 2),
@@ -1160,6 +1202,15 @@ class _OrdersTab extends StatelessWidget {
                       'Unit: ${asset.isIndianAsset ? '₹' : '\$'}${(order.executedPriceUSDT ?? order.targetPriceUSDT).toStringAsFixed(2)} • ${DateFormat('dd MMM HH:mm').format(order.createdAt)}',
                       style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
                     ),
+                    if (order.note != null && order.note!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        order.note!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.jetBrainsMono(color: JweTheme.accentRed, fontSize: 9, fontWeight: FontWeight.w600),
+                      ),
+                    ],
                   ],
                 ),
               ),

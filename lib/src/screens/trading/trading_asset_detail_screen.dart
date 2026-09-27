@@ -6,6 +6,7 @@ import 'package:missions/src/models/trading_models.dart';
 import 'package:missions/src/providers/paper_trading_provider.dart';
 import 'package:missions/src/screens/trading/trading_guide_sheet.dart';
 import 'package:missions/src/screens/trading/trading_order_sheet.dart';
+import 'package:missions/src/screens/trading/trading_smart_money_widgets.dart';
 import 'package:missions/src/services/binance_market_service.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 
@@ -655,6 +656,13 @@ class _TradingAssetDetailScreenState extends State<TradingAssetDetailScreen> {
                                     ],
                                   ),
                                 ],
+                              ),
+                              const Divider(height: 16),
+                              HoldingStopRow(
+                                provider: widget.provider,
+                                holding: holding,
+                                currentPrice: currentPrice,
+                                isIndianAsset: widget.asset.isIndianAsset,
                               ),
                             ],
                           ),

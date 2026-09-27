@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/models/trading_models.dart';
+import 'package:missions/src/models/trading_psychology_models.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 
 class TradingGuideSheet extends StatelessWidget {
@@ -18,7 +19,9 @@ class TradingGuideSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final guides = TradingGuideCard.allGuides;
+    final smartGuides = SmartMoneyGuides.cards;
     final bottomInset = MediaQuery.of(context).padding.bottom;
+    final smartAccents = [JweTheme.accentCyan, JweTheme.accentAmber, JweTheme.accentTeal, JweTheme.accentRed];
 
     return Container(
       constraints: BoxConstraints(
@@ -87,14 +90,41 @@ class TradingGuideSheet extends StatelessWidget {
 
           // Scrollable Card List
           Flexible(
-            child: ListView.separated(
+            child: ListView(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 20 + bottomInset),
-              itemCount: guides.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final card = guides[index];
-                return _GuideCardWidget(card: card, index: index + 1);
-              },
+              children: [
+                _SectionHeader(title: 'MARKET MECHANICS'),
+                const SizedBox(height: 10),
+                for (int i = 0; i < guides.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _GuideCardWidget(
+                      card: guides[i],
+                      accentColor: i == 0
+                          ? JweTheme.accentCyan
+                          : i == 1
+                              ? JweTheme.accentAmber
+                              : i == 2
+                                  ? JweTheme.accentTeal
+                                  : JweTheme.accentRed,
+                    ),
+                  ),
+                const SizedBox(height: 20),
+                _SectionHeader(
+                  title: 'SMART MONEY PROTOCOL',
+                  subtitle: "Built on Adam Sarhan's Psychological Analysis (Wiley Trading)",
+                ),
+                const SizedBox(height: 10),
+                for (int i = 0; i < smartGuides.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _GuideCardWidget(
+                      card: smartGuides[i],
+                      accentColor: smartAccents[i % smartAccents.length],
+                      initiallyExpanded: i == 0,
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -103,29 +133,59 @@ class TradingGuideSheet extends StatelessWidget {
   }
 }
 
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+
+  const _SectionHeader({required this.title, this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.jetBrainsMono(
+            color: JweTheme.textMuted,
+            fontSize: 10.5,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+          ),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            subtitle!,
+            style: GoogleFonts.inter(color: JweTheme.textMuted, fontSize: 9.5, height: 1.3),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _GuideCardWidget extends StatefulWidget {
   final TradingGuideCard card;
-  final int index;
+  final Color accentColor;
+  final bool initiallyExpanded;
 
-  const _GuideCardWidget({required this.card, required this.index});
+  const _GuideCardWidget({
+    required this.card,
+    required this.accentColor,
+    this.initiallyExpanded = true,
+  });
 
   @override
   State<_GuideCardWidget> createState() => _GuideCardWidgetState();
 }
 
 class _GuideCardWidgetState extends State<_GuideCardWidget> {
-  bool _isExpanded = true;
+  late bool _isExpanded = widget.initiallyExpanded;
 
   @override
   Widget build(BuildContext context) {
-    final themeAccent = widget.index == 1
-        ? JweTheme.accentCyan
-        : widget.index == 2
-            ? JweTheme.accentAmber
-            : widget.index == 3
-                ? JweTheme.accentTeal
-                : JweTheme.accentRed;
-
+    final themeAccent = widget.accentColor;
     final wordCount = widget.card.content.split(RegExp(r'\s+')).length;
 
     return InkWell(

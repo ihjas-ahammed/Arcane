@@ -24,6 +24,14 @@ class _TradingSettingsDialogState extends State<TradingSettingsDialog> {
   late TextEditingController _balanceController;
   late TextEditingController _rateController;
 
+  // ── Smart Money Protocol: risk rules ──────────────────────────────
+  late double _baseRiskPercent;
+  late double _maxRiskPercent;
+  late bool _strictRiskGuard;
+  late TextEditingController _defaultStopController;
+  late TextEditingController _dailyCapController;
+  late bool _requireChecklist;
+
   @override
   void initState() {
     super.initState();
@@ -33,12 +41,22 @@ class _TradingSettingsDialogState extends State<TradingSettingsDialog> {
     _rateController = TextEditingController(
       text: widget.provider.usdtToInrRate.toStringAsFixed(2),
     );
+
+    final riskSettings = widget.provider.riskSettings;
+    _baseRiskPercent = riskSettings.baseRiskPercent;
+    _maxRiskPercent = riskSettings.maxRiskPercent;
+    _strictRiskGuard = riskSettings.strictRiskGuard;
+    _defaultStopController = TextEditingController(text: riskSettings.defaultStopPercent.toStringAsFixed(1));
+    _dailyCapController = TextEditingController(text: riskSettings.dailyTradeCap.toString());
+    _requireChecklist = riskSettings.requireChecklist;
   }
 
   @override
   void dispose() {
     _balanceController.dispose();
     _rateController.dispose();
+    _defaultStopController.dispose();
+    _dailyCapController.dispose();
     super.dispose();
   }
 
@@ -47,6 +65,8 @@ class _TradingSettingsDialogState extends State<TradingSettingsDialog> {
       _balanceController.text = amount.toStringAsFixed(0);
     });
   }
+
+  String _fmtRiskPct(double p) => p == p.roundToDouble() ? p.toInt().toString() : p.toString();
 
   @override
   Widget build(BuildContext context) {
@@ -184,6 +204,159 @@ class _TradingSettingsDialogState extends State<TradingSettingsDialog> {
             ),
             const SizedBox(height: 20),
 
+            // Smart Money Protocol: risk rules
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: JweTheme.accentAmber.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.4)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.shield_outlined, size: 14, color: JweTheme.accentAmber),
+                      const SizedBox(width: 6),
+                      Text(
+                        'RISK RULES',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: JweTheme.accentAmber,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'BASE RISK % PER IDEA',
+                    style: GoogleFonts.jetBrainsMono(color: JweTheme.textMid, fontSize: 9.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [0.25, 0.5, 0.75, 1.0, 2.0].map((pct) {
+                      final isSelected = (_baseRiskPercent - pct).abs() < 0.001;
+                      return _RiskChoiceChip(
+                        label: '${_fmtRiskPct(pct)}%',
+                        selected: isSelected,
+                        onTap: () => setState(() => _baseRiskPercent = pct),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'MAX RISK % (STRICT GUARD THRESHOLD)',
+                    style: GoogleFonts.jetBrainsMono(color: JweTheme.textMid, fontSize: 9.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [0.5, 1.0, 2.0, 5.0].map((pct) {
+                      final isSelected = (_maxRiskPercent - pct).abs() < 0.001;
+                      return _RiskChoiceChip(
+                        label: '${_fmtRiskPct(pct)}%',
+                        selected: isSelected,
+                        onTap: () => setState(() => _maxRiskPercent = pct),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  Material(
+                    type: MaterialType.transparency,
+                    child: SwitchListTile(
+                      value: _strictRiskGuard,
+                      onChanged: (v) => setState(() => _strictRiskGuard = v),
+                      activeThumbColor: JweTheme.accentAmber,
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Text(
+                        'Strict risk guard (refuse buys above max)',
+                        style: GoogleFonts.inter(color: JweTheme.textMid, fontSize: 11.5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'DEFAULT STOP %',
+                              style: GoogleFonts.jetBrainsMono(color: JweTheme.textMid, fontSize: 9, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 4),
+                            TextField(
+                              controller: _defaultStopController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 12.5),
+                              decoration: InputDecoration(
+                                suffixText: '%',
+                                suffixStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 11),
+                                filled: true,
+                                fillColor: JweTheme.panel2,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border), borderRadius: BorderRadius.circular(6)),
+                                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber, width: 1.5), borderRadius: BorderRadius.circular(6)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'DAILY TRADE CAP (0 = OFF)',
+                              style: GoogleFonts.jetBrainsMono(color: JweTheme.textMid, fontSize: 9, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 4),
+                            TextField(
+                              controller: _dailyCapController,
+                              keyboardType: TextInputType.number,
+                              style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 12.5),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: JweTheme.panel2,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border), borderRadius: BorderRadius.circular(6)),
+                                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.accentAmber, width: 1.5), borderRadius: BorderRadius.circular(6)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  Material(
+                    type: MaterialType.transparency,
+                    child: SwitchListTile(
+                      value: _requireChecklist,
+                      onChanged: (v) => setState(() => _requireChecklist = v),
+                      activeThumbColor: JweTheme.accentAmber,
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Text(
+                        'Require the gate (≥3/5 checks) to buy',
+                        style: GoogleFonts.inter(color: JweTheme.textMid, fontSize: 11.5),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
             // Reset Portfolio Button
             OutlinedButton.icon(
               icon: Icon(Icons.restart_alt_rounded, color: JweTheme.accentRed, size: 16),
@@ -262,6 +435,21 @@ class _TradingSettingsDialogState extends State<TradingSettingsDialog> {
               await widget.provider.setUsdtToInrRate(parsedRate);
             }
 
+            final parsedDefaultStop = double.tryParse(_defaultStopController.text);
+            final parsedDailyCap = int.tryParse(_dailyCapController.text);
+            await widget.provider.updateRiskSettings(
+              widget.provider.riskSettings.copyWith(
+                baseRiskPercent: _baseRiskPercent,
+                maxRiskPercent: _maxRiskPercent,
+                strictRiskGuard: _strictRiskGuard,
+                defaultStopPercent: (parsedDefaultStop != null && parsedDefaultStop > 0)
+                    ? parsedDefaultStop
+                    : null,
+                dailyTradeCap: (parsedDailyCap != null && parsedDailyCap >= 0) ? parsedDailyCap : null,
+                requireChecklist: _requireChecklist,
+              ),
+            );
+
             if (context.mounted) Navigator.pop(context);
           },
           child: Text(
@@ -270,6 +458,38 @@ class _TradingSettingsDialogState extends State<TradingSettingsDialog> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _RiskChoiceChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _RiskChoiceChip({required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(5),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? JweTheme.accentAmber.withValues(alpha: 0.18) : JweTheme.panel2,
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: selected ? JweTheme.accentAmber : JweTheme.border),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.jetBrainsMono(
+            color: selected ? JweTheme.accentAmber : JweTheme.textMid,
+            fontSize: 10.5,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
     );
   }
 }
