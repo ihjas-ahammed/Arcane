@@ -259,11 +259,14 @@ class LauncherBridge(
             "getTaskBubbleStatus" -> result.success(mapOf(
                 "enabled" to TaskBubbleOverlay.isEnabled(activity),
                 "serviceEnabled" to LauncherTakeoverService.isServiceEnabled(activity),
+                "ignoringBattery" to isIgnoringBatteryOptimizations(),
+                "isMiui" to isMiui(),
             ))
             "setTaskBubbleEnabled" -> {
                 TaskBubbleOverlay.setEnabled(activity, call.argument<Boolean>("enabled") ?: true)
                 result.success(true)
             }
+            "requestIgnoreBatteryOptimizations" -> result.success(requestIgnoreBatteryOptimizations())
             "openAccessibilitySettings" -> {
                 val direct = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
                 result.success(startSafely(direct))
@@ -379,6 +382,24 @@ class LauncherBridge(
         true
     } catch (_: Exception) {
         false
+    }
+
+    private fun isIgnoringBatteryOptimizations(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val pm = activity.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+            return pm?.isIgnoringBatteryOptimizations(activity.packageName) ?: true
+        }
+        return true
+    }
+
+    private fun requestIgnoreBatteryOptimizations(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:${activity.packageName}")
+            }
+            return startSafely(intent)
+        }
+        return false
     }
 
     private fun isMiui(): Boolean {

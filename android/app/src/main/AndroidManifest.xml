@@ -23,6 +23,9 @@
     <!-- Home launcher: pull down the notification shade, uninstall apps from the drawer -->
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR"/>
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES"/>
+    <!-- Foreground service: keeps reading/task timers and floating button alive in background -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <uses-feature android:name="android.hardware.bluetooth" android:required="false"/>
     <uses-feature android:name="android.hardware.microphone" android:required="false"/>
     <application
@@ -222,6 +225,15 @@
             <meta-data
                 android:name="android.accessibilityservice"
                 android:resource="@xml/launcher_takeover_service"/>
+        </service>
+        <!-- Ongoing task timer foreground service: keeps process alive during active reading/task sessions -->
+        <service
+            android:name=".TaskForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Task timer and floating AssistiveTouch control overlay" />
         </service>
     </application>
     <!-- Required to query activities that can process text, see:

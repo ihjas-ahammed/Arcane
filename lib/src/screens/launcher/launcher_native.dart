@@ -110,6 +110,9 @@ class LauncherNative {
   static Future<bool> openMiuiPermissions(String page) async =>
       await _invoke<bool>('openMiuiPermissions', {'page': page}) ?? false;
 
+  static Future<bool> requestIgnoreBatteryOptimizations() async =>
+      await _invoke<bool>('requestIgnoreBatteryOptimizations') ?? false;
+
   static Future<List<Map<String, dynamic>>> getApps() async {
     final raw = await _invoke<List<dynamic>>('getApps');
     if (raw == null) return const [];

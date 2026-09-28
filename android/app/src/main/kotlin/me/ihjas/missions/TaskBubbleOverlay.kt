@@ -7,11 +7,14 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.CornerPathEffect
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -44,18 +47,20 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * AssistiveTouch-style floating task button, drawn by [LauncherTakeoverService] as an
- * accessibility overlay (no "draw over other apps" permission needed).
+ * Redesigned AssistiveTouch-style tactical floating task button, drawn by
+ * [LauncherTakeoverService] as an accessibility overlay (no "draw over other apps" permission needed).
  *
- * Only shown while a task is running (engaged).
- *
- *  - Tap: halt the running task (same action as the home-screen widget's button).
- *  - Double-tap: tick the current checkpoint and type the next one, added on the same level
- *    right after it (e.g. the next chapter while reading).
- *  - Long-press: quick menu (halt, check next, add checkpoint, finish, open plan, turn off).
- *  - Drag: move anywhere; on release it snaps to the nearest side and remembers the spot.
- *
- * Task state is read from the data Arcane already publishes for its home-screen widgets.
+ *  - Visual: High-tech Arcane tactical HUD disc with ambient halo glow, concentric progress track,
+ *    subtle reticle notches, glassmorphic gradient fill, and crisp monospace telemetry.
+ *  - Idle Side Settle: After 2.5s of no interaction, smoothly docks against the screen edge
+ *    (tucking ~38% into the bezel, leaving a rounded tactile thumb-tab peeking out) and dims
+ *    to 38% opacity. Instantly springs out to full size and 100% opacity on touch.
+ *  - Stay Alive: Supported by [TaskForegroundService] while running so Android / MIUI battery
+ *    savers never kill the process during long reading or focus sessions.
+ *  - Tap: Halts running session or resumes paused session.
+ *  - Double-tap: Ticks current checkpoint and types next checkpoint on same level.
+ *  - Long-press: Quick menu (Engage/Halt, Check Next, Add Checkpoint, Finish, Open Plan, Turn Off).
+ *  - Drag: Moves anywhere; snaps to nearest edge and remembers vertical position.
  */
 class TaskBubbleOverlay(private val context: Context) {
 
@@ -63,15 +68,16 @@ class TaskBubbleOverlay(private val context: Context) {
         private const val PREFS = "arcane_launcher"
         private const val KEY_ENABLED = "task_bubble_enabled"
         private const val KEY_RIGHT = "task_bubble_right"
-        private const val KEY_Y = "task_bubble_y" // fraction of the usable height
+        private const val KEY_Y = "task_bubble_y" // fraction of usable height
 
-        private const val IDLE_ALPHA = 0.55f
+        private const val IDLE_ALPHA = 0.38f
         private const val IDLE_DELAY_MS = 2500L
+        private const val PAUSED_AUTO_HIDE_MS = 20 * 60 * 1000L // 20 minutes paused timeout
 
-        private const val BG = 0xF205080C.toInt()
+        private const val BG_DARK = 0xF605080E.toInt()
         private const val CYAN = 0xFF00F0FF.toInt()
         private const val AMBER = 0xFFFFB547.toInt()
-        private const val RED = 0xFFFF2A4B.toInt()
+        private const val RED = 0xFFFF3B5C.toInt()
         private const val MUTED = 0xFF7A8A99.toInt()
 
         /** On by default; only shows while the accessibility service is switched on. */
@@ -88,8 +94,9 @@ class TaskBubbleOverlay(private val context: Context) {
     private val density = context.resources.displayMetrics.density
     private fun dp(v: Float) = (v * density).roundToInt()
 
-    private val size = dp(52f)
-    private val edgeMargin = dp(4f)
+    private val size = dp(54f)
+    private val edgeMargin = dp(6f)
+    private val tuckPx = (size * 0.38f).roundToInt()
 
     private val settingsPrefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val widgetPrefs = WidgetCommon.prefs(context)
@@ -99,6 +106,8 @@ class TaskBubbleOverlay(private val context: Context) {
     private var menu: View? = null
     private var dialog: View? = null
     private var snapAnim: ValueAnimator? = null
+    private var dockAnim: ValueAnimator? = null
+    private var isDocked = false
     private var started = false
 
     // Strong references: SharedPreferences only keeps listeners weakly.
@@ -106,7 +115,6 @@ class TaskBubbleOverlay(private val context: Context) {
         if (key == KEY_ENABLED) sync()
     }
     private val widgetListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        // Several keys land per publish; coalesce into one update.
         if (key != null && key.startsWith("arcane.task.")) {
             handler.removeCallbacks(syncRunnable)
             handler.postDelayed(syncRunnable, 60)
@@ -126,6 +134,7 @@ class TaskBubbleOverlay(private val context: Context) {
         started = false
         settingsPrefs.unregisterOnSharedPreferenceChangeListener(settingsListener)
         widgetPrefs.unregisterOnSharedPreferenceChangeListener(widgetListener)
+        TaskForegroundService.stop(context)
         hide()
         dismissDialog()
     }
@@ -140,10 +149,32 @@ class TaskBubbleOverlay(private val context: Context) {
     }
 
     private val syncRunnable = Runnable {
-        if (started && isEnabled(context) && isRunning()) {
+        val enabled = isEnabled(context)
+        val running = isRunning()
+        val has = hasTask()
+
+        if (started && enabled && (running || has)) {
             show()
             bubble?.refreshState()
+            if (running) {
+                handler.removeCallbacks(pausedAutoHideRunnable)
+                val title = widgetPrefs.getString("arcane.task.title", "") ?: "Arcane Task"
+                val subtitle = widgetPrefs.getString("arcane.task.subtitle", "") ?: "Reading / Task In Progress"
+                TaskForegroundService.start(context, title, subtitle)
+            } else {
+                TaskForegroundService.stop(context)
+                // Schedule auto-hide if paused and untouched for a long period
+                handler.removeCallbacks(pausedAutoHideRunnable)
+                handler.postDelayed(pausedAutoHideRunnable, PAUSED_AUTO_HIDE_MS)
+            }
         } else {
+            TaskForegroundService.stop(context)
+            hide()
+        }
+    }
+
+    private val pausedAutoHideRunnable = Runnable {
+        if (!isRunning()) {
             hide()
         }
     }
@@ -153,7 +184,7 @@ class TaskBubbleOverlay(private val context: Context) {
         handler.post(syncRunnable)
     }
 
-    // ── Window ──────────────────────────────────────────────────
+    // ── Window Placement & Layout ───────────────────────────────
 
     private fun overlayType() =
         if (Build.VERSION.SDK_INT >= 22) WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
@@ -184,6 +215,7 @@ class TaskBubbleOverlay(private val context: Context) {
             bubble = view
             params = p
             view.refreshState()
+            isDocked = false
             scheduleIdle()
         } catch (_: Exception) {
         }
@@ -192,17 +224,32 @@ class TaskBubbleOverlay(private val context: Context) {
     private fun hide() {
         dismissMenu()
         snapAnim?.cancel()
+        dockAnim?.cancel()
         handler.removeCallbacks(idleRunnable)
+        handler.removeCallbacks(pausedAutoHideRunnable)
         bubble?.let { try { wm.removeView(it) } catch (_: Exception) {} }
         bubble = null
         params = null
+        isDocked = false
+    }
+
+    private fun normalRestingX(): Int {
+        val s = screen()
+        val right = settingsPrefs.getBoolean(KEY_RIGHT, true)
+        return if (right) s.width() - size - edgeMargin else edgeMargin
+    }
+
+    private fun dockedX(): Int {
+        val s = screen()
+        val right = settingsPrefs.getBoolean(KEY_RIGHT, true)
+        return if (right) s.width() - size + tuckPx else -tuckPx
     }
 
     private fun placeFromPrefs(p: WindowManager.LayoutParams) {
         val s = screen()
         val right = settingsPrefs.getBoolean(KEY_RIGHT, true)
         val yFrac = settingsPrefs.getFloat(KEY_Y, 0.55f).coerceIn(0f, 1f)
-        p.x = if (right) s.width() - size - edgeMargin else edgeMargin
+        p.x = if (isDocked) dockedX() else normalRestingX()
         p.y = (yFrac * (s.height() - size)).roundToInt()
     }
 
@@ -210,7 +257,7 @@ class TaskBubbleOverlay(private val context: Context) {
         val p = params ?: return
         val b = bubble ?: return
         val s = screen()
-        p.x = x.coerceIn(0, s.width() - size)
+        p.x = x.coerceIn(-tuckPx, s.width() - size + tuckPx)
         p.y = y.coerceIn(0, s.height() - size)
         try { wm.updateViewLayout(b, p) } catch (_: Exception) {}
     }
@@ -219,19 +266,28 @@ class TaskBubbleOverlay(private val context: Context) {
         val p = params ?: return
         val s = screen()
         val right = p.x + size / 2 > s.width() / 2
-        val target = if (right) s.width() - size - edgeMargin else edgeMargin
+        val targetX = if (right) s.width() - size - edgeMargin else edgeMargin
+
         settingsPrefs.edit()
             .putBoolean(KEY_RIGHT, right)
             .putFloat(KEY_Y, p.y.toFloat() / (s.height() - size).coerceAtLeast(1))
             .apply()
+
         snapAnim?.cancel()
-        snapAnim = ValueAnimator.ofInt(p.x, target).apply {
+        val startX = p.x
+        snapAnim = ValueAnimator.ofInt(startX, targetX).apply {
             duration = 220
             interpolator = DecelerateInterpolator()
-            addUpdateListener { move(it.animatedValue as Int, p.y) }
+            addUpdateListener {
+                val curX = it.animatedValue as Int
+                p.x = curX
+                try { wm.updateViewLayout(bubble, p) } catch (_: Exception) {}
+            }
             start()
         }
     }
+
+    // ── AssistiveTouch Side-Settle & Wake ────────────────────────
 
     private fun scheduleIdle() {
         handler.removeCallbacks(idleRunnable)
@@ -239,13 +295,66 @@ class TaskBubbleOverlay(private val context: Context) {
     }
 
     private val idleRunnable = Runnable {
-        if (menu == null) bubble?.animate()?.alpha(IDLE_ALPHA)?.setDuration(300)?.start()
+        settleToSide()
     }
 
-    private fun wake() {
+    private fun settleToSide() {
+        if (menu != null || dialog != null || bubble == null) return
+        val p = params ?: return
+        val b = bubble ?: return
+        val targetX = dockedX()
+
+        snapAnim?.cancel()
+        dockAnim?.cancel()
+
+        val startX = p.x
+        val startAlpha = b.alpha
+
+        dockAnim = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 320
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { va ->
+                val f = va.animatedFraction
+                p.x = (startX + (targetX - startX) * f).roundToInt()
+                try { wm.updateViewLayout(b, p) } catch (_: Exception) {}
+                b.alpha = startAlpha + (IDLE_ALPHA - startAlpha) * f
+            }
+            start()
+        }
+        isDocked = true
+        b.isDockedState = true
+        b.invalidate()
+    }
+
+    private fun wake(animateOut: Boolean = true) {
         handler.removeCallbacks(idleRunnable)
-        bubble?.animate()?.cancel()
-        bubble?.alpha = 1f
+        dockAnim?.cancel()
+        val p = params ?: return
+        val b = bubble ?: return
+        val targetX = normalRestingX()
+
+        if (isDocked && animateOut) {
+            isDocked = false
+            b.isDockedState = false
+            val startX = p.x
+            val startAlpha = b.alpha
+
+            dockAnim = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = 160
+                interpolator = DecelerateInterpolator()
+                addUpdateListener { va ->
+                    val f = va.animatedFraction
+                    p.x = (startX + (targetX - startX) * f).roundToInt()
+                    try { wm.updateViewLayout(b, p) } catch (_: Exception) {}
+                    b.alpha = startAlpha + (1f - startAlpha) * f
+                }
+                start()
+            }
+        } else {
+            isDocked = false
+            b.isDockedState = false
+            b.alpha = 1f
+        }
     }
 
     // ── Actions ─────────────────────────────────────────────────
@@ -277,17 +386,16 @@ class TaskBubbleOverlay(private val context: Context) {
 
     private fun onTap() {
         if (hasTask()) {
-            // Instant feedback; the real state arrives when Arcane republishes the widget data.
             bubble?.pending = true
             bubble?.invalidate()
             sendAction("task_toggle")
-            handler.postDelayed({ bubble?.pending = false; bubble?.invalidate() }, 1500)
+            handler.postDelayed({ bubble?.pending = false; bubble?.invalidate() }, 1200)
         } else {
             openApp("task_open_plan")
         }
     }
 
-    // ── Long-press menu ─────────────────────────────────────────
+    // ── Long-press Menu ─────────────────────────────────────────
 
     @SuppressLint("ClickableViewAccessibility")
     private fun showMenu() {
@@ -298,26 +406,26 @@ class TaskBubbleOverlay(private val context: Context) {
 
         val panel = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(6f), dp(6f), dp(6f), dp(6f))
+            setPadding(dp(8f), dp(8f), dp(8f), dp(8f))
             background = GradientDrawable().apply {
-                setColor(BG)
-                cornerRadius = dp(14f).toFloat()
-                setStroke(dp(1f), CYAN and 0x66FFFFFF)
+                setColor(BG_DARK)
+                cornerRadius = dp(16f).toFloat()
+                setStroke(dp(1.2f), CYAN and 0x55FFFFFF)
             }
-            elevation = dp(6f).toFloat()
+            elevation = dp(10f).toFloat()
         }
 
         val title = widgetPrefs.getString("arcane.task.title", "") ?: ""
         panel.addView(TextView(context).apply {
             text = if (hasTask() && title.isNotEmpty()) title.uppercase() else "NO TASK QUEUED"
             setTextColor(MUTED)
-            textSize = 11f
-            letterSpacing = 0.1f
+            textSize = 11.5f
+            letterSpacing = 0.12f
             typeface = Typeface.DEFAULT_BOLD
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
-            maxWidth = dp(200f)
-            setPadding(dp(10f), dp(4f), dp(10f), dp(6f))
+            maxWidth = dp(210f)
+            setPadding(dp(12f), dp(6f), dp(12f), dp(8f))
         })
 
         fun item(label: String, color: Int, run: () -> Unit) {
@@ -328,7 +436,7 @@ class TaskBubbleOverlay(private val context: Context) {
                 letterSpacing = 0.08f
                 typeface = Typeface.DEFAULT_BOLD
                 setPadding(dp(12f), dp(10f), dp(12f), dp(10f))
-                minWidth = dp(150f)
+                minWidth = dp(155f)
                 background = GradientDrawable().apply {
                     cornerRadius = dp(10f).toFloat()
                     setColor(Color.TRANSPARENT)
@@ -350,15 +458,14 @@ class TaskBubbleOverlay(private val context: Context) {
         }
         item("☰  OPEN PLAN", Color.WHITE) { openApp("task_open_plan") }
         item("✕  TURN OFF", MUTED) {
-            setEnabled(context, false) // the settings listener hides the bubble
+            setEnabled(context, false)
             Toast.makeText(
                 context,
-                "Floating task button off. Turn it back on in Settings › Home Launcher.",
+                "Floating task button off. Turn back on in Settings › Home Launcher.",
                 Toast.LENGTH_LONG,
             ).show()
         }
 
-        // Close when tapping anywhere else.
         panel.setOnTouchListener { _, e ->
             if (e.action == MotionEvent.ACTION_OUTSIDE) { dismissMenu(); true } else false
         }
@@ -369,7 +476,7 @@ class TaskBubbleOverlay(private val context: Context) {
         )
         val w = panel.measuredWidth
         val h = panel.measuredHeight
-        val gap = dp(8f)
+        val gap = dp(10f)
         val mp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -386,7 +493,7 @@ class TaskBubbleOverlay(private val context: Context) {
         try {
             wm.addView(panel, mp)
             menu = panel
-            wake()
+            wake(animateOut = false)
             handler.postDelayed(menuTimeout, 6000)
         } catch (_: Exception) {
         }
@@ -401,12 +508,8 @@ class TaskBubbleOverlay(private val context: Context) {
         menu = null
     }
 
-    // ── Double-tap: check + add checkpoint ──────────────────────
+    // ── Double-tap: Check + Add Checkpoint ──────────────────────
 
-    /**
-     * Floating input: ticks the current checkpoint and adds the typed one on the same level,
-     * right after it. Focusable (unlike the bubble) so the keyboard can open over any app.
-     */
     @SuppressLint("ClickableViewAccessibility")
     private fun showCheckpointDialog() {
         dismissMenu()
@@ -428,14 +531,14 @@ class TaskBubbleOverlay(private val context: Context) {
 
         val card = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(18f), dp(16f), dp(18f), dp(12f))
-            isClickable = true // taps inside the card don't close it
+            setPadding(dp(20f), dp(18f), dp(20f), dp(14f))
+            isClickable = true
             background = GradientDrawable().apply {
-                setColor(BG)
-                cornerRadius = dp(16f).toFloat()
-                setStroke(dp(1f), CYAN and 0x66FFFFFF)
+                setColor(BG_DARK)
+                cornerRadius = dp(18f).toFloat()
+                setStroke(dp(1.2f), CYAN and 0x66FFFFFF)
             }
-            elevation = dp(8f).toFloat()
+            elevation = dp(12f).toFloat()
         }
 
         fun label(text: String, color: Int, size: Float, bold: Boolean = false) = TextView(context).apply {
@@ -469,7 +572,7 @@ class TaskBubbleOverlay(private val context: Context) {
             isSingleLine = true
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             imeOptions = EditorInfo.IME_ACTION_DONE
-            setPadding(dp(12f), dp(10f), dp(12f), dp(10f))
+            setPadding(dp(14f), dp(12f), dp(14f), dp(12f))
             background = GradientDrawable().apply {
                 setColor(0x22FFFFFF)
                 cornerRadius = dp(10f).toFloat()
@@ -530,9 +633,8 @@ class TaskBubbleOverlay(private val context: Context) {
             addView(confirm)
         }, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-        ).apply { topMargin = dp(8f) })
+        ).apply { topMargin = dp(10f) })
 
-        // Upper part of the screen, so the keyboard never covers it.
         root.addView(card, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT,
             Gravity.TOP or Gravity.CENTER_HORIZONTAL,
@@ -571,21 +673,49 @@ class TaskBubbleOverlay(private val context: Context) {
         try { wm.removeView(d) } catch (_: Exception) {}
     }
 
-    // ── Bubble view ─────────────────────────────────────────────
+    // ── Tactical Bubble View ────────────────────────────────────
 
     @SuppressLint("ViewConstructor")
     private inner class BubbleView(ctx: Context) : View(ctx) {
-        private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = BG }
-        private val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = dp(2.5f).toFloat() }
-        private val glyph = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-        private val time = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            textAlign = Paint.Align.CENTER
-            textSize = dp(9f).toFloat()
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+        private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = dp(3.5f).toFloat()
         }
-        private val path = Path()
-        private val arc = RectF()
+        private val outerHairlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = dp(1f).toFloat()
+        }
+        private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = dp(2.6f).toFloat()
+            color = 0x1AFFFFFF
+        }
+        private val arcPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = dp(2.8f).toFloat()
+            strokeCap = Paint.Cap.ROUND
+        }
+        private val reticlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = dp(1.2f).toFloat()
+        }
+        private val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+        }
+        private val timePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textAlign = Paint.Align.CENTER
+            textSize = dp(8.4f).toFloat()
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            setShadowLayer(dp(1.2f).toFloat(), 0f, dp(1f).toFloat(), 0xAA000000.toInt())
+        }
 
+        private val playPath = Path()
+        private val playCornerEffect = CornerPathEffect(dp(2.2f).toFloat())
+        private val arcRect = RectF()
+
+        var isPressedState = false
+        var isDockedState = false
         var pending = false
         private var hasTask = false
         private var running = false
@@ -599,6 +729,7 @@ class TaskBubbleOverlay(private val context: Context) {
         private var dragging = false
         private var longPressed = false
         private var awaitingSecondTap = false
+
         private val singleTap = Runnable {
             awaitingSecondTap = false
             onTap()
@@ -629,11 +760,15 @@ class TaskBubbleOverlay(private val context: Context) {
             invalidate()
         }
 
-        private fun elapsedLabel(): String {
+        private fun elapsedSeconds(): Long {
             val acc = WidgetCommon.getSafeLong(widgetPrefs, "arcane.task.accumulatedSec", 0L)
             val start = WidgetCommon.getSafeLong(widgetPrefs, "arcane.task.sessionStartMs", 0L)
-            val live = if (start > 0L) ((System.currentTimeMillis() - start) / 1000L).coerceAtLeast(0L) else 0L
-            val sec = acc + live
+            val live = if (running && start > 0L) ((System.currentTimeMillis() - start) / 1000L).coerceAtLeast(0L) else 0L
+            return acc + live
+        }
+
+        private fun elapsedLabel(): String {
+            val sec = elapsedSeconds()
             return if (sec < 3600) "%02d:%02d".format(sec / 60, sec % 60) else "%d:%02d".format(sec / 3600, (sec % 3600) / 60)
         }
 
@@ -647,50 +782,98 @@ class TaskBubbleOverlay(private val context: Context) {
 
         override fun onDraw(canvas: Canvas) {
             val w = width.toFloat()
-            val cx = w / 2
-            val cy = height / 2f
-            val r = w / 2 - ring.strokeWidth
+            val h = height.toFloat()
+            val cx = w / 2f
+            val cy = h / 2f
+            val r = (w / 2f) - dp(3.5f)
+
+            if (isPressedState) {
+                canvas.scale(0.94f, 0.94f, cx, cy)
+            }
+
             val accent = when {
                 !hasTask -> MUTED
-                running -> RED
+                running -> CYAN
                 else -> AMBER
             }
 
-            canvas.drawCircle(cx, cy, r, fill)
-            ring.color = accent and 0x44FFFFFF
-            canvas.drawCircle(cx, cy, r, ring)
+            // 1. Outer ambient glow halo
+            glowPaint.color = accent and 0x24FFFFFF
+            canvas.drawCircle(cx, cy, r, glowPaint)
+
+            // 2. Multi-gradient dark glass disc
+            val shader = LinearGradient(
+                0f, 0f, w, h,
+                0xF20F1D30.toInt(), 0xF804070D.toInt(),
+                Shader.TileMode.CLAMP,
+            )
+            fillPaint.shader = shader
+            canvas.drawCircle(cx, cy, r - dp(1.2f), fillPaint)
+
+            // 3. Inner specular rim highlight
+            outerHairlinePaint.color = 0x22FFFFFF
+            canvas.drawCircle(cx, cy, r - dp(1.2f), outerHairlinePaint)
+
+            // 4. Progress track & glowing arc
+            val arcR = r - dp(3.2f)
+            arcRect.set(cx - arcR, cy - arcR, cx + arcR, cy + arcR)
+            canvas.drawCircle(cx, cy, arcR, trackPaint)
             if (hasTask && progress > 0) {
-                ring.color = accent
-                arc.set(cx - r, cy - r, cx + r, cy + r)
-                canvas.drawArc(arc, -90f, 360f * progress / 100f, false, ring)
+                arcPaint.color = accent
+                canvas.drawArc(arcRect, -90f, 360f * progress / 100f, false, arcPaint)
             }
 
-            glyph.color = if (pending) Color.WHITE else accent
-            val g = w * 0.15f
-            val gy = if (running) cy - dp(4f) else cy
-            path.reset()
+            // 5. Tactical Reticle Crosshairs at cardinal points (0°, 90°, 180°, 270°)
+            reticlePaint.color = accent and 0x66FFFFFF
+            val tickLen = dp(3.2f).toFloat()
+            canvas.drawLine(cx, cy - r + dp(1.5f), cx, cy - r + dp(1.5f) + tickLen, reticlePaint)
+            canvas.drawLine(cx, cy + r - dp(1.5f) - tickLen, cx, cy + r - dp(1.5f), reticlePaint)
+            canvas.drawLine(cx - r + dp(1.5f), cy, cx - r + dp(1.5f) + tickLen, cy, reticlePaint)
+            canvas.drawLine(cx + r - dp(1.5f) - tickLen, cy, cx + r - dp(1.5f), cy, reticlePaint)
+
+            // 6. Glyph
+            glyphPaint.color = if (pending) Color.WHITE else accent
+            val hasTime = running || (hasTask && elapsedSeconds() > 0)
+            val gy = if (hasTime) cy - dp(4.5f) else cy
+
             when {
                 !hasTask -> {
-                    // Three list lines: "open plan".
+                    // 3 tactical rounded horizontal lines: open plan
                     val lh = dp(2f).toFloat()
-                    for (i in -1..1) canvas.drawRoundRect(cx - g, gy + i * g * 0.7f - lh / 2, cx + g, gy + i * g * 0.7f + lh / 2, lh, lh, glyph)
+                    val lw = dp(11f).toFloat()
+                    for (i in -1..1) {
+                        val y = gy + i * dp(3.8f)
+                        canvas.drawRoundRect(cx - lw / 2, y - lh / 2, cx + lw / 2, y + lh / 2, lh, lh, glyphPaint)
+                    }
                 }
                 running -> {
-                    val bw = g * 0.55f
-                    canvas.drawRoundRect(cx - g * 0.8f, gy - g, cx - g * 0.8f + bw, gy + g, 3f, 3f, glyph)
-                    canvas.drawRoundRect(cx + g * 0.8f - bw, gy - g, cx + g * 0.8f, gy + g, 3f, 3f, glyph)
+                    // Two sleek vertical pause bars
+                    val barW = dp(3.2f).toFloat()
+                    val barH = dp(11f).toFloat()
+                    val gap = dp(4.6f).toFloat()
+                    val rx = dp(1.6f).toFloat()
+                    canvas.drawRoundRect(cx - gap / 2 - barW, gy - barH / 2, cx - gap / 2, gy + barH / 2, rx, rx, glyphPaint)
+                    canvas.drawRoundRect(cx + gap / 2, gy - barH / 2, cx + gap / 2 + barW, gy + barH / 2, rx, rx, glyphPaint)
                 }
                 else -> {
-                    path.moveTo(cx - g * 0.7f, gy - g)
-                    path.lineTo(cx + g, gy)
-                    path.lineTo(cx - g * 0.7f, gy + g)
-                    path.close()
-                    canvas.drawPath(path, glyph)
+                    // Play triangle with rounded corners
+                    val triH = dp(11f).toFloat()
+                    val triW = dp(9.5f).toFloat()
+                    playPath.reset()
+                    playPath.moveTo(cx - triW * 0.45f, gy - triH * 0.5f)
+                    playPath.lineTo(cx + triW * 0.55f, gy)
+                    playPath.lineTo(cx - triW * 0.45f, gy + triH * 0.5f)
+                    playPath.close()
+                    glyphPaint.pathEffect = playCornerEffect
+                    canvas.drawPath(playPath, glyphPaint)
+                    glyphPaint.pathEffect = null
                 }
             }
-            if (running) {
-                time.color = accent
-                canvas.drawText(elapsedLabel(), cx, cy + g + dp(8f), time)
+
+            // 7. Telemetry readout (MM:SS)
+            if (hasTime) {
+                timePaint.color = if (running) Color.WHITE else (accent and 0xCCFFFFFF.toInt())
+                canvas.drawText(elapsedLabel(), cx, cy + dp(10.5f), timePaint)
             }
         }
 
@@ -700,7 +883,12 @@ class TaskBubbleOverlay(private val context: Context) {
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     snapAnim?.cancel()
-                    wake()
+                    dockAnim?.cancel()
+                    isPressedState = true
+                    invalidate()
+                    wake(animateOut = true)
+                    performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+
                     downRawX = e.rawX
                     downRawY = e.rawY
                     startX = p.x
@@ -720,19 +908,21 @@ class TaskBubbleOverlay(private val context: Context) {
                     if (dragging) move(startX + dx.roundToInt(), startY + dy.roundToInt())
                 }
                 MotionEvent.ACTION_UP -> {
+                    isPressedState = false
+                    invalidate()
                     removeCallbacks(longPress)
                     when {
                         dragging -> snapToEdge()
                         !longPressed -> {
                             dismissMenu()
                             if (awaitingSecondTap) {
-                                // Double-tap: check the current checkpoint + add the next one.
+                                // Double-tap: check checkpoint + add next one
                                 removeCallbacks(singleTap)
                                 awaitingSecondTap = false
                                 performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                                 showCheckpointDialog()
                             } else {
-                                // Wait out the double-tap window before acting on a single tap.
+                                // Wait double-tap timeout before firing single-tap
                                 performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                                 awaitingSecondTap = true
                                 postDelayed(singleTap, ViewConfiguration.getDoubleTapTimeout().toLong())
@@ -742,6 +932,8 @@ class TaskBubbleOverlay(private val context: Context) {
                     if (menu == null) scheduleIdle()
                 }
                 MotionEvent.ACTION_CANCEL -> {
+                    isPressedState = false
+                    invalidate()
                     removeCallbacks(longPress)
                     if (dragging) snapToEdge()
                     scheduleIdle()
