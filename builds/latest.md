@@ -1,3 +1,15 @@
+# ⚡ Arcane System Upgrade // v2026.9.28 (Build #2126092803)
+
+### 🛡️ Launcher Stability & Data Safety
+- **Arcane stays your home app**: Android forgets the default home app whenever a launcher crashes, which is why it kept asking you to pick one. Arcane now catches crashes, restarts quietly and stays the default.
+- **Crash log**: caught crashes are listed under More → Home Launcher → *Crash log* (copy / clear), so the real causes can be tracked down.
+- **Fewer crashes**: loading the app list, app icons and icon packs no longer takes the launcher down on errors or low memory.
+- **No goals sheet over the home screen**: the startup goals window now waits until you actually open Arcane, instead of popping up over the launcher after every restart.
+- **Data-loss fix**: during startup the app could save its blank default state (or re-stamp old data as new) and then sync it over your real cloud data. Saving now pauses until your data has loaded, defaults can never look newer than real data, and sync compares the timestamp of the data as loaded.
+- **Local save fix**: overlapping saves no longer collide ("Cannot rename file" errors).
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.28 (Build #2126092802)
 
 ### 🎯 Floating Task Button
