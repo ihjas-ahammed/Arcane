@@ -107,6 +107,7 @@ class HomeWidgetService {
     bool dayPlannerWidgetCheckable = false,
     List<ResolvedDayPlanItem> topFiveTasks = const [],
     List<ResolvedDayPlanItem> multitaskTasks = const [],
+    String nextCheckpoint = '',
   }) async {
     if (!_supported) return;
 
@@ -127,6 +128,8 @@ class HomeWidgetService {
       'arcane.task.updatedAtMs': DateTime.now().millisecondsSinceEpoch,
       'arcane.task.dayPlannerWidgetCheckable': dayPlannerWidgetCheckable,
       'arcane.task.multitaskCount': multitaskTasks.length,
+      // Checkpoint "CHECK NEXT" would tick (read by the floating task button's quick-add).
+      'arcane.task.nextCheckpoint': nextCheckpoint,
     };
     for (var i = 0; i < 5; i++) {
       data['arcane.task.dp$i.title'] =

@@ -4,6 +4,7 @@ import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/views/launcher_fullscreen_setting.dart';
 import 'package:missions/src/screens/launcher/views/launcher_sheets.dart' show showLauncherSettings;
 import 'package:missions/src/screens/launcher/views/launcher_takeover_settings.dart';
+import 'package:missions/src/screens/launcher/views/launcher_task_bubble_settings.dart';
 import 'package:missions/src/widgets/settings/sections/settings_section_card.dart';
 
 /// Home-launcher options (Android only): making Arcane the default home app
@@ -32,6 +33,8 @@ class LauncherSettingsSection extends StatelessWidget {
         const LauncherTakeoverSettings(),
         const Divider(height: 16),
         const LauncherFullscreenSetting(),
+        const Divider(height: 16),
+        const LauncherTaskBubbleSettings(),
         const Divider(height: 16),
         ListTile(
           contentPadding: EdgeInsets.zero,

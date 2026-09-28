@@ -251,6 +251,14 @@ class LauncherBridge(
                 LauncherTakeoverService.setEnabled(activity, call.argument<Boolean>("enabled") ?: false)
                 result.success(true)
             }
+            "getTaskBubbleStatus" -> result.success(mapOf(
+                "enabled" to TaskBubbleOverlay.isEnabled(activity),
+                "serviceEnabled" to LauncherTakeoverService.isServiceEnabled(activity),
+            ))
+            "setTaskBubbleEnabled" -> {
+                TaskBubbleOverlay.setEnabled(activity, call.argument<Boolean>("enabled") ?: true)
+                result.success(true)
+            }
             "openAccessibilitySettings" -> {
                 val direct = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
                 result.success(startSafely(direct))

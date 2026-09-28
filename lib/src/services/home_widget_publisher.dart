@@ -206,6 +206,7 @@ class HomeWidgetPublisher {
             ? '${m?.name ?? ''} · ${s.name}'
             : (m?.name ?? ''));
 
+    final nextCheckpoint = s == null ? '' : (TaskCalculations.nextCheckpoint(s)?.name ?? '');
     final activeTimer = s == null ? null : _provider.activeTimers[s.id];
     final accumulated = s == null ? 0.0 : TaskCalculations.getHistoricalTodaySeconds(s, _provider.mainTasks);
     final sessionStart = r.isRunning ? activeTimer?.startTime : null;
@@ -234,6 +235,7 @@ class HomeWidgetPublisher {
       accumulated.toInt(),
       (progress * 100).round(),
       sessionStart?.millisecondsSinceEpoch ?? 0,
+      nextCheckpoint,
     ].join('|');
     if (!force && key == _lastTaskKey) return;
     _lastTaskKey = key;
@@ -253,6 +255,7 @@ class HomeWidgetPublisher {
         dayPlannerWidgetCheckable: dayPlannerWidgetCheckable,
         topFiveTasks: topFiveTasks,
         multitaskTasks: multitaskTasks,
+        nextCheckpoint: nextCheckpoint,
       );
     } catch (e) {
       debugPrint('[HomeWidget] publish task: $e');

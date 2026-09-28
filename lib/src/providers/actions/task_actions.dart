@@ -627,6 +627,43 @@ class TaskActions {
     logToDailySummary('subSubtaskCompleted', {'parentTaskId': mainTaskId, 'parentSubTaskId': parentSubtaskId, 'subSubTaskId': subSubtaskId});
   }
 
+  /// Ticks the subtask's current checkpoint (the one "check next" would tick) and adds [name] as a
+  /// new checkpoint on the same level, right after it, so it becomes the next one up (e.g. the next
+  /// chapter while reading). With no open checkpoint, [name] is added at the subtask's top level.
+  /// An empty [name] only ticks. Returns the ticked checkpoint's name, or null if none was open.
+  String? checkCurrentAndAddNext(String mainTaskId, String subTaskId, String name) {
+    final sub = _provider.mainTasks
+        .firstWhereOrNull((t) => t.id == mainTaskId)
+        ?.subTasks
+        .firstWhereOrNull((st) => st.id == subTaskId);
+    if (sub == null) return null;
+    final current = TaskCalculations.nextCheckpoint(sub);
+    final newName = name.trim();
+
+    // Add before ticking, so the level never looks fully done in between.
+    if (newName.isNotEmpty) {
+      final parentId = current == null ? null : _parentCheckpointId(sub.subSubTasks, current.id);
+      final newId = IdGenerator.generateCheckpointId();
+      final returned = addSubSubtask(mainTaskId, subTaskId, {'id': newId, 'name': newName}, parentCheckpointId: parentId);
+      final addedId = parentId == null ? returned : newId;
+      if (current != null && addedId.isNotEmpty) {
+        moveCheckpointRelative(mainTaskId, subTaskId, addedId, current.id, 'after');
+      }
+    }
+    if (current != null) completeSubSubtask(mainTaskId, subTaskId, current.id);
+    return current?.name;
+  }
+
+  /// Id of the checkpoint whose substeps contain [id]; null when [id] is top-level.
+  String? _parentCheckpointId(List<SubSubTask> nodes, String id, [String? parent]) {
+    for (final n in nodes) {
+      if (n.id == id) return parent;
+      final found = _parentCheckpointId(n.substeps, id, n.id);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
   void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
     final updates = {'completed': false, 'completionTimestamp': null};
     updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);

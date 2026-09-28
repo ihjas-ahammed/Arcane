@@ -103,6 +103,11 @@ class WidgetActionRouter {
 
   void _dispatch(BuildContext ctx, String action, {bool silent = false}) {
     final provider = Provider.of<AppProvider>(ctx, listen: false);
+    // Floating task button double-tap: "task_check_add:<new checkpoint name>".
+    if (action.startsWith(_checkAddPrefix)) {
+      _taskCheckAndAdd(provider, action.substring(_checkAddPrefix.length));
+      return;
+    }
     switch (action) {
       case 'task_toggle':
         _taskToggle(provider);
@@ -229,6 +234,25 @@ class WidgetActionRouter {
       provider.logTimerAndReset(s.id);
     } else {
       provider.startTimer(s.id, 'subtask', m.id);
+    }
+  }
+
+  static const _checkAddPrefix = 'task_check_add:';
+
+  /// Ticks the current checkpoint and adds [name] on the same level right after it.
+  void _taskCheckAndAdd(AppProvider provider, String name) {
+    final r = _resolveActive(provider);
+    final m = r.mainTask;
+    final s = r.subTask;
+    if (m == null || s == null) return;
+    final newName = name.trim();
+    final checked = provider.taskActions.checkCurrentAndAddNext(m.id, s.id, newName);
+    if (checked != null && newName.isNotEmpty) {
+      showGlobalToast('✓ $checked  →  next: $newName');
+    } else if (checked != null) {
+      showGlobalToast('✓ Checked: $checked');
+    } else if (newName.isNotEmpty) {
+      showGlobalToast('Checkpoint added: $newName');
     }
   }
 

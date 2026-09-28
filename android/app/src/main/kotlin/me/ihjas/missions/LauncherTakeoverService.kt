@@ -5,6 +5,7 @@ import android.app.ActivityOptions
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.content.pm.PackageManager
 import android.os.SystemClock
 import android.provider.Settings
@@ -19,6 +20,9 @@ import android.view.accessibility.AccessibilityEvent
  * intent, so it behaves as if Arcane were the default home app. Apps with a bound accessibility
  * service are exempt from Android's background-activity-start limits, which is what makes this
  * work reliably.
+ *
+ * The same service also hosts the floating task button ([TaskBubbleOverlay]), which it draws as
+ * an accessibility overlay.
  */
 class LauncherTakeoverService : AccessibilityService() {
 
@@ -65,10 +69,29 @@ class LauncherTakeoverService : AccessibilityService() {
     private var homePackages: Set<String> = emptySet()
     private var homeResolvedAt = 0L
     private var lastLaunchAt = 0L
+    private var taskBubble: TaskBubbleOverlay? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         refreshHomePackages()
+        taskBubble = TaskBubbleOverlay(this).also { it.start() }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        taskBubble?.onConfigurationChanged()
+    }
+
+    override fun onUnbind(intent: Intent?): Boolean {
+        taskBubble?.stop()
+        taskBubble = null
+        return super.onUnbind(intent)
+    }
+
+    override fun onDestroy() {
+        taskBubble?.stop()
+        taskBubble = null
+        super.onDestroy()
     }
 
     private fun refreshHomePackages() {

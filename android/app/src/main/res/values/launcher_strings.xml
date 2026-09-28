@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="launcher_takeover_label">Arcane Launcher</string>
-    <string name="launcher_takeover_summary">Opens Arcane whenever the default home screen appears</string>
-    <string name="launcher_takeover_description">Lets Arcane act as your home screen on phones that do not allow changing the default launcher (e.g. MIUI / HyperOS). It only watches which app window comes to the front, and when it is the stock home screen it opens Arcane on top. It never reads screen content or what you type.</string>
+    <string name="launcher_takeover_summary">Floating task button, and opens Arcane whenever the default home screen appears</string>
+    <string name="launcher_takeover_description">Lets Arcane act as your home screen on phones that do not allow changing the default launcher (e.g. MIUI / HyperOS). It only watches which app window comes to the front, and when it is the stock home screen it opens Arcane on top. It also draws Arcane\'s floating task button over other apps. It never reads screen content or what you type.</string>
 </resources>

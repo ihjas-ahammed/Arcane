@@ -84,6 +84,13 @@ class LauncherNative {
   }
 
   static Future<void> setTakeoverEnabled(bool enabled) => _invoke<bool>('setTakeoverEnabled', {'enabled': enabled});
+  // ── Floating task button (drawn by the same accessibility service) ──
+  static Future<Map<String, dynamic>> getTaskBubbleStatus() async {
+    final raw = await _invoke<Map<dynamic, dynamic>>('getTaskBubbleStatus');
+    return raw == null ? const {} : Map<String, dynamic>.from(raw);
+  }
+
+  static Future<void> setTaskBubbleEnabled(bool enabled) => _invoke<bool>('setTaskBubbleEnabled', {'enabled': enabled});
   static Future<bool> openAccessibilitySettings() async => await _invoke<bool>('openAccessibilitySettings') ?? false;
 
   /// [page]: `autostart` or `permissions` (background pop-up windows).
