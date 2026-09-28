@@ -1,3 +1,14 @@
+# ⚡ Arcane System Upgrade // v2026.9.28 (Build #2126092804)
+
+### 🛸 Floating Task Button: Redesign, AssistiveTouch Side-Settle & Keep-Alive
+- **AssistiveTouch Side-Settle**: After 2.5s of idle time, the floating task button smoothly glides to the screen edge, tucks ~38% into the bezel, and dims to 38% opacity so it never obstructs your reading or apps. Tapping or touching instantly wakes it up to full opacity and brings it onto the screen.
+- **Tactical HUD Visual Redesign**: Multi-gradient glassmorphic disc, ambient holographic glow halo, high-contrast concentric progress ring with rounded caps, cardinal reticle notches (0°, 90°, 180°, 270°), and tactile press response.
+- **Reading & Paused Session Life**: When you pause your task/reading session, the button stays accessible in amber standby (play glyph ▶ and elapsed time) so you can resume anytime with a single tap instead of vanishing.
+- **Background Keep-Alive**: Added native `TaskForegroundService` to ensure Android and aggressive OEM battery optimizers (MIUI/HyperOS) never kill Arcane during long reading and focus sessions.
+- **Battery Optimization & Autostart Quick Steps**: Added in Settings → Home Launcher → *Floating task button* to easily grant background execution and autostart permissions.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.28 (Build #2126092803)
 
 ### 🛡️ Launcher Stability & Data Safety
