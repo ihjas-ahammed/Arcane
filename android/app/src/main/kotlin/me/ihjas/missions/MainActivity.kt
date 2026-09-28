@@ -795,6 +795,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                 }
                 "getAllInstalledApps" -> {
                     Thread {
+                      try {
                         val pm = packageManager
                         val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
                         val list = mutableListOf<Map<String, Any?>>()
@@ -815,6 +816,10 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                         Handler(Looper.getMainLooper()).post {
                             result.success(list)
                         }
+                      } catch (_: Throwable) {
+                        // e.g. the package manager dying mid-query with many apps installed.
+                        Handler(Looper.getMainLooper()).post { result.success(emptyList<Map<String, Any?>>()) }
+                      }
                     }.start()
                 }
                 "getAppActivities" -> {
@@ -857,7 +862,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                             Handler(Looper.getMainLooper()).post {
                                 result.success(list)
                             }
-                        } catch (e: Exception) {
+                        } catch (_: Throwable) {
                             Handler(Looper.getMainLooper()).post {
                                 result.success(emptyList<Map<String, Any?>>())
                             }
@@ -930,7 +935,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                             Handler(Looper.getMainLooper()).post {
                                 result.success(byteArray)
                             }
-                        } catch (_: Exception) {
+                        } catch (_: Throwable) {
                             Handler(Looper.getMainLooper()).post {
                                 result.success(null)
                             }

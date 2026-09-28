@@ -24,6 +24,7 @@ import 'package:missions/src/theme/arc/arc_theme.dart';
 
 import 'package:missions/src/widgets/ui/desktop_floating_timer.dart';
 import 'package:missions/src/widgets/drawers/goals_bottom_drawer.dart';
+import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/widgets/dialogs/whats_new_update_dialog.dart';
 import 'package:missions/src/services/update_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -87,12 +88,25 @@ class _HomeScreenState extends State<HomeScreen> {
       _onTabRequest();
       _checkUpdateOnStartup();
 
-      // Auto open goals window on app startup
-      if (mounted) {
-        GoalsBottomDrawer.show(context);
-      }
+      _autoOpenGoals();
     });
     WidgetActionRouter.instance.tabRequest.addListener(_onTabRequest);
+  }
+
+  /// Auto-open the goals window on startup — but only once Arcane is actually on screen. As the
+  /// home app it starts hidden under the launcher, and the sheet would otherwise pop up over the
+  /// home screen after every cold start.
+  void _autoOpenGoals() {
+    if (!LauncherNative.isSupported || LauncherNative.arcaneVisible.value) {
+      if (mounted) GoalsBottomDrawer.show(context);
+      return;
+    }
+    void onVisible() {
+      if (!LauncherNative.arcaneVisible.value) return;
+      LauncherNative.arcaneVisible.removeListener(onVisible);
+      if (mounted) GoalsBottomDrawer.show(context);
+    }
+    LauncherNative.arcaneVisible.addListener(onVisible);
   }
 
   Future<void> _checkUpdateOnStartup() async {

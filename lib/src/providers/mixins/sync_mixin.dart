@@ -27,6 +27,25 @@ mixin SyncMixin on ChangeNotifier {
 
   bool get hasUnsavedChanges => _hasUnsavedChanges;
 
+  /// True while the signed-in user's data is being loaded, or the in-memory state reset.
+  /// Nothing may be saved or marked dirty in that window: a save would write default or partial
+  /// state to the local cache (with a fresh timestamp), and the next sync would push it over the
+  /// real cloud data. Crash restarts made this window common.
+  bool _dataLoadInProgress = false;
+
+  void beginDataLoad() {
+    _dataLoadInProgress = true;
+    _saveDebounce?.cancel();
+    _cloudDebounce?.cancel();
+  }
+
+  /// Ends a load/reset: what's in memory now is the saved state, so nothing is pending.
+  void endDataLoad() {
+    _dataLoadInProgress = false;
+    _dirtyCollections.clear();
+    _hasUnsavedChanges = false;
+  }
+
   AppUser? get currentUser;
   AppSettings get settings;
   Map<String, dynamic> getFullAppState(); 
@@ -47,6 +66,11 @@ mixin SyncMixin on ChangeNotifier {
   }
 
   void markDirty(String collection) {
+    if (_dataLoadInProgress) {
+      // Setters fired by the load itself: keep the loaded timestamp, save nothing.
+      notifyListeners();
+      return;
+    }
     settings.lastModified = DateTime.now().millisecondsSinceEpoch;
     _dirtyCollections.add(collection);
     _hasUnsavedChanges = true;
@@ -92,7 +116,7 @@ mixin SyncMixin on ChangeNotifier {
   }
 
   Future<void> _saveLocalSnapshot({bool forceFlush = false, Map<String, dynamic>? precomputedState}) async {
-    if (currentUser == null) return;
+    if (currentUser == null || _dataLoadInProgress) return;
     try {
       // Reuse a just-built state map when the caller already has one (e.g. right after a
       // cloud save) instead of re-running getFullAppState()'s full serialization pass.
@@ -109,11 +133,12 @@ mixin SyncMixin on ChangeNotifier {
     _isSyncing = true;
     notifyListeners();
 
+    final localTs = settings.lastModified;
     try {
       final remoteTs = await _storageService.getLastModified(currentUser!.uid);
-      if (remoteTs > settings.lastModified) {
+      if (remoteTs > localTs) {
         await _manuallyLoadFromCloudInternal();
-      } else if (settings.lastModified > remoteTs || _hasUnsavedChanges) {
+      } else if (localTs > remoteTs || _hasUnsavedChanges) {
         await _performActualSaveInternal(force: true);
       }
     } catch (e) {
@@ -127,13 +152,17 @@ mixin SyncMixin on ChangeNotifier {
   /// Automatically compares remote vs local timestamps on login or startup and synchronizes in the background.
   Future<void> autoSyncWithCloud() async {
     if (currentUser == null || _isSyncing) return;
+    // Compare against the timestamp of the data as loaded. Startup maintenance runs while the
+    // remote timestamp is being fetched and re-stamps it with "now", which made stale local data
+    // look newer than the cloud and get pushed over it.
+    final localTs = settings.lastModified;
     try {
       final remoteTs = await _storageService.getLastModified(currentUser!.uid);
-      if (remoteTs > settings.lastModified) {
-        debugPrint("[SyncMixin] Remote cloud data is newer ($remoteTs > ${settings.lastModified}). Pulling updates.");
+      if (remoteTs > localTs) {
+        debugPrint("[SyncMixin] Remote cloud data is newer ($remoteTs > $localTs). Pulling updates.");
         await _manuallyLoadFromCloudInternal();
-      } else if (settings.lastModified > remoteTs || _hasUnsavedChanges) {
-        debugPrint("[SyncMixin] Local changes newer (${settings.lastModified} >= $remoteTs). Syncing to cloud.");
+      } else if (localTs > remoteTs || _hasUnsavedChanges) {
+        debugPrint("[SyncMixin] Local changes newer ($localTs >= $remoteTs). Syncing to cloud.");
         await _performActualSaveInternal();
       }
     } catch (e) {
@@ -150,10 +179,20 @@ mixin SyncMixin on ChangeNotifier {
   Future<bool> _manuallyLoadFromCloudInternal() async {
     final cloudData = await _storageService.getUserData(currentUser!.uid);
     if (cloudData != null && cloudData.isNotEmpty) {
-      loadStateFromMap(cloudData);
+      // Load under the guard so the setters don't re-stamp the cloud data as a local change.
+      final nested = _dataLoadInProgress;
+      _dataLoadInProgress = true;
+      _saveDebounce?.cancel();
+      _cloudDebounce?.cancel();
+      try {
+        loadStateFromMap(cloudData);
+      } finally {
+        _dataLoadInProgress = nested;
+      }
       _hasUnsavedChanges = false;
       _dirtyCollections.clear();
-      await _saveLocalSnapshot(forceFlush: true);
+      // Inside an outer load the caller persists once it ends.
+      if (!nested) await _saveLocalSnapshot(forceFlush: true);
       return true;
     }
     return false;
@@ -196,6 +235,7 @@ mixin SyncMixin on ChangeNotifier {
   }
 
   Future<bool> _performActualSaveInternal({bool force = false}) async {
+    if (currentUser == null || _dataLoadInProgress) return false;
     try {
       final appData = getFullAppState();
       

@@ -113,6 +113,7 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
   void _applySystemUiMode() {
     final arcaneShowing =
         _arcane.status == AnimationStatus.forward || _arcane.status == AnimationStatus.completed;
+    LauncherNative.arcaneVisible.value = arcaneShowing;
     final immersive = LauncherService.instance.fullscreen.value && !arcaneShowing;
     if (immersive == _immersive) return;
     _immersive = immersive;

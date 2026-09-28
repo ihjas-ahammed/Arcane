@@ -251,6 +251,11 @@ class LauncherBridge(
                 LauncherTakeoverService.setEnabled(activity, call.argument<Boolean>("enabled") ?: false)
                 result.success(true)
             }
+            "getCrashLog" -> result.success(CrashGuard.read(activity))
+            "clearCrashLog" -> {
+                CrashGuard.clear(activity)
+                result.success(true)
+            }
             "getTaskBubbleStatus" -> result.success(mapOf(
                 "enabled" to TaskBubbleOverlay.isEnabled(activity),
                 "serviceEnabled" to LauncherTakeoverService.isServiceEnabled(activity),
@@ -361,7 +366,9 @@ class LauncherBridge(
 
     private fun background(result: MethodChannel.Result, work: () -> Any?) {
         io.execute {
-            val value = try { work() } catch (e: Exception) { null }
+            // Throwable, not Exception: an OutOfMemoryError from a big icon pack on this pool
+            // thread would otherwise take the whole launcher down.
+            val value = try { work() } catch (_: Throwable) { null }
             main.post { result.success(value) }
         }
     }

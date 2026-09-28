@@ -779,24 +779,32 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   Future<void> _onAuthStateChanged(AppUser? user) async {
     if (user != null) {
       if (currentUser == null || currentUser!.uid != user.uid) {
-        setCurrentUser(user);
-        
-        final localData = await _localStorage.loadState(user.uid);
-        if (localData != null) {
-          loadStateFromMap(localData);
-          if (settings.autoSaveEnabled) {
-            autoSyncWithCloud().catchError((e) {
-              debugPrint("Failed auto sync with cloud on auth change: $e");
-            });
+        // No saves or dirty-marking until the user's real data is in memory (see beginDataLoad).
+        beginDataLoad();
+        Map<String, dynamic>? localData;
+        var loadedFromCloud = false;
+        try {
+          setCurrentUser(user);
+          localData = await _localStorage.loadState(user.uid);
+          if (localData != null) {
+            loadStateFromMap(localData);
+          } else {
+            // FIX: Auto load from cloud if local state is missing (Fixes web resets)
+            await _resetToInitialState();
+            try {
+              loadedFromCloud = await manuallyLoadFromCloud();
+            } catch (e) {
+              debugPrint("Failed to load initial state from cloud: $e");
+            }
           }
-        } else {
-          // FIX: Auto load from cloud if local state is missing (Fixes web resets)
-          await _resetToInitialState();
-          try {
-            await manuallyLoadFromCloud();
-          } catch (e) {
-            debugPrint("Failed to load initial state from cloud: $e");
-          }
+        } finally {
+          endDataLoad();
+        }
+        if (loadedFromCloud) await forceLocalBackup();
+        if (localData != null && settings.autoSaveEnabled) {
+          autoSyncWithCloud().catchError((e) {
+            debugPrint("Failed auto sync with cloud on auth change: $e");
+          });
         }
         setAuthLoading(false); 
       }
@@ -819,7 +827,13 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         return;
       }
       setCurrentUser(null);
-      await _resetToInitialState();
+      // Signed out (or auth not restored yet at startup): clear memory without queueing saves.
+      beginDataLoad();
+      try {
+        await _resetToInitialState();
+      } finally {
+        endDataLoad();
+      }
       setAuthLoading(false);
     }
   }
@@ -850,7 +864,8 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
   Future<void> _resetToInitialState() async {
     setLastLoginDate(null);
-    setSettings(AppSettings());
+    // Timestamp 0: defaults must never look newer than real data (local cache or cloud).
+    setSettings(AppSettings(lastModified: 0));
     setMainTasks(initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList());
     setCompletedByDay({});
     _cachedWeeklyReports = [];

@@ -27,7 +27,7 @@
     <uses-feature android:name="android.hardware.microphone" android:required="false"/>
     <application
         android:label="Missions"
-        android:name="${applicationName}"
+        android:name=".ArcaneApplication"
         android:icon="@mipmap/ic_launcher"
         android:largeHeap="true"
         android:stopWithTask="false">

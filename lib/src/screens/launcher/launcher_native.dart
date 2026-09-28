@@ -20,6 +20,11 @@ class LauncherNative {
   /// Fired when the activity is re-entered from a non-home intent (app icon, widget deep link, assistant).
   static final ValueNotifier<int> openArcaneRequested = ValueNotifier<int>(0);
 
+  /// Whether Arcane (the app) is currently shown over the launcher. As the home app, Arcane is
+  /// built hidden under the launcher, so app-level UI that pops up on its own (e.g. the goals
+  /// sheet on startup) waits for this.
+  static final ValueNotifier<bool> arcaneVisible = ValueNotifier<bool>(false);
+
   /// Fired with the changed package name when apps are installed / removed / updated.
   static final ValueNotifier<String?> packagesChanged = ValueNotifier<String?>(null);
 
@@ -84,6 +89,14 @@ class LauncherNative {
   }
 
   static Future<void> setTakeoverEnabled(bool enabled) => _invoke<bool>('setTakeoverEnabled', {'enabled': enabled});
+  // ── Crash log (crashes caught so Android keeps Arcane as the default home app) ──
+  static Future<List<String>> getCrashLog() async {
+    final raw = await _invoke<List<dynamic>>('getCrashLog');
+    return raw == null ? const [] : raw.map((e) => '$e').toList();
+  }
+
+  static Future<void> clearCrashLog() => _invoke<bool>('clearCrashLog');
+
   // ── Floating task button (drawn by the same accessibility service) ──
   static Future<Map<String, dynamic>> getTaskBubbleStatus() async {
     final raw = await _invoke<Map<dynamic, dynamic>>('getTaskBubbleStatus');

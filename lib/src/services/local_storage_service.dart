@@ -9,6 +9,11 @@ String _encodeJson(Map<String, dynamic> data) => jsonEncode(data);
 Map<String, dynamic> _decodeJson(String json) => jsonDecode(json);
 
 class LocalStorageService {
+  /// Saves run one at a time (across all instances). Overlapping saves used to share the same
+  /// .tmp file: one save's rename would move the other's data, the second rename then failed
+  /// ("Cannot rename file"), and an older snapshot could land after a newer one.
+  static Future<void> _saveQueue = Future.value();
+
   Future<File> _localFile(String userId) async {
     final directory = await getApplicationDocumentsDirectory();
     return File('${directory.path}/arcane_local_cache_$userId.json');
@@ -19,7 +24,13 @@ class LocalStorageService {
     return File('${directory.path}/arcane_local_cache_$userId.bak');
   }
 
-  Future<void> saveState(String userId, Map<String, dynamic> state) async {
+  Future<void> saveState(String userId, Map<String, dynamic> state) {
+    final run = _saveQueue.then((_) => _saveStateNow(userId, state));
+    _saveQueue = run.catchError((_) {});
+    return run;
+  }
+
+  Future<void> _saveStateNow(String userId, Map<String, dynamic> state) async {
     try {
       if (kIsWeb) {
         final prefs = await SharedPreferences.getInstance();
