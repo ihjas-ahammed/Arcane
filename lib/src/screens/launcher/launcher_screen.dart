@@ -65,6 +65,9 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
     LauncherActions.launch = _launch;
     LauncherActions.dragMoved = _onItemDragMoved;
     LauncherActions.dragEnded = _onItemDragEnded;
+    LauncherService.instance.fullscreen.addListener(_applySystemUiMode);
+    _arcane.addStatusListener((_) => _applySystemUiMode());
+    _applySystemUiMode();
 
     // Build Arcane right after the launcher's first frame so its services (widget publishing,
     // insight watcher, tab routing) run even if the user never opens it — without delaying boot.
@@ -82,6 +85,7 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
 
   @override
   void dispose() {
+    LauncherService.instance.fullscreen.removeListener(_applySystemUiMode);
     LauncherNative.homePressed.removeListener(_goHome);
     LauncherNative.openArcaneRequested.removeListener(_openArcaneFromIntent);
     WidgetActionRouter.instance.tabRequest.removeListener(_onTabRequest);
@@ -98,6 +102,21 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
     _drawer.dispose();
     _pages.dispose();
     super.dispose();
+  }
+
+  // ── Fullscreen ──────────────────────────────────────────────
+
+  bool? _immersive;
+
+  /// Launcher surface in view and fullscreen on → hide the status and navigation bars
+  /// (a swipe from an edge reveals them briefly). Arcane opening over it brings them back.
+  void _applySystemUiMode() {
+    final arcaneShowing =
+        _arcane.status == AnimationStatus.forward || _arcane.status == AnimationStatus.completed;
+    final immersive = LauncherService.instance.fullscreen.value && !arcaneShowing;
+    if (immersive == _immersive) return;
+    _immersive = immersive;
+    SystemChrome.setEnabledSystemUIMode(immersive ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge);
   }
 
   // ── Navigation ──────────────────────────────────────────────

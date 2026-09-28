@@ -7,6 +7,7 @@ import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/launcher_service.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
 import 'package:missions/src/screens/launcher/views/launcher_items.dart';
+import 'package:missions/src/screens/launcher/views/launcher_fullscreen_setting.dart';
 import 'package:missions/src/screens/launcher/views/launcher_takeover_settings.dart';
 
 // ── Shared chrome ─────────────────────────────────────────────
@@ -118,61 +119,68 @@ class _LauncherSettingsState extends State<_LauncherSettings> {
   Widget build(BuildContext context) {
     final service = LauncherService.instance;
     final host = widget.host;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _title('Launcher'),
-        _action(
-          context,
-          _isDefault == true ? MdiIcons.checkDecagram : MdiIcons.homeImportOutline,
-          _isDefault == true ? 'Arcane is your home app' : 'Set Arcane as home app',
-          LauncherNative.openHomeSettings,
-          color: _isDefault == true ? null : LauncherTheme.red,
-          subtitle: 'Opens Android default-apps settings',
-        ),
-        if (_isDefault != true)
+    // Scrollable: with the takeover steps shown it outgrows the sheet on small screens.
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _title('Launcher'),
+          _action(
+            context,
+            _isDefault == true ? MdiIcons.checkDecagram : MdiIcons.homeImportOutline,
+            _isDefault == true ? 'Arcane is your home app' : 'Set Arcane as home app',
+            LauncherNative.openHomeSettings,
+            color: _isDefault == true ? null : LauncherTheme.red,
+            subtitle: 'Opens Android default-apps settings',
+          ),
+          if (_isDefault != true)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: LauncherTakeoverSettings(),
+            ),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
-            child: LauncherTakeoverSettings(),
+            child: LauncherFullscreenSetting(),
           ),
-        ValueListenableBuilder<String?>(
-          valueListenable: service.iconPack,
-          builder: (_, pack, __) => _action(
-            context,
-            MdiIcons.paletteSwatchOutline,
-            'Icon pack',
-            () => showIconPackPicker(host),
-            subtitle: pack ?? 'Original app icons',
+          ValueListenableBuilder<String?>(
+            valueListenable: service.iconPack,
+            builder: (_, pack, __) => _action(
+              context,
+              MdiIcons.paletteSwatchOutline,
+              'Icon pack',
+              () => showIconPackPicker(host),
+              subtitle: pack ?? 'Original app icons',
+            ),
           ),
-        ),
-        _action(context, MdiIcons.dockBottom, 'Edit dock', () => showDockEditor(host)),
-        _action(context, MdiIcons.widgetsOutline, 'Add widget', () => showWidgetPicker(host)),
-        _action(context, MdiIcons.webPlus, 'Add web app', () => showAddWebApp(host),
-            subtitle: 'Any site as an app icon (opens its installed web app if present)'),
-        ValueListenableBuilder<bool>(
-          valueListenable: service.shortcutsAvailable,
-          builder: (_, ok, __) => ok
-              ? const SizedBox.shrink()
-              : Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                  child: Text(
-                    'Chrome web apps installed as home-screen shortcuts can only be read by the default home app. '
-                    'Installed web apps (WebAPKs) already show in the drawer; add others with "Add web app".',
-                    style: LauncherTheme.rajdhani(fontSize: 12, color: LauncherTheme.muted),
+          _action(context, MdiIcons.dockBottom, 'Edit dock', () => showDockEditor(host)),
+          _action(context, MdiIcons.widgetsOutline, 'Add widget', () => showWidgetPicker(host)),
+          _action(context, MdiIcons.webPlus, 'Add web app', () => showAddWebApp(host),
+              subtitle: 'Any site as an app icon (opens its installed web app if present)'),
+          ValueListenableBuilder<bool>(
+            valueListenable: service.shortcutsAvailable,
+            builder: (_, ok, __) => ok
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                    child: Text(
+                      'Chrome web apps installed as home-screen shortcuts can only be read by the default home app. '
+                      'Installed web apps (WebAPKs) already show in the drawer; add others with "Add web app".',
+                      style: LauncherTheme.rajdhani(fontSize: 12, color: LauncherTheme.muted),
+                    ),
                   ),
-                ),
-        ),
-        ValueListenableBuilder<Set<String>>(
-          valueListenable: service.hidden,
-          builder: (_, hidden, __) => _action(
-            context,
-            MdiIcons.eyeOffOutline,
-            'Hidden apps',
-            () => showHiddenApps(host),
-            subtitle: hidden.isEmpty ? 'None' : '${hidden.length} hidden',
           ),
-        ),
-      ],
+          ValueListenableBuilder<Set<String>>(
+            valueListenable: service.hidden,
+            builder: (_, hidden, __) => _action(
+              context,
+              MdiIcons.eyeOffOutline,
+              'Hidden apps',
+              () => showHiddenApps(host),
+              subtitle: hidden.isEmpty ? 'None' : '${hidden.length} hidden',
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

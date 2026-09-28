@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/screens/launcher/launcher_native.dart';
+import 'package:missions/src/screens/launcher/views/launcher_fullscreen_setting.dart';
 import 'package:missions/src/screens/launcher/views/launcher_sheets.dart' show showLauncherSettings;
 import 'package:missions/src/screens/launcher/views/launcher_takeover_settings.dart';
 import 'package:missions/src/widgets/settings/sections/settings_section_card.dart';
@@ -29,6 +30,8 @@ class LauncherSettingsSection extends StatelessWidget {
         ),
         const Divider(height: 16),
         const LauncherTakeoverSettings(),
+        const Divider(height: 16),
+        const LauncherFullscreenSetting(),
         const Divider(height: 16),
         ListTile(
           contentPadding: EdgeInsets.zero,

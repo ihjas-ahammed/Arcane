@@ -62,6 +62,7 @@ class LauncherService {
   static const _kOverrides = 'launcher_v4_icon_overrides';
   static const _kHidden = 'launcher_v4_hidden';
   static const _kStats = 'launcher_v4_stats';
+  static const _kFullscreen = 'launcher_v4_fullscreen';
 
   static const int maxDockSlots = 6;
   static const int maxHomeItems = 40;
@@ -93,6 +94,9 @@ class LauncherService {
 
   /// Bumped whenever icon resolution changes (pack switched, override set, pack map loaded).
   final ValueNotifier<int> iconsRevision = ValueNotifier<int>(0);
+
+  /// Hide the status and navigation bars while the launcher surface is showing (on by default).
+  final ValueNotifier<bool> fullscreen = ValueNotifier<bool>(true);
 
   /// Whether Android lets Arcane read pinned shortcuts (only as the default home app).
   final ValueNotifier<bool> shortcutsAvailable = ValueNotifier<bool>(false);
@@ -138,6 +142,7 @@ class LauncherService {
     widgets.value = List.unmodifiable(_decodeList(prefs.getString(_kWidgets)).map(LauncherWidgetEntry.fromJson));
     hidden.value = Set.unmodifiable(prefs.getStringList(_kHidden) ?? const <String>[]);
     iconPack.value = prefs.getString(_kIconPack);
+    fullscreen.value = prefs.getBool(_kFullscreen) ?? true;
 
     final rawOverrides = _decodeMap(prefs.getString(_kOverrides));
     _overrides = {};
@@ -598,6 +603,11 @@ class LauncherService {
       _kOverrides,
       jsonEncode({for (final e in _overrides.entries) e.key: e.value.toJson()}),
     ));
+  }
+
+  Future<void> setFullscreen(bool value) async {
+    fullscreen.value = value;
+    await (_prefs ?? await SharedPreferences.getInstance()).setBool(_kFullscreen, value);
   }
 
   Future<void> setIconPack(String? pack) async {
