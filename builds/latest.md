@@ -1,3 +1,13 @@
+# ⚡ Arcane System Upgrade // v2026.9.28 (Build #2126092801)
+
+### 🖥️ Fullscreen Launcher
+- **Home screen goes fullscreen**: the status bar and navigation bar are hidden while you're on the launcher, so the wallpaper, clock and dock use the whole screen. Swipe in from the top or bottom edge to show the bars for a moment; swiping down on the home screen still opens notifications.
+- **Bars come back inside Arcane**: opening Arcane from the dock or drawer shows the system bars again, and they hide once you return home.
+- **On by default, optional**: turn it off under More → Home Launcher → *Fullscreen launcher*, or from the launcher's long-press menu → Launcher settings.
+- **Launcher settings sheet scrolls**: it no longer gets cut off at the bottom on small screens.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.27 (Build #2126092709)
 
 ### 📈 Realtime Trading: Smart Money Protocol
