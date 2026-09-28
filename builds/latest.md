@@ -1,3 +1,15 @@
+# ⚡ Arcane System Upgrade // v2026.9.28 (Build #2126092802)
+
+### 🎯 Floating Task Button
+- **AssistiveTouch-style bubble**: a small floating button over every app, shown only while a task is running. It shows a pause icon, the elapsed time and a progress ring.
+- **Tap** halts the running task (the bubble then hides until you start a task again).
+- **Double-tap** checks off the current checkpoint and pops up a box to type the next one. The new checkpoint lands on the same level, right after the one you just finished, so it becomes the next one up — perfect for logging the next chapter or page while reading. Leave the box empty to just check off.
+- **Long-press** opens a quick menu: Halt, Check next, Add checkpoint, Finish, Open plan, and **Turn off**.
+- **Drag** it anywhere; it snaps to the nearest side and remembers its spot.
+- **On by default**: turn it off from the long-press menu or under More → Home Launcher → *Floating task button*. It's drawn by the "Arcane Launcher" accessibility service, so that service needs to be on — the setting links to it.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.28 (Build #2126092801)
 
 ### 🖥️ Fullscreen Launcher
