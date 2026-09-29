@@ -214,14 +214,17 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
             title: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  "INITIALIZE NORA LINK",
-                  style: TextStyle(color: AppTheme.fhAccentPurple, fontFamily: AppTheme.fontDisplay, fontSize: 16),
+                Expanded(
+                  child: Text(
+                    "INITIALIZE NORA LINK",
+                    style: TextStyle(color: AppTheme.fhAccentPurple, fontFamily: AppTheme.fontDisplay, fontSize: 16),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 TextButton.icon(
                   style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
                   icon: Icon(MdiIcons.creation, size: 14, color: AppTheme.fhAccentPurple),
-                  label: Text("Summon Persona", style: TextStyle(color: AppTheme.fhAccentPurple, fontSize: 11)),
+                  label: Text("Summon", style: TextStyle(color: AppTheme.fhAccentPurple, fontSize: 11)),
                   onPressed: () async {
                     final newPersona = await CreateCharacterDialog.show(context, provider);
                     if (newPersona != null) {

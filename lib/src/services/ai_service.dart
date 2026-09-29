@@ -105,9 +105,10 @@ class AIService {
     );
 
     // Open the session.
+    final formattedModel = modelName.startsWith('models/') ? modelName : 'models/$modelName';
     channel.sink.add(jsonEncode({
       'setup': {
-        'model': 'models/$modelName',
+        'model': formattedModel,
         'generationConfig': {
           'responseModalities': ['TEXT']
         }
@@ -163,21 +164,65 @@ class AIService {
     return cleaned;
   }
 
+  @visibleForTesting
+  Map<String, dynamic> parseNoraResponseForTest(String raw) => _parseNoraResponse(raw);
+
   /// Parses a NORA agent response into the `{messages, actions}` map, tolerating
-  /// stray markdown code fences. Falls back to wrapping the raw text as a single
-  /// message. Shared by the Gemini path and the provider fallback.
+  /// reasoning tags (<think>, <thought>), thoughts before markdown code fences, and
+  /// JSON objects with conversational text. Falls back to wrapping the raw text
+  /// as a single message without throwing. Shared by Gemini and fallbacks.
   Map<String, dynamic> _parseNoraResponse(String raw) {
     String cleaned = raw.trim();
-    if (cleaned.startsWith("```")) {
-      final lines = cleaned.split("\n");
-      if (lines.first.startsWith("```")) lines.removeAt(0);
-      if (lines.isNotEmpty && lines.last.startsWith("```")) lines.removeLast();
-      cleaned = lines.join("\n").trim();
+
+    // 1. Check and extract <think>...</think> or <thought>...</thought> tags
+    String? extractedThought;
+    final thoughtTagRegex = RegExp(r'<(?:think|thought)>([\s\S]*?)<\/(?:think|thought)>', caseSensitive: false);
+    final thoughtMatch = thoughtTagRegex.firstMatch(cleaned);
+    if (thoughtMatch != null) {
+      extractedThought = thoughtMatch.group(1)?.trim();
+      cleaned = cleaned.replaceAll(thoughtTagRegex, '').trim();
     }
-    final decoded = JsonUtils.tryDecode(cleaned);
-    if (decoded is Map<String, dynamic>) return decoded;
+
+    // 2. Extract code block if present
+    final codeBlockRegex = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```');
+    final codeMatch = codeBlockRegex.firstMatch(cleaned);
+    if (codeMatch != null) {
+      cleaned = codeMatch.group(1)!.trim();
+    } else {
+      // If no code block, look for outer curly braces
+      int firstBrace = cleaned.indexOf('{');
+      int lastBrace = cleaned.lastIndexOf('}');
+      if (firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace) {
+        cleaned = cleaned.substring(firstBrace, lastBrace + 1).trim();
+      }
+    }
+
+    // 3. Try to decode as JSON
+    try {
+      final decoded = JsonUtils.tryDecode(cleaned);
+      if (decoded is Map<String, dynamic>) {
+        if (extractedThought != null && (!decoded.containsKey('thought') || decoded['thought'] == null)) {
+          decoded['thought'] = extractedThought;
+        }
+        return decoded;
+      }
+    } catch (_) {
+      try {
+        final sanitized = JsonUtils.cleanJsonString(cleaned);
+        final decoded = jsonDecode(sanitized);
+        if (decoded is Map<String, dynamic>) {
+          if (extractedThought != null && (!decoded.containsKey('thought') || decoded['thought'] == null)) {
+            decoded['thought'] = extractedThought;
+          }
+          return decoded;
+        }
+      } catch (_) {}
+    }
+
+    // 4. Fallback: treat as plain message without crashing
     return {
-      "messages": [cleaned],
+      if (extractedThought != null) "thought": extractedThought,
+      "messages": [raw.trim()],
       "actions": []
     };
   }
@@ -689,7 +734,10 @@ class AIService {
               raw = await _liveTextCall(apiKey, modelName, prompt);
             } catch (liveErr) {
               onLog("<span style=\"color:var(--fh-accent-orange);\">Live API failed ($liveErr). Falling back to standard model...</span>");
-              final model = genai.GenerativeModel(model: modelName, apiKey: apiKey);
+              final fallbackModel = (modelName.contains('realtime') || modelName.contains('live') || modelName.contains('exp'))
+                  ? 'gemini-2.0-flash'
+                  : modelName;
+              final model = genai.GenerativeModel(model: fallbackModel, apiKey: apiKey);
               final response = await model.generateContent([genai.Content.text(prompt)]);
               raw = response.text;
             }

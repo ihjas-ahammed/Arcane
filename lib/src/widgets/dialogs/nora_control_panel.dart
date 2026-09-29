@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -41,13 +43,23 @@ class _NoraControlPanelState extends State<NoraControlPanel> {
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context, listen: false);
     final availableModels = <String>{
+      ...AppSettings.defaultLiveModels,
+      ...AppSettings.defaultLiteModels,
+      ...AppSettings.defaultHeavyModels,
       ...provider.settings.liveModels,
       ...provider.settings.liteModels,
       ...provider.settings.heavyModels,
     }.toList();
 
+    final isLight = JweTheme.isLight;
+    final bgDark = isLight ? JweTheme.panel : AppTheme.fhBgDark;
+    final bgDeepDark = isLight ? JweTheme.bgDeep : AppTheme.fhBgDeepDark;
+    final textPrimary = isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary;
+    final textSecondary = isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary;
+    final accentColor = isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple;
+
     return Container(
-      color: AppTheme.fhBgDeepDark,
+      color: bgDeepDark,
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
         left: 24, right: 24, top: 24
@@ -57,20 +69,20 @@ class _NoraControlPanelState extends State<NoraControlPanel> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-              Text("NORA PARAMETERS", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 20, color: AppTheme.fhAccentPurple, fontWeight: FontWeight.bold)),
+            Text("NORA PARAMETERS", style: TextStyle(fontFamily: AppTheme.fontDisplay, fontSize: 20, color: accentColor, fontWeight: FontWeight.bold)),
             const SizedBox(height: 24),
             
-              Text("SYSTEM PROMPT OVERRIDE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+            Text("SYSTEM PROMPT OVERRIDE", style: TextStyle(color: textSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextField(
               controller: _promptController,
               maxLines: 4,
-              style: TextStyle(color: AppTheme.fhTextPrimary, fontSize: 13),
-              decoration:   InputDecoration(
+              style: TextStyle(color: textPrimary, fontSize: 13),
+              decoration: InputDecoration(
                 filled: true,
-                fillColor: AppTheme.fhBgDark,
+                fillColor: bgDark,
                 hintText: "Override Nora's base instructions...",
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
               ),
             ),
             
@@ -82,13 +94,13 @@ class _NoraControlPanelState extends State<NoraControlPanel> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                        Text("MAX BUBBLES/REPLY", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                      Text("MAX BUBBLES/REPLY", style: TextStyle(color: textSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       TextField(
                         controller: _limitController,
                         keyboardType: TextInputType.number,
-                        style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: 'RobotoMono'),
-                        decoration:   InputDecoration(filled: true, fillColor: AppTheme.fhBgDark, border: OutlineInputBorder(), hintText: "e.g. 3 (0 = Auto)"),
+                        style: TextStyle(color: textPrimary, fontFamily: 'RobotoMono'),
+                        decoration: InputDecoration(filled: true, fillColor: bgDark, border: const OutlineInputBorder(), hintText: "e.g. 3 (0 = Auto)"),
                       ),
                     ],
                   ),
@@ -98,13 +110,13 @@ class _NoraControlPanelState extends State<NoraControlPanel> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                        Text("CONTEXT (DAYS)", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+                      Text("CONTEXT (DAYS)", style: TextStyle(color: textSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       TextField(
                         controller: _daysController,
                         keyboardType: TextInputType.number,
-                        style: TextStyle(color: AppTheme.fhTextPrimary, fontFamily: 'RobotoMono'),
-                        decoration:   InputDecoration(filled: true, fillColor: AppTheme.fhBgDark, border: OutlineInputBorder(), hintText: "e.g. 7"),
+                        style: TextStyle(color: textPrimary, fontFamily: 'RobotoMono'),
+                        decoration: InputDecoration(filled: true, fillColor: bgDark, border: const OutlineInputBorder(), hintText: "e.g. 7"),
                       ),
                     ],
                   ),
@@ -114,15 +126,15 @@ class _NoraControlPanelState extends State<NoraControlPanel> {
 
             const SizedBox(height: 16),
             
-              Text("MODEL OVERRIDE", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
+            Text("MODEL OVERRIDE", style: TextStyle(color: textSecondary, fontSize: 10, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             DropdownButtonFormField<String>(
               value: _selectedModel,
-              dropdownColor: AppTheme.fhBgDark,
-              decoration:   InputDecoration(filled: true, fillColor: AppTheme.fhBgDark, border: OutlineInputBorder()),
+              dropdownColor: bgDark,
+              decoration: InputDecoration(filled: true, fillColor: bgDark, border: const OutlineInputBorder()),
               items: [
-                  DropdownMenuItem(value: null, child: Text("System Default", style: TextStyle(color: AppTheme.fhTextSecondary))),
-                ...availableModels.map((m) => DropdownMenuItem(value: m, child: Text(m, style: TextStyle(color: AppTheme.fhTextPrimary)))),
+                DropdownMenuItem(value: null, child: Text("System Default", style: TextStyle(color: textSecondary))),
+                ...availableModels.map((m) => DropdownMenuItem(value: m, child: Text(m, style: TextStyle(color: textPrimary)))),
               ],
               onChanged: (val) => setState(() => _selectedModel = val),
             ),
@@ -139,7 +151,7 @@ class _NoraControlPanelState extends State<NoraControlPanel> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.fhAccentPurple, foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(backgroundColor: accentColor, foregroundColor: Colors.white),
                     onPressed: () {
                       final config = {
                         'systemPromptOverride': _promptController.text.trim().isEmpty ? null : _promptController.text.trim(),

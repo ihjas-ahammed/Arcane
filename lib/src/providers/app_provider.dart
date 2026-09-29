@@ -1043,7 +1043,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   void uncompleteSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubtask(mainTaskId, subtaskId, fromSync: fromSync);
   void deleteSubtask(String mainTaskId, String subtaskId) => _taskActions.deleteSubtask(mainTaskId, subtaskId);
   void duplicateCompletedSubtask(String mainTaskId, String subtaskId) => _taskActions.duplicateCompletedSubtask(mainTaskId, subtaskId);
-  void addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData, {String? parentCheckpointId}) => _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData, parentCheckpointId: parentCheckpointId);
+  String addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData, {String? parentCheckpointId}) => _taskActions.addSubSubtask(mainTaskId, parentSubtaskId, subSubtaskData, parentCheckpointId: parentCheckpointId);
   void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) => _taskActions.updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
   void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.completeSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
   void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) => _taskActions.uncompleteSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, fromSync: fromSync);
@@ -2452,19 +2452,53 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     // 1. Take a database snapshot first
     await saveNoraBackupSnapshot();
 
-    // 2. Loop and execute actions
+    // 2. Loop and execute actions with context linking
+    String? lastCreatedCompoundId;
+    String? lastCreatedTaskName;
+
     for (var act in actions) {
       if (act is! Map<String, dynamic>) continue;
-      final type = act['type'] as String?;
+      final type = (act['type'] as String?)?.toLowerCase();
       if (type == null) continue;
 
       try {
         switch (type) {
           case 'check_task':
-            final taskId = act['taskId'] as String?;
-            final subtaskId = act['subtaskId'] as String?;
-            final subSubtaskId = act['subSubtaskId'] as String?;
+          case 'checktask':
+            String? taskId = act['taskId'] as String? ?? act['mainTaskId'] as String?;
+            String? subtaskId = act['subtaskId'] as String?;
+            String? subSubtaskId = act['subSubtaskId'] as String? ?? act['checkpointId'] as String?;
             final completed = act['completed'] as bool? ?? true;
+            final compoundId = act['compoundId'] as String? ?? act['compound_id'] as String?;
+            final name = (act['name'] as String? ?? act['taskName'] as String? ?? act['task_name'] as String?)?.trim();
+
+            if (compoundId != null && compoundId.contains('|')) {
+              final parts = compoundId.split('|');
+              taskId = parts[0];
+              if (parts.length > 1) subtaskId = parts[1];
+              if (parts.length > 2) subSubtaskId = parts[2];
+            } else if ((taskId == null || subtaskId == null) && name != null && name.isNotEmpty) {
+              final lowerName = name.toLowerCase();
+              for (final m in mainTasks.where((t) => !t.isDeleted)) {
+                for (final s in m.subTasks.where((st) => !st.isDeleted)) {
+                  if (s.name.toLowerCase() == lowerName) {
+                    taskId = m.id;
+                    subtaskId = s.id;
+                    break;
+                  }
+                  for (final cp in s.subSubTasks.where((c) => c.isActive)) {
+                    if (cp.name.toLowerCase() == lowerName) {
+                      taskId = m.id;
+                      subtaskId = s.id;
+                      subSubtaskId = cp.id;
+                      break;
+                    }
+                  }
+                  if (taskId != null) break;
+                }
+                if (taskId != null) break;
+              }
+            }
 
             if (taskId != null && subtaskId != null) {
               if (subSubtaskId != null) {
@@ -2475,44 +2509,183 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
                 }
               } else {
                 if (completed) {
-                  completeSubtask(taskId, subtaskId);
+                  completeSubtask(taskId, subtaskId, fromSync: true);
                 } else {
-                  uncompleteSubtask(taskId, subtaskId);
+                  uncompleteSubtask(taskId, subtaskId, fromSync: true);
+                }
+              }
+              markDirty('tasks');
+              notifyListeners();
+            }
+            break;
+
+          case 'add_task':
+          case 'addtask':
+            final taskType = (act['taskType'] as String? ?? act['task_type'] as String?)?.toLowerCase();
+            final name = (act['name'] as String? ?? act['task_name'] as String? ?? act['title'] as String?)?.trim();
+            final description = (act['description'] as String?) ?? '';
+            String? mainTaskId = act['mainTaskId'] as String? ?? act['main_task_id'] as String?;
+            final mainTaskName = (act['mainTaskName'] as String? ?? act['main_task_name'] as String?)?.trim();
+            final subtaskId = act['subtaskId'] as String? ?? act['subtask_id'] as String?;
+            final why = (act['why'] as String?) ?? '';
+            final what = (act['what'] as String?) ?? '';
+            final theme = (act['theme'] as String?) ?? 'General';
+            final colorHex = (act['colorHex'] as String? ?? act['color_hex'] as String?) ?? 'FF00F8F8';
+
+            if (name != null && name.isNotEmpty) {
+              if (taskType == 'main') {
+                addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
+                final created = mainTasks.firstWhereOrNull((t) => t.name == name);
+                if (created != null) {
+                  lastCreatedCompoundId = created.id;
+                  lastCreatedTaskName = name;
+                }
+              } else {
+                // For subtask or default
+                if (mainTaskId == null && mainTaskName != null && mainTaskName.isNotEmpty) {
+                  final matchedMain = mainTasks.firstWhereOrNull(
+                    (t) => !t.isDeleted && t.name.toLowerCase() == mainTaskName.toLowerCase(),
+                  );
+                  mainTaskId = matchedMain?.id;
+                }
+                if (mainTaskId == null) {
+                  final activeMains = mainTasks.where((t) => !t.isDeleted).toList();
+                  if (activeMains.isNotEmpty) {
+                    mainTaskId = activeMains.first.id;
+                  } else {
+                    addMainTask(name: 'General', description: 'Default category', theme: 'General', colorHex: colorHex);
+                    mainTaskId = mainTasks.firstWhereOrNull((t) => !t.isDeleted)?.id;
+                  }
+                }
+
+                if (mainTaskId != null) {
+                  if (taskType == 'subsub' && subtaskId != null) {
+                    final assignedCpId = addSubSubtask(mainTaskId, subtaskId, {
+                      'name': name,
+                      'completed': false,
+                    });
+                    lastCreatedCompoundId = "$mainTaskId|$subtaskId|$assignedCpId";
+                    lastCreatedTaskName = name;
+                  } else {
+                    final assignedSubId = addSubtask(mainTaskId, {
+                      'name': name,
+                      'description': description,
+                      'why': why,
+                      'what': what,
+                      'completed': false,
+                    });
+                    lastCreatedCompoundId = "$mainTaskId|$assignedSubId";
+                    lastCreatedTaskName = name;
+                  }
+                  markDirty('tasks');
+                  notifyListeners();
                 }
               }
             }
             break;
 
-          case 'add_task':
-            final taskType = act['taskType'] as String?;
-            final name = act['name'] as String?;
-            final description = act['description'] as String? ?? '';
-            final mainTaskId = act['mainTaskId'] as String?;
-            final subtaskId = act['subtaskId'] as String?;
-            final why = act['why'] as String? ?? '';
-            final what = act['what'] as String? ?? '';
-            final theme = act['theme'] as String? ?? 'General';
-            final colorHex = act['colorHex'] as String? ?? 'FF00F8F8';
+          case 'add_to_plan':
+          case 'addtoplan':
+          case 'plan_add':
+            String? compoundId = act['compoundId'] as String? ?? act['compound_id'] as String?;
+            final name = (act['name'] as String? ?? act['taskName'] as String? ?? act['task_name'] as String?)?.trim();
+            final dateStr = (act['date'] as String? ?? act['dateStr'] as String? ?? act['targetDate'] as String?)?.trim() ??
+                DateFormat('yyyy-MM-dd').format(DateTime.now());
+            final estVal = act['estimateMinutes'] ?? act['estimate_minutes'] ?? act['estimate'] ?? act['minutes'];
+            int? estimateMinutes;
+            if (estVal is num) {
+              estimateMinutes = estVal.toInt();
+            } else if (estVal is String) {
+              estimateMinutes = int.tryParse(estVal);
+            }
 
-            if (name != null) {
-              if (taskType == 'main') {
-                addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
-              } else if (taskType == 'sub' && mainTaskId != null) {
-                addSubtask(mainTaskId, {
-                  'id': const Uuid().v4(),
-                  'name': name,
-                  'description': description,
-                  'why': why,
-                  'what': what,
-                  'completed': false,
-                });
-              } else if (taskType == 'subsub' && mainTaskId != null && subtaskId != null) {
-                addSubSubtask(mainTaskId, subtaskId, {
-                  'id': const Uuid().v4(),
-                  'name': name,
-                  'completed': false,
-                });
+            if (compoundId == null && name != null && name.isNotEmpty) {
+              if (lastCreatedTaskName != null &&
+                  lastCreatedTaskName!.toLowerCase() == name.toLowerCase() &&
+                  lastCreatedCompoundId != null) {
+                compoundId = lastCreatedCompoundId;
+              } else {
+                final lowerName = name.toLowerCase();
+                for (final m in mainTasks.where((t) => !t.isDeleted)) {
+                  for (final s in m.subTasks.where((st) => !st.isDeleted)) {
+                    if (s.name.toLowerCase() == lowerName) {
+                      compoundId = "${m.id}|${s.id}";
+                      break;
+                    }
+                    for (final cp in s.subSubTasks.where((c) => c.isActive)) {
+                      if (cp.name.toLowerCase() == lowerName) {
+                        compoundId = "${m.id}|${s.id}|${cp.id}";
+                        break;
+                      }
+                    }
+                    if (compoundId != null) break;
+                  }
+                  if (compoundId != null) break;
+                }
               }
+            }
+
+            // Fallback: If no compoundId but last created exists, use it
+            compoundId ??= lastCreatedCompoundId;
+
+            // If still null and name was provided, create the subtask on the fly then add to plan!
+            if (compoundId == null && name != null && name.isNotEmpty) {
+              var main = mainTasks.firstWhereOrNull((t) => !t.isDeleted);
+              if (main == null) {
+                addMainTask(name: 'General', description: 'Default category', theme: 'General', colorHex: 'FF00F8F8');
+                main = mainTasks.firstWhereOrNull((t) => !t.isDeleted);
+              }
+              if (main != null) {
+                final assignedSubId = addSubtask(main.id, {
+                  'name': name,
+                  'description': '',
+                  'why': '',
+                  'what': '',
+                  'completed': false,
+                });
+                compoundId = "${main.id}|$assignedSubId";
+              }
+            }
+
+            if (compoundId != null) {
+              taskActions.addToDayPlan(compoundId, dateStr, estimateMinutes);
+              markDirty('tasks');
+              notifyListeners();
+            }
+            break;
+
+          case 'remove_from_plan':
+          case 'removefromplan':
+          case 'plan_remove':
+            String? compoundId = act['compoundId'] as String? ?? act['compound_id'] as String?;
+            final name = (act['name'] as String? ?? act['taskName'] as String? ?? act['task_name'] as String?)?.trim();
+            final dateStr = (act['date'] as String? ?? act['dateStr'] as String?)?.trim() ??
+                DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+            if (compoundId == null && name != null && name.isNotEmpty) {
+              final lowerName = name.toLowerCase();
+              for (final m in mainTasks.where((t) => !t.isDeleted)) {
+                for (final s in m.subTasks.where((st) => !st.isDeleted)) {
+                  if (s.name.toLowerCase() == lowerName) {
+                    compoundId = "${m.id}|${s.id}";
+                    break;
+                  }
+                  for (final cp in s.subSubTasks.where((c) => c.isActive)) {
+                    if (cp.name.toLowerCase() == lowerName) {
+                      compoundId = "${m.id}|${s.id}|${cp.id}";
+                      break;
+                    }
+                  }
+                  if (compoundId != null) break;
+                }
+                if (compoundId != null) break;
+              }
+            }
+
+            if (compoundId != null) {
+              taskActions.removeFromDayPlan(compoundId, dateStr);
+              markDirty('tasks');
+              notifyListeners();
             }
             break;
 

@@ -285,20 +285,25 @@ class AppSettings {
   bool noraAutoSpeakTts;
 
   static const List<String> defaultLiteModels = [
-    'gemini-2.0-flash-lite',
+    'gemini-3.8-flash',
+    'gemini-2.5-flash',
     'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
     'gemini-1.5-flash',
   ];
   static const List<String> defaultHeavyModels = [
     'gemini-2.5-pro',
+    'gemini-3.8-flash',
     'gemini-2.0-flash',
     'gemini-2.0-pro-exp-02-05',
     'gemini-1.5-pro',
   ];
   static const List<String> defaultLiveModels = [
+    'gemini-3.8-flash-live-preview',
+    'gemini-3.1-flash-live-preview',
+    'gemini-2.0-flash-realtime-exp',
     'gemini-2.0-flash-exp',
     'gemini-2.0-flash',
-    'gemini-2.0-flash-realtime-exp',
   ];
 
   AppSettings({
@@ -395,21 +400,33 @@ class AppSettings {
             ?.map((e) => (e as String).trim())
             .where((e) => e.isNotEmpty)
             .toList();
-        return (parsed != null && parsed.isNotEmpty) ? parsed : List<String>.from(defaultLiteModels);
+        final list = (parsed != null && parsed.isNotEmpty) ? parsed : List<String>.from(defaultLiteModels);
+        for (final m in defaultLiteModels) {
+          if (!list.contains(m)) list.add(m);
+        }
+        return list;
       }(),
       heavyModels: () {
         final parsed = (json['heavyModels'] as List<dynamic>?)
             ?.map((e) => (e as String).trim())
             .where((e) => e.isNotEmpty)
             .toList();
-        return (parsed != null && parsed.isNotEmpty) ? parsed : List<String>.from(defaultHeavyModels);
+        final list = (parsed != null && parsed.isNotEmpty) ? parsed : List<String>.from(defaultHeavyModels);
+        for (final m in defaultHeavyModels) {
+          if (!list.contains(m)) list.add(m);
+        }
+        return list;
       }(),
       liveModels: () {
         final parsed = (json['liveModels'] as List<dynamic>?)
             ?.map((e) => (e as String).trim())
             .where((e) => e.isNotEmpty)
             .toList();
-        return (parsed != null && parsed.isNotEmpty) ? parsed : List<String>.from(defaultLiveModels);
+        final list = (parsed != null && parsed.isNotEmpty) ? parsed : List<String>.from(defaultLiveModels);
+        for (final m in defaultLiveModels) {
+          if (!list.contains(m)) list.add(m);
+        }
+        return list;
       }(),
       customApiKeys: keys,
       customChatbotPrompt: json['customChatbotPrompt'] as String?,

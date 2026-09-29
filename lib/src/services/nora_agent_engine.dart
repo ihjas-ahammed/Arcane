@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/models/task_models.dart';
@@ -211,24 +213,44 @@ AVAILABLE INBUILT AGENT FUNCTIONS:
     - Removes a memory entry from ${persona.name}'s dedicated Memory Space.
 12. memory_list(limit: int?)
     - Lists all memory keys and tags in ${persona.name}'s dedicated Memory Space.
+13. add_task(name: string, description: string?, task_type: 'main'|'sub'|'subsub'?, main_task_id: string?, main_task_name: string?, subtask_id: string?, why: string?, what: string?, color_hex: string?)
+    - Creates a new main task, subtask, or checkpoint. If task_type is omitted or 'sub', automatically adds it under the specified or best-fitting main task. Returns created task IDs and compound_id.
+14. add_to_plan(task_name: string?, compound_id: string?, main_task_id: string?, subtask_id: string?, date: string?, estimate_minutes: int?)
+    - Schedules and adds a task or checkpoint to the day plan for today (or specified YYYY-MM-DD date). Can reference by task_name or compound_id.
+15. check_task(task_name: string?, compound_id: string?, main_task_id: string?, subtask_id: string?, checkpoint_id: string?, completed: bool?)
+    - Marks a task or checkpoint as completed (or uncompleted).
+16. remove_from_plan(task_name: string?, compound_id: string?, date: string?)
+    - Removes a task from the scheduled day plan.
 
 AGENT INSTRUCTIONS & PROTOCOL:
-- You are a real autonomous agent. You do NOT have all journals dumped in context; you must use find_reflections() or read_reflections() when you need to know about the user's past, journals, emotions, or history.
-- You have your own dedicated long-term Memory Space. Use memory_add() to remember important user preferences, character notes, or ongoing threads across sessions.
-- To call a function, respond with JSON format:
+- You are an advanced autonomous agent with deep reasoning capabilities. Always use your step-by-step reasoning ("thought") to decide what actions or tools to call.
+- For queries asking to add tasks, add to day plan, complete tasks, remember information, or search user journals:
+  * First reason about the user's intent.
+  * If needed, use tools like find_tasks() or get_day_plan() to inspect current tasks and plans.
+  * You can call tools during your reasoning loop (like add_task or add_to_plan) OR specify mutating commands in the final "actions" array. Both methods will be executed!
+  * If the user says "add task X and add to plan", you can call add_task first or return both in "actions" with type "add_task" and "add_to_plan".
+- To call a function during reasoning, respond with JSON format:
   {
-    "thought": "Reasoning about what information I need or what memory to update...",
+    "thought": "Reasoning about what information I need or what tool to invoke...",
     "tool_call": {
       "name": "<function_name>",
       "args": { ... }
     }
   }
-- When you have all required information to reply to the user, respond with JSON format:
+- When you have completed all tool actions and are ready to deliver your final response to the user, respond with JSON format:
   {
-    "thought": "I have everything needed to formulate my in-character response.",
-    "messages": ["response message 1", "response message 2 (optional)"],
+    "thought": "Summary of reasoning and actions taken...",
+    "messages": ["In-character response to user 1", "Optional response message 2"],
     "actions": [
-      // Optional DB mutating actions like check_task, add_task, edit_person, edit_reflection, add_nora_skill, custom_db_edit
+      // Optional DB mutating actions executed after the conversation turn:
+      // - {"type": "add_task", "name": "Task Name", "taskType": "sub", "mainTaskId": "...", "description": "..."}
+      // - {"type": "add_to_plan", "name": "Task Name", "date": "YYYY-MM-DD", "estimateMinutes": 30}
+      // - {"type": "check_task", "name": "Task Name", "completed": true}
+      // - {"type": "remove_from_plan", "name": "Task Name"}
+      // - {"type": "edit_person", "name": "...", "relation": "...", ...}
+      // - {"type": "edit_reflection", "id": "...", ...}
+      // - {"type": "add_nora_skill", "name": "...", ...}
+      // - {"type": "custom_db_edit", "path": "...", "value": ...}
     ]
   }
 
@@ -249,6 +271,13 @@ RESPONSE FORMAT: Output ONLY the JSON object. No markdown fences.
 
     return buffer.toString();
   }
+
+  @visibleForTesting
+  Future<dynamic> dispatchToolForTest({
+    required String toolName,
+    required Map<String, dynamic> toolArgs,
+    required String personaId,
+  }) => _dispatchTool(toolName: toolName, toolArgs: toolArgs, personaId: personaId);
 
   /// Dispatches the tool call to the corresponding local method
   Future<dynamic> _dispatchTool({
@@ -279,6 +308,24 @@ RESPONSE FORMAT: Output ONLY the JSON object. No markdown fences.
         case 'get_day_plan':
         case 'getdayplan':
           return _getDayPlan(toolArgs);
+
+        case 'add_task':
+        case 'addtask':
+          return _addTask(toolArgs);
+
+        case 'add_to_plan':
+        case 'addtoplan':
+        case 'plan_add':
+          return _addToPlan(toolArgs);
+
+        case 'check_task':
+        case 'checktask':
+          return _checkTask(toolArgs);
+
+        case 'remove_from_plan':
+        case 'removefromplan':
+        case 'plan_remove':
+          return _removeFromPlan(toolArgs);
 
         case 'find_people':
         case 'findpeople':
@@ -636,5 +683,248 @@ RESPONSE FORMAT: Output ONLY the JSON object. No markdown fences.
     }).toList();
 
     return {'total': memories.length, 'memories': memories};
+  }
+
+  dynamic _addTask(Map<String, dynamic> args) {
+    final name = (args['name'] ?? args['task_name'] ?? args['title'])?.toString().trim();
+    if (name == null || name.isEmpty) {
+      return {'error': "Task name is required."};
+    }
+
+    final taskType = (args['task_type'] ?? args['taskType'])?.toString().toLowerCase() ?? 'sub';
+    final description = (args['description'] ?? '').toString();
+    final why = (args['why'] ?? '').toString();
+    final what = (args['what'] ?? '').toString();
+    final colorHex = (args['color_hex'] ?? args['colorHex'] ?? 'FF00F8F8').toString();
+    final theme = (args['theme'] ?? 'General').toString();
+
+    if (taskType == 'main') {
+      provider.addMainTask(name: name, description: description, theme: theme, colorHex: colorHex);
+      final created = provider.mainTasks.firstWhereOrNull((t) => t.name == name);
+      return {
+        'status': 'success',
+        'task_type': 'main',
+        'task_id': created?.id,
+        'name': name,
+      };
+    }
+
+    // Determine mainTaskId
+    String? mainTaskId = (args['main_task_id'] ?? args['mainTaskId'])?.toString();
+    final mainTaskName = (args['main_task_name'] ?? args['mainTaskName'])?.toString().trim();
+
+    if (mainTaskId == null && mainTaskName != null && mainTaskName.isNotEmpty) {
+      final match = provider.mainTasks.firstWhereOrNull(
+        (t) => !t.isDeleted && t.name.toLowerCase() == mainTaskName.toLowerCase(),
+      );
+      mainTaskId = match?.id;
+    }
+
+    if (mainTaskId == null) {
+      final active = provider.mainTasks.where((t) => !t.isDeleted).toList();
+      if (active.isNotEmpty) {
+        mainTaskId = active.first.id;
+      } else {
+        provider.addMainTask(name: 'General', description: 'Default category', theme: 'General', colorHex: colorHex);
+        mainTaskId = provider.mainTasks.firstWhereOrNull((t) => !t.isDeleted)?.id;
+      }
+    }
+
+    if (mainTaskId == null) {
+      return {'error': 'Failed to resolve or create parent main task.'};
+    }
+
+    if (taskType == 'subsub') {
+      final subtaskId = (args['subtask_id'] ?? args['subtaskId'])?.toString();
+      if (subtaskId == null) {
+        return {'error': 'subtask_id is required for checkpoint/subsubtask.'};
+      }
+      final assignedCpId = provider.addSubSubtask(mainTaskId, subtaskId, {
+        'name': name,
+        'completed': false,
+      });
+      return {
+        'status': 'success',
+        'task_type': 'subsub',
+        'main_task_id': mainTaskId,
+        'subtask_id': subtaskId,
+        'checkpoint_id': assignedCpId,
+        'compound_id': '$mainTaskId|$subtaskId|$assignedCpId',
+        'name': name,
+      };
+    }
+
+    // Default: subtask
+    final assignedSubId = provider.addSubtask(mainTaskId, {
+      'name': name,
+      'description': description,
+      'why': why,
+      'what': what,
+      'completed': false,
+    });
+
+    final compoundId = '$mainTaskId|$assignedSubId';
+    return {
+      'status': 'success',
+      'task_type': 'sub',
+      'main_task_id': mainTaskId,
+      'subtask_id': assignedSubId,
+      'compound_id': compoundId,
+      'name': name,
+    };
+  }
+
+  dynamic _addToPlan(Map<String, dynamic> args) {
+    String? compoundId = (args['compound_id'] ?? args['compoundId'] ?? args['id'])?.toString();
+    final name = (args['task_name'] ?? args['taskName'] ?? args['name'])?.toString().trim();
+    final dateStr = (args['date'] ?? args['date_str'] ?? args['targetDate'])?.toString().trim() ??
+        DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final estVal = args['estimate_minutes'] ?? args['estimateMinutes'] ?? args['minutes'] ?? args['estimate'];
+    int? estimateMinutes;
+    if (estVal is num) {
+      estimateMinutes = estVal.toInt();
+    } else if (estVal is String) {
+      estimateMinutes = int.tryParse(estVal);
+    }
+
+    if (compoundId == null && name != null && name.isNotEmpty) {
+      final lower = name.toLowerCase();
+      for (final m in provider.mainTasks.where((t) => !t.isDeleted)) {
+        for (final s in m.subTasks.where((st) => !st.isDeleted)) {
+          if (s.name.toLowerCase() == lower) {
+            compoundId = "${m.id}|${s.id}";
+            break;
+          }
+          for (final cp in s.subSubTasks.where((c) => c.isActive)) {
+            if (cp.name.toLowerCase() == lower) {
+              compoundId = "${m.id}|${s.id}|${cp.id}";
+              break;
+            }
+          }
+          if (compoundId != null) break;
+        }
+        if (compoundId != null) break;
+      }
+
+      // If not found, auto-create subtask
+      if (compoundId == null) {
+        var m = provider.mainTasks.firstWhereOrNull((t) => !t.isDeleted);
+        if (m == null) {
+          provider.addMainTask(name: 'General', description: 'Default category', theme: 'General', colorHex: 'FF00F8F8');
+          m = provider.mainTasks.firstWhereOrNull((t) => !t.isDeleted);
+        }
+        if (m != null) {
+          final assignedSubId = provider.addSubtask(m.id, {
+            'name': name,
+            'description': '',
+            'why': '',
+            'what': '',
+            'completed': false,
+          });
+          compoundId = "${m.id}|$assignedSubId";
+        }
+      }
+    }
+
+    if (compoundId == null) {
+      return {'error': 'Could not resolve task to add to plan.'};
+    }
+
+    provider.taskActions.addToDayPlan(compoundId, dateStr, estimateMinutes);
+    return {
+      'status': 'success',
+      'compound_id': compoundId,
+      'date': dateStr,
+      'estimate_minutes': estimateMinutes,
+    };
+  }
+
+  dynamic _checkTask(Map<String, dynamic> args) {
+    String? taskId = (args['main_task_id'] ?? args['mainTaskId'] ?? args['taskId'])?.toString();
+    String? subtaskId = (args['subtask_id'] ?? args['subtaskId'])?.toString();
+    String? checkpointId = (args['checkpoint_id'] ?? args['checkpointId'] ?? args['subSubtaskId'])?.toString();
+    final completed = args['completed'] as bool? ?? true;
+    final compoundId = (args['compound_id'] ?? args['compoundId'])?.toString();
+    final name = (args['task_name'] ?? args['taskName'] ?? args['name'])?.toString().trim();
+
+    if (compoundId != null && compoundId.contains('|')) {
+      final parts = compoundId.split('|');
+      taskId = parts[0];
+      if (parts.length > 1) subtaskId = parts[1];
+      if (parts.length > 2) checkpointId = parts[2];
+    } else if ((taskId == null || subtaskId == null) && name != null && name.isNotEmpty) {
+      final lower = name.toLowerCase();
+      for (final m in provider.mainTasks.where((t) => !t.isDeleted)) {
+        for (final s in m.subTasks.where((st) => !st.isDeleted)) {
+          if (s.name.toLowerCase() == lower) {
+            taskId = m.id;
+            subtaskId = s.id;
+            break;
+          }
+          for (final cp in s.subSubTasks.where((c) => c.isActive)) {
+            if (cp.name.toLowerCase() == lower) {
+              taskId = m.id;
+              subtaskId = s.id;
+              checkpointId = cp.id;
+              break;
+            }
+          }
+          if (taskId != null) break;
+        }
+        if (taskId != null) break;
+      }
+    }
+
+    if (taskId != null && subtaskId != null) {
+      if (checkpointId != null) {
+        if (completed) {
+          provider.completeSubSubtask(taskId, subtaskId, checkpointId);
+        } else {
+          provider.uncompleteSubSubtask(taskId, subtaskId, checkpointId);
+        }
+      } else {
+        if (completed) {
+          provider.completeSubtask(taskId, subtaskId, fromSync: true);
+        } else {
+          provider.uncompleteSubtask(taskId, subtaskId, fromSync: true);
+        }
+      }
+      return {'status': 'success', 'completed': completed};
+    }
+
+    return {'error': "Could not resolve task to mark completed."};
+  }
+
+  dynamic _removeFromPlan(Map<String, dynamic> args) {
+    String? compoundId = (args['compound_id'] ?? args['compoundId'])?.toString();
+    final name = (args['task_name'] ?? args['taskName'] ?? args['name'])?.toString().trim();
+    final dateStr = (args['date'] ?? args['date_str'] ?? args['targetDate'])?.toString().trim() ??
+        DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    if (compoundId == null && name != null && name.isNotEmpty) {
+      final lower = name.toLowerCase();
+      for (final m in provider.mainTasks.where((t) => !t.isDeleted)) {
+        for (final s in m.subTasks.where((st) => !st.isDeleted)) {
+          if (s.name.toLowerCase() == lower) {
+            compoundId = "${m.id}|${s.id}";
+            break;
+          }
+          for (final cp in s.subSubTasks.where((c) => c.isActive)) {
+            if (cp.name.toLowerCase() == lower) {
+              compoundId = "${m.id}|${s.id}|${cp.id}";
+              break;
+            }
+          }
+          if (compoundId != null) break;
+        }
+        if (compoundId != null) break;
+      }
+    }
+
+    if (compoundId != null) {
+      provider.taskActions.removeFromDayPlan(compoundId, dateStr);
+      return {'status': 'success', 'removed': compoundId, 'date': dateStr};
+    }
+    return {'error': "Could not resolve task to remove from plan."};
   }
 }

@@ -271,6 +271,31 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
+  /// Adds [compoundId] to the scheduled day plan for [dateStr] (default today).
+  /// Preserves planRowEntries if they exist and sets [estimateMinutes] if provided.
+  void addToDayPlan(String compoundId, [String? dateStr, int? estimateMinutes]) {
+    final targetDate = dateStr ?? getTodayDateString();
+    final currentPlan = List<String>.from(getDayPlan(targetDate));
+    if (!currentPlan.contains(compoundId)) {
+      currentPlan.add(compoundId);
+    }
+
+    final existingRowEntries = getDayPlanRowEntries(targetDate);
+    if (existingRowEntries.isNotEmpty) {
+      bool alreadyInRow = existingRowEntries.any((r) => r.any((e) => e['id'] == compoundId));
+      if (!alreadyInRow) {
+        existingRowEntries.add([{'id': compoundId, 'addedAtRuntime': true}]);
+        saveDayPlanRowEntries(targetDate, existingRowEntries);
+      }
+    } else {
+      updateDayPlan(targetDate, currentPlan);
+    }
+
+    if (estimateMinutes != null && estimateMinutes > 0) {
+      setDayPlanEstimate(targetDate, compoundId, estimateMinutes);
+    }
+  }
+
   /// Consumes one planned occurrence of [compoundId] (e.g. after a work
   /// session ends). Duplicates are deliberate — each entry is one planned
   /// session — so only the first exact match is removed, and checkpoint
