@@ -1,3 +1,18 @@
+# ⚡ Arcane System Upgrade // v2026.9.29 (Build #2126092901)
+
+### 🤖 NORA Tactical AI: Gemini 3.8 Reasoning & Autonomous Database Actions
+- **Gemini 3.8 & Flash-Live Reasoning**: Full support for next-gen `gemini-3.8-flash` and `gemini-3.8-flash-live-preview` thinking models. NORA uses step-by-step reasoning (`<think>` and `<thought>` scratchpads) to analyze objectives before orchestrating operations.
+- **Robust Reasoning Parser**: Isolated thought extraction guarantees chain-of-thought scratchpads and markdown code blocks never disrupt structured JSON actions or crash parsing.
+- **Direct Database Commands**: NORA can now autonomously create, schedule, complete, and remove tasks on your behalf:
+  - `add_task`: Creates new missions, subtasks, or checkpoints under any objective with auto-generated compound IDs.
+  - `add_to_plan`: Schedules tasks into Today's Plan with custom time estimates, automatically linking to newly created tasks.
+  - `check_task`: Checks off tasks or checkpoints by compound ID or fuzzy title matching without requiring prior stopwatch run-time.
+  - `remove_from_plan`: Removes items from the daily schedule queue.
+- **Model Presets & Auto-Migration**: Added Gemini 3.8 tiers to NORA session parameters, settings view, and quick model picker. Existing user configurations automatically merge newly supported models on startup.
+- **Dual-Theme & Narrow Screen Polish**: Adapted session controls to `JweTheme` warm paper/stone palette in light mode and resolved layout overflow in the session initialization header on compact screens.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.28 (Build #2126092804)
 
 ### 🛸 Floating Task Button: Redesign, AssistiveTouch Side-Settle & Keep-Alive
