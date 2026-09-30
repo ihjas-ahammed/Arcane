@@ -1,3 +1,28 @@
+# ⚡ Arcane System Upgrade // v2026.9.30 (Build #2126093001)
+
+### 🛸 Floating NORA Tactical AI & Hands-Free Wearable Companion
+- **Floating NORA HUD Overlay**: Tactical floating companion drawn over all applications as an accessibility overlay (requires zero special overlay permissions). Features audio-reactive RMS pulsation, monospace telemetry (`[NORA]` / `[● REC]`), and automatic side-docking against the bezel when idle.
+- **Interactive Transcript & Response Card**: Displays live speech transcription and streaming AI responses with single-tap fullscreen expansion (`[⤢ EXPAND]`), manual stop, and close actions.
+- **Hands-Free Watch & Headset Auto-Mic**: Voice commands triggered via smartwatch or Bluetooth (`ACTION_VOICE_COMMAND`, `ACTION_ASSIST`) instantly route audio to Bluetooth and engage microphone listening immediately without requiring the operator to touch their phone.
+- **Wearable Launch Mode Toggle**: Choose between launching full-screen Arcane or summoning the lightweight floating NORA HUD when initiating voice from your smartwatch.
+
+### 🎯 Accessibility Voice-Tap Recording for 3rd-Party AIs
+- **Record First-Time Voice Tap**: When using external AI providers (ChatGPT, Claude, Gemini, etc.) whose Android apps fail to auto-start microphone listening on launch, operators can record the voice switch click once in Settings.
+- **Automated Replay**: Arcane captures the target view ID, description, or screen-ratio coordinates via Accessibility and automatically replays the tap every time the external AI is triggered from a smartwatch or headset.
+- **Management Controls**: Test, view saved trigger tags, re-record, or clear recorded taps directly from the Custom Assistant Picker screen.
+
+### 🛡️ Anti-Kill Shield & MIUI / HyperOS Home Persistence
+- **MIUI Home Launcher Persistence**: Ensures Arcane remains the default home launcher on aggressive ROMs using Android 10+ `RoleManager.ROLE_HOME`, MIUI Preferred Apps Intent, and fallback settings.
+- **Background Protection Checklist**: Comprehensive status checks for Accessibility Service, Battery Optimization exemption, MIUI Autostart, and Background Pop-up permissions.
+- **Lock in Recents Visual Guide**: Guided walkthrough to lock Arcane in recent tasks memory, preventing MIUI from terminating background services.
+- **System Shutdown & Crash Log Inspector**: Live diagnostic viewer for `CrashGuard` caught errors and unhandled exceptions with one-tap clipboard copy and log clearing.
+
+### 🎨 Dual-Theme & Responsive Layout Polish
+- **Dual-Theme Conformance**: Calibrated all new overlay and settings components with `JweTheme` design tokens, ensuring seamless transitions between midnight tactical dark mode and warm paper/stone light mode.
+- **Narrow-Screen Optimization**: Resolved horizontal row overflows in header bars and dialog titles on compact device form factors.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.29 (Build #2126092901)
 
 ### 🤖 NORA Tactical AI: Gemini 3.8 Reasoning & Autonomous Database Actions
