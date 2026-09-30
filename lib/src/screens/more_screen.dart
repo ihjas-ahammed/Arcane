@@ -21,6 +21,7 @@ import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/widgets/settings/sections/launcher_settings_section.dart';
 import 'package:missions/src/widgets/views/settings_view.dart';
 import 'package:missions/src/screens/trading/realtime_trading_screen.dart';
+import 'package:missions/src/screens/tools/input_reply_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -202,6 +203,13 @@ class MoreScreen extends StatelessWidget {
             subtitle: "Preview, customize & sync Android home-screen widgets",
             color: () => JweTheme.accentTeal,
             builder: (_) => const HomescreenWidgetsPreviewScreen(),
+          ),
+          _MenuEntry(
+            icon: MdiIcons.recordCircleOutline,
+            title: "Input Reply",
+            subtitle: "Record & replay whole-device interactions, gestures & macros",
+            color: () => JweTheme.accentCyan,
+            builder: (_) => const InputReplyScreen(),
           ),
           _MenuEntry(
             icon: MdiIcons.busStopCovered,

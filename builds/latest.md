@@ -1,3 +1,18 @@
+# ⚡ Arcane System Upgrade // v2026.9.30 (Build #2126093002)
+
+### 🎬 Universal Whole-Device Input Reply & Macro Engine
+- **Full-Device Interaction Recording**: Introduced `Input Reply`, a comprehensive device-wide macro recording and replay tool integrated directly into System & Utilities (`MoreScreen` under `TOOLS`).
+- **Floating Tactical HUD Controller**: Summoned over all Android apps via Accessibility overlay (`TYPE_ACCESSIBILITY_OVERLAY`). Features live step counter, active application package badge, pulsing red recording indicator, and one-tap emergency stop (`[■ STOP]`).
+- **Zero Special Overlay Permissions**: Seamlessly rendered via Arcane's Accessibility Service without requiring Android's intrusive `SYSTEM_ALERT_WINDOW` permission.
+- **Deep Action Interception**: Automatically records user clicks, long presses, typing blocks, directional swipes/scrolls, launch intents, global keys (`BACK`, `HOME`, `RECENTS`), and inter-action delay timings.
+- **`input-reply-agent-v1` Standard Parity**: 100% compatible with the desktop `input-reply` agent macro format. Macros can be shared between Android Arcane and the Linux desktop terminal (`~/.local/share/input-reply/recordings/`).
+- **Dynamic Parameterization**: Transform any recorded typing block into a named variable parameter (e.g. `$query`, `$message`, `$recipient`) with custom descriptions and default values.
+- **Configurable Replay Controller**: Replay macros with dynamic parameter substitutions, custom execution speed multipliers (`0.5x` to `2.0x`), and repeat loops (`1x` to `10x`).
+- **Step Timeline Inspector**: Dedicated modal inspection sheet with step-by-step visual timeline, target descriptions, package tags, and one-click JSON clipboard export.
+- **Dual-Theme Tactical Parity**: Styled strictly adhering to `JweTheme` dual-theme guidelines in both dark and light modes.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.30 (Build #2126093001)
 
 ### 🛸 Floating NORA Tactical AI & Hands-Free Wearable Companion

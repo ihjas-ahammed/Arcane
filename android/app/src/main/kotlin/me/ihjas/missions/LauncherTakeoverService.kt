@@ -144,6 +144,7 @@ class LauncherTakeoverService : AccessibilityService() {
         refreshHomePackages()
         taskBubble = TaskBubbleOverlay(this).also { it.start() }
         noraBubble = NoraBubbleOverlay(this).also { it.start() }
+        InputReplyManager.initialize(this)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -173,9 +174,13 @@ class LauncherTakeoverService : AccessibilityService() {
     fun updateEventFilter() {
         try {
             val info = serviceInfo ?: return
+            val inputReplyRecording = InputReplyManager.instance?.isRecordingActive() == true
             val rec = recordingTapPackage
             val auto = autoTapPendingPackage
-            if (rec != null || auto != null) {
+            if (inputReplyRecording) {
+                // Whole-device recording mode: receive events from all packages
+                info.packageNames = null
+            } else if (rec != null || auto != null) {
                 // When recording or auto-tapping, allow events from the target package
                 val extraPkgs = listOfNotNull(rec, auto)
                 info.packageNames = (homePackages + extraPkgs).toTypedArray()
@@ -196,6 +201,10 @@ class LauncherTakeoverService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
+
+        // ── 0. Whole-Device Input Reply Recording ──────────────────────────
+        InputReplyManager.instance?.handleAccessibilityEvent(event)
+
         val pkg = event.packageName?.toString() ?: return
 
         // ── 1. Recording First-Time Tap for External Assistant ─────────────
