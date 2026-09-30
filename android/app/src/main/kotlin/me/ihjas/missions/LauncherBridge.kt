@@ -273,6 +273,41 @@ class LauncherBridge(
             }
             "openMiuiPermissions" -> result.success(openMiuiPermissions(call.argument<String>("page") ?: "autostart"))
             "openHomeSettings" -> result.success(startSafely(Intent(Settings.ACTION_HOME_SETTINGS)))
+            "requestDefaultLauncher" -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val rm = activity.getSystemService(android.app.role.RoleManager::class.java)
+                    if (rm != null && rm.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME)) {
+                        if (!rm.isRoleHeld(android.app.role.RoleManager.ROLE_HOME)) {
+                            val roleIntent = rm.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME)
+                            try {
+                                activity.startActivity(roleIntent)
+                                result.success(true)
+                                return@onMethodCall
+                            } catch (_: Exception) {}
+                        }
+                    }
+                }
+                val miuiIntent = Intent("miui.intent.action.PREFERRED_APP_SETTINGS")
+                if (startSafely(miuiIntent)) {
+                    result.success(true)
+                    return@onMethodCall
+                }
+                val miuiComp = Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.preferredapp.PreferredSettingsActivity"))
+                if (startSafely(miuiComp)) {
+                    result.success(true)
+                    return@onMethodCall
+                }
+                result.success(startSafely(Intent(Settings.ACTION_HOME_SETTINGS)))
+            }
+            "getMiuiShieldStatus" -> result.success(mapOf(
+                "isDefault" to isDefaultLauncher(),
+                "takeoverEnabled" to LauncherTakeoverService.isEnabled(activity),
+                "serviceEnabled" to LauncherTakeoverService.isServiceEnabled(activity),
+                "ignoringBattery" to isIgnoringBatteryOptimizations(),
+                "isMiui" to isMiui(),
+                "hasCrashLog" to CrashGuard.read(activity).isNotEmpty(),
+                "crashLog" to CrashGuard.read(activity)
+            ))
             "getApps" -> background(result) { getApps() }
             "getDefaultApps" -> background(result) { getDefaultApps() }
             "getPinnedShortcuts" -> background(result) { getPinnedShortcuts() }

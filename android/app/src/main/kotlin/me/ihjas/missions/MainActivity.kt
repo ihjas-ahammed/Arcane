@@ -331,6 +331,11 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
             }
         }
 
+        // Arm auto-tap replay if a first-time tap was recorded for this external AI!
+        if (LauncherTakeoverService.hasRecordedTap(this, targetPackage)) {
+            LauncherTakeoverService.armAutoTap(this, targetPackage)
+        }
+
         // 0. If explicit activity is specified, try launching it directly with voice extras
         if (!targetActivity.isNullOrEmpty()) {
             val comp = ComponentName(targetPackage, targetActivity)
@@ -562,9 +567,13 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
             }
         }
 
-        // Default: Open Nora in Arcane with auto mic start
-        pendingAssistantAction = "open_nora_voice"
-        dispatchWidgetAction("open_nora_voice")
+        // Default: Open Nora with auto mic start (floating HUD or full screen)
+        if (NoraBubbleOverlay.isFloatingForWatch(this) && LauncherTakeoverService.isServiceEnabled(this)) {
+            NoraBubbleOverlay.summonAndListen(this)
+        } else {
+            pendingAssistantAction = "open_nora_voice"
+            dispatchWidgetAction("open_nora_voice")
+        }
         return true
     }
 
@@ -941,6 +950,58 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                             }
                         }
                     }.start()
+                }
+                "startRecordingTap" -> {
+                    val pkg = call.argument<String>("package") ?: ""
+                    if (pkg.isNotEmpty()) {
+                        LauncherTakeoverService.startRecordingTap(this, pkg)
+                        val pm = packageManager
+                        val launchIntent = pm.getLaunchIntentForPackage(pkg)?.apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        if (launchIntent != null) {
+                            startActivity(launchIntent)
+                            result.success(true)
+                        } else {
+                            result.success(false)
+                        }
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "hasRecordedTap" -> {
+                    val pkg = call.argument<String>("package") ?: ""
+                    result.success(LauncherTakeoverService.hasRecordedTap(this, pkg))
+                }
+                "clearRecordedTap" -> {
+                    val pkg = call.argument<String>("package") ?: ""
+                    LauncherTakeoverService.clearRecordedTap(this, pkg)
+                    result.success(true)
+                }
+                "getRecordedTapInfo" -> {
+                    val pkg = call.argument<String>("package") ?: ""
+                    result.success(LauncherTakeoverService.getRecordedTapInfo(this, pkg))
+                }
+                "getNoraBubbleStatus" -> {
+                    result.success(mapOf(
+                        "enabled" to NoraBubbleOverlay.isEnabled(this),
+                        "watchFloating" to NoraBubbleOverlay.isFloatingForWatch(this),
+                        "serviceEnabled" to LauncherTakeoverService.isServiceEnabled(this)
+                    ))
+                }
+                "setNoraBubbleEnabled" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: true
+                    NoraBubbleOverlay.setEnabled(this, enabled)
+                    result.success(true)
+                }
+                "setNoraWatchFloating" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: true
+                    NoraBubbleOverlay.setFloatingForWatch(this, enabled)
+                    result.success(true)
+                }
+                "summonFloatingNora" -> {
+                    NoraBubbleOverlay.summonAndListen(this)
+                    result.success(true)
                 }
                 else -> result.notImplemented()
             }

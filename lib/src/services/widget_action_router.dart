@@ -17,6 +17,9 @@ import 'package:missions/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
 import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/utils/global_toast.dart';
+import 'package:missions/src/models/chatbot_models.dart';
+import 'package:home_widget/home_widget.dart';
+import 'package:missions/src/services/tts_service.dart';
 
 /// Tab indexes in HomeScreen — kept in sync with `_viewTitles` over there.
 class HomeTab {
@@ -198,7 +201,49 @@ class WidgetActionRouter {
         break;
 
       default:
+        if (action.startsWith('nora_prompt:')) {
+          final prompt = action.substring('nora_prompt:'.length).trim();
+          if (prompt.isNotEmpty) {
+            _processNoraPrompt(prompt);
+          }
+          break;
+        }
         debugPrint('[WidgetActionRouter] unknown action: $action');
+    }
+  }
+
+  Future<void> _processNoraPrompt(String prompt) async {
+    try {
+      final context = navigatorKey.currentContext;
+      if (context == null) return;
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+
+      await HomeWidget.saveWidgetData<String>('arcane.nora.state', 'thinking');
+      await HomeWidget.updateWidget(name: 'NoraBubbleWidget');
+
+      await appProvider.sendNoraMessage(prompt);
+
+      String cleanReply = '';
+      final messages = appProvider.activeNoraSession?.messages;
+      if (messages != null && messages.isNotEmpty) {
+        final lastMsg = messages.last;
+        if (lastMsg.sender == MessageSender.bot) {
+          cleanReply = lastMsg.text;
+        }
+      }
+
+      await HomeWidget.saveWidgetData<String>('arcane.nora.response', cleanReply);
+      await HomeWidget.saveWidgetData<String>('arcane.nora.state', 'ready');
+      await HomeWidget.updateWidget(name: 'NoraBubbleWidget');
+
+      if (appProvider.settings.noraAutoSpeakTts && cleanReply.isNotEmpty) {
+        await TtsService.instance.speak(cleanReply);
+      }
+    } catch (e) {
+      debugPrint('[WidgetActionRouter] Error processing nora prompt: $e');
+      await HomeWidget.saveWidgetData<String>('arcane.nora.response', 'Error: $e');
+      await HomeWidget.saveWidgetData<String>('arcane.nora.state', 'error');
+      await HomeWidget.updateWidget(name: 'NoraBubbleWidget');
     }
   }
 

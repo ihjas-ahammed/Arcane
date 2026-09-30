@@ -57,11 +57,10 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
       AssistantRoutingService.instance.routeBluetoothAudio(true);
       final appProvider = Provider.of<AppProvider>(context, listen: false);
       if (widget.isVoiceCommandLaunch) {
-        if (appProvider.settings.noraAutoSpeakTts) {
-          _speakInitialGreeting();
-        } else {
-          _startAutoListening();
-        }
+        // Immediate hands-free mic engagement for watch/Bluetooth voice commands
+        _startAutoListening();
+      } else if (appProvider.settings.noraAutoSpeakTts && _isLiveVoiceOpen) {
+        _speakInitialGreeting();
       }
     });
 

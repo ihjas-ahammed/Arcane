@@ -113,6 +113,14 @@ class LauncherNative {
   static Future<bool> requestIgnoreBatteryOptimizations() async =>
       await _invoke<bool>('requestIgnoreBatteryOptimizations') ?? false;
 
+  static Future<bool> requestDefaultLauncher() async =>
+      await _invoke<bool>('requestDefaultLauncher') ?? false;
+
+  static Future<Map<String, dynamic>> getMiuiShieldStatus() async {
+    final raw = await _invoke<Map<dynamic, dynamic>>('getMiuiShieldStatus');
+    return raw == null ? const {} : Map<String, dynamic>.from(raw);
+  }
+
   static Future<List<Map<String, dynamic>>> getApps() async {
     final raw = await _invoke<List<dynamic>>('getApps');
     if (raw == null) return const [];

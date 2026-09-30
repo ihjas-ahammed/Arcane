@@ -206,4 +206,97 @@ class AssistantRoutingService {
       return null;
     }
   }
+
+  /// Starts first-time tap recording for an external assistant package.
+  Future<bool> startRecordingTap(String package) async {
+    try {
+      final success = await _channel.invokeMethod<bool>('startRecordingTap', {
+        'package': package,
+      });
+      return success ?? false;
+    } catch (e) {
+      debugPrint('[AssistantRoutingService] Error starting tap recording: $e');
+      return false;
+    }
+  }
+
+  /// Checks if a package has a recorded auto-tap signature.
+  Future<bool> hasRecordedTap(String package) async {
+    try {
+      final has = await _channel.invokeMethod<bool>('hasRecordedTap', {
+        'package': package,
+      });
+      return has ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Clears recorded auto-tap signature for a package.
+  Future<bool> clearRecordedTap(String package) async {
+    try {
+      final success = await _channel.invokeMethod<bool>('clearRecordedTap', {
+        'package': package,
+      });
+      return success ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Retrieves details of recorded auto-tap for a package.
+  Future<Map<String, dynamic>?> getRecordedTapInfo(String package) async {
+    try {
+      final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>('getRecordedTapInfo', {
+        'package': package,
+      });
+      return raw == null ? null : Map<String, dynamic>.from(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Gets floating Nora overlay status.
+  Future<Map<String, dynamic>> getNoraBubbleStatus() async {
+    try {
+      final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>('getNoraBubbleStatus');
+      return raw == null ? const {} : Map<String, dynamic>.from(raw);
+    } catch (e) {
+      return const {};
+    }
+  }
+
+  /// Enables or disables floating Nora overlay.
+  Future<bool> setNoraBubbleEnabled(bool enabled) async {
+    try {
+      final success = await _channel.invokeMethod<bool>('setNoraBubbleEnabled', {
+        'enabled': enabled,
+      });
+      return success ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Enables or disables using floating Nora for watch / Bluetooth triggers.
+  Future<bool> setNoraWatchFloating(bool enabled) async {
+    try {
+      final success = await _channel.invokeMethod<bool>('setNoraWatchFloating', {
+        'enabled': enabled,
+      });
+      return success ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Summons floating Nora HUD and begins hands-free listening immediately.
+  Future<bool> summonFloatingNora() async {
+    try {
+      final success = await _channel.invokeMethod<bool>('summonFloatingNora');
+      return success ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
 }

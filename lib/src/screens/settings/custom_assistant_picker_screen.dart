@@ -33,6 +33,7 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
   AppActivityInfo? _selectedActivity; // null means "Default Launch / Voice Mode"
   String _activeFilter = 'all'; // 'all', 'user', 'assistants'
   String _searchQuery = '';
+  Map<String, dynamic>? _recordedTapInfo;
 
   @override
   void initState() {
@@ -138,6 +139,13 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
       _selectedActivity = preselected;
       _isLoadingActivities = false;
     });
+    _refreshRecordedTapInfo(app.package);
+  }
+
+  Future<void> _refreshRecordedTapInfo(String pkg) async {
+    final info = await AssistantRoutingService.instance.getRecordedTapInfo(pkg);
+    if (!mounted) return;
+    setState(() => _recordedTapInfo = info);
   }
 
   void _backToAppList() {
@@ -618,7 +626,8 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        // First-Time Tap Recording Card for external AI
+        _buildRecordedTapCard(panelColor, cardColor, borderColor, primaryTextColor, secondaryTextColor, accentColor),
 
         // Default Auto Voice option
         InkWell(
@@ -797,6 +806,128 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
             );
           }),
       ],
+    );
+  }
+
+  Widget _buildRecordedTapCard(
+    Color panelColor,
+    Color cardColor,
+    Color borderColor,
+    Color primaryTextColor,
+    Color secondaryTextColor,
+    Color accentColor,
+  ) {
+    final isRecorded = _recordedTapInfo != null;
+    final info = _recordedTapInfo;
+    final tag = info?['viewId'] ?? info?['desc'] ?? (info != null ? 'Coordinates (${((info['xRatio'] as num? ?? 0.5) * 100).toInt()}%, ${((info['yRatio'] as num? ?? 0.5) * 100).toInt()}%)' : '');
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12, bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isRecorded ? Colors.green.withValues(alpha: 0.08) : cardColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isRecorded ? Colors.green.withValues(alpha: 0.6) : accentColor.withValues(alpha: 0.5),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isRecorded ? Icons.check_circle : Icons.touch_app,
+                color: isRecorded ? Colors.green : accentColor,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isRecorded ? "VOICE SWITCH AUTO-TAP ACTIVE" : "RECORD FIRST-TIME VOICE TAP",
+                  style: TextStyle(
+                    color: isRecorded ? Colors.green : accentColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            isRecorded
+                ? "Saved Trigger: $tag\nArcane will auto-click this switch whenever this AI is launched from your watch or headset."
+                : "Does this AI app not start the microphone on launch? Tap the button below, then click the voice/mic switch inside the app once. Arcane will save it via Accessibility and auto-click it every time you trigger voice from your watch or headset.",
+            style: TextStyle(color: secondaryTextColor, fontSize: 11.5, height: 1.4),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              if (isRecorded) ...[
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      if (_selectedApp == null) return;
+                      await AssistantRoutingService.instance.launchVoiceMode(_selectedApp!.package);
+                    },
+                    icon: const Icon(Icons.play_arrow, size: 14),
+                    label: const Text("TEST TAP", style: TextStyle(fontSize: 11)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primaryTextColor,
+                      side: BorderSide(color: borderColor),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      if (_selectedApp == null) return;
+                      await AssistantRoutingService.instance.clearRecordedTap(_selectedApp!.package);
+                      await _refreshRecordedTapInfo(_selectedApp!.package);
+                    },
+                    icon: const Icon(Icons.delete_outline, size: 14),
+                    label: const Text("CLEAR", style: TextStyle(fontSize: 11)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: BorderSide(color: Colors.red.withValues(alpha: 0.4)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+              ] else ...[
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () async {
+                      if (_selectedApp == null) return;
+                      final ok = await AssistantRoutingService.instance.startRecordingTap(_selectedApp!.package);
+                      if (ok && mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text("Recording tap: switch to ${_selectedApp!.label} and click the voice button!"),
+                            backgroundColor: accentColor,
+                          ),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.fiber_manual_record, size: 14, color: Colors.red),
+                    label: const Text("RECORD FIRST-TIME TAP", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: accentColor,
+                      foregroundColor: JweTheme.onAccent,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
