@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/timeline_models.dart';
 import 'package:missions/src/models/app_state_models.dart';
@@ -5,11 +6,113 @@ import 'package:missions/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ScheduleActions {
   final AppProvider _provider;
+  final Map<String, List<TimelineEntry>> _cachedPredictedEntries = {};
 
   ScheduleActions(this._provider);
+
+  String _dateKey(DateTime date) => DateFormat('yyyy-MM-dd').format(date);
+
+  Future<void> _ensureLoaded(DateTime date) async {
+    final key = _dateKey(date);
+    if (_cachedPredictedEntries.containsKey(key)) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('predicted_schedule_$key');
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw) as List<dynamic>;
+        final list = <TimelineEntry>[];
+        for (var item in decoded) {
+          if (item is Map) {
+            final start = DateTime.tryParse(item['startTime'] ?? '');
+            final end = DateTime.tryParse(item['endTime'] ?? '');
+            if (start != null && end != null) {
+              final colorHex = item['colorHex'] as String?;
+              Color c = AppTheme.fhTextDisabled;
+              if (colorHex != null && colorHex.isNotEmpty) {
+                try {
+                  c = Color(int.parse(colorHex, radix: 16));
+                } catch (_) {}
+              }
+              list.add(TimelineEntry(
+                id: item['id'] ?? 'pred_${start.millisecondsSinceEpoch}',
+                startTime: start,
+                endTime: end,
+                title: item['title'] ?? 'Predicted Session',
+                subtitle: item['subtitle'],
+                color: c,
+                isPredicted: true,
+                isEditable: false,
+              ));
+            }
+          }
+        }
+        _cachedPredictedEntries[key] = list;
+      } else {
+        _cachedPredictedEntries[key] = [];
+      }
+    } catch (e) {
+      debugPrint("Error loading predicted schedule for $key: $e");
+      _cachedPredictedEntries[key] = [];
+    }
+  }
+
+  List<TimelineEntry> getPredictedEntriesForDate(DateTime date) {
+    final key = _dateKey(date);
+    if (!_cachedPredictedEntries.containsKey(key)) {
+      // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
+      _ensureLoaded(date).then((_) => _provider.notifyListeners());
+      return [];
+    }
+    return List.unmodifiable(_cachedPredictedEntries[key] ?? []);
+  }
+
+  Future<void> setPredictedEntriesForDate(DateTime date, List<TimelineEntry> entries) async {
+    final key = _dateKey(date);
+    final nonEditable = entries.map((e) => e.copyWith(isPredicted: true, isEditable: false)).toList();
+    _cachedPredictedEntries[key] = nonEditable;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final serialized = nonEditable.map((e) => {
+        'id': e.id,
+        'startTime': e.startTime.toIso8601String(),
+        'endTime': e.endTime.toIso8601String(),
+        'title': e.title,
+        'subtitle': e.subtitle,
+        'colorHex': e.color.toARGB32().toRadixString(16).padLeft(8, '0'),
+        'isPredicted': true,
+        'isEditable': false,
+      }).toList();
+      await prefs.setString('predicted_schedule_$key', jsonEncode(serialized));
+    } catch (e) {
+      debugPrint("Error saving predicted schedule for $key: $e");
+    }
+    // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
+    _provider.notifyListeners();
+  }
+
+  Future<void> clearPredictedEntriesForDate(DateTime date) async {
+    final key = _dateKey(date);
+    _cachedPredictedEntries[key] = [];
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('predicted_schedule_$key');
+    } catch (_) {}
+    // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
+    _provider.notifyListeners();
+  }
+
+  Future<void> removePredictedEntry(DateTime date, String entryId) async {
+    final key = _dateKey(date);
+    final list = _cachedPredictedEntries[key];
+    if (list != null) {
+      final updated = list.where((e) => e.id != entryId).toList();
+      await setPredictedEntriesForDate(date, updated);
+    }
+  }
 
   Future<List<TimelineEntry>> predictSchedule() async {
     final historyLogs = _provider.getLast7DaysData()['sessions'] as String;
@@ -69,9 +172,11 @@ class ScheduleActions {
           subtitle: taskName,
           color: c,
           isPredicted: true,
-          isEditable: true,
+          isEditable: false,
         ));
       }
+
+      await setPredictedEntriesForDate(now, newEntries);
 
       _provider.addAiLog(
         action: 'Schedule Prediction',

@@ -1,3 +1,16 @@
+# ⚡ Arcane System Upgrade // v2026.10.1 (Build #2126100105)
+
+### 🔮 External AI Schedule Predictor & Non-Editable Blueprint Overlay ("OVY")
+- **Zero-Latency External Day Planning**: Integrated an external AI schedule synthesis pipeline allowing operators to leverage frontier LLMs (ChatGPT, Claude, Gemini, Perplexity) to predict and structure their daily missions.
+- **Dedicated Telemetry Dataset & Prompt Generator**: Long-press on the timeline crystal ball control icon or choose from the options menu to open the dedicated External AI Schedule screen. Generates rich contextual telemetry (uncompleted day plan, 14-day timeline history, 30-day reflection logs, task registry, today's goals, and reference time) alongside a strict JSON schema prompt with 1-tap clipboard copy and Android share sheet (`Share.share`).
+- **Persistent Non-Editable Blueprint Overlay**: Parsed external AI schedule predictions render as ghost blueprint background cards (`isPredicted: true`, `isEditable: false`) stored persistently in `SharedPreferences` across app restarts.
+- **Physical Overdraw Architecture**: Predicted overlay blocks render underneath real sessions at full timeline width. Operators can seamlessly plan their day and drag-to-create or log real missions directly over and through predicted blocks without column squishing or overlap interference.
+- **Interactive Overlay Management**: Tap any predicted overlay card to convert it directly into a real session or dismiss it. Active overlays trigger an amber indicator on the timeline crystal ball with clear overlay shortcuts.
+- **RAM Footprint & Daemon Optimization**: Cleared dangling build daemons and bounded background execution memory.
+- **Dual-Theme Tactical Parity**: Styled adhering strictly to `JweTheme` dual-theme guidelines in both dark and light modes.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.1 (Build #2126100104)
 
 ### 🎯 Input-Reply Macro Engine & Touch Precision Polish

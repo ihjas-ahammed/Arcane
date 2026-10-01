@@ -131,7 +131,7 @@ class TimelineEntryCard extends StatelessWidget {
                     ),
                   if (showTime)
                     Text(
-                      "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}",
+                      "${DateFormat('HH:mm').format(entry.startTime)} - ${DateFormat('HH:mm').format(entry.endTime)}${entry.subtitle != null && entry.subtitle!.isNotEmpty ? ' · ${entry.subtitle}' : ''}",
                       style: TextStyle(
                         color: timeColor,
                         fontSize: 8,

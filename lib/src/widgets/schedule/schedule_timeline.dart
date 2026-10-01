@@ -532,7 +532,53 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     return ScheduleTimeline.calculateTimelineLayout(effectiveEntries, basePixelsPerHour: _basePixelsPerHour);
   }
 
-  bool _isTouchOnEntry(Offset localPosition, List<TimelineLayoutEntry> layoutEntries, double maxWidth) {
+  bool _isTouchOnEntry(
+    Offset localPosition,
+    List<TimelineLayoutEntry> layoutEntries,
+    List<TimelineEntry> predictedEntries,
+    double maxWidth,
+  ) {
+    const double leftGutter = 60.0;
+    final double availableWidth = (maxWidth - leftGutter - 10).clamp(0.0, double.infinity);
+
+    // 1. Check real entries first
+    for (final le in layoutEntries) {
+      final entry = le.entry;
+      final startTotalHours = entry.startTime.hour + (entry.startTime.minute / 60.0) + (entry.startTime.second / 3600.0);
+      final top = startTotalHours * _basePixelsPerHour;
+      final rawHeight = (entry.durationSeconds / 3600.0) * _basePixelsPerHour;
+      final height = math.max(3.0, rawHeight);
+
+      final double widthPerCol = availableWidth / le.totalCols;
+      final double left = leftGutter + (le.col * widthPerCol);
+      final double cardWidth = (widthPerCol * le.colSpan - 4).clamp(0.0, double.infinity);
+
+      final rect = Rect.fromLTWH(left, top, cardWidth, height);
+      if (rect.inflate(8.0).contains(localPosition)) {
+        return true;
+      }
+    }
+
+    // 2. Check predicted overlay entries
+    for (final pred in predictedEntries) {
+      final startTotalHours = pred.startTime.hour + (pred.startTime.minute / 60.0) + (pred.startTime.second / 3600.0);
+      final top = startTotalHours * _basePixelsPerHour;
+      final rawHeight = (pred.durationSeconds / 3600.0) * _basePixelsPerHour;
+      final height = math.max(16.0, rawHeight);
+
+      final rect = Rect.fromLTWH(leftGutter, top, availableWidth, height);
+      if (rect.inflate(4.0).contains(localPosition)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _isTouchOnRealEntry(
+    Offset localPosition,
+    List<TimelineLayoutEntry> layoutEntries,
+    double maxWidth,
+  ) {
     const double leftGutter = 60.0;
     final double availableWidth = (maxWidth - leftGutter - 10).clamp(0.0, double.infinity);
 
@@ -565,7 +611,10 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     final isLargeScreen = screenWidth > 900;
     final bottomPadding = isLargeScreen ? 0.0 : (0 + MediaQuery.of(context).padding.bottom);
 
-    final layoutEntries = _calculateLayout(widget.entries);
+    // Separate real sessions from predicted overlay entries so real sessions take full width and overdraw through
+    final realEntries = widget.entries.where((e) => !e.isPredicted).toList();
+    final predictedEntries = widget.entries.where((e) => e.isPredicted).toList();
+    final layoutEntries = _calculateLayout(realEntries);
 
     return LayoutBuilder(builder: (context, constraints) {
       return Container(
@@ -578,7 +627,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTapUp: (details) {
-              if (_isTouchOnEntry(details.localPosition, layoutEntries, constraints.maxWidth)) {
+              if (_isTouchOnEntry(details.localPosition, layoutEntries, predictedEntries, constraints.maxWidth)) {
                 return;
               }
               if (_selectedEntryId != null) {
@@ -588,7 +637,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
               }
             },
             onLongPressStart: (details) {
-              if (_isTouchOnEntry(details.localPosition, layoutEntries, constraints.maxWidth)) {
+              if (_isTouchOnRealEntry(details.localPosition, layoutEntries, constraints.maxWidth)) {
                 return;
               }
               _startRangeCreation(details.localPosition);
@@ -662,7 +711,31 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
                   // Current Time
                   _buildCurrentTimeIndicator(pixelsPerHour),
 
-                  // Entries
+                  // ── PREDICTED SCHEDULE OVERLAY LAYER (Ghost Blueprint Background) ──
+                  // Renders as a non-editable background overlay spanning full available width.
+                  // Real recorded sessions render after this and overdraw directly on top of it.
+                  ...predictedEntries.map((pred) {
+                    final startTotalHours = pred.startTime.hour + (pred.startTime.minute / 60.0) + (pred.startTime.second / 3600.0);
+                    final top = startTotalHours * pixelsPerHour;
+                    final rawHeight = (pred.durationSeconds / 3600.0) * pixelsPerHour;
+                    final height = math.max(16.0, rawHeight);
+
+                    const double leftGutter = 60.0;
+                    final double availableWidth = (constraints.maxWidth - leftGutter - 10).clamp(0.0, double.infinity);
+
+                    return Positioned(
+                      top: top,
+                      left: leftGutter,
+                      child: TimelineEntryCard(
+                        entry: pred,
+                        height: height,
+                        width: availableWidth,
+                        onTap: () => widget.onEditEntry(pred),
+                      ),
+                    );
+                  }),
+
+                  // Real Recorded Sessions Layer (Overdraws directly on top of the predicted overlay)
                   ...layoutEntries.map((le) {
                     final entry = le.entry;
                     final isSelected = entry.id == _selectedEntryId;
@@ -1027,6 +1100,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
       ),
     );
   }
+
 
   Widget _buildRangeCreationGhost({
     required DateTime start,

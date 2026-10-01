@@ -63,20 +63,12 @@ class ScheduleEntryResolver {
       }
     });
 
-    // 3. Process predicted entries (ensure no overlap unless all lessons are less than 5 minutes)
+    // 3. Process predicted entries (preserved as non-editable overlay entries that can be overdrawn through)
     for (var pred in predictedEntries) {
-      bool overlaps = false;
-      for (var real in entries) {
-        if (pred.startTime.isBefore(real.endTime) && pred.endTime.isAfter(real.startTime)) {
-          final predIsShort = pred.endTime.difference(pred.startTime) < const Duration(minutes: 5);
-          final realIsShort = real.endTime.difference(real.startTime) < const Duration(minutes: 5);
-          if (!(predIsShort && realIsShort)) {
-            overlaps = true;
-            break;
-          }
-        }
-      }
-      if (!overlaps) entries.add(pred);
+      entries.add(pred.copyWith(
+        isPredicted: true,
+        isEditable: false,
+      ));
     }
 
     return entries;

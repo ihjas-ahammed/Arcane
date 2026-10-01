@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/timeline_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/screens/schedule/external_ai_schedule_screen.dart';
 import 'package:missions/src/screens/schedule/today_planner_screen.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/task_calculations.dart';
@@ -86,24 +87,180 @@ class _ScheduleViewState extends State<ScheduleView> {
     }
   }
 
+  void _openExternalAiSchedule(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ExternalAiScheduleScreen(initialDate: _selectedDate),
+      ),
+    );
+  }
+
+  void _showPredictOptions(BuildContext context, AppProvider provider) {
+    final activeOverlay = provider.scheduleActions.getPredictedEntriesForDate(_selectedDate);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        decoration: BoxDecoration(
+          color: JweTheme.panel,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          border: Border.all(color: JweTheme.border),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(MdiIcons.crystalBall, size: 18, color: JweTheme.accentCyan),
+                  const SizedBox(width: 8),
+                  Text(
+                    'SCHEDULE PREDICTION & PLAN OVERLAY',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.accentCyan,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                tileColor: JweTheme.panel2,
+                leading: Icon(MdiIcons.robotOutline, color: JweTheme.accentCyan),
+                title: Text(
+                  'EXTERNAL AI PREDICTOR (OVERLAY)',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.isLight ? JweTheme.accentCyan : Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                subtitle: Text(
+                  'Export context dataset, copy prompt, and paste frontier AI output as non-editable blueprint overlay.',
+                  style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.5),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openExternalAiSchedule(context);
+                },
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                tileColor: JweTheme.panel2,
+                leading: Icon(Icons.flash_on_rounded, color: JweTheme.accentAmber),
+                title: Text(
+                  'IN-APP AI PREDICT',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.isLight ? JweTheme.accentAmber : Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                subtitle: Text(
+                  'Synthesize prediction directly via in-app Gemini API.',
+                  style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.5),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _handlePredictSchedule(provider);
+                },
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                tileColor: JweTheme.panel2,
+                leading: Icon(Icons.add_task_rounded, color: JweTheme.textWhite),
+                title: Text(
+                  'MANUAL PREDICTION EVENT',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.textWhite,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                subtitle: Text(
+                  'Manually add a predicted blueprint event block.',
+                  style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.5),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showManualPrediction(provider);
+                },
+              ),
+              if (activeOverlay.isNotEmpty || _predictedEntries.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  tileColor: JweTheme.accentRed.withValues(alpha: 0.12),
+                  leading: Icon(Icons.layers_clear_rounded, color: JweTheme.accentRed),
+                  title: Text(
+                    'CLEAR PREDICTED OVERLAY (${activeOverlay.length + _predictedEntries.length} BLOCKS)',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.accentRed,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Remove all predicted ghost blocks for this date.',
+                    style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.5),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await provider.scheduleActions.clearPredictedEntriesForDate(_selectedDate);
+                    setState(() {
+                      _predictedEntries.clear();
+                    });
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showManualPrediction(AppProvider provider) {
     showManualPredictionDialog(
       context: context,
       provider: provider,
       selectedDate: _selectedDate,
       onAddPrediction: (entry) {
+        final nonEditable = entry.copyWith(isPredicted: true, isEditable: false);
         setState(() {
-          _predictedEntries.add(entry);
+          _predictedEntries.add(nonEditable);
         });
+        provider.scheduleActions.setPredictedEntriesForDate(
+          _selectedDate,
+          [...provider.scheduleActions.getPredictedEntriesForDate(_selectedDate), nonEditable],
+        );
       },
     );
   }
 
   List<TimelineEntry> _buildEntries(AppProvider provider) {
+    final persisted = provider.scheduleActions.getPredictedEntriesForDate(_selectedDate);
+    final combinedPredicted = [
+      ...persisted,
+      ..._predictedEntries.where((p) => !persisted.any((e) => e.id == p.id)),
+    ];
     return ScheduleEntryResolver.buildEntries(
       provider: provider,
       selectedDate: _selectedDate,
-      predictedEntries: _predictedEntries,
+      predictedEntries: combinedPredicted,
     );
   }
 
@@ -371,6 +528,7 @@ class _ScheduleViewState extends State<ScheduleView> {
               setState(() {
                 _predictedEntries.removeWhere((e) => e.id == entry.id);
               });
+              provider.scheduleActions.removePredictedEntry(_selectedDate, entry.id);
               Navigator.pop(ctx);
             },
             child: Text("REMOVE", style: TextStyle(color: JweTheme.accentRed)),
@@ -595,16 +753,21 @@ class _ScheduleViewState extends State<ScheduleView> {
                 onTap: () => _shiftDate(1),
               ),
               const SizedBox(width: 8),
-              if (isToday)
-                ScheduleControlIcon(
-                  icon: _isPredicting ? null : MdiIcons.crystalBall,
-                  loading: _isPredicting,
-                  accent: JweTheme.accentCyan,
-                  tooltip: 'PREDICT (Tap: AI Predict | Long-Click: Manual Event)',
-                  onTap: _isPredicting ? null : () => _handlePredictSchedule(provider),
-                  onLongPress: _isPredicting ? null : () => _showManualPrediction(provider),
-                ),
-              if (isToday) const SizedBox(width: 6),
+              Builder(
+                builder: (context) {
+                  final activeOverlay = provider.scheduleActions.getPredictedEntriesForDate(_selectedDate);
+                  final hasOverlay = activeOverlay.isNotEmpty || _predictedEntries.isNotEmpty;
+                  return ScheduleControlIcon(
+                    icon: _isPredicting ? null : MdiIcons.crystalBall,
+                    loading: _isPredicting,
+                    accent: hasOverlay ? JweTheme.accentAmber : JweTheme.accentCyan,
+                    tooltip: 'PREDICT & BLUEPRINT (Tap: Options | Long-Click: External AI)',
+                    onTap: _isPredicting ? null : () => _showPredictOptions(context, provider),
+                    onLongPress: _isPredicting ? null : () => _openExternalAiSchedule(context),
+                  );
+                },
+              ),
+              const SizedBox(width: 6),
               ScheduleControlIcon(
                 icon: MdiIcons.console,
                 accent: JweTheme.accentAmber,
