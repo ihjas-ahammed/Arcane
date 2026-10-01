@@ -21,22 +21,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Set up Flutter SDK
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-          cache: true
-
-      - name: Get Flutter Dependencies
-        run: flutter pub get
-
-      - name: Extract version from pubspec.yaml
+      - name: Extract version and check if already built
         id: version
         shell: bash
         run: |
@@ -45,7 +30,43 @@ jobs:
           echo "vname=$VERSION" >> $GITHUB_OUTPUT
           echo "vcode=$VCODE" >> $GITHUB_OUTPUT
 
+          ALREADY_EXISTS=false
+          if ls builds/*-b${VCODE}-*.apk 1> /dev/null 2>&1 || ls builds/missions-v*-b${VCODE}* 1> /dev/null 2>&1; then
+            echo "Found existing APKs for version code $VCODE in builds/."
+            ALREADY_EXISTS=true
+          elif git log -n 100 --format="%s" | grep -q "(#${VCODE})"; then
+            echo "Found commit for version code $VCODE in recent git history."
+            ALREADY_EXISTS=true
+          fi
+
+          if [ "$ALREADY_EXISTS" = true ]; then
+            echo "Version code $VCODE already built or exists in builds/. Skipping rebuild."
+            echo "skip_build=true" >> $GITHUB_OUTPUT
+          else
+            echo "Version code $VCODE does not exist yet. Proceeding with build."
+            echo "skip_build=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Java
+        if: steps.version.outputs.skip_build != 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter SDK
+        if: steps.version.outputs.skip_build != 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Get Flutter Dependencies
+        if: steps.version.outputs.skip_build != 'true'
+        run: flutter pub get
+
       - name: Create api_keys.dart from secret
+        if: steps.version.outputs.skip_build != 'true'
         env:
           GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
         run: |
@@ -59,9 +80,11 @@ jobs:
       # ../../debug.keystore (i.e. the repo root). It's committed, so the
       # checkout step already places it where Gradle expects.
       - name: Build release APK (split per ABI)
+        if: steps.version.outputs.skip_build != 'true'
         run: flutter build apk --release --split-per-abi
 
       - name: Copy APKs to builds directory and update release metadata
+        if: steps.version.outputs.skip_build != 'true'
         shell: bash
         run: |
           VERSION="${{ steps.version.outputs.vname }}"
@@ -102,7 +125,7 @@ jobs:
           ls -lh builds/
 
       - name: Commit and push builds to repository
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.version.outputs.skip_build != 'true'
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
@@ -120,7 +143,7 @@ jobs:
           fi
 
       - name: Publish GitHub Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.version.outputs.skip_build != 'true'
         uses: softprops/action-gh-release@v1
         with:
           files: builds/missions-v${{ steps.version.outputs.vname }}-b${{ steps.version.outputs.vcode }}-*.apk
