@@ -219,7 +219,6 @@ class WidgetActionRouter {
       final appProvider = Provider.of<AppProvider>(context, listen: false);
 
       await HomeWidget.saveWidgetData<String>('arcane.nora.state', 'thinking');
-      await HomeWidget.updateWidget(name: 'NoraBubbleWidget');
 
       await appProvider.sendNoraMessage(prompt);
 
@@ -234,7 +233,6 @@ class WidgetActionRouter {
 
       await HomeWidget.saveWidgetData<String>('arcane.nora.response', cleanReply);
       await HomeWidget.saveWidgetData<String>('arcane.nora.state', 'ready');
-      await HomeWidget.updateWidget(name: 'NoraBubbleWidget');
 
       if (appProvider.settings.noraAutoSpeakTts && cleanReply.isNotEmpty) {
         await TtsService.instance.speak(cleanReply);
@@ -243,7 +241,6 @@ class WidgetActionRouter {
       debugPrint('[WidgetActionRouter] Error processing nora prompt: $e');
       await HomeWidget.saveWidgetData<String>('arcane.nora.response', 'Error: $e');
       await HomeWidget.saveWidgetData<String>('arcane.nora.state', 'error');
-      await HomeWidget.updateWidget(name: 'NoraBubbleWidget');
     }
   }
 

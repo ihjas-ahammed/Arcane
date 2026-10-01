@@ -87,11 +87,13 @@ class LauncherTakeoverService : AccessibilityService() {
         fun startRecordingTap(context: Context, targetPackage: String) {
             recordingTapPackage = targetPackage
             activeInstance?.updateEventFilter()
-            android.widget.Toast.makeText(
-                context,
-                "Tap the voice/mic button in $targetPackage to record it...",
-                android.widget.Toast.LENGTH_LONG
-            ).show()
+            Handler(Looper.getMainLooper()).post {
+                android.widget.Toast.makeText(
+                    context.applicationContext,
+                    "Tap the voice/mic button in $targetPackage to record it...",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
         }
 
         fun hasRecordedTap(context: Context, targetPackage: String): Boolean {
@@ -210,35 +212,45 @@ class LauncherTakeoverService : AccessibilityService() {
         // ── 1. Recording First-Time Tap for External Assistant ─────────────
         val recPkg = recordingTapPackage
         if (recPkg != null && pkg == recPkg && event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
-            val node = event.source
+            val node = event.source ?: rootInActiveWindow
+            val rect = Rect()
+            val dm = resources.displayMetrics
+            var xRatio = 0.5f
+            var yRatio = 0.85f
+            var viewId: String? = null
+            var desc: String? = event.contentDescription?.toString()
+            var text: String? = if (event.text.isNotEmpty()) event.text.joinToString("") else null
+
             if (node != null) {
-                val rect = Rect()
                 node.getBoundsInScreen(rect)
-                val dm = resources.displayMetrics
-                val xRatio = if (dm.widthPixels > 0) rect.centerX().toFloat() / dm.widthPixels else 0.5f
-                val yRatio = if (dm.heightPixels > 0) rect.centerY().toFloat() / dm.heightPixels else 0.5f
-                val viewId = node.viewIdResourceName
-                val desc = node.contentDescription?.toString()
-                val text = node.text?.toString()
+                if (rect.width() > 0 && rect.height() > 0) {
+                    xRatio = if (dm.widthPixels > 0) rect.centerX().toFloat() / dm.widthPixels else 0.5f
+                    yRatio = if (dm.heightPixels > 0) rect.centerY().toFloat() / dm.heightPixels else 0.5f
+                }
+                viewId = node.viewIdResourceName
+                if (desc.isNullOrEmpty()) desc = node.contentDescription?.toString()
+                if (text.isNullOrEmpty()) text = node.text?.toString()
+            }
 
-                val prefs = getSharedPreferences(PREFS_AUTO_TAP, Context.MODE_PRIVATE)
-                prefs.edit()
-                    .putString("tap_id_${recPkg}", viewId)
-                    .putString("tap_desc_${recPkg}", desc)
-                    .putString("tap_text_${recPkg}", text)
-                    .putFloat("tap_x_${recPkg}", xRatio)
-                    .putFloat("tap_y_${recPkg}", yRatio)
-                    .apply()
+            val prefs = getSharedPreferences(PREFS_AUTO_TAP, Context.MODE_PRIVATE)
+            prefs.edit()
+                .putString("tap_id_${recPkg}", viewId)
+                .putString("tap_desc_${recPkg}", desc)
+                .putString("tap_text_${recPkg}", text)
+                .putFloat("tap_x_${recPkg}", xRatio)
+                .putFloat("tap_y_${recPkg}", yRatio)
+                .apply()
 
-                recordingTapPackage = null
-                updateEventFilter()
+            recordingTapPackage = null
+            updateEventFilter()
+            mainHandler.post {
                 android.widget.Toast.makeText(
-                    this,
-                    "Voice switch recorded! Arcane will auto-click this on launch.",
+                    applicationContext,
+                    "✓ Voice switch recorded! Arcane will auto-click this on launch.",
                     android.widget.Toast.LENGTH_LONG
                 ).show()
-                return
             }
+            return
         }
 
         // ── 2. Auto-Clicking Recorded Switch for External Assistant ────────
@@ -353,7 +365,13 @@ class LauncherTakeoverService : AccessibilityService() {
             }
 
             if (clicked) {
-                android.widget.Toast.makeText(this, "Auto-engaged voice mode", android.widget.Toast.LENGTH_SHORT).show()
+                mainHandler.post {
+                    android.widget.Toast.makeText(
+                        applicationContext,
+                        "Auto-engaged voice mode",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         } catch (_: Exception) {}
     }

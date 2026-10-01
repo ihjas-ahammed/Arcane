@@ -69,30 +69,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
 
   /// Calculates spent time in minutes for linked tasks based on session time
   double _calculateLinkedTimeMinutes(AppProvider provider, GoalModel goal) {
-    if (goal.linkedTaskIds.isEmpty) return goal.currentValue;
-
-    double totalMinutes = 0.0;
-    final activeMainTasks =
-        provider.mainTasks.where((t) => t.isActive && !t.isDeleted);
-
-    for (var mainTask in activeMainTasks) {
-      final bool mainLinked = goal.linkedTaskIds.contains(mainTask.id);
-
-      for (var subTask in mainTask.subTasks) {
-        if (subTask.isDeleted) continue;
-        final subCompoundId = '${mainTask.id}|${subTask.id}';
-        final bool subLinked = mainLinked ||
-            goal.linkedTaskIds.contains(subTask.id) ||
-            goal.linkedTaskIds.contains(subCompoundId);
-
-        if (subLinked) {
-          totalMinutes += subTask.currentTimeSpent > 0
-              ? (subTask.currentTimeSpent / 60.0)
-              : 0.0;
-        }
-      }
-    }
-    return totalMinutes;
+    return goal.calculateLinkedTimeMinutes(provider.mainTasks);
   }
 
   void _openCreateGoalDialog(BuildContext context, {GoalModel? goalToEdit}) {

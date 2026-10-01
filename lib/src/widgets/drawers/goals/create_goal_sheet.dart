@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/models/task_models.dart';
@@ -32,6 +33,7 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
   GoalMetricType _selectedMetric = GoalMetricType.check;
   double _targetValue = 1.0;
   bool _isRecurring = false;
+  bool _countAllTime = false;
   DateTime? _startDateTime;
   final Set<String> _selectedTaskIds = {};
   String _taskSearchQuery = '';
@@ -51,6 +53,7 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
       _targetValue = g.targetValue;
       _targetValueController.text = g.targetValue.toInt().toString();
       _isRecurring = g.isRecurring;
+      _countAllTime = g.countAllTime;
       _selectedTaskIds.addAll(g.linkedTaskIds);
       _initialSubItems.addAll(g.subChecklist.map((s) => s.title));
     } else {
@@ -120,6 +123,7 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
         dateKey: periodKey,
         isRecurring: _isRecurring,
         subChecklist: updatedSubChecklist,
+        countAllTime: _countAllTime,
       );
 
       provider.updateGoal(updatedGoal);
@@ -146,6 +150,7 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
         dateKey: periodKey,
         isRecurring: _isRecurring,
         subChecklist: subItems,
+        countAllTime: _countAllTime,
       );
 
       provider.addGoal(goal);
@@ -428,6 +433,112 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _startDateTime ?? widget.selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2035),
+                      builder: (context, child) {
+                        return Theme(
+                          data: isLight
+                              ? ThemeData.light().copyWith(
+                                  colorScheme: ColorScheme.light(
+                                    primary: themeColor,
+                                    onPrimary: JweTheme.onAccent,
+                                    surface: const Color(0xFFF6F3EC),
+                                    onSurface: Colors.black87,
+                                  ),
+                                )
+                              : ThemeData.dark().copyWith(
+                                  colorScheme: ColorScheme.dark(
+                                    primary: themeColor,
+                                    onPrimary: JweTheme.onAccent,
+                                    surface: const Color(0xFF141923),
+                                    onSurface: Colors.white,
+                                  ),
+                                ),
+                          child: child!,
+                        );
+                      },
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        _startDateTime = DateTime(picked.year, picked.month, picked.day);
+                      });
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isLight ? const Color(0xFFEFECE6) : const Color(0xFF12151D),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: themeColor.withValues(alpha: 0.35),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(MdiIcons.calendarClock, size: 16, color: themeColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'GOAL START DATE (12:00 AM THRESHOLD)',
+                                style: GoogleFonts.orbitron(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: isLight ? const Color(0xFF475569) : Colors.white60,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                DateFormat('yyyy-MM-dd (EEEE)').format(_startDateTime ?? widget.selectedDate),
+                                style: GoogleFonts.jetBrainsMono(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: isLight ? Colors.black87 : Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.edit_calendar, size: 16, color: themeColor),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  activeThumbColor: themeColor,
+                  value: _countAllTime,
+                  onChanged: (val) => setState(() => _countAllTime = val),
+                  title: Text(
+                    'INCLUDE ALL-TIME TASK DURATION',
+                    style: GoogleFonts.orbitron(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: isLight ? Colors.black87 : Colors.white,
+                    ),
+                  ),
+                  subtitle: Text(
+                    _countAllTime
+                        ? 'Counting all historical time logged on linked tasks'
+                        : 'Default: Only counts time logged on/after ${DateFormat('yyyy-MM-dd').format(_startDateTime ?? widget.selectedDate)} 12:00 AM',
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 9.5,
+                      color: isLight ? Colors.black54 : Colors.white54,
+                    ),
+                  ),
                 ),
               ],
               const SizedBox(height: 12),

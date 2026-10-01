@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import 'task_models.dart';
 
 enum GoalScope { daily, weekly, monthly }
 enum GoalMetricType { check, counter, timeCounter }
@@ -58,6 +59,7 @@ class GoalModel {
   final String dateKey; // Period key: yyyy-MM-dd (daily), Monday's yyyy-MM-dd (weekly), yyyy-MM (monthly)
   final bool isRecurring;
   final List<GoalSubCheckItem> subChecklist;
+  final bool countAllTime; // If true, count all-time task duration; if false (default), start from goal date at 12:00 AM
 
   GoalModel({
     required this.id,
@@ -74,6 +76,7 @@ class GoalModel {
     String? dateKey,
     this.isRecurring = false,
     this.subChecklist = const [],
+    this.countAllTime = false,
   })  : createdAt = createdAt ?? DateTime.now(),
         dateKey = dateKey ?? getPeriodKey(scope, startDateTime ?? DateTime.now());
 
@@ -86,6 +89,20 @@ class GoalModel {
         return DateFormat('yyyy-MM-dd').format(monday);
       case GoalScope.monthly:
         return DateFormat('yyyy-MM').format(date);
+    }
+  }
+
+  static DateTime? parseDateFromPeriodKey(String key, GoalScope scope) {
+    try {
+      switch (scope) {
+        case GoalScope.daily:
+        case GoalScope.weekly:
+          return DateTime.tryParse(key);
+        case GoalScope.monthly:
+          return DateTime.tryParse('$key-01');
+      }
+    } catch (_) {
+      return null;
     }
   }
 
@@ -104,6 +121,7 @@ class GoalModel {
     String? dateKey,
     bool? isRecurring,
     List<GoalSubCheckItem>? subChecklist,
+    bool? countAllTime,
   }) {
     return GoalModel(
       id: id ?? this.id,
@@ -120,6 +138,7 @@ class GoalModel {
       dateKey: dateKey ?? this.dateKey,
       isRecurring: isRecurring ?? this.isRecurring,
       subChecklist: subChecklist ?? this.subChecklist,
+      countAllTime: countAllTime ?? this.countAllTime,
     );
   }
 
@@ -158,6 +177,7 @@ class GoalModel {
               ?.map((e) => GoalSubCheckItem.fromJson(Map<String, dynamic>.from(e)))
               .toList() ??
           const [],
+      countAllTime: json['countAllTime'] as bool? ?? false,
     );
   }
 
@@ -177,7 +197,94 @@ class GoalModel {
       'dateKey': dateKey,
       'isRecurring': isRecurring,
       'subChecklist': subChecklist.map((e) => e.toJson()).toList(),
+      'countAllTime': countAllTime,
     };
+  }
+
+  /// Calculates spent time in minutes for linked tasks based on session logs.
+  /// By default ([countAllTime] is false), calculation starts from the day of the
+  /// goal at 12:00 AM (00:00:00) and bounds within the goal's period window.
+  /// If [countAllTime] is true, includes all lifetime time logged on the tasks.
+  double calculateLinkedTimeMinutes(List<MainTask> mainTasks) {
+    if (linkedTaskIds.isEmpty) return currentValue;
+
+    double totalMinutes = 0.0;
+    final activeMainTasks = mainTasks.where((t) => t.isActive && !t.isDeleted);
+
+    if (countAllTime) {
+      for (var mainTask in activeMainTasks) {
+        final bool mainLinked = linkedTaskIds.contains(mainTask.id);
+
+        for (var subTask in mainTask.subTasks) {
+          if (subTask.isDeleted) continue;
+          final subCompoundId = '${mainTask.id}|${subTask.id}';
+          final bool subLinked = mainLinked ||
+              linkedTaskIds.contains(subTask.id) ||
+              linkedTaskIds.contains(subCompoundId);
+
+          if (subLinked) {
+            totalMinutes += subTask.currentTimeSpent > 0
+                ? (subTask.currentTimeSpent / 60.0)
+                : 0.0;
+          }
+        }
+      }
+      return totalMinutes;
+    }
+
+    // Default: time spent starts from the day of the goal at 12:00 AM
+    final goalDate = startDateTime ??
+        parseDateFromPeriodKey(dateKey, scope) ??
+        createdAt;
+    final startThreshold = DateTime(goalDate.year, goalDate.month, goalDate.day); // 12:00:00 AM
+
+    DateTime endThreshold;
+    switch (scope) {
+      case GoalScope.daily:
+        endThreshold = DateTime(goalDate.year, goalDate.month, goalDate.day + 1);
+        break;
+      case GoalScope.weekly:
+        final monday = startThreshold.subtract(Duration(days: startThreshold.weekday - 1));
+        endThreshold = monday.add(const Duration(days: 7));
+        break;
+      case GoalScope.monthly:
+        endThreshold = DateTime(goalDate.year, goalDate.month + 1, 1);
+        break;
+    }
+
+    for (var mainTask in activeMainTasks) {
+      final bool mainLinked = linkedTaskIds.contains(mainTask.id);
+
+      for (var subTask in mainTask.subTasks) {
+        if (subTask.isDeleted) continue;
+        final subCompoundId = '${mainTask.id}|${subTask.id}';
+        final bool subLinked = mainLinked ||
+            linkedTaskIds.contains(subTask.id) ||
+            linkedTaskIds.contains(subCompoundId);
+
+        if (!subLinked) continue;
+
+        if (subTask.sessions.isNotEmpty) {
+          for (var s in subTask.sessions) {
+            if (s.endTime.isBefore(startThreshold) || s.startTime.isAfter(endThreshold)) {
+              continue;
+            }
+            final winStart = s.startTime.isBefore(startThreshold) ? startThreshold : s.startTime;
+            final winEnd = s.endTime.isAfter(endThreshold) ? endThreshold : s.endTime;
+            if (winEnd.isAfter(winStart)) {
+              totalMinutes += winEnd.difference(winStart).inSeconds / 60.0;
+            }
+          }
+        } else if (subTask.currentTimeSpent > 0) {
+          final updated = subTask.updatedAt;
+          if (!updated.isBefore(startThreshold) && !updated.isAfter(endThreshold)) {
+            totalMinutes += subTask.currentTimeSpent / 60.0;
+          }
+        }
+      }
+    }
+
+    return totalMinutes;
   }
 
   /// Calculates accurate progress ratio (0.0 to 1.0) based on count, time, subchecklists

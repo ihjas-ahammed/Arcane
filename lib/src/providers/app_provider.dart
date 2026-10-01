@@ -2153,8 +2153,12 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   }
 
   NoraSession? get activeNoraSession {
-    if (chatbotMemory.activeNoraSessionId == null) return null;
-    return chatbotMemory.noraSessions.firstWhereOrNull((s) => s.id == chatbotMemory.activeNoraSessionId);
+    if (chatbotMemory.noraSessions.isEmpty) return null;
+    if (chatbotMemory.activeNoraSessionId != null) {
+      final found = chatbotMemory.noraSessions.firstWhereOrNull((s) => s.id == chatbotMemory.activeNoraSessionId);
+      if (found != null) return found;
+    }
+    return chatbotMemory.noraSessions.last;
   }
 
   List<NoraPersona> get noraPersonas => chatbotMemory.allPersonas;
@@ -2337,8 +2341,19 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   }
 
   Future<void> sendNoraMessage(String text) async {
-    final session = activeNoraSession;
-    if (session == null) return;
+    var session = activeNoraSession;
+    if (session == null) {
+      final p = chatbotMemory.getPersona(null);
+      createNoraSession(
+        title: "Session ${DateFormat('MM-dd').format(DateTime.now())}",
+        tone: p.name,
+        personaId: p.id,
+        startDate: DateTime.now().subtract(const Duration(days: 30)),
+        endDate: DateTime.now(),
+      );
+      session = activeNoraSession;
+      if (session == null) return;
+    }
 
     final userMsg = ChatbotMessage(
       id: const Uuid().v4(),
@@ -2601,7 +2616,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
             if (compoundId == null && name != null && name.isNotEmpty) {
               if (lastCreatedTaskName != null &&
-                  lastCreatedTaskName!.toLowerCase() == name.toLowerCase() &&
+                  lastCreatedTaskName.toLowerCase() == name.toLowerCase() &&
                   lastCreatedCompoundId != null) {
                 compoundId = lastCreatedCompoundId;
               } else {

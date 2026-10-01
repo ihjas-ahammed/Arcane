@@ -193,11 +193,14 @@ class StartDayGoalsSection extends StatelessWidget {
                 Column(
                   children: periodGoals.map((g) {
                     final expInfo = GoalBriefingHelper.getExpectedDailyIncrement(provider, g, reportDate);
-                    final currentRatio = g.getProgressRatio();
+                    final timeMins = g.metricType == GoalMetricType.timeCounter
+                        ? g.calculateLinkedTimeMinutes(provider.mainTasks)
+                        : null;
+                    final currentRatio = g.getProgressRatio(dynamicTimeMinutes: timeMins);
                     final expectedDelta = expInfo.ratioIncrement.clamp(0.0, 1.0 - currentRatio);
                     final projectedRatio = (currentRatio + expectedDelta).clamp(0.0, 1.0);
                     final defaultColor = g.scope == GoalScope.weekly ? JweTheme.accentCyan : JweTheme.accentAmber;
-                    final atRisk = GoalBriefingHelper.isGoalAtRisk(g, reportDate);
+                    final atRisk = GoalBriefingHelper.isGoalAtRisk(g, reportDate, provider);
                     final daysLeft = GoalBriefingHelper.getGoalDaysRemaining(g, reportDate);
 
                     return Container(

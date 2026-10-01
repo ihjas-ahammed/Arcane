@@ -16,6 +16,7 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.inputmethod.InputMethodManager
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -176,6 +177,22 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         Log.i(TAG, "Cancelled recording")
     }
 
+    private fun isImePackage(pkg: String): Boolean {
+        if (pkg.contains("inputmethod", ignoreCase = true) ||
+            pkg.contains("keyboard", ignoreCase = true) ||
+            pkg.contains("honeyboard", ignoreCase = true) ||
+            pkg.contains("swiftkey", ignoreCase = true)
+        ) {
+            return true
+        }
+        return try {
+            val imm = service.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.enabledInputMethodList?.any { it.packageName == pkg } ?: false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     // ── Accessibility Event Capturing ────────────────────────────────────────
 
     fun handleAccessibilityEvent(event: AccessibilityEvent) {
@@ -192,6 +209,9 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
 
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                // Soft keyboard popups should not trigger app-launch step
+                if (isImePackage(pkg)) return
+
                 if (pkg != activePackageName && pkg != service.packageName) {
                     // App changed
                     addWaitStep(deltaSec)
@@ -208,6 +228,9 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
 
             AccessibilityEvent.TYPE_VIEW_CLICKED -> {
+                // Clicks on soft keyboard keys are handled as text input, avoid recording raw coordinate clicks on keyboard
+                if (isImePackage(pkg)) return
+
                 val node = event.source ?: return
                 val rect = Rect()
                 node.getBoundsInScreen(rect)
@@ -239,6 +262,8 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
 
             AccessibilityEvent.TYPE_VIEW_LONG_CLICKED -> {
+                if (isImePackage(pkg)) return
+
                 val node = event.source ?: return
                 val rect = Rect()
                 node.getBoundsInScreen(rect)
@@ -262,9 +287,15 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
 
             AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> {
-                val node = event.source ?: return
-                val text = node.text?.toString() ?: ""
-                val nodeId = node.viewIdResourceName ?: "${node.className}_${node.hashCode()}"
+                val node = event.source
+                val eventText = if (event.text.isNotEmpty()) event.text.joinToString("") else ""
+                val nodeText = node?.text?.toString() ?: ""
+                val text = if (nodeText.isNotEmpty()) nodeText else eventText
+                if (text.isEmpty()) return
+
+                val targetPkg = if (isImePackage(pkg)) activePackageName.ifEmpty { pkg } else pkg
+                val nodeId = node?.viewIdResourceName 
+                    ?: (if (node != null) "${node.className}_${node.hashCode()}" else "${event.className}_${targetPkg}")
 
                 if (lastTextEditNodeId == nodeId && lastTextEditStepIndex >= 0 && lastTextEditStepIndex < recordedSteps.size) {
                     // Update existing typing block in-place
@@ -277,8 +308,9 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                     val step = mutableMapOf<String, Any?>(
                         "type" to "type",
                         "text" to text,
-                        "viewId" to node.viewIdResourceName,
-                        "package" to pkg
+                        "viewId" to node?.viewIdResourceName,
+                        "desc" to node?.contentDescription?.toString(),
+                        "package" to targetPkg
                     )
                     recordedSteps.add(step)
                     lastTextEditNodeId = nodeId

@@ -247,6 +247,7 @@ mixin SyncMixin on ChangeNotifier {
       final tradingData = Map<String, dynamic>.from(getTradingStateMap());
       
       final settingsData = Map<String, dynamic>.from(getUserStateMap());
+      settingsData.remove('reflectionLogs');
       settingsData['lastSuccessfulSaveTimestamp'] = DateTime.now().toIso8601String();
 
       // Catch-all for any future or top-level keys in appData not explicitly categorized above

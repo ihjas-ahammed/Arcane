@@ -170,7 +170,10 @@ class TacticalGoalsBriefingSection extends StatelessWidget {
               // In-Progress goals SECOND
               if (inProgressToday.isNotEmpty) ...[
                 ...inProgressToday.map((g) {
-                  final ratio = g.getProgressRatio();
+                  final timeMins = g.metricType == GoalMetricType.timeCounter
+                      ? g.calculateLinkedTimeMinutes(provider.mainTasks)
+                      : null;
+                  final ratio = g.getProgressRatio(dynamicTimeMinutes: timeMins);
                   final pctStr = (ratio * 100).toStringAsFixed(0);
                   return Container(
                     margin: const EdgeInsets.only(bottom: 6),
@@ -250,10 +253,13 @@ class TacticalGoalsBriefingSection extends StatelessWidget {
                 Column(
                   children: periodGoals.map((g) {
                     final incInfo = GoalBriefingHelper.getDailyBriefingIncrement(provider, g, briefingDate);
-                    final liveProgress = g.getProgressRatio();
+                    final timeMins = g.metricType == GoalMetricType.timeCounter
+                        ? g.calculateLinkedTimeMinutes(provider.mainTasks)
+                        : null;
+                    final liveProgress = g.getProgressRatio(dynamicTimeMinutes: timeMins);
                     final delta = incInfo.ratioIncrement;
                     final defaultColor = g.scope == GoalScope.weekly ? JweTheme.accentCyan : JweTheme.accentAmber;
-                    final atRisk = GoalBriefingHelper.isGoalAtRisk(g, briefingDate);
+                    final atRisk = GoalBriefingHelper.isGoalAtRisk(g, briefingDate, provider);
                     final daysLeft = GoalBriefingHelper.getGoalDaysRemaining(g, briefingDate);
 
                     return Container(

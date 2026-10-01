@@ -296,9 +296,25 @@ class _TacticalGoalCardState extends State<TacticalGoalCard> {
                             ),
                           ],
                         ),
-                        if (goal.startDateTime != null)
+                        if (goal.countAllTime)
                           Text(
-                            'From: ${DateFormat('MM/dd HH:mm').format(goal.startDateTime!)}',
+                            'All-Time History',
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 9.5,
+                              color: isLight ? Colors.black54 : Colors.white54,
+                            ),
+                          )
+                        else if (goal.startDateTime != null)
+                          Text(
+                            'From: ${DateFormat('MM/dd').format(goal.startDateTime!)} 12 AM',
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 9.5,
+                              color: isLight ? Colors.black54 : Colors.white54,
+                            ),
+                          )
+                        else
+                          Text(
+                            'From 12 AM',
                             style: GoogleFonts.jetBrainsMono(
                               fontSize: 9.5,
                               color: isLight ? Colors.black54 : Colors.white54,

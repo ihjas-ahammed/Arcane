@@ -17,7 +17,7 @@ class CustomAssistantPickerScreen extends StatefulWidget {
   State<CustomAssistantPickerScreen> createState() => _CustomAssistantPickerScreenState();
 }
 
-class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScreen> {
+class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScreen> with WidgetsBindingObserver {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
@@ -38,14 +38,23 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadInitialState();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _selectedApp != null) {
+      _refreshRecordedTapInfo(_selectedApp!.package);
+    }
   }
 
   Future<void> _loadInitialState() async {
@@ -809,6 +818,23 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
     );
   }
 
+  Future<void> _startRecording(Color accentColor) async {
+    if (_selectedApp == null) return;
+    final pkg = _selectedApp!.package;
+    final label = _selectedApp!.label;
+    final ok = await AssistantRoutingService.instance.startRecordingTap(pkg);
+    if (ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Recording tap: opening $label — tap its voice/mic button!"),
+          backgroundColor: accentColor,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      await AssistantRoutingService.instance.launchPackage(pkg);
+    }
+  }
+
   Widget _buildRecordedTapCard(
     Color panelColor,
     Color cardColor,
@@ -825,10 +851,14 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
       margin: const EdgeInsets.only(top: 12, bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isRecorded ? Colors.green.withValues(alpha: 0.08) : cardColor,
+        color: isRecorded
+            ? (JweTheme.isLight ? Colors.green.withValues(alpha: 0.12) : Colors.green.withValues(alpha: 0.08))
+            : cardColor,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isRecorded ? Colors.green.withValues(alpha: 0.6) : accentColor.withValues(alpha: 0.5),
+          color: isRecorded
+              ? (JweTheme.isLight ? Colors.green.withValues(alpha: 0.7) : Colors.green.withValues(alpha: 0.6))
+              : accentColor.withValues(alpha: 0.5),
           width: 1.2,
         ),
       ),
@@ -839,7 +869,7 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
             children: [
               Icon(
                 isRecorded ? Icons.check_circle : Icons.touch_app,
-                color: isRecorded ? Colors.green : accentColor,
+                color: isRecorded ? (JweTheme.isLight ? const Color(0xFF1B5E20) : Colors.green) : accentColor,
                 size: 20,
               ),
               const SizedBox(width: 8),
@@ -847,7 +877,7 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
                 child: Text(
                   isRecorded ? "VOICE SWITCH AUTO-TAP ACTIVE" : "RECORD FIRST-TIME VOICE TAP",
                   style: TextStyle(
-                    color: isRecorded ? Colors.green : accentColor,
+                    color: isRecorded ? (JweTheme.isLight ? const Color(0xFF1B5E20) : Colors.green) : accentColor,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.1,
@@ -885,6 +915,19 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
+                    onPressed: () => _startRecording(accentColor),
+                    icon: const Icon(Icons.refresh, size: 14),
+                    label: const Text("REDO", style: TextStyle(fontSize: 11)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: accentColor,
+                      side: BorderSide(color: accentColor.withValues(alpha: 0.5)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
                     onPressed: () async {
                       if (_selectedApp == null) return;
                       await AssistantRoutingService.instance.clearRecordedTap(_selectedApp!.package);
@@ -901,24 +944,31 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
                 ),
               ] else ...[
                 Expanded(
+                  flex: 3,
                   child: FilledButton.icon(
-                    onPressed: () async {
-                      if (_selectedApp == null) return;
-                      final ok = await AssistantRoutingService.instance.startRecordingTap(_selectedApp!.package);
-                      if (ok && mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text("Recording tap: switch to ${_selectedApp!.label} and click the voice button!"),
-                            backgroundColor: accentColor,
-                          ),
-                        );
-                      }
-                    },
+                    onPressed: () => _startRecording(accentColor),
                     icon: const Icon(Icons.fiber_manual_record, size: 14, color: Colors.red),
                     label: const Text("RECORD FIRST-TIME TAP", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                     style: FilledButton.styleFrom(
                       backgroundColor: accentColor,
                       foregroundColor: JweTheme.onAccent,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      if (_selectedApp == null) return;
+                      await AssistantRoutingService.instance.launchPackage(_selectedApp!.package);
+                    },
+                    icon: const Icon(Icons.open_in_new, size: 14),
+                    label: const Text("TEST LAUNCH", style: TextStyle(fontSize: 11)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primaryTextColor,
+                      side: BorderSide(color: borderColor),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                   ),

@@ -44,15 +44,19 @@ class GoalBriefingHelper {
     final periodGoals = [...weeklyGoals, ...monthlyGoals];
 
     return periodGoals.map((goal) {
+      final dynamicTime = goal.metricType == GoalMetricType.timeCounter
+          ? goal.calculateLinkedTimeMinutes(provider.mainTasks)
+          : null;
+      final curVal = dynamicTime ?? goal.currentValue;
       return {
         'id': goal.id,
         'title': goal.title,
         'scope': goal.scope.name,
         'metricType': goal.metricType.name,
-        'currentValue': goal.currentValue,
+        'currentValue': curVal,
         'targetValue': goal.targetValue,
-        'ratio': goal.getProgressRatio(),
-        'isCompleted': goal.getIsEffectiveCompleted(),
+        'ratio': goal.getProgressRatio(dynamicTimeMinutes: dynamicTime),
+        'isCompleted': goal.getIsEffectiveCompleted(dynamicTimeMinutes: dynamicTime),
       };
     }).toList();
   }
@@ -159,8 +163,11 @@ class GoalBriefingHelper {
       }
     }
 
-    final currentVal = goal.currentValue;
-    final currentRatio = goal.getProgressRatio();
+    final dynamicTime = goal.metricType == GoalMetricType.timeCounter
+        ? goal.calculateLinkedTimeMinutes(provider.mainTasks)
+        : null;
+    final currentVal = dynamicTime ?? goal.currentValue;
+    final currentRatio = goal.getProgressRatio(dynamicTimeMinutes: dynamicTime);
 
     final valueInc = (currentVal - startVal).clamp(0.0, 999999.0);
     final ratioInc = (currentRatio - startRatio).clamp(0.0, 1.0);
@@ -223,9 +230,12 @@ class GoalBriefingHelper {
 
   /// True when a weekly/monthly [goal] is trailing the pace it needs to finish on time.
   /// Daily goals and already-completed goals are never flagged.
-  static bool isGoalAtRisk(GoalModel goal, DateTime date) {
+  static bool isGoalAtRisk(GoalModel goal, DateTime date, [AppProvider? provider]) {
     if (goal.scope == GoalScope.daily) return false;
-    if (goal.getIsEffectiveCompleted()) return false;
+    final dynamicTime = (provider != null && goal.metricType == GoalMetricType.timeCounter)
+        ? goal.calculateLinkedTimeMinutes(provider.mainTasks)
+        : null;
+    if (goal.getIsEffectiveCompleted(dynamicTimeMinutes: dynamicTime)) return false;
 
     final start = getGoalPeriodStart(goal);
     final totalDays = getGoalPeriodTotalDays(goal);
@@ -234,7 +244,7 @@ class GoalBriefingHelper {
     final today = DateTime(date.year, date.month, date.day);
     final daysElapsed = (today.difference(start).inDays + 1).clamp(1, totalDays);
     final expectedRatio = daysElapsed / totalDays;
-    final actualRatio = goal.getProgressRatio();
+    final actualRatio = goal.getProgressRatio(dynamicTimeMinutes: dynamicTime);
 
     // Only flag once meaningful time has passed and the goal trails expected pace by a wide margin.
     return expectedRatio >= 0.34 && (expectedRatio - actualRatio) >= 0.20;
@@ -244,27 +254,47 @@ class GoalBriefingHelper {
   static List<GoalModel> getGoalsAtRisk(AppProvider provider, DateTime date) {
     final weekly = provider.getGoalsForDate(date, GoalScope.weekly);
     final monthly = provider.getGoalsForDate(date, GoalScope.monthly);
-    return [...weekly, ...monthly].where((g) => isGoalAtRisk(g, date)).toList();
+    return [...weekly, ...monthly].where((g) => isGoalAtRisk(g, date, provider)).toList();
   }
 
   /// Yesterday's completed goals for motivation
   static List<GoalModel> getYesterdayCompletedGoals(AppProvider provider, DateTime date) {
     final yesterday = date.subtract(const Duration(days: 1));
     final yesterdayGoals = provider.getGoalsForDate(yesterday, GoalScope.daily);
-    return yesterdayGoals.where((g) => g.getIsEffectiveCompleted()).toList();
+    return yesterdayGoals.where((g) {
+      final dynamicTime = g.metricType == GoalMetricType.timeCounter
+          ? g.calculateLinkedTimeMinutes(provider.mainTasks)
+          : null;
+      return g.getIsEffectiveCompleted(dynamicTimeMinutes: dynamicTime);
+    }).toList();
   }
 
   /// Today's goals to complete for Startup
   static List<GoalModel> getTodayGoalsToComplete(AppProvider provider, DateTime date) {
     final todayGoals = provider.getGoalsForDate(date, GoalScope.daily);
-    return todayGoals.where((g) => !g.getIsEffectiveCompleted()).toList();
+    return todayGoals.where((g) {
+      final dynamicTime = g.metricType == GoalMetricType.timeCounter
+          ? g.calculateLinkedTimeMinutes(provider.mainTasks)
+          : null;
+      return !g.getIsEffectiveCompleted(dynamicTimeMinutes: dynamicTime);
+    }).toList();
   }
 
   /// Today's goals ordered for Briefing (completed goals first, then in-progress)
   static Map<String, List<GoalModel>> getTodayGoalsForBriefing(AppProvider provider, DateTime date) {
     final todayGoals = provider.getGoalsForDate(date, GoalScope.daily);
-    final completed = todayGoals.where((g) => g.getIsEffectiveCompleted()).toList();
-    final inProgress = todayGoals.where((g) => !g.getIsEffectiveCompleted()).toList();
+    final completed = <GoalModel>[];
+    final inProgress = <GoalModel>[];
+    for (var g in todayGoals) {
+      final dynamicTime = g.metricType == GoalMetricType.timeCounter
+          ? g.calculateLinkedTimeMinutes(provider.mainTasks)
+          : null;
+      if (g.getIsEffectiveCompleted(dynamicTimeMinutes: dynamicTime)) {
+        completed.add(g);
+      } else {
+        inProgress.add(g);
+      }
+    }
     return {
       'completed': completed,
       'inProgress': inProgress,
@@ -305,7 +335,7 @@ class GoalBriefingHelper {
       buffer.writeln("\nACTIVE WEEKLY & MONTHLY GOALS EXPECTATIONS:");
       for (var g in [...weekly, ...monthly]) {
         final exp = getExpectedDailyIncrement(provider, g, date);
-        final atRisk = isGoalAtRisk(g, date);
+        final atRisk = isGoalAtRisk(g, date, provider);
         final riskSuffix = atRisk ? " — AT RISK: behind pace, ${getGoalDaysRemaining(g, date)} day(s) left in period" : "";
         buffer.writeln("- [${g.scope.name.toUpperCase()}] ${g.title}: Expected increment today: ${exp.label}$riskSuffix");
       }
@@ -342,8 +372,12 @@ class GoalBriefingHelper {
     if (inProgress.isNotEmpty) {
       buffer.writeln("IN PROGRESS TODAY:");
       for (var g in inProgress) {
-        final pct = (g.getProgressRatio() * 100).toStringAsFixed(0);
-        buffer.writeln("- [ ] ${g.title} ($pct% progress, value: ${g.currentValue}/${g.targetValue})");
+        final dynamicTime = g.metricType == GoalMetricType.timeCounter
+            ? g.calculateLinkedTimeMinutes(provider.mainTasks)
+            : null;
+        final curVal = dynamicTime ?? g.currentValue;
+        final pct = (g.getProgressRatio(dynamicTimeMinutes: dynamicTime) * 100).toStringAsFixed(0);
+        buffer.writeln("- [ ] ${g.title} ($pct% progress, value: ${curVal.toStringAsFixed(1)}/${g.targetValue})");
       }
     }
     if (completed.isEmpty && inProgress.isEmpty) {
@@ -357,9 +391,13 @@ class GoalBriefingHelper {
       buffer.writeln("\nWEEKLY & MONTHLY GOALS TODAY'S INCREMENTS:");
       for (var g in [...weekly, ...monthly]) {
         final inc = getDailyBriefingIncrement(provider, g, date);
-        final atRisk = isGoalAtRisk(g, date);
+        final atRisk = isGoalAtRisk(g, date, provider);
         final riskSuffix = atRisk ? " — AT RISK: behind pace, ${getGoalDaysRemaining(g, date)} day(s) left in period" : "";
-        buffer.writeln("- [${g.scope.name.toUpperCase()}] ${g.title}: Increment today: ${inc.label} (Total progress: ${(g.getProgressRatio() * 100).toStringAsFixed(0)}%)$riskSuffix");
+        final dynamicTime = g.metricType == GoalMetricType.timeCounter
+            ? g.calculateLinkedTimeMinutes(provider.mainTasks)
+            : null;
+        final progressRatio = g.getProgressRatio(dynamicTimeMinutes: dynamicTime);
+        buffer.writeln("- [${g.scope.name.toUpperCase()}] ${g.title}: Increment today: ${inc.label} (Total progress: ${(progressRatio * 100).toStringAsFixed(0)}%)$riskSuffix");
       }
     }
 

@@ -186,20 +186,24 @@ class _FlutterFireStorageService implements StorageService {
     try {
       final baseRef = _rtdb.ref('users/$userId/data');
 
-      final rootSnap = await baseRef.get();
-      if (rootSnap.exists && rootSnap.value != null && rootSnap.value is Map) {
-        return _parseRtdbData(rootSnap.value as Map);
-      }
+      // Fetch each chunk independently to avoid downloading a single massive unchunked snapshot (prevents OOM)
+      final results = await Future.wait([
+        baseRef.child(_docSettings).get(),
+        baseRef.child(_docTasks).get(),
+        baseRef.child(_docFinance).get(),
+        baseRef.child(_docHealth).get(),
+        baseRef.child(_docTrading).get(),
+        baseRef.child('history').orderByKey().limitToLast(365).get(),
+        baseRef.child('reflections').orderByKey().limitToLast(150).get(),
+      ]);
 
-      final settingsSnap = await baseRef.child(_docSettings).get();
-      final tasksSnap = await baseRef.child(_docTasks).get();
-      final financeSnap = await baseRef.child(_docFinance).get();
-      final healthSnap = await baseRef.child(_docHealth).get();
-      final tradingSnap = await baseRef.child(_docTrading).get();
-
-      final historySnap =
-          await baseRef.child('history').orderByKey().limitToLast(365).get();
-      final reflectionsSnap = await baseRef.child('reflections').get();
+      final settingsSnap = results[0];
+      final tasksSnap = results[1];
+      final financeSnap = results[2];
+      final healthSnap = results[3];
+      final tradingSnap = results[4];
+      final historySnap = results[5];
+      final reflectionsSnap = results[6];
 
       Map<dynamic, dynamic> rawData = {};
 
@@ -301,10 +305,14 @@ class _FlutterFireStorageService implements StorageService {
     try {
       final history = data['completedByDay'] as Map<String, dynamic>? ?? {};
       final Map<String, dynamic> updates = {};
-      history.forEach((date, dayData) {
-        updates[date] = jsonEncode(dayData);
-      });
-      await _rtdb.ref('users/$userId/data/history').update(updates);
+      final sortedKeys = history.keys.toList()..sort();
+      final keysToSave = sortedKeys.length > 365 ? sortedKeys.sublist(sortedKeys.length - 365) : sortedKeys;
+      for (final date in keysToSave) {
+        updates[date.toString()] = jsonEncode(history[date]);
+      }
+      if (updates.isNotEmpty) {
+        await _rtdb.ref('users/$userId/data/history').update(updates);
+      }
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService.saveHistory] $e\n$stack');
@@ -317,11 +325,16 @@ class _FlutterFireStorageService implements StorageService {
     if (userId.isEmpty) return false;
     try {
       final logs = data['reflectionLogs'] as List<dynamic>? ?? [];
+      final logsToSave = logs.length > 150 ? logs.sublist(logs.length - 150) : logs;
       final Map<String, dynamic> updates = {};
-      for (var log in logs) {
-        updates[log['id']] = jsonEncode(log);
+      for (var log in logsToSave) {
+        if (log is Map && log['id'] != null) {
+          updates[log['id'].toString()] = jsonEncode(log);
+        }
       }
-      await _rtdb.ref('users/$userId/data/reflections').set(updates);
+      if (updates.isNotEmpty) {
+        await _rtdb.ref('users/$userId/data/reflections').set(updates);
+      }
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService.saveReflections] $e\n$stack');
@@ -509,22 +522,23 @@ class _LinuxStorageService implements StorageService {
     try {
       final baseRef = _rtdb.reference().child('users/$userId/data');
 
-      final rootSnap = await baseRef.once();
-      if (rootSnap.value != null && rootSnap.value is Map) {
-        return _parseRtdbData(rootSnap.value as Map);
-      }
+      final results = await Future.wait([
+        baseRef.child(_docSettings).once(),
+        baseRef.child(_docTasks).once(),
+        baseRef.child(_docFinance).once(),
+        baseRef.child(_docHealth).once(),
+        baseRef.child(_docTrading).once(),
+        baseRef.child('history').orderByKey().limitToLast(365).once(),
+        baseRef.child('reflections').orderByKey().limitToLast(150).once(),
+      ]);
 
-      final settingsSnap = await baseRef.child(_docSettings).once();
-      final tasksSnap = await baseRef.child(_docTasks).once();
-      final financeSnap = await baseRef.child(_docFinance).once();
-      final healthSnap = await baseRef.child(_docHealth).once();
-      final tradingSnap = await baseRef.child(_docTrading).once();
-      final historySnap = await baseRef
-          .child('history')
-          .orderByKey()
-          .limitToLast(365)
-          .once();
-      final reflectionsSnap = await baseRef.child('reflections').once();
+      final settingsSnap = results[0];
+      final tasksSnap = results[1];
+      final financeSnap = results[2];
+      final healthSnap = results[3];
+      final tradingSnap = results[4];
+      final historySnap = results[5];
+      final reflectionsSnap = results[6];
 
       Map<dynamic, dynamic> rawData = {};
       if (settingsSnap.value != null) rawData[_docSettings] = settingsSnap.value;
@@ -627,13 +641,17 @@ class _LinuxStorageService implements StorageService {
     try {
       final history = data['completedByDay'] as Map<String, dynamic>? ?? {};
       final Map<String, dynamic> updates = {};
-      history.forEach((date, dayData) {
-        updates[date] = jsonEncode(dayData);
-      });
-      await _rtdb
-          .reference()
-          .child('users/$userId/data/history')
-          .update(updates);
+      final sortedKeys = history.keys.toList()..sort();
+      final keysToSave = sortedKeys.length > 365 ? sortedKeys.sublist(sortedKeys.length - 365) : sortedKeys;
+      for (final date in keysToSave) {
+        updates[date.toString()] = jsonEncode(history[date]);
+      }
+      if (updates.isNotEmpty) {
+        await _rtdb
+            .reference()
+            .child('users/$userId/data/history')
+            .update(updates);
+      }
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService.saveHistory/linux] $e\n$stack');
@@ -646,14 +664,19 @@ class _LinuxStorageService implements StorageService {
     if (userId.isEmpty) return false;
     try {
       final logs = data['reflectionLogs'] as List<dynamic>? ?? [];
+      final logsToSave = logs.length > 150 ? logs.sublist(logs.length - 150) : logs;
       final Map<String, dynamic> updates = {};
-      for (var log in logs) {
-        updates[log['id']] = jsonEncode(log);
+      for (var log in logsToSave) {
+        if (log is Map && log['id'] != null) {
+          updates[log['id'].toString()] = jsonEncode(log);
+        }
       }
-      await _rtdb
-          .reference()
-          .child('users/$userId/data/reflections')
-          .set(updates);
+      if (updates.isNotEmpty) {
+        await _rtdb
+            .reference()
+            .child('users/$userId/data/reflections')
+            .set(updates);
+      }
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService.saveReflections/linux] $e\n$stack');

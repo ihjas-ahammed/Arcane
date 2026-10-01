@@ -1,7 +1,11 @@
-0: pull latest changes with git pull --rebase origin <branch> (sync automated CI build commits)
-1: update version name to today in pubspec.yaml
-2: update version code (increment, also today) in pubspec.yaml
+0: pull latest changes with git pull --rebase origin <branch> (sync upstream changes)
+1: update version name to today (YYYY.M.D) in pubspec.yaml
+2: update version code (increment, also today: 21YYMMDDxx) in pubspec.yaml
 3: update latest.md with release notes
-4: update builds/update_info.json and builds/latest.json with version name, version code, and APK URLs
-5: copy latest.md to builds/latest.md
-6: commit and push
+4: clean and build release APKs locally:
+   - remove old APKs from builds/ (`rm -f builds/*.apk`)
+   - build split APKs: `flutter build apk --release --split-per-abi`
+   - copy APKs: copy each `build/app/outputs/flutter-apk/app-<abi>-release.apk` to `builds/missions-v${VERSION}-b${VCODE}-${ABI}.apk`
+5: update builds/update_info.json and builds/latest.json with version name, version code, published_at, and APK URLs
+6: copy latest.md to builds/latest.md (`cp latest.md builds/latest.md`)
+7: commit all changes and push (`git commit` and `git push origin HEAD:<branch>`)

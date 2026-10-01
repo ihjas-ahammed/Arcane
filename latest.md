@@ -1,3 +1,23 @@
+# ⚡ Arcane System Upgrade // v2026.10.1 (Build #2126100101)
+
+### 🎯 Period-Bound Goal Time Calculation & 12:00 AM Threshold
+- **12:00 AM Goal Date Baseline**: Time-based goals (`GoalMetricType.timeCounter`) now calculate time spent starting strictly from 12:00:00 AM on the day of the goal (`startDateTime ?? parseDateFromPeriodKey(dateKey, scope)`), clipping task sessions to the goal's period window instead of pulling historical lifetime durations.
+- **Dual Tracking Modes**: Added an explicit toggle option `"INCLUDE ALL-TIME TASK DURATION"` (`countAllTime`) for operators who want cumulative all-time history.
+- **Goal Start Date Picker**: Integrated an interactive goal start date selector in `CreateGoalSheet` with 12:00 AM threshold badge and full dual-theme adaptation.
+- **Tactical Briefing & Snapshot Sync**: Updated startup snapshot metrics, `GoalBriefingHelper`, and briefing UI widgets (`TacticalGoalsBriefingSection`, `StartDayGoalsSection`) to evaluate effective completion and progress ratios using dynamic period-clipped minutes.
+
+### ⌨️ Universal Soft-Keyboard Input Interception
+- **Dynamic Text Commit Tracking**: Enhanced `InputReplyManager.kt` and `launcher_takeover_service.xml` with `TYPE_VIEW_TEXT_CHANGED` accessibility event handling, ensuring text inputted via virtual/software keyboards is captured accurately during macro recording.
+
+### 🛡️ Firebase Sync Memory Optimization & OOM Protection
+- **Bounded Sync Buffering**: Optimized `SyncMixin` and `StorageService` to prevent OutOfMemory (OOM) crashes during large dataset migrations and periodic cloud syncs by bounding concurrent stream transformations and memory buffers.
+
+### 🎙️ External AI Voice-Tap Calibration & Testing
+- **HUD Capture Toast**: Displays immediate visual feedback via an Android HUD toast as soon as an external voice-switch touch coordinate or view ID is captured.
+- **On-Device Trigger Test**: Added an interactive `"TEST"` action in Custom Assistant settings, enabling immediate verification and replay of recorded accessibility taps without triggering external wearables.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.9.30 (Build #2126093002)
 
 ### 🎬 Universal Whole-Device Input Reply & Macro Engine
