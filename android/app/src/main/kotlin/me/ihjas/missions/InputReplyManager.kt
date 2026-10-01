@@ -489,10 +489,18 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
 
             "type" -> {
                 val paramKey = step["param"] as? String
-                val textToType = if (!paramKey.isNullOrEmpty() && params.containsKey(paramKey)) {
+                var textToType = if (!paramKey.isNullOrEmpty() && params.containsKey(paramKey)) {
                     params[paramKey]?.toString() ?: ""
                 } else {
                     step["text"]?.toString() ?: ""
+                }
+                if (params.isNotEmpty()) {
+                    for ((k, v) in params) {
+                        if (k.isNotBlank() && v != null) {
+                            textToType = textToType.replace("\$$k", v.toString())
+                                                   .replace("\${$k}", v.toString())
+                        }
+                    }
                 }
 
                 val viewId = step["viewId"] as? String

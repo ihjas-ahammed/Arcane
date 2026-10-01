@@ -1,3 +1,21 @@
+# ⚡ Arcane System Upgrade // v2026.10.1 (Build #2126100102)
+
+### 🧩 Input Reply Macro Parameters & Variable Resolution
+- **Desktop `input-reply` Engine Parity**: Implemented variable parameterization matching the desktop python standard (`PARAM_RE` validation, substring matching, step splitting, and default fallbacks).
+- **Template Placeholder Interpolation**: Supported `$param` and `${param}` template interpolation across Android native touch execution and Dart service resolvers.
+- **Interactive Variable Manager**: Added a dedicated parameter management dialog with real-time validation, duplicate prevention, and substring selection directly from recorded typing blocks.
+- **Inline Step Parameterization**: Quick-action `[+ VAR]` chips on typing steps in the timeline view to parameterize text directly, along with 1-tap variable unlinking (`Icons.link_off`).
+- **Dynamic Replay Configuration**: Replay dialog now prompts for runtime variable substitutions pre-populated with defaults.
+
+### 🚀 "START IN APP" Recording Mode with Instant Launcher Cache
+- **Direct Launcher Cache Integration**: Instant app list population pulling directly from Arcane's `LauncherService.instance.apps` cache without IPC delay.
+- **Real-Time App Filter Search**: In-modal filter search bar with clear action, native app icon rendering (`LauncherAppIcon`), and package identification tags.
+- **Auto-Generated Macro Naming**: Automatically suggests macro names based on selected applications (`${appName}_Macro`).
+- **One-Tap App Launch & Record**: Directly launches the target app and arms the floating HUD controller overlay in a single tap.
+- **Recorder Hero Card Upgrades**: Added direct `[WHOLE DEVICE]` and `[START IN APP]` dual quick-action buttons on the Input Reply hero card.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.1 (Build #2126100101)
 
 ### 🎯 Period-Bound Goal Time Calculation & 12:00 AM Threshold
