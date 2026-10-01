@@ -40,6 +40,8 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
   final Map<String, bool> _expandedTasks = {};
   final List<String> _initialSubItems = [];
   final _newSubController = TextEditingController();
+  List<String> _reminderTimes = [];
+  String? _selectedPlaceId;
 
   @override
   void initState() {
@@ -56,6 +58,8 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
       _countAllTime = g.countAllTime;
       _selectedTaskIds.addAll(g.linkedTaskIds);
       _initialSubItems.addAll(g.subChecklist.map((s) => s.title));
+      _reminderTimes = List.from(g.reminderTimes);
+      _selectedPlaceId = g.placeId;
     } else {
       _targetValueController.text = '1';
     }
@@ -124,6 +128,9 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
         isRecurring: _isRecurring,
         subChecklist: updatedSubChecklist,
         countAllTime: _countAllTime,
+        reminderTimes: _selectedScope == GoalScope.daily ? _reminderTimes : const [],
+        placeId: _selectedPlaceId,
+        clearPlaceId: _selectedPlaceId == null,
       );
 
       provider.updateGoal(updatedGoal);
@@ -151,6 +158,8 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
         isRecurring: _isRecurring,
         subChecklist: subItems,
         countAllTime: _countAllTime,
+        reminderTimes: _selectedScope == GoalScope.daily ? _reminderTimes : const [],
+        placeId: _selectedPlaceId,
       );
 
       provider.addGoal(goal);
@@ -566,7 +575,218 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
                 value: _isRecurring,
                 onChanged: (val) => setState(() => _isRecurring = val),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
+
+              // PLACE / CONTEXT SELECTOR
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'PLACE / CONTEXT (OPTIONAL)',
+                    style: GoogleFonts.orbitron(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isLight ? const Color(0xFF475569) : Colors.white60,
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => _showManagePlacesDialog(context, appProvider),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.edit, size: 12, color: themeColor),
+                          const SizedBox(width: 3),
+                          Text(
+                            'EDIT PLACES',
+                            style: GoogleFonts.orbitron(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: themeColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  ...appProvider.goalPlaces.map((place) {
+                    final selected = _selectedPlaceId == place.id;
+                    final placeColor = Color(place.colorValue);
+                    return ChoiceChip(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: selected
+                              ? placeColor
+                              : (isLight
+                                  ? Colors.black.withValues(alpha: 0.15)
+                                  : Colors.white24),
+                          width: selected ? 1.5 : 1,
+                        ),
+                      ),
+                      avatar: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: placeColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      label: Text(
+                        place.name.toUpperCase(),
+                        style: GoogleFonts.orbitron(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          color: selected
+                              ? (isLight ? Colors.black87 : Colors.white)
+                              : (isLight ? const Color(0xFF475569) : Colors.white60),
+                        ),
+                      ),
+                      selected: selected,
+                      selectedColor: placeColor.withValues(alpha: isLight ? 0.22 : 0.28),
+                      backgroundColor: isLight ? const Color(0xFFEDE9DF) : const Color(0xFF14151E),
+                      onSelected: (val) {
+                        setState(() {
+                          _selectedPlaceId = val ? place.id : null;
+                        });
+                      },
+                    );
+                  }),
+                  ActionChip(
+                    avatar: Icon(Icons.add, size: 14, color: themeColor),
+                    label: Text(
+                      'NEW PLACE',
+                      style: GoogleFonts.orbitron(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: themeColor,
+                      ),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(color: themeColor.withValues(alpha: 0.5)),
+                    ),
+                    backgroundColor: themeColor.withValues(alpha: 0.08),
+                    onPressed: () => _showAddPlaceDialog(context, appProvider),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // CONTEMPLATION & REMINDERS (DAILY ONLY)
+              if (_selectedScope == GoalScope.daily) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'THINK ABOUT IT // CONTEMPLATION TIME',
+                      style: GoogleFonts.orbitron(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: isLight ? const Color(0xFF475569) : Colors.white60,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => _pickContemplationTime(context),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.add_alarm, size: 13, color: themeColor),
+                            const SizedBox(width: 3),
+                            Text(
+                              '+ ADD TIME',
+                              style: GoogleFonts.orbitron(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: themeColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Daily reflection cue to plan execution. Features a 2-hour snooze button.',
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 9,
+                    color: isLight ? Colors.black54 : Colors.white54,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                if (_reminderTimes.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: isLight ? const Color(0xFFEDE9DF) : const Color(0xFF14151E),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isLight ? Colors.black12 : Colors.white12,
+                      ),
+                    ),
+                    child: InkWell(
+                      onTap: () => _pickContemplationTime(context),
+                      child: Row(
+                        children: [
+                          Icon(Icons.alarm, size: 14, color: isLight ? Colors.black45 : Colors.white38),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'No reminder set. Tap "+ ADD TIME" to schedule contemplation.',
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 9.5,
+                                color: isLight ? Colors.black45 : Colors.white38,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: _reminderTimes.map((t) {
+                      return Chip(
+                        visualDensity: VisualDensity.compact,
+                        avatar: Icon(Icons.access_time, size: 14, color: themeColor),
+                        backgroundColor: themeColor.withValues(alpha: 0.15),
+                        side: BorderSide(color: themeColor),
+                        label: Text(
+                          t,
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: isLight ? Colors.black87 : Colors.white,
+                          ),
+                        ),
+                        deleteIcon: const Icon(Icons.close, size: 14),
+                        onDeleted: () {
+                          setState(() {
+                            _reminderTimes.remove(t);
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                const SizedBox(height: 14),
+              ],
 
               // INITIAL SUBCHECKLIST CREATION (ONLY FOR CHECK GOALS)
               if (_selectedMetric == GoalMetricType.check) ...[
@@ -903,5 +1123,396 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
     }
 
     return nodes;
+  }
+
+  Future<void> _pickContemplationTime(BuildContext context) async {
+    final now = TimeOfDay.now();
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: now,
+    );
+    if (picked != null) {
+      final hourStr = picked.hour.toString().padLeft(2, '0');
+      final minuteStr = picked.minute.toString().padLeft(2, '0');
+      final formatted = '$hourStr:$minuteStr';
+      if (!_reminderTimes.contains(formatted)) {
+        setState(() {
+          _reminderTimes.add(formatted);
+          _reminderTimes.sort();
+        });
+      }
+    }
+  }
+
+  void _showAddPlaceDialog(BuildContext context, AppProvider appProvider) {
+    final isLight = JweTheme.isLight;
+    final nameController = TextEditingController();
+    int selectedColor = 0xFF10B981;
+    final presetColors = [
+      0xFF10B981, // Emerald
+      0xFFFFB547, // Amber
+      0xFF8B5CF6, // Purple
+      0xFF00E5FF, // Cyan
+      0xFFEF4444, // Red
+      0xFF3B82F6, // Blue
+      0xFFF97316, // Orange
+      0xFFEC4899, // Pink
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final themeColor = appProvider.getSelectedTask()?.taskColor ?? JweTheme.accentAmber;
+          return AlertDialog(
+            backgroundColor: isLight ? const Color(0xFFF6F3EC) : const Color(0xFF0D0E14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: themeColor, width: 1.2),
+            ),
+            title: Text(
+              'ADD NEW PLACE',
+              style: GoogleFonts.orbitron(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: themeColor,
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameController,
+                  autofocus: true,
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 12,
+                    color: isLight ? Colors.black87 : Colors.white,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'PLACE NAME',
+                    hintText: 'e.g. Gym, Library, Studio',
+                    labelStyle: GoogleFonts.orbitron(fontSize: 10, color: themeColor),
+                    filled: true,
+                    fillColor: isLight ? const Color(0xFFEDE9DF) : const Color(0xFF14151E),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'COLOR TOKEN',
+                  style: GoogleFonts.orbitron(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isLight ? const Color(0xFF475569) : Colors.white60,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: presetColors.map((colorVal) {
+                    final isSel = selectedColor == colorVal;
+                    return InkWell(
+                      onTap: () => setDialogState(() => selectedColor = colorVal),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Color(colorVal),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSel
+                                ? (isLight ? Colors.black87 : Colors.white)
+                                : Colors.transparent,
+                            width: 2.5,
+                          ),
+                        ),
+                        child: isSel
+                            ? const Icon(Icons.check, size: 16, color: Colors.white)
+                            : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: Text('CANCEL', style: GoogleFonts.orbitron(fontSize: 11)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: themeColor,
+                  foregroundColor: isLight ? Colors.white : Colors.black,
+                ),
+                onPressed: () {
+                  final name = nameController.text.trim();
+                  if (name.isNotEmpty) {
+                    final id = 'place_${DateTime.now().millisecondsSinceEpoch}';
+                    final newPlace = GoalPlace(
+                      id: id,
+                      name: name,
+                      colorValue: selectedColor,
+                    );
+                    appProvider.addGoalPlace(newPlace);
+                    setState(() {
+                      _selectedPlaceId = id;
+                    });
+                    Navigator.of(ctx).pop();
+                    showGlobalToast('Place "$name" added!');
+                  }
+                },
+                child: Text('ADD', style: GoogleFonts.orbitron(fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showManagePlacesDialog(BuildContext context, AppProvider appProvider) {
+    final isLight = JweTheme.isLight;
+    final themeColor = appProvider.getSelectedTask()?.taskColor ?? JweTheme.accentAmber;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final places = appProvider.goalPlaces;
+          return Material(
+            color: isLight ? const Color(0xFFF6F3EC) : const Color(0xFF0D0E14),
+            shape: RoundedRectangleBorder(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              side: BorderSide(color: themeColor, width: 1.5),
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'MANAGE PLACES',
+                        style: GoogleFonts.orbitron(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: themeColor,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ...places.map((place) {
+                    final placeColor = Color(place.colorValue);
+                    final isDefault = GoalPlace.defaultPlaces.any((dp) => dp.id == place.id);
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isLight ? const Color(0xFFEDE9DF) : const Color(0xFF14151E),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: placeColor.withValues(alpha: 0.5)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 16,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              color: placeColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              place.name,
+                              style: GoogleFonts.orbitron(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isLight ? Colors.black87 : Colors.white,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.color_lens_outlined, size: 18, color: themeColor),
+                            tooltip: 'Change color',
+                            onPressed: () {
+                              _showColorPickerDialog(context, appProvider, place, () {
+                                setSheetState(() {});
+                                setState(() {});
+                              });
+                            },
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.edit, size: 16, color: themeColor),
+                            tooltip: 'Edit name',
+                            onPressed: () {
+                              _showEditPlaceNameDialog(context, appProvider, place, () {
+                                setSheetState(() {});
+                                setState(() {});
+                              });
+                            },
+                          ),
+                          if (!isDefault)
+                            IconButton(
+                              icon: Icon(Icons.delete_outline, size: 18, color: JweTheme.accentRed),
+                              tooltip: 'Delete place',
+                              onPressed: () {
+                                appProvider.deleteGoalPlace(place.id);
+                                if (_selectedPlaceId == place.id) {
+                                  setState(() => _selectedPlaceId = null);
+                                }
+                                setSheetState(() {});
+                              },
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 10),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 44),
+                      backgroundColor: themeColor,
+                      foregroundColor: isLight ? Colors.white : Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: Text(
+                      'ADD CUSTOM PLACE',
+                      style: GoogleFonts.orbitron(fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      _showAddPlaceDialog(context, appProvider);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showEditPlaceNameDialog(BuildContext context, AppProvider appProvider, GoalPlace place, VoidCallback onUpdated) {
+    final isLight = JweTheme.isLight;
+    final themeColor = appProvider.getSelectedTask()?.taskColor ?? JweTheme.accentAmber;
+    final controller = TextEditingController(text: place.name);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isLight ? const Color(0xFFF6F3EC) : const Color(0xFF0D0E14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: themeColor, width: 1.2),
+        ),
+        title: Text(
+          'RENAME PLACE',
+          style: GoogleFonts.orbitron(fontSize: 13, fontWeight: FontWeight.bold, color: themeColor),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: GoogleFonts.jetBrainsMono(fontSize: 12, color: isLight ? Colors.black87 : Colors.white),
+          decoration: InputDecoration(
+            labelText: 'PLACE NAME',
+            labelStyle: GoogleFonts.orbitron(fontSize: 10, color: themeColor),
+            filled: true,
+            fillColor: isLight ? const Color(0xFFEDE9DF) : const Color(0xFF14151E),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('CANCEL', style: GoogleFonts.orbitron(fontSize: 11)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: themeColor,
+              foregroundColor: isLight ? Colors.white : Colors.black,
+            ),
+            onPressed: () {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                appProvider.updateGoalPlace(place.copyWith(name: newName));
+                onUpdated();
+                Navigator.of(ctx).pop();
+              }
+            },
+            child: Text('SAVE', style: GoogleFonts.orbitron(fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showColorPickerDialog(BuildContext context, AppProvider appProvider, GoalPlace place, VoidCallback onUpdated) {
+    final isLight = JweTheme.isLight;
+    final themeColor = appProvider.getSelectedTask()?.taskColor ?? JweTheme.accentAmber;
+    final presetColors = [
+      0xFF10B981, 0xFFFFB547, 0xFF8B5CF6, 0xFF00E5FF,
+      0xFFEF4444, 0xFF3B82F6, 0xFFF97316, 0xFFEC4899,
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isLight ? const Color(0xFFF6F3EC) : const Color(0xFF0D0E14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: themeColor, width: 1.2),
+        ),
+        title: Text(
+          'SELECT COLOR FOR ${place.name.toUpperCase()}',
+          style: GoogleFonts.orbitron(fontSize: 12, fontWeight: FontWeight.bold, color: themeColor),
+        ),
+        content: Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: presetColors.map((c) {
+            final isSel = place.colorValue == c;
+            return InkWell(
+              onTap: () {
+                appProvider.updateGoalPlace(place.copyWith(colorValue: c));
+                onUpdated();
+                Navigator.of(ctx).pop();
+              },
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Color(c),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSel ? (isLight ? Colors.black87 : Colors.white) : Colors.transparent,
+                    width: 2.5,
+                  ),
+                ),
+                child: isSel ? const Icon(Icons.check, size: 18, color: Colors.white) : null,
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
   }
 }

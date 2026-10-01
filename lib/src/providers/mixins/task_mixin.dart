@@ -3,6 +3,7 @@ import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/models/project_models.dart';
 import 'package:missions/src/models/goal_model.dart';
+import 'package:missions/src/services/notification_service.dart';
 import 'package:missions/src/utils/constants.dart';
 import 'package:missions/src/providers/mixins/sync_mixin.dart';
 import 'package:collection/collection.dart';
@@ -19,6 +20,7 @@ mixin TaskMixin on ChangeNotifier {
   String? _activeProjectId;
   List<RoutineList> _routineLists = [];
   List<GoalModel> _goals = [];
+  List<GoalPlace> _goalPlaces = List.from(GoalPlace.defaultPlaces);
 
   // --- Getters ---
   List<MainTask> get mainTasks => _mainTasks;
@@ -29,6 +31,7 @@ mixin TaskMixin on ChangeNotifier {
   String? get activeProjectId => _activeProjectId;
   List<RoutineList> get routineLists => _routineLists;
   List<GoalModel> get goals => _goals;
+  List<GoalPlace> get goalPlaces => _goalPlaces;
 
   // --- Requirements from AppProvider ---
   SyncMixin get sync => this as SyncMixin;
@@ -89,9 +92,45 @@ mixin TaskMixin on ChangeNotifier {
     }
   }
 
+  // --- Goal Place Actions ---
+  GoalPlace? getGoalPlace(String? id) {
+    if (id == null) return null;
+    return _goalPlaces.firstWhereOrNull((p) => p.id == id) ??
+        GoalPlace.defaultPlaces.firstWhereOrNull((p) => p.id == id);
+  }
+
+  void addGoalPlace(GoalPlace place) {
+    _goalPlaces = [..._goalPlaces.where((p) => p.id != place.id), place];
+    sync.markDirty('tasks');
+    notifyListeners();
+  }
+
+  void updateGoalPlace(GoalPlace place) {
+    final index = _goalPlaces.indexWhere((p) => p.id == place.id);
+    if (index != -1) {
+      _goalPlaces[index] = place;
+    } else {
+      _goalPlaces.add(place);
+    }
+    sync.markDirty('tasks');
+    notifyListeners();
+  }
+
+  void deleteGoalPlace(String id) {
+    _goalPlaces = _goalPlaces.where((p) => p.id != id).toList();
+    _goals = _goals.map((g) => g.placeId == id ? g.copyWith(clearPlaceId: true) : g).toList();
+    sync.markDirty('tasks');
+    notifyListeners();
+  }
+
   // --- Goal Actions ---
   void setGoals(List<GoalModel> goals) {
     _goals = List.from(goals);
+    for (final g in _goals) {
+      if (g.scope == GoalScope.daily && !g.isCompleted && g.reminderTimes.isNotEmpty) {
+        NotificationService.instance.scheduleGoalContemplationReminders(g);
+      }
+    }
     sync.markDirty('tasks');
     notifyListeners();
   }
@@ -142,12 +181,22 @@ mixin TaskMixin on ChangeNotifier {
 
   void addGoal(GoalModel goal) {
     _goals = [..._goals, goal];
+    if (goal.scope == GoalScope.daily && !goal.isCompleted && goal.reminderTimes.isNotEmpty) {
+      NotificationService.instance.scheduleGoalContemplationReminders(goal);
+    }
     sync.markDirty('tasks');
     notifyListeners();
   }
 
   void updateGoal(GoalModel goal) {
     _goals = _goals.map((g) => g.id == goal.id ? goal : g).toList();
+    if (goal.scope == GoalScope.daily) {
+      if (goal.isCompleted || goal.reminderTimes.isEmpty) {
+        NotificationService.instance.cancelGoalContemplationReminders(goal.id);
+      } else {
+        NotificationService.instance.scheduleGoalContemplationReminders(goal);
+      }
+    }
     sync.markDirty('tasks');
     notifyListeners();
   }
@@ -159,11 +208,15 @@ mixin TaskMixin on ChangeNotifier {
     } else {
       _goals.add(goal);
     }
+    if (goal.scope == GoalScope.daily && !goal.isCompleted && goal.reminderTimes.isNotEmpty) {
+      NotificationService.instance.scheduleGoalContemplationReminders(goal);
+    }
     sync.markDirty('tasks');
     notifyListeners();
   }
 
   void deleteGoal(String id, {bool silent = false}) {
+    NotificationService.instance.cancelGoalContemplationReminders(id);
     final index = _goals.indexWhere((g) => g.id == id);
     if (index == -1) return;
     final savedGoal = _goals[index].copyWith();
@@ -177,6 +230,9 @@ mixin TaskMixin on ChangeNotifier {
         message: 'Deleted goal "${savedGoal.title}"',
         onUndo: () {
           _goals = savedGoals;
+          if (savedGoal.scope == GoalScope.daily && !savedGoal.isCompleted && savedGoal.reminderTimes.isNotEmpty) {
+            NotificationService.instance.scheduleGoalContemplationReminders(savedGoal);
+          }
           sync.markDirty('tasks');
           notifyListeners();
         },
@@ -195,7 +251,15 @@ mixin TaskMixin on ChangeNotifier {
             : (!nextState && g.subChecklist.isNotEmpty
                 ? g.subChecklist.map((s) => s.copyWith(isCompleted: false)).toList()
                 : g.subChecklist);
-        return g.copyWith(isCompleted: nextState, subChecklist: updatedSubs);
+        final nextGoal = g.copyWith(isCompleted: nextState, subChecklist: updatedSubs);
+        if (nextGoal.scope == GoalScope.daily) {
+          if (nextState) {
+            NotificationService.instance.cancelGoalContemplationReminders(nextGoal.id);
+          } else {
+            NotificationService.instance.scheduleGoalContemplationReminders(nextGoal);
+          }
+        }
+        return nextGoal;
       }
       return g;
     }).toList();
@@ -388,6 +452,14 @@ mixin TaskMixin on ChangeNotifier {
     } else {
       _goals = [];
     }
+
+    if (data['goalPlaces'] != null) {
+      _goalPlaces = (data['goalPlaces'] as List)
+          .map((e) => GoalPlace.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    } else {
+      _goalPlaces = List.from(GoalPlace.defaultPlaces);
+    }
   }
 
   Map<String, dynamic> getTaskStateMap() {
@@ -399,6 +471,7 @@ mixin TaskMixin on ChangeNotifier {
       'projects': _projects.map((p) => p.toJson()).toList(),
       'routineLists': _routineLists.map((r) => r.toJson()).toList(),
       'goals': _goals.map((g) => g.toJson()).toList(),
+      'goalPlaces': _goalPlaces.map((p) => p.toJson()).toList(),
     };
   }
 }

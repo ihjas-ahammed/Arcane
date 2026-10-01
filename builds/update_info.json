@@ -1,14 +1,14 @@
 {
-  "version_code": 2126100102,
+  "version_code": 2126100103,
   "version_name": "2026.10.1",
-  "published_at": "2026-10-01T10:31:00Z",
+  "published_at": "2026-10-01T18:25:00Z",
   "min_supported_version_code": 2026010101,
-  "apk_filename": "missions-v2026.10.1-b2126100102-arm64-v8a.apk",
-  "apk_url": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.1-b2126100102-arm64-v8a.apk",
+  "apk_filename": "missions-v2026.10.1-b2126100103-arm64-v8a.apk",
+  "apk_url": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.1-b2126100103-arm64-v8a.apk",
   "apk_arch_urls": {
-    "arm64-v8a": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.1-b2126100102-arm64-v8a.apk",
-    "armeabi-v7a": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.1-b2126100102-armeabi-v7a.apk",
-    "x86_64": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.1-b2126100102-x86_64.apk"
+    "arm64-v8a": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.1-b2126100103-arm64-v8a.apk",
+    "armeabi-v7a": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.1-b2126100103-armeabi-v7a.apk",
+    "x86_64": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.1-b2126100103-x86_64.apk"
   },
   "changelog_url": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/latest.md"
 }

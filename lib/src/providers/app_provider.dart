@@ -108,6 +108,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
   List<Map<String, dynamic>> _cachedWeeklyReports = [];
   List<Map<String, dynamic>> _cachedMonthlyReports = [];
+  List<Map<String, dynamic>> get cachedWeeklyReports => List.unmodifiable(_cachedWeeklyReports);
+  List<Map<String, dynamic>> get cachedMonthlyReports => List.unmodifiable(_cachedMonthlyReports);
 
   Future<UpdateModel?> checkForAppUpdate({bool forceCheck = false}) async {
     if (UpdateService.isDebugBuild) {

@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:missions/src/models/goal_model.dart';
 import 'package:universal_html/html.dart' as html;
 
 /// Cross-platform notification facade.
@@ -274,6 +275,18 @@ class NotificationService {
         _onTap?.call('energy_reply:$replyText:${notificationId ?? 5000}');
         break;
       case 'dismiss_energy':
+        break;
+      case 'snooze_goal_2h':
+        final goalTitle = payload.startsWith('goal_contemplate:')
+            ? payload.split(':').sublist(2).join(':')
+            : 'Daily Goal';
+        final snoozeId = (notificationId ?? 60000) + 10000;
+        scheduleOneTimeReminder(
+          id: snoozeId,
+          title: 'SNOOZED // $goalTitle',
+          body: 'Your 2-hour contemplation window has resurfaced. Ready to engage & execute?',
+          scheduledTime: DateTime.now().add(const Duration(hours: 2)),
+        );
         break;
       default:
         if (payload.startsWith('log_low_energy') || payload.startsWith('energy_check')) {
@@ -939,6 +952,56 @@ class NotificationService {
   static int subtaskReminderId(String subtaskId) =>
       _submissionReminderBase + subtaskId.hashCode.abs() % 50000;
 
+  static int goalReminderId(String goalId, int timeIndex) =>
+      60000 + (('${goalId}_$timeIndex'.hashCode).abs() % 30000);
+
+  /// Schedule daily "think about it" contemplation reminder(s) for a daily goal.
+  /// Includes an interactive Snooze (2 hr) action button.
+  Future<void> scheduleGoalContemplationReminders(GoalModel goal) async {
+    if (!_initialized) return;
+    await cancelGoalContemplationReminders(goal.id);
+
+    if (goal.isCompleted ||
+        goal.scope != GoalScope.daily ||
+        goal.reminderTimes.isEmpty) {
+      return;
+    }
+
+    for (int i = 0; i < goal.reminderTimes.length; i++) {
+      final timeStr = goal.reminderTimes[i];
+      final parts = timeStr.split(':');
+      if (parts.length != 2) continue;
+      final h = int.tryParse(parts[0]);
+      final m = int.tryParse(parts[1]);
+      if (h == null || m == null) continue;
+
+      final id = goalReminderId(goal.id, i);
+      await scheduleDailyReminder(
+        id: id,
+        title: 'THINK & CONTEMPLATE // ${goal.title}',
+        body: 'Dedicated daily reflection window: mentally visualize and strategize your next move for this goal.',
+        hour: h,
+        minute: m,
+        payload: 'goal_contemplate:${goal.id}:${goal.title}',
+        actions: const [
+          AndroidNotificationAction(
+            'snooze_goal_2h',
+            'Snooze (2 hr)',
+            showsUserInterface: false,
+            cancelNotification: true,
+          ),
+        ],
+      );
+    }
+  }
+
+  Future<void> cancelGoalContemplationReminders(String goalId) async {
+    for (int i = 0; i < 10; i++) {
+      await cancelDailyReminder(goalReminderId(goalId, i));
+      await cancelOneTimeReminder(goalReminderId(goalId, i) + 10000);
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Generic cancel
   // ---------------------------------------------------------------------------
@@ -1222,6 +1285,18 @@ void _backgroundResponseHandler(NotificationResponse resp) async {
       await NotificationService.handleBackgroundEnergyReply(
         input: resp.input,
         notificationId: resp.id,
+      );
+    } else if (resp.actionId == 'snooze_goal_2h') {
+      final payload = resp.payload;
+      final goalTitle = (payload != null && payload.startsWith('goal_contemplate:'))
+          ? payload.split(':').sublist(2).join(':')
+          : 'Daily Goal';
+      final snoozeId = (resp.id ?? 60000) + 10000;
+      await NotificationService.instance.scheduleOneTimeReminder(
+        id: snoozeId,
+        title: 'SNOOZED // $goalTitle',
+        body: 'Your 2-hour contemplation window has resurfaced. Ready to engage & execute?',
+        scheduledTime: DateTime.now().add(const Duration(hours: 2)),
       );
     }
   }

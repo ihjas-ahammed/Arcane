@@ -44,6 +44,73 @@ class GoalSubCheckItem {
   }
 }
 
+class GoalPlace {
+  final String id;
+  final String name;
+  final int colorValue; // ARGB hex integer e.g. 0xFF10B981
+  final String? iconName;
+
+  const GoalPlace({
+    required this.id,
+    required this.name,
+    required this.colorValue,
+    this.iconName,
+  });
+
+  GoalPlace copyWith({
+    String? id,
+    String? name,
+    int? colorValue,
+    String? iconName,
+  }) {
+    return GoalPlace(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      colorValue: colorValue ?? this.colorValue,
+      iconName: iconName ?? this.iconName,
+    );
+  }
+
+  factory GoalPlace.fromJson(Map<String, dynamic> json) {
+    return GoalPlace(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      colorValue: json['colorValue'] as int? ?? 0xFF10B981,
+      iconName: json['iconName'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'colorValue': colorValue,
+      if (iconName != null) 'iconName': iconName,
+    };
+  }
+
+  static const List<GoalPlace> defaultPlaces = [
+    GoalPlace(
+      id: 'home',
+      name: 'Home',
+      colorValue: 0xFF10B981, // Emerald / Mint
+      iconName: 'home',
+    ),
+    GoalPlace(
+      id: 'work',
+      name: 'Work',
+      colorValue: 0xFFFFB547, // Tactical Amber
+      iconName: 'briefcase',
+    ),
+    GoalPlace(
+      id: 'college',
+      name: 'College',
+      colorValue: 0xFF8B5CF6, // Purple / Indigo
+      iconName: 'school',
+    ),
+  ];
+}
+
 class GoalModel {
   final String id;
   final String title;
@@ -60,6 +127,8 @@ class GoalModel {
   final bool isRecurring;
   final List<GoalSubCheckItem> subChecklist;
   final bool countAllTime; // If true, count all-time task duration; if false (default), start from goal date at 12:00 AM
+  final List<String> reminderTimes; // e.g. ["09:00", "14:30"], active strictly for daily goals
+  final String? placeId; // Reference to GoalPlace.id
 
   GoalModel({
     required this.id,
@@ -77,6 +146,8 @@ class GoalModel {
     this.isRecurring = false,
     this.subChecklist = const [],
     this.countAllTime = false,
+    this.reminderTimes = const [],
+    this.placeId,
   })  : createdAt = createdAt ?? DateTime.now(),
         dateKey = dateKey ?? getPeriodKey(scope, startDateTime ?? DateTime.now());
 
@@ -122,6 +193,9 @@ class GoalModel {
     bool? isRecurring,
     List<GoalSubCheckItem>? subChecklist,
     bool? countAllTime,
+    List<String>? reminderTimes,
+    String? placeId,
+    bool clearPlaceId = false,
   }) {
     return GoalModel(
       id: id ?? this.id,
@@ -139,6 +213,8 @@ class GoalModel {
       isRecurring: isRecurring ?? this.isRecurring,
       subChecklist: subChecklist ?? this.subChecklist,
       countAllTime: countAllTime ?? this.countAllTime,
+      reminderTimes: reminderTimes ?? this.reminderTimes,
+      placeId: clearPlaceId ? null : (placeId ?? this.placeId),
     );
   }
 
@@ -178,6 +254,11 @@ class GoalModel {
               .toList() ??
           const [],
       countAllTime: json['countAllTime'] as bool? ?? false,
+      reminderTimes: (json['reminderTimes'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      placeId: json['placeId'] as String?,
     );
   }
 
@@ -198,6 +279,8 @@ class GoalModel {
       'isRecurring': isRecurring,
       'subChecklist': subChecklist.map((e) => e.toJson()).toList(),
       'countAllTime': countAllTime,
+      'reminderTimes': reminderTimes,
+      if (placeId != null) 'placeId': placeId,
     };
   }
 

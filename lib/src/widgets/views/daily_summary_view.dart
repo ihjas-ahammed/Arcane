@@ -18,6 +18,7 @@ import 'package:missions/src/screens/journaling/monthly_review_screen.dart';
 import 'package:missions/src/screens/reflections_archive_screen.dart';
 import 'package:missions/src/screens/journaling/advanced_tools_screen.dart';
 import 'package:missions/src/screens/journaling/archived_reports_screen.dart';
+import 'package:missions/src/screens/journaling/external_ai_briefing_screen.dart';
 import 'package:missions/src/widgets/cards/start_day_report_card.dart'; 
 import 'package:missions/src/widgets/ui/task_progress_snapshot_view.dart';
 import 'package:missions/src/widgets/ui/tactical_briefing_indicator.dart';
@@ -364,6 +365,31 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     return result == true;
   }
 
+  Future<void> _openExternalAiBriefing(AppProvider provider, BriefingType type) async {
+    final targetDate = _selectedDate != null
+        ? DateTime.tryParse(_selectedDate!) ?? DateTime.now()
+        : DateTime.now();
+
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ExternalAiBriefingScreen(
+          initialType: type,
+          initialDate: targetDate,
+        ),
+      ),
+    );
+
+    if (result != null && mounted) {
+      if (type == BriefingType.daily || type == BriefingType.startup) {
+        setState(() {
+          _tempGeneratedBriefing = result;
+          _briefingError = null;
+        });
+      }
+    }
+  }
+
   Future<void> _generateTacticalBriefing(
     AppProvider provider,
     List<ReflectionLog> logs, {
@@ -645,17 +671,19 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                   _IconBtn(
                     icon: _isGeneratingWeeklyReport ? null : MdiIcons.fileChartOutline,
                     accent: JweTheme.accentAmber,
-                    tooltip: 'WEEKLY REPORT',
+                    tooltip: 'WEEKLY REPORT (LONG-PRESS FOR EXTERNAL AI)',
                     loading: _isGeneratingWeeklyReport,
                     onTap: _isGeneratingWeeklyReport ? null : () => _generateWeeklyReport(appProvider),
+                    onLongPress: () => _openExternalAiBriefing(appProvider, BriefingType.weekly),
                   ),
                   const SizedBox(width: 6),
                   _IconBtn(
                     icon: _isGeneratingMonthlyReport ? null : MdiIcons.calendarMonthOutline,
                     accent: JweTheme.accentTeal,
-                    tooltip: 'MONTHLY BRIEFING',
+                    tooltip: 'MONTHLY BRIEFING (LONG-PRESS FOR EXTERNAL AI)',
                     loading: _isGeneratingMonthlyReport,
                     onTap: _isGeneratingMonthlyReport ? null : () => _generateMonthlyReport(appProvider),
+                    onLongPress: () => _openExternalAiBriefing(appProvider, BriefingType.monthly),
                   ),
                 ]),
               ),
@@ -811,38 +839,47 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
               child: _isGeneratingSummary
-                  ? TacticalBriefingIndicator(
-                      type: BriefingType.daily,
-                      statusMessage: _briefingStatus,
+                  ? GestureDetector(
+                      onLongPress: () => _openExternalAiBriefing(appProvider, BriefingType.daily),
+                      child: TacticalBriefingIndicator(
+                        type: BriefingType.daily,
+                        statusMessage: _briefingStatus,
+                      ),
                     )
                   : _briefingError != null && displayBriefing == null
-                      ? TacticalBriefingIndicator(
-                          type: BriefingType.daily,
-                          errorMessage: _briefingError,
-                          onRetry: () => _generateTacticalBriefing(appProvider, reflectionsForDate),
+                      ? GestureDetector(
+                          onLongPress: () => _openExternalAiBriefing(appProvider, BriefingType.daily),
+                          child: TacticalBriefingIndicator(
+                            type: BriefingType.daily,
+                            errorMessage: _briefingError,
+                            onRetry: () => _generateTacticalBriefing(appProvider, reflectionsForDate),
+                          ),
                         )
                       : displayBriefing != null
                           ? Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                TacticalBriefingCard(
-                                  briefingData: displayBriefing,
-                                  isSaved: savedBriefing != null,
-                                  date: _selectedDate != null ? DateTime.tryParse(_selectedDate!) : null,
-                                  onSave: savedBriefing == null
-                                      ? () {
-                                          appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
-                                          setState(() {});
-                                        }
-                                      : null,
-                                  onDeleteAndRetry: () async {
-                                    if (_selectedDate != null) {
-                                      final canProceed = await _checkTelemetryAndConfirm(appProvider, _selectedDate!);
-                                      if (!canProceed) return;
-                                      appProvider.deleteTacticalBriefing(_selectedDate!);
-                                      await _generateTacticalBriefing(appProvider, reflectionsForDate, bypassTelemetryCheck: true);
-                                    }
-                                  },
+                                GestureDetector(
+                                  onLongPress: () => _openExternalAiBriefing(appProvider, BriefingType.daily),
+                                  child: TacticalBriefingCard(
+                                    briefingData: displayBriefing,
+                                    isSaved: savedBriefing != null,
+                                    date: _selectedDate != null ? DateTime.tryParse(_selectedDate!) : null,
+                                    onSave: savedBriefing == null
+                                        ? () {
+                                            appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
+                                            setState(() {});
+                                          }
+                                        : null,
+                                    onDeleteAndRetry: () async {
+                                      if (_selectedDate != null) {
+                                        final canProceed = await _checkTelemetryAndConfirm(appProvider, _selectedDate!);
+                                        if (!canProceed) return;
+                                        appProvider.deleteTacticalBriefing(_selectedDate!);
+                                        await _generateTacticalBriefing(appProvider, reflectionsForDate, bypassTelemetryCheck: true);
+                                      }
+                                    },
+                                  ),
                                 ),
                               ],
                             )
@@ -862,6 +899,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                                   accent: JweTheme.accentAmber,
                                   loading: false,
                                   onTap: () => _generateTacticalBriefing(appProvider, reflectionsForDate),
+                                  onLongPress: () => _openExternalAiBriefing(appProvider, BriefingType.daily),
                                 ),
                               ]),
                             ),
@@ -898,12 +936,20 @@ class _IconBtn extends StatelessWidget {
   final Color accent;
   final String tooltip;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final bool loading;
-  const _IconBtn({this.icon, required this.accent, required this.tooltip, this.onTap, this.loading = false});
+  const _IconBtn({
+    this.icon,
+    required this.accent,
+    required this.tooltip,
+    this.onTap,
+    this.onLongPress,
+    this.loading = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final disabled = onTap == null && !loading;
+    final disabled = onTap == null && onLongPress == null && !loading;
     Widget child = Container(
       width: 34, height: 34,
       alignment: Alignment.center,
@@ -920,7 +966,9 @@ class _IconBtn extends StatelessWidget {
             )
           : Icon(icon, size: 16, color: disabled ? JweTheme.textMuted : accent),
     );
-    if (onTap != null) child = InkWell(onTap: onTap, child: child);
+    if (onTap != null || onLongPress != null) {
+      child = InkWell(onTap: onTap, onLongPress: onLongPress, child: child);
+    }
     return Tooltip(message: tooltip, child: child);
   }
 }
@@ -955,6 +1003,7 @@ class _HudActionBar extends StatelessWidget {
   final Color accent;
   final bool loading;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const _HudActionBar({
     required this.label,
@@ -962,13 +1011,15 @@ class _HudActionBar extends StatelessWidget {
     required this.accent,
     this.loading = false,
     this.onTap,
+    this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
-    final disabled = onTap == null && !loading;
+    final disabled = onTap == null && onLongPress == null && !loading;
     return InkWell(
-      onTap: onTap,
+      onTap: disabled ? null : onTap,
+      onLongPress: disabled ? null : onLongPress,
       child: ClipPath(
         clipper: HudCutClipper(clip: HudClip.br, cut: 8),
         child: Container(

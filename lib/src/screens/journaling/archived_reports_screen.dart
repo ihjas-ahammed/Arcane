@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 import 'package:missions/src/widgets/ui/tactical_briefing_indicator.dart';
+import 'package:missions/src/screens/journaling/external_ai_briefing_screen.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 
 class ArchivedReportsScreen extends StatefulWidget {
@@ -218,6 +219,20 @@ class _ArchivedReportsScreenState extends State<ArchivedReportsScreen> {
                                 provider: provider,
                                 targetDate: reportDate,
                               ),
+                      ),
+                    );
+                    if (mounted) setState(() {});
+                  },
+                  onLongPress: () async {
+                    final reportDateStr = reportData['report_date'] as String? ?? doc['id'] as String?;
+                    final reportDate = reportDateStr != null ? DateTime.tryParse(reportDateStr) : null;
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (ctx) => ExternalAiBriefingScreen(
+                          initialType: isMonthly ? BriefingType.monthly : BriefingType.weekly,
+                          initialDate: reportDate,
+                        ),
                       ),
                     );
                     if (mounted) setState(() {});

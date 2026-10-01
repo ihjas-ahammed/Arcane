@@ -118,7 +118,7 @@ class _TacticalGoalCardState extends State<TacticalGoalCard> {
               ),
               const SizedBox(height: 4),
 
-              // XP Badge, Recurring Tag & Linked Tasks
+              // XP Badge, Recurring Tag, Place Tag, Reminder Tag & Linked Tasks
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
@@ -132,6 +132,71 @@ class _TacticalGoalCardState extends State<TacticalGoalCard> {
                       color: themeColor,
                     ),
                   ),
+                  if (goal.placeId != null) ...[
+                    Builder(
+                      builder: (context) {
+                        final place = appProvider.getGoalPlace(goal.placeId);
+                        if (place == null) return const SizedBox.shrink();
+                        final placeColor = Color(place.colorValue);
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: placeColor.withValues(alpha: isLight ? 0.15 : 0.22),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: placeColor.withValues(alpha: 0.6),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.place, size: 10, color: placeColor),
+                              const SizedBox(width: 3),
+                              Text(
+                                place.name.toUpperCase(),
+                                style: GoogleFonts.orbitron(
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: placeColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                  if (goal.scope == GoalScope.daily && goal.reminderTimes.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: themeColor.withValues(alpha: isLight ? 0.12 : 0.18),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: themeColor.withValues(alpha: 0.4),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.access_time, size: 10, color: themeColor),
+                          const SizedBox(width: 3),
+                          Text(
+                            goal.reminderTimes.join(', '),
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.bold,
+                              color: isLight ? Colors.black87 : Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   if (goal.isRecurring) ...[
                     Container(
                       padding: const EdgeInsets.symmetric(
