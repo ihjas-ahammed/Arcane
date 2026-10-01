@@ -228,18 +228,68 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
 
             AccessibilityEvent.TYPE_VIEW_CLICKED -> {
-                // Clicks on soft keyboard keys are handled as text input, avoid recording raw coordinate clicks on keyboard
-                if (isImePackage(pkg)) return
+                // If this is an IME soft keyboard package, check if user tapped the Action/Send/Done/Enter key
+                if (isImePackage(pkg)) {
+                    val imeDesc = (event.contentDescription?.toString() ?: "").lowercase()
+                    val imeText = event.text.joinToString("").lowercase()
+                    val isActionKey = imeDesc.contains("send") || imeDesc.contains("done") ||
+                                      imeDesc.contains("enter") || imeDesc.contains("go") ||
+                                      imeDesc.contains("search") || imeDesc.contains("return") ||
+                                      imeText.contains("send") || imeText.contains("done") ||
+                                      imeText.contains("enter")
+                    if (isActionKey) {
+                        addWaitStep(deltaSec)
+                        recordedSteps.add(
+                            mapOf(
+                                "type" to "key",
+                                "key" to "ENTER",
+                                "desc" to "IME_ACTION"
+                            )
+                        )
+                        lastActionTime = now
+                        lastTextEditNodeId = null
+                        lastTextEditStepIndex = -1
+                        updateOverlay()
+                    }
+                    return
+                }
 
-                val node = event.source ?: return
+                // Resolve clicked node or fallback bounds gracefully so taps are NEVER dropped
+                var node = event.source
+                if (node == null && event.recordCount > 0) {
+                    node = event.getRecord(0)?.source
+                }
+                if (node == null) {
+                    val root = service.rootInActiveWindow
+                    val d = event.contentDescription?.toString()
+                    val t = if (event.text.isNotEmpty()) event.text.joinToString("") else null
+                    if (root != null) {
+                        if (!d.isNullOrEmpty()) {
+                            node = root.findAccessibilityNodeInfosByText(d).firstOrNull()
+                        }
+                        if (node == null && !t.isNullOrEmpty()) {
+                            node = root.findAccessibilityNodeInfosByText(t).firstOrNull()
+                        }
+                    }
+                }
+
                 val rect = Rect()
-                node.getBoundsInScreen(rect)
-                val dm = service.resources.displayMetrics
+                var viewId: String? = null
+                var desc: String? = event.contentDescription?.toString()
+                var text: String? = if (event.text.isNotEmpty()) event.text.joinToString("") else null
 
-                val centerX = rect.centerX().coerceAtLeast(0)
-                val centerY = rect.centerY().coerceAtLeast(0)
+                if (node != null) {
+                    node.getBoundsInScreen(rect)
+                    viewId = node.viewIdResourceName
+                    if (desc.isNullOrEmpty()) desc = node.contentDescription?.toString()
+                    if (text.isNullOrEmpty()) text = node.text?.toString()
+                }
+
+                val dm = service.resources.displayMetrics
+                val centerX = if (rect.width() > 0) rect.centerX().coerceAtLeast(0) else (dm.widthPixels / 2)
+                val centerY = if (rect.height() > 0) rect.centerY().coerceAtLeast(0) else (dm.heightPixels - 100)
                 val xRatio = if (dm.widthPixels > 0) centerX.toFloat() / dm.widthPixels else 0.5f
-                val yRatio = if (dm.heightPixels > 0) centerY.toFloat() / dm.heightPixels else 0.5f
+                val yRatio = if (dm.heightPixels > 0) centerY.toFloat() / dm.heightPixels else 0.85f
 
                 addWaitStep(deltaSec)
                 val step = mutableMapOf<String, Any?>(
@@ -249,9 +299,9 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                     "xRatio" to xRatio,
                     "yRatio" to yRatio,
                     "count" to 1,
-                    "viewId" to node.viewIdResourceName,
-                    "desc" to node.contentDescription?.toString(),
-                    "text" to node.text?.toString(),
+                    "viewId" to viewId,
+                    "desc" to desc,
+                    "text" to text,
                     "package" to pkg
                 )
                 recordedSteps.add(step)
@@ -464,6 +514,16 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                     clicked = clickNodeByDesc(desc)
                 }
 
+                // If this is a send/submit button and wasn't clicked, try smart send detection
+                if (!clicked) {
+                    val isSendAction = (desc?.contains("send", ignoreCase = true) == true) ||
+                                       (viewId?.contains("send", ignoreCase = true) == true) ||
+                                       (text?.contains("send", ignoreCase = true) == true)
+                    if (isSendAction) {
+                        clicked = clickSmartSendButton()
+                    }
+                }
+
                 // Fallback to coordinates
                 if (!clicked) {
                     val dm = service.resources.displayMetrics
@@ -553,6 +613,23 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                     "HOME" -> service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
                     "RECENTS" -> service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS)
                     "NOTIFICATIONS" -> service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS)
+                    "ENTER", "SEND", "DONE" -> {
+                        val root = service.rootInActiveWindow
+                        var handled = false
+                        if (root != null) {
+                            val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+                            if (focused != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                handled = focused.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
+                            }
+                            if (!handled) {
+                                handled = clickSmartSendButton()
+                            }
+                        }
+                        if (!handled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                            val dm = service.resources.displayMetrics
+                            dispatchTapGesture(dm.widthPixels * 0.9f, dm.heightPixels * 0.92f, 50L)
+                        }
+                    }
                 }
                 SystemClock.sleep((300 / speed).toLong().coerceAtLeast(100L))
             }
@@ -576,20 +653,65 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         service.dispatchGesture(gesture, null, null)
     }
 
+    private fun clickNodeRobustly(node: AccessibilityNodeInfo): Boolean {
+        val rect = Rect()
+        node.getBoundsInScreen(rect)
+        val hasValidBounds = rect.width() > 0 && rect.height() > 0
+
+        // 1. Dispatch real touch gesture at current screen position (for WhatsApp/Telegram ImageButtons and Compose)
+        var gestureSuccess = false
+        if (hasValidBounds && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            dispatchTapGesture(rect.centerX().toFloat(), rect.centerY().toFloat(), 50L)
+            gestureSuccess = true
+        }
+
+        // 2. Perform accessibility click action
+        var actionSuccess = false
+        try {
+            if (node.isClickable) {
+                actionSuccess = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            } else {
+                var p = node.parent
+                while (p != null) {
+                    if (p.isClickable) {
+                        actionSuccess = p.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                        break
+                    }
+                    p = p.parent
+                }
+            }
+        } catch (_: Exception) {}
+
+        return gestureSuccess || actionSuccess
+    }
+
+    private fun clickSmartSendButton(): Boolean {
+        val root = service.rootInActiveWindow ?: return false
+        val candidates = mutableListOf<AccessibilityNodeInfo>()
+        fun scan(node: AccessibilityNodeInfo) {
+            val d = node.contentDescription?.toString() ?: ""
+            val id = node.viewIdResourceName ?: ""
+            val t = node.text?.toString() ?: ""
+            if (d.contains("send", ignoreCase = true) || id.contains("send", ignoreCase = true) || t.equals("send", ignoreCase = true)) {
+                candidates.add(node)
+            }
+            for (i in 0 until node.childCount) {
+                val c = node.getChild(i) ?: continue
+                scan(c)
+            }
+        }
+        scan(root)
+        for (candidate in candidates) {
+            if (clickNodeRobustly(candidate)) return true
+        }
+        return false
+    }
+
     private fun clickNodeByViewId(viewId: String): Boolean {
         val root = service.rootInActiveWindow ?: return false
         val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
         for (node in nodes) {
-            if (node.isClickable) {
-                return node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-            }
-            var parent = node.parent
-            while (parent != null) {
-                if (parent.isClickable) {
-                    return parent.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                }
-                parent = parent.parent
-            }
+            if (clickNodeRobustly(node)) return true
         }
         return false
     }
@@ -598,12 +720,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         val root = service.rootInActiveWindow ?: return false
         val nodes = root.findAccessibilityNodeInfosByText(text)
         for (node in nodes) {
-            if (node.isClickable) return node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-            var parent = node.parent
-            while (parent != null) {
-                if (parent.isClickable) return parent.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                parent = parent.parent
-            }
+            if (clickNodeRobustly(node)) return true
         }
         return false
     }
@@ -612,12 +729,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         val root = service.rootInActiveWindow ?: return false
         fun search(node: AccessibilityNodeInfo): Boolean {
             if (node.contentDescription?.toString() == desc) {
-                if (node.isClickable) return node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                var p = node.parent
-                while (p != null) {
-                    if (p.isClickable) return p.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                    p = p.parent
-                }
+                if (clickNodeRobustly(node)) return true
             }
             for (i in 0 until node.childCount) {
                 val child = node.getChild(i) ?: continue

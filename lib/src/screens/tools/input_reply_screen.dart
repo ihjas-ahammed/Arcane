@@ -1606,6 +1606,7 @@ class _RecordingModeSheetState extends State<_RecordingModeSheet> {
   late final TextEditingController _appModeNameCtrl;
   final TextEditingController _appSearchCtrl = TextEditingController();
   LauncherApp? _selectedApp;
+  LauncherApp? _wholeDeviceSelectedApp;
   String _searchQuery = '';
 
   @override
@@ -1630,6 +1631,243 @@ class _RecordingModeSheetState extends State<_RecordingModeSheet> {
     _appModeNameCtrl.dispose();
     _appSearchCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _openAppSelectorSheet() async {
+    if (LauncherService.instance.apps.value.length <= 1) {
+      await LauncherService.instance.init();
+    }
+    if (!mounted) return;
+
+    final selected = await showModalBottomSheet<LauncherApp?>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: JweTheme.panel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      builder: (sheetCtx) {
+        String query = '';
+        final searchCtrl = TextEditingController();
+
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Container(
+              height: MediaQuery.of(ctx).size.height * 0.75,
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 14,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: JweTheme.border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Icon(MdiIcons.apps, color: JweTheme.accentCyan, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'SELECT TARGET APPLICATION',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: JweTheme.textWhite,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: searchCtrl,
+                    autofocus: true,
+                    onChanged: (v) => setSheetState(() => query = v),
+                    style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 12),
+                    decoration: InputDecoration(
+                      hintText: 'Search app name or package...',
+                      hintStyle: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 11),
+                      prefixIcon: Icon(Icons.search, size: 16, color: JweTheme.textMuted),
+                      suffixIcon: query.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(Icons.close, size: 14, color: JweTheme.textMuted),
+                              onPressed: () {
+                                searchCtrl.clear();
+                                setSheetState(() => query = '');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: JweTheme.bgCanvas,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(
+                        borderSide: BorderSide(color: JweTheme.border),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // Option: Whole Device (All Apps)
+                  InkWell(
+                    onTap: () => Navigator.pop(ctx, null),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _wholeDeviceSelectedApp == null
+                            ? JweTheme.accentCyan.withValues(alpha: 0.12)
+                            : JweTheme.bgCanvas,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: _wholeDeviceSelectedApp == null
+                              ? JweTheme.accentCyan
+                              : JweTheme.border,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(MdiIcons.cellphoneCog, color: JweTheme.accentCyan, size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'All Apps / Whole Device',
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: JweTheme.textWhite,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'Record system-wide gestures across all applications',
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: JweTheme.textMuted,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_wholeDeviceSelectedApp == null)
+                            Icon(Icons.check_circle, size: 16, color: JweTheme.accentCyan),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ValueListenableBuilder<List<LauncherApp>>(
+                      valueListenable: LauncherService.instance.apps,
+                      builder: (context, apps, _) {
+                        final q = query.toLowerCase().trim();
+                        final seen = <String>{};
+                        final candidates = <LauncherApp>[];
+
+                        for (final a in apps) {
+                          if (a.kind == LauncherAppKind.web || a.package.isEmpty) continue;
+                          if (!seen.add(a.package)) continue;
+                          if (q.isNotEmpty) {
+                            final labelMatch = a.displayLabel.toLowerCase().contains(q);
+                            final pkgMatch = a.package.toLowerCase().contains(q);
+                            if (!labelMatch && !pkgMatch) continue;
+                          }
+                          candidates.add(a);
+                        }
+
+                        if (candidates.isEmpty) {
+                          return Center(
+                            child: Text(
+                              'No apps found matching query',
+                              style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 11),
+                            ),
+                          );
+                        }
+
+                        return ListView.separated(
+                          itemCount: candidates.length,
+                          separatorBuilder: (_, __) => Divider(color: JweTheme.lineSoft, height: 1),
+                          itemBuilder: (context, i) {
+                            final app = candidates[i];
+                            final isSelected = _wholeDeviceSelectedApp?.package == app.package;
+
+                            return InkWell(
+                              onTap: () => Navigator.pop(ctx, app),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? JweTheme.accentCyan.withValues(alpha: 0.12)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  children: [
+                                    LauncherAppIcon(app: app, size: 28),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            app.displayLabel,
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: isSelected ? JweTheme.accentCyan : JweTheme.textWhite,
+                                              fontSize: 12,
+                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                            ),
+                                          ),
+                                          Text(
+                                            app.package,
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: JweTheme.textMuted,
+                                              fontSize: 10,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (isSelected)
+                                      Icon(Icons.check_circle, size: 16, color: JweTheme.accentCyan),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _wholeDeviceSelectedApp = selected;
+      _wholeDeviceAppCtrl.text = selected?.package ?? '';
+      if (selected != null && _wholeDeviceNameCtrl.text.startsWith('Macro_')) {
+        _wholeDeviceNameCtrl.text = '${selected.displayLabel.replaceAll(RegExp(r'\s+'), '_')}_Macro';
+      }
+    });
   }
 
   @override
@@ -1788,21 +2026,137 @@ class _RecordingModeSheetState extends State<_RecordingModeSheet> {
             ),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _wholeDeviceAppCtrl,
-            style: GoogleFonts.jetBrainsMono(color: JweTheme.textWhite, fontSize: 12),
-            decoration: InputDecoration(
-              labelText: 'TARGET APP PACKAGE (OPTIONAL)',
-              hintText: 'e.g. com.whatsapp, com.android.chrome',
-              hintStyle: GoogleFonts.jetBrainsMono(
-                color: JweTheme.textMuted.withValues(alpha: 0.5),
-                fontSize: 11,
+
+          // Searchable App Selector Card
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: JweTheme.bgCanvas,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: _wholeDeviceSelectedApp != null ? JweTheme.accentCyan : JweTheme.border,
               ),
-              labelStyle: GoogleFonts.jetBrainsMono(color: JweTheme.accentCyan, fontSize: 10),
-              filled: true,
-              fillColor: JweTheme.bgCanvas,
-              isDense: true,
-              border: OutlineInputBorder(borderSide: BorderSide(color: JweTheme.border)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'TARGET APP (OPTIONAL)',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: _wholeDeviceSelectedApp != null ? JweTheme.accentCyan : JweTheme.textMuted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (_wholeDeviceSelectedApp != null)
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _wholeDeviceSelectedApp = null;
+                            _wholeDeviceAppCtrl.clear();
+                          });
+                        },
+                        child: Text(
+                          'CLEAR',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.accentRed,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: _openAppSelectorSheet,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: JweTheme.panel,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: JweTheme.lineSoft),
+                    ),
+                    child: Row(
+                      children: [
+                        if (_wholeDeviceSelectedApp != null) ...[
+                          LauncherAppIcon(app: _wholeDeviceSelectedApp!, size: 28),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _wholeDeviceSelectedApp!.displayLabel,
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: JweTheme.textWhite,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  _wholeDeviceSelectedApp!.package,
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: JweTheme.textMuted,
+                                    fontSize: 10,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: JweTheme.accentCyan.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'CHANGE',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.accentCyan,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          Icon(MdiIcons.cellphoneCog, size: 24, color: JweTheme.textMuted),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'All Apps / Whole Device',
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: JweTheme.textWhite,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'Tap to choose a specific app with search...',
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: JweTheme.textMuted,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.search, size: 18, color: JweTheme.accentCyan),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 18),

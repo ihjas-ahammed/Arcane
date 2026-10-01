@@ -83,16 +83,20 @@ class LauncherTakeoverService : AccessibilityService() {
             return out
         }
 
-        /** Starts tap recording session for an external assistant package. */
+        /** Starts tap recording session for an external assistant package with floating HUD bar. */
         fun startRecordingTap(context: Context, targetPackage: String) {
             recordingTapPackage = targetPackage
-            activeInstance?.updateEventFilter()
-            Handler(Looper.getMainLooper()).post {
-                android.widget.Toast.makeText(
-                    context.applicationContext,
-                    "Tap the voice/mic button in $targetPackage to record it...",
-                    android.widget.Toast.LENGTH_LONG
-                ).show()
+            val instance = activeInstance
+            if (instance != null) {
+                instance.startMicTapRecording(targetPackage)
+            } else {
+                Handler(Looper.getMainLooper()).post {
+                    android.widget.Toast.makeText(
+                        context.applicationContext,
+                        "Tap the voice/mic button in $targetPackage to record it...",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
             }
         }
 
@@ -138,6 +142,7 @@ class LauncherTakeoverService : AccessibilityService() {
     private var lastLaunchAt = 0L
     private var taskBubble: TaskBubbleOverlay? = null
     private var noraBubble: NoraBubbleOverlay? = null
+    private var micTapOverlay: ExternalMicTapOverlay? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onServiceConnected() {
@@ -146,6 +151,7 @@ class LauncherTakeoverService : AccessibilityService() {
         refreshHomePackages()
         taskBubble = TaskBubbleOverlay(this).also { it.start() }
         noraBubble = NoraBubbleOverlay(this).also { it.start() }
+        micTapOverlay = ExternalMicTapOverlay(this)
         InputReplyManager.initialize(this)
     }
 
@@ -161,6 +167,8 @@ class LauncherTakeoverService : AccessibilityService() {
         taskBubble = null
         noraBubble?.stop()
         noraBubble = null
+        micTapOverlay?.hide()
+        micTapOverlay = null
         return super.onUnbind(intent)
     }
 
@@ -170,6 +178,8 @@ class LauncherTakeoverService : AccessibilityService() {
         taskBubble = null
         noraBubble?.stop()
         noraBubble = null
+        micTapOverlay?.hide()
+        micTapOverlay = null
         super.onDestroy()
     }
 
@@ -201,6 +211,70 @@ class LauncherTakeoverService : AccessibilityService() {
         updateEventFilter()
     }
 
+    fun startMicTapRecording(targetPackage: String) {
+        recordingTapPackage = targetPackage
+        updateEventFilter()
+        mainHandler.post {
+            if (micTapOverlay == null) {
+                micTapOverlay = ExternalMicTapOverlay(this)
+            }
+            micTapOverlay?.onSave = {
+                saveRecordedMicTap(targetPackage)
+            }
+            micTapOverlay?.onCancel = {
+                cancelMicTapRecording()
+            }
+            micTapOverlay?.show(targetPackage)
+        }
+    }
+
+    fun saveRecordedMicTap(targetPackage: String) {
+        val overlay = micTapOverlay ?: return
+        if (!overlay.hasCandidate) {
+            mainHandler.post {
+                android.widget.Toast.makeText(
+                    applicationContext,
+                    "Tap the voice/mic button in $targetPackage first, then tap SAVE.",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+            return
+        }
+
+        val prefs = getSharedPreferences(PREFS_AUTO_TAP, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString("tap_id_${targetPackage}", overlay.candidateId)
+            .putString("tap_desc_${targetPackage}", overlay.candidateDesc)
+            .putString("tap_text_${targetPackage}", overlay.candidateText)
+            .putFloat("tap_x_${targetPackage}", overlay.candidateXRatio)
+            .putFloat("tap_y_${targetPackage}", overlay.candidateYRatio)
+            .apply()
+
+        recordingTapPackage = null
+        updateEventFilter()
+        mainHandler.post {
+            overlay.hide()
+            android.widget.Toast.makeText(
+                applicationContext,
+                "✓ Voice switch recorded! Arcane will auto-click this on launch.",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    fun cancelMicTapRecording() {
+        recordingTapPackage = null
+        updateEventFilter()
+        mainHandler.post {
+            micTapOverlay?.hide()
+            android.widget.Toast.makeText(
+                applicationContext,
+                "Mic tap calibration cancelled.",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
@@ -212,7 +286,13 @@ class LauncherTakeoverService : AccessibilityService() {
         // ── 1. Recording First-Time Tap for External Assistant ─────────────
         val recPkg = recordingTapPackage
         if (recPkg != null && pkg == recPkg && event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
-            val node = event.source ?: rootInActiveWindow
+            var node = event.source
+            if (node == null && event.recordCount > 0) {
+                node = event.getRecord(0)?.source
+            }
+            if (node == null) {
+                node = rootInActiveWindow
+            }
             val rect = Rect()
             val dm = resources.displayMetrics
             var xRatio = 0.5f
@@ -232,23 +312,8 @@ class LauncherTakeoverService : AccessibilityService() {
                 if (text.isNullOrEmpty()) text = node.text?.toString()
             }
 
-            val prefs = getSharedPreferences(PREFS_AUTO_TAP, Context.MODE_PRIVATE)
-            prefs.edit()
-                .putString("tap_id_${recPkg}", viewId)
-                .putString("tap_desc_${recPkg}", desc)
-                .putString("tap_text_${recPkg}", text)
-                .putFloat("tap_x_${recPkg}", xRatio)
-                .putFloat("tap_y_${recPkg}", yRatio)
-                .apply()
-
-            recordingTapPackage = null
-            updateEventFilter()
             mainHandler.post {
-                android.widget.Toast.makeText(
-                    applicationContext,
-                    "✓ Voice switch recorded! Arcane will auto-click this on launch.",
-                    android.widget.Toast.LENGTH_LONG
-                ).show()
+                micTapOverlay?.updateCandidate(desc, viewId, text, xRatio, yRatio)
             }
             return
         }

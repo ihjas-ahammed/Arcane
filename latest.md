@@ -1,3 +1,19 @@
+# ⚡ Arcane System Upgrade // v2026.10.1 (Build #2126100104)
+
+### 🎯 Input-Reply Macro Engine & Touch Precision Polish
+- **Interactive Searchable App Selector**: Replaced raw package name entry with an interactive, searchable app picker querying `LauncherService.instance.apps` with instant filtering by name or package, native app icon rendering, and dual-theme tactical styling.
+- **Robust Touch & Gesture Replay**: Resolved missed clicks (such as "Send" and submit buttons in messaging apps like WhatsApp/Telegram). Queries live on-screen element bounds and dispatches actual pointer gesture taps (`dispatchTapGesture`) in addition to accessibility click actions.
+- **IME & Soft-Keyboard Action Interception**: Accurately captures IME soft-keyboard actions (Send, Done, Enter, Search, Go) during recording and executes them via `ACTION_IME_ENTER` on replay with coordinate fallbacks.
+- **Smart Submit Button Fallback**: Added active-window inspection fallback (`clickSmartSendButton()`) to detect and trigger message submission buttons even across keyboard dismiss transitions.
+
+### 🎙️ External AI Mic-Tap Calibration Floating HUD
+- **Draggable Floating HUD Bar**: Summoned via Accessibility overlay (`TYPE_ACCESSIBILITY_OVERLAY`) over any external AI app (ChatGPT, Claude, Gemini, Perplexity, Copilot, etc.).
+- **Live Candidate Inspection**: Dynamically tracks and displays live captured tap metadata (candidate view ID, description, or screen ratio coordinates) with a pulsating status indicator.
+- **Explicit Save & Cancel Controls**: Interactive `[■ SAVE]` button securely commits calibrated mic-tap coordinates and metadata to `PREFS_AUTO_TAP` only when the user confirms the tap.
+- **Emergency Abort `[✕]`**: Instant cancellation hides the overlay and preserves previous calibrations.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.1 (Build #2126100103)
 
 ### 🧠 External AI Briefing Synthesis Protocol
