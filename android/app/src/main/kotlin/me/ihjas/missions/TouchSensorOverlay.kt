@@ -133,6 +133,8 @@ class TouchSensorOverlay(private val service: AccessibilityService) {
         }
 
         private val cancelBtnRect = RectF()
+        private var initialDownX = -1f
+        private var initialDownY = -1f
 
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
@@ -156,9 +158,12 @@ class TouchSensorOverlay(private val service: AccessibilityService) {
 
         @SuppressLint("ClickableViewAccessibility")
         override fun onTouchEvent(event: MotionEvent): Boolean {
-            if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_DOWN) {
-                val x = event.x
-                val y = event.y
+            val x = event.x
+            val y = event.y
+
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                initialDownX = event.rawX
+                initialDownY = event.rawY
 
                 // If tapped cancel button
                 if (cancelBtnRect.contains(x, y)) {
@@ -167,19 +172,35 @@ class TouchSensorOverlay(private val service: AccessibilityService) {
                     hide()
                     return true
                 }
+                return true
+            }
 
-                if (event.action == MotionEvent.ACTION_UP) {
-                    performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                    val dm = service.resources.displayMetrics
-                    val rawX = event.rawX
-                    val rawY = event.rawY
-                    val xRatio = if (dm.widthPixels > 0) (rawX / dm.widthPixels).coerceIn(0.01f, 0.99f) else 0.5f
-                    val yRatio = if (dm.heightPixels > 0) (rawY / dm.heightPixels).coerceIn(0.01f, 0.99f) else 0.85f
-
-                    onTouchCaptured?.invoke(xRatio, yRatio)
+            if (event.action == MotionEvent.ACTION_UP) {
+                // If tapped cancel button
+                if (cancelBtnRect.contains(x, y)) {
+                    performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    onCancelled?.invoke()
                     hide()
                     return true
                 }
+
+                // Verify it was a direct tap and not a swipe/drag
+                val dx = kotlin.math.abs(event.rawX - initialDownX)
+                val dy = kotlin.math.abs(event.rawY - initialDownY)
+                if (dx > dp(25f) || dy > dp(25f)) {
+                    // Finger was dragged/swiped, ignore swipe gesture
+                    return true
+                }
+
+                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                val dm = service.resources.displayMetrics
+                val rawX = event.rawX
+                val rawY = event.rawY
+                val xRatio = if (dm.widthPixels > 0) (rawX / dm.widthPixels).coerceIn(0.01f, 0.99f) else 0.5f
+                val yRatio = if (dm.heightPixels > 0) (rawY / dm.heightPixels).coerceIn(0.01f, 0.99f) else 0.85f
+
+                onTouchCaptured?.invoke(xRatio, yRatio)
+                hide()
                 return true
             }
             return super.onTouchEvent(event)

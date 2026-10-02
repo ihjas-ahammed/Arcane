@@ -888,7 +888,7 @@ void main() {
       expect(settings.bluetoothAssistantCustomPackage, isEmpty);
       expect(settings.noraAutoSpeakTts, isTrue);
 
-      expect(AppSettings.defaultLiveModels, containsAll(['gemini-2.0-flash-exp', 'gemini-2.0-flash']));
+      expect(AppSettings.defaultLiveModels, containsAll(['gemini-2.0-flash-realtime-exp', 'gemini-2.0-flash']));
       expect(AppSettings.defaultHeavyModels, contains('gemini-2.5-pro'));
 
       settings.bluetoothAssistantRedirectTarget = 'chatgpt';
@@ -906,10 +906,8 @@ void main() {
       expect(deserialized.noraAutoSpeakTts, isFalse);
     });
 
-    test('AIService.isLiveModel recognizes bidi/realtime/live models', () {
-      expect(AIService.isLiveModel('gemini-2.0-flash-exp'), isTrue);
+    test('AIService.isLiveModel recognizes bidi/realtime models', () {
       expect(AIService.isLiveModel('gemini-2.0-flash-realtime-exp'), isTrue);
-      expect(AIService.isLiveModel('gemini-2.0-flash-live'), isTrue);
       expect(AIService.isLiveModel('gemini-2.5-pro'), isFalse);
       expect(AIService.isLiveModel('gemini-1.5-flash'), isFalse);
     });

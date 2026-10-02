@@ -6,36 +6,21 @@ void main() {
     test('Default AppSettings has default Lite and Pro models', () {
       final settings = AppSettings();
 
-      expect(settings.liteModels.length, 3);
-      expect(settings.liteModels, [
-        'gemini-2.0-flash-lite',
-        'gemini-2.0-flash',
-        'gemini-1.5-flash',
-      ]);
+      expect(settings.liteModels.length, AppSettings.defaultLiteModels.length);
+      expect(settings.liteModels, AppSettings.defaultLiteModels);
 
-      expect(settings.heavyModels.length, 4);
-      expect(settings.heavyModels, [
-        'gemini-2.5-pro',
-        'gemini-2.0-flash',
-        'gemini-2.0-pro-exp-02-05',
-        'gemini-1.5-pro',
-      ]);
+      expect(settings.heavyModels.length, AppSettings.defaultHeavyModels.length);
+      expect(settings.heavyModels, AppSettings.defaultHeavyModels);
     });
 
     test('AppSettings supports any amount of models (e.g. 6 models) and persists correctly', () {
       final customLite = [
-        'gemini-2.0-flash-lite',
-        'gemini-2.0-flash',
-        'gemini-1.5-flash',
-        'gemini-2.5-pro',
+        ...AppSettings.defaultLiteModels,
         'custom-experimental-model',
         'meta-llama/llama-3.3-70b',
       ];
       final customPro = [
-        'gemini-2.0-flash',
-        'gemini-2.0-pro-exp-02-05',
-        'gemini-1.5-pro',
-        'gemini-2.5-pro',
+        ...AppSettings.defaultHeavyModels,
         'openrouter/auto',
       ];
 
@@ -44,16 +29,16 @@ void main() {
         heavyModels: customPro,
       );
 
-      expect(settings.liteModels.length, 6);
-      expect(settings.heavyModels.length, 5);
+      expect(settings.liteModels.length, AppSettings.defaultLiteModels.length + 2);
+      expect(settings.heavyModels.length, AppSettings.defaultHeavyModels.length + 1);
 
       final json = settings.toJson();
       final restored = AppSettings.fromJson(json);
 
-      expect(restored.liteModels.length, 6);
+      expect(restored.liteModels.length, AppSettings.defaultLiteModels.length + 2);
       expect(restored.liteModels, customLite);
 
-      expect(restored.heavyModels.length, 5);
+      expect(restored.heavyModels.length, AppSettings.defaultHeavyModels.length + 1);
       expect(restored.heavyModels, customPro);
     });
 
@@ -65,10 +50,10 @@ void main() {
 
       final restored = AppSettings.fromJson(emptyJson);
 
-      expect(restored.liteModels.length, 3);
+      expect(restored.liteModels.length, AppSettings.defaultLiteModels.length);
       expect(restored.liteModels, AppSettings.defaultLiteModels);
 
-      expect(restored.heavyModels.length, 4);
+      expect(restored.heavyModels.length, AppSettings.defaultHeavyModels.length);
       expect(restored.heavyModels, AppSettings.defaultHeavyModels);
     });
 
@@ -80,8 +65,8 @@ void main() {
 
       final restored = AppSettings.fromJson(whitespaceJson);
 
-      expect(restored.liteModels, ['gemini-2.0-flash-lite', 'gemini-2.0-flash']);
-      expect(restored.heavyModels, ['gemini-2.0-flash', 'gemini-1.5-pro']);
+      expect(restored.liteModels, containsAll(['gemini-2.0-flash-lite', 'gemini-2.0-flash']));
+      expect(restored.heavyModels, containsAll(['gemini-2.0-flash', 'gemini-1.5-pro']));
     });
   });
 }

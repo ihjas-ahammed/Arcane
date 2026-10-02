@@ -234,6 +234,14 @@ class LauncherIconCache {
       if (stale.isNotEmpty) _scheduleFlush();
     }());
   }
+
+  /// Releases in-memory icon slots and cached pending queues when memory pressure occurs.
+  void clearMemory() {
+    _slots.clear();
+    _requested.clear();
+    _pendingApps.clear();
+    _pendingPack.clear();
+  }
 }
 
 /// Square app icon honoring the user's icon choice, icon pack, and the app's original icon.

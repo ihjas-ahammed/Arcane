@@ -24,6 +24,15 @@ class LocalStorageService {
     return File('${directory.path}/arcane_local_cache_$userId.bak');
   }
 
+  Future<Directory> _backupDirectory() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final dir = Directory('${directory.path}/backups');
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    return dir;
+  }
+
   Future<void> saveState(String userId, Map<String, dynamic> state) {
     final run = _saveQueue.then((_) => _saveStateNow(userId, state));
     _saveQueue = run.catchError((_) {});
@@ -36,6 +45,7 @@ class LocalStorageService {
         final prefs = await SharedPreferences.getInstance();
         final jsonString = jsonEncode(state);
         await prefs.setString('arcane_local_cache_$userId', jsonString);
+        await performDailyBackup(userId, state, precomputedJson: jsonString);
         return;
       }
       final file = await _localFile(userId);
@@ -57,8 +67,135 @@ class LocalStorageService {
 
       // 3. Atomically replace the destination file
       await tempFile.rename(file.path);
+
+      // 4. Create auto local daily backup (keeps up to 7 days recovery data)
+      await performDailyBackup(userId, state, precomputedJson: jsonString);
     } catch (e) {
       debugPrint("LocalStorage Save Error: $e");
+    }
+  }
+
+  /// Automatically creates a daily snapshot for [userId] (one per calendar day)
+  /// and automatically prunes any snapshots beyond the 7 most recent days.
+  Future<void> performDailyBackup(
+    String userId,
+    Map<String, dynamic> state, {
+    String? precomputedJson,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final todayStr =
+          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+      if (kIsWeb) {
+        await _performWebDailyBackup(userId, state, todayStr, precomputedJson);
+        return;
+      }
+
+      final backupDir = await _backupDirectory();
+      final backupFile = File('${backupDir.path}/daily_backup_${userId}_$todayStr.json');
+      if (await backupFile.exists() && (await backupFile.length()) > 0) {
+        // Today's daily backup snapshot is already saved
+        return;
+      }
+
+      final String jsonString = precomputedJson ?? await compute(_encodeJson, state);
+      final tempFile = File('${backupFile.path}.tmp');
+      await tempFile.writeAsString(jsonString, flush: true);
+      await tempFile.rename(backupFile.path);
+      debugPrint("[LocalStorageService] Auto daily backup created: ${backupFile.path}");
+
+      // Prune backups beyond the 7 most recent days
+      await _pruneDailyBackups(backupDir, userId);
+    } catch (e) {
+      debugPrint("[LocalStorageService] Auto daily backup failed: $e");
+    }
+  }
+
+  Future<void> _pruneDailyBackups(Directory backupDir, String userId) async {
+    try {
+      final prefix = 'daily_backup_${userId}_';
+      final entities = await backupDir.list().toList();
+      final files = entities.whereType<File>().where((f) {
+        final name = f.uri.pathSegments.last;
+        return name.startsWith(prefix) && name.endsWith('.json');
+      }).toList();
+
+      // Sort descending by filename (ISO date string YYYY-MM-DD sorts chronologically)
+      files.sort((a, b) => b.uri.pathSegments.last.compareTo(a.uri.pathSegments.last));
+
+      // Keep up to 7 days of recovery data
+      if (files.length > 7) {
+        for (int i = 7; i < files.length; i++) {
+          try {
+            await files[i].delete();
+            debugPrint("[LocalStorageService] Pruned daily backup beyond 7 days: ${files[i].path}");
+          } catch (e) {
+            debugPrint("[LocalStorageService] Error pruning old backup: $e");
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("[LocalStorageService] _pruneDailyBackups error: $e");
+    }
+  }
+
+  Future<void> _performWebDailyBackup(
+    String userId,
+    Map<String, dynamic> state,
+    String todayStr,
+    String? precomputedJson,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'arcane_daily_backup_${userId}_$todayStr';
+    if (prefs.containsKey(key)) return;
+
+    final String jsonString = precomputedJson ?? jsonEncode(state);
+    await prefs.setString(key, jsonString);
+
+    final datesKey = 'arcane_daily_backup_dates_$userId';
+    final dates = prefs.getStringList(datesKey) ?? <String>[];
+    if (!dates.contains(todayStr)) {
+      dates.add(todayStr);
+      dates.sort((a, b) => b.compareTo(a)); // Newest first
+      while (dates.length > 7) {
+        final oldest = dates.removeLast();
+        await prefs.remove('arcane_daily_backup_${userId}_$oldest');
+      }
+      await prefs.setStringList(datesKey, dates);
+    }
+  }
+
+  Future<File?> getLatestDailyBackup(String userId) async {
+    if (kIsWeb) return null;
+    try {
+      final backupDir = await _backupDirectory();
+      final prefix = 'daily_backup_${userId}_';
+      final files = (await backupDir.list().toList()).whereType<File>().where((f) {
+        final name = f.uri.pathSegments.last;
+        return name.startsWith(prefix) && name.endsWith('.json');
+      }).toList();
+      if (files.isEmpty) return null;
+      files.sort((a, b) => b.uri.pathSegments.last.compareTo(a.uri.pathSegments.last));
+      return files.first;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<File>> getDailyBackupFiles(String userId) async {
+    if (kIsWeb) return [];
+    try {
+      final backupDir = await _backupDirectory();
+      final prefix = 'daily_backup_${userId}_';
+      final files = (await backupDir.list().toList()).whereType<File>().where((f) {
+        final name = f.uri.pathSegments.last;
+        return name.startsWith(prefix) && name.endsWith('.json');
+      }).toList();
+      files.sort((a, b) => b.uri.pathSegments.last.compareTo(a.uri.pathSegments.last));
+      return files;
+    } catch (_) {
+      return [];
     }
   }
 
@@ -82,7 +219,7 @@ class LocalStorageService {
         }
       }
 
-      // Fallback: If primary file is missing or corrupted, attempt recovery from .bak
+      // Fallback 1: If primary file is missing or corrupted, attempt recovery from .bak
       final backup = await _backupFile(userId);
       if (await backup.exists()) {
         try {
@@ -98,6 +235,24 @@ class LocalStorageService {
           }
         } catch (bakError) {
           debugPrint("LocalStorage Backup Recovery Error: $bakError");
+        }
+      }
+
+      // Fallback 2: If primary and .bak are missing or corrupt, attempt recovery from latest daily backup
+      final dailyBackup = await getLatestDailyBackup(userId);
+      if (dailyBackup != null && await dailyBackup.exists()) {
+        try {
+          final dailyContents = await dailyBackup.readAsString();
+          if (dailyContents.isNotEmpty) {
+            final data = await compute(_decodeJson, dailyContents);
+            debugPrint("Successfully recovered state from daily backup (${dailyBackup.path})!");
+            try {
+              await dailyBackup.copy(file.path);
+            } catch (_) {}
+            return data;
+          }
+        } catch (dailyError) {
+          debugPrint("LocalStorage Daily Backup Recovery Error: $dailyError");
         }
       }
     } catch (e) {
@@ -116,6 +271,10 @@ class LocalStorageService {
       final file = await _localFile(userId);
       if (await file.exists()) {
         await file.delete();
+      }
+      final backup = await _backupFile(userId);
+      if (await backup.exists()) {
+        await backup.delete();
       }
     } catch (e) {
       debugPrint("LocalStorage Clear Error: $e");

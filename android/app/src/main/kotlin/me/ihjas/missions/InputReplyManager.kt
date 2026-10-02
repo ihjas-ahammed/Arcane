@@ -80,6 +80,10 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
     private var lastPhysicalTouchX = -1f
     private var lastPhysicalTouchY = -1f
     private var lastPhysicalTouchTime = 0L
+    private var pendingTapRunnable: Runnable? = null
+    private var pendingTapX = -1f
+    private var pendingTapY = -1f
+    private var pendingTapTime = 0L
 
     init {
         overlay.onStopClicked = {
@@ -95,9 +99,87 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
     }
 
     fun onPhysicalTouchObserved(rawX: Float, rawY: Float) {
+        if (!isRecording) return
+        val now = SystemClock.elapsedRealtime()
+
+        // Flush any previously uncommitted pending tap so fast successive taps aren't dropped
+        pendingTapRunnable?.let {
+            mainHandler.removeCallbacks(it)
+            if (pendingTapX > 0f && pendingTapY > 0f) {
+                commitDirectTap(pendingTapX, pendingTapY, pendingTapTime)
+            }
+            pendingTapRunnable = null
+        }
+
         lastPhysicalTouchX = rawX
         lastPhysicalTouchY = rawY
-        lastPhysicalTouchTime = SystemClock.elapsedRealtime()
+        lastPhysicalTouchTime = now
+        pendingTapX = rawX
+        pendingTapY = rawY
+        pendingTapTime = now
+
+        val runnable = Runnable {
+            if (!isRecording) return@Runnable
+            if (pendingTapX > 0f && pendingTapY > 0f) {
+                commitDirectTap(pendingTapX, pendingTapY, pendingTapTime)
+                pendingTapX = -1f
+                pendingTapY = -1f
+                pendingTapRunnable = null
+            }
+        }
+        pendingTapRunnable = runnable
+        mainHandler.postDelayed(runnable, 240L)
+    }
+
+    private fun commitDirectTap(touchX: Float, touchY: Float, touchTime: Long) {
+        if (!isRecording || touchX <= 0f || touchY <= 0f) return
+
+        val dm = service.resources.displayMetrics
+        val finalX = touchX.roundToInt()
+        val finalY = touchY.roundToInt()
+        val xRatio = if (dm.widthPixels > 0) (touchX / dm.widthPixels).coerceIn(0.01f, 0.99f) else 0.5f
+        val yRatio = if (dm.heightPixels > 0) (touchY / dm.heightPixels).coerceIn(0.01f, 0.99f) else 0.85f
+
+        var viewId: String? = null
+        var desc: String? = null
+        var text: String? = null
+        var pkg: String = activePackageName
+
+        try {
+            val root = service.rootInActiveWindow
+            if (root != null) {
+                val node = findNodeAtPoint(root, finalX, finalY)
+                if (node != null) {
+                    viewId = node.viewIdResourceName
+                    desc = node.contentDescription?.toString()
+                    text = node.text?.toString()
+                    if (node.packageName != null) pkg = node.packageName.toString()
+                }
+            }
+        } catch (_: Exception) {}
+
+        val now = SystemClock.elapsedRealtime()
+        val deltaSec = ((now - lastActionTime) / 1000f).coerceIn(0.2f, 4.0f)
+        addWaitStep(deltaSec)
+
+        val step = mutableMapOf<String, Any?>(
+            "type" to "click",
+            "x" to finalX,
+            "y" to finalY,
+            "xRatio" to xRatio,
+            "yRatio" to yRatio,
+            "count" to 1,
+            "viewId" to viewId,
+            "desc" to desc,
+            "text" to text,
+            "package" to pkg
+        )
+        recordedSteps.add(step)
+        lastActionTime = now
+        lastTextEditNodeId = null
+        lastTextEditStepIndex = -1
+        updateOverlay()
+        Log.i(TAG, "Recorded direct physical tap at ($finalX, $finalY) ratio=($xRatio, $yRatio) pkg=$pkg viewId=$viewId")
     }
 
     private fun getRecordingsDir(): File {
@@ -154,6 +236,18 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
 
     fun stopRecording(): Map<String, Any?>? {
         if (!isRecording) return null
+
+        // Flush any pending direct tap before concluding recording
+        pendingTapRunnable?.let {
+            mainHandler.removeCallbacks(it)
+            if (pendingTapX > 0f && pendingTapY > 0f) {
+                commitDirectTap(pendingTapX, pendingTapY, pendingTapTime)
+                pendingTapX = -1f
+                pendingTapY = -1f
+            }
+            pendingTapRunnable = null
+        }
+
         isRecording = false
 
         mainHandler.post {
@@ -181,6 +275,10 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
 
     fun cancelRecording() {
         if (!isRecording) return
+        pendingTapRunnable?.let { mainHandler.removeCallbacks(it) }
+        pendingTapRunnable = null
+        pendingTapX = -1f
+        pendingTapY = -1f
         isRecording = false
         recordedSteps.clear()
         recordedParameters.clear()
@@ -242,6 +340,12 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
 
             AccessibilityEvent.TYPE_VIEW_CLICKED -> {
+                // System delivered a genuine view click event: cancel any pending fallback physical tap
+                pendingTapRunnable?.let { mainHandler.removeCallbacks(it) }
+                pendingTapRunnable = null
+                pendingTapX = -1f
+                pendingTapY = -1f
+
                 // If this is an IME soft keyboard package, check if user tapped the Action/Send/Done/Enter key
                 if (isImePackage(pkg)) {
                     val imeDesc = (event.contentDescription?.toString() ?: "").lowercase()
@@ -411,26 +515,46 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
                 val deltaX = event.scrollDeltaX
                 val deltaY = event.scrollDeltaY
-                if (deltaX != 0 || deltaY != 0) {
-                    addWaitStep(deltaSec)
-                    val direction = when {
-                        deltaY > 0 -> "down"
-                        deltaY < 0 -> "up"
-                        deltaX > 0 -> "right"
-                        else -> "left"
-                    }
-                    recordedSteps.add(
-                        mapOf(
-                            "type" to "scroll",
-                            "direction" to direction,
-                            "dx" to deltaX,
-                            "dy" to deltaY,
-                            "package" to pkg
-                        )
-                    )
-                    lastActionTime = now
-                    updateOverlay()
+                val absDeltaX = kotlin.math.abs(deltaX)
+                val absDeltaY = kotlin.math.abs(deltaY)
+
+                // 1. Ignore sub-threshold micro-scroll jitter from finger tapping/releasing
+                if (absDeltaX < 25 && absDeltaY < 25) {
+                    return
                 }
+
+                // 2. If a physical tap occurred within the last 300ms, distinguish tap jitter vs real swipe
+                val timeSinceTouch = now - pendingTapTime
+                if (pendingTapX > 0f && timeSinceTouch < 300L) {
+                    if (absDeltaX < 50 && absDeltaY < 50) {
+                        // Jitter during tap release on scrollable container: do not misread tap as swipe
+                        return
+                    }
+                    // Substantial delta (>= 50px) confirms an intentional swipe: cancel pending fallback tap
+                    pendingTapRunnable?.let { mainHandler.removeCallbacks(it) }
+                    pendingTapRunnable = null
+                    pendingTapX = -1f
+                    pendingTapY = -1f
+                }
+
+                addWaitStep(deltaSec)
+                val direction = when {
+                    deltaY > 0 -> "down"
+                    deltaY < 0 -> "up"
+                    deltaX > 0 -> "right"
+                    else -> "left"
+                }
+                recordedSteps.add(
+                    mapOf(
+                        "type" to "scroll",
+                        "direction" to direction,
+                        "dx" to deltaX,
+                        "dy" to deltaY,
+                        "package" to pkg
+                    )
+                )
+                lastActionTime = now
+                updateOverlay()
             }
         }
     }

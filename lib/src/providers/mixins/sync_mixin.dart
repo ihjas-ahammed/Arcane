@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/services/storage_service.dart';
@@ -21,6 +22,9 @@ mixin SyncMixin on ChangeNotifier {
 
   Timer? _saveDebounce;
   Timer? _cloudDebounce;
+  Timer? _periodicSyncTimer;
+  StreamSubscription<int>? _realtimeSyncSubscription;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   
   DateTime? _lastSuccessfulSaveTimestamp;
   DateTime? get lastSuccessfulSaveTimestamp => _lastSuccessfulSaveTimestamp;
@@ -51,17 +55,68 @@ mixin SyncMixin on ChangeNotifier {
   Map<String, dynamic> getFullAppState(); 
   void loadStateFromMap(Map<String, dynamic> data);
 
-  // App is offline-first with automatic background cloud sync when autoSaveEnabled is true.
-  void initSync() {}
-  
-  void startRealtimeSyncListener() {}
+  /// Initializes background realtime sync listeners, connectivity detection, and periodic sync.
+  void initSync() {
+    stopRealtimeSyncListener();
+    if (currentUser != null) {
+      startRealtimeSyncListener();
+    }
 
-  void stopRealtimeSyncListener() {}
+    _periodicSyncTimer?.cancel();
+    _periodicSyncTimer = Timer.periodic(const Duration(minutes: 10), (_) {
+      if (currentUser != null && settings.autoSaveEnabled && !_dataLoadInProgress && !_isSyncing) {
+        autoSyncWithCloud();
+      }
+    });
+
+    _connectivitySubscription?.cancel();
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
+      final isOnline = results.any((r) => r != ConnectivityResult.none);
+      if (isOnline && currentUser != null && settings.autoSaveEnabled && !_dataLoadInProgress) {
+        debugPrint("[SyncMixin] Network connectivity restored. Running background sync.");
+        if (_hasUnsavedChanges) {
+          _scheduleCloudSave();
+        }
+        autoSyncWithCloud();
+      }
+    });
+  }
+  
+  /// Subscribes to real-time changes in the cloud lastModified timestamp and pulls immediately.
+  void startRealtimeSyncListener() {
+    if (currentUser == null) return;
+    _realtimeSyncSubscription?.cancel();
+    final uid = currentUser!.uid;
+    _realtimeSyncSubscription = _storageService.watchLastModified(uid).listen((remoteTs) async {
+      if (currentUser == null || currentUser!.uid != uid || _dataLoadInProgress || _isSyncing) return;
+      if (remoteTs <= 0) return;
+      final localTs = settings.lastModified;
+      if (remoteTs > localTs) {
+        debugPrint("[SyncMixin] Realtime sync: Remote is newer ($remoteTs > $localTs). Auto-pulling updates in background.");
+        await _manuallyLoadFromCloudInternal();
+      } else if (localTs > remoteTs || _hasUnsavedChanges) {
+        if (settings.autoSaveEnabled) {
+          debugPrint("[SyncMixin] Realtime sync: Local is newer ($localTs >= $remoteTs). Scheduling cloud save.");
+          _scheduleCloudSave();
+        }
+      }
+    }, onError: (e) {
+      debugPrint("[SyncMixin] Realtime sync error: $e");
+    });
+  }
+
+  void stopRealtimeSyncListener() {
+    _realtimeSyncSubscription?.cancel();
+    _realtimeSyncSubscription = null;
+  }
 
   @override
   void dispose() {
     _saveDebounce?.cancel();
     _cloudDebounce?.cancel();
+    _periodicSyncTimer?.cancel();
+    _connectivitySubscription?.cancel();
+    stopRealtimeSyncListener();
     super.dispose();
   }
 
@@ -110,7 +165,7 @@ mixin SyncMixin on ChangeNotifier {
   Future<void> forceLocalBackup() async {
     await _saveLocalSnapshot(forceFlush: true);
     if (currentUser != null && settings.autoSaveEnabled && _hasUnsavedChanges) {
-      _performActualSaveInternal();
+      await _performActualSaveInternal();
     }
     notifyListeners();
   }
@@ -237,16 +292,24 @@ mixin SyncMixin on ChangeNotifier {
   Future<bool> _performActualSaveInternal({bool force = false}) async {
     if (currentUser == null || _dataLoadInProgress) return false;
     try {
-      final appData = getFullAppState();
-      
       final tasksData = Map<String, dynamic>.from(getTaskStateMap());
-      final historyData = {'completedByDay': appData['completedByDay'] ?? {}};
-      final reflectionsData = {'reflectionLogs': appData['reflectionLogs'] ?? []};
       final financeData = Map<String, dynamic>.from(getFinanceStateMap());
       final healthData = Map<String, dynamic>.from(getHealthStateMap());
       final tradingData = Map<String, dynamic>.from(getTradingStateMap());
+      final userState = Map<String, dynamic>.from(getUserStateMap());
+
+      final appData = <String, dynamic>{
+        ...tasksData,
+        ...financeData,
+        ...userState,
+        ...healthData,
+        'trading': tradingData,
+      };
+
+      final historyData = {'completedByDay': appData['completedByDay'] ?? {}};
+      final reflectionsData = {'reflectionLogs': appData['reflectionLogs'] ?? []};
       
-      final settingsData = Map<String, dynamic>.from(getUserStateMap());
+      final settingsData = Map<String, dynamic>.from(userState);
       settingsData.remove('reflectionLogs');
       settingsData['lastSuccessfulSaveTimestamp'] = DateTime.now().toIso8601String();
 
@@ -259,7 +322,7 @@ mixin SyncMixin on ChangeNotifier {
         'trading',
         'completedByDay',
         'reflectionLogs',
-        ...getUserStateMap().keys,
+        ...userState.keys,
       };
 
       appData.forEach((key, value) {

@@ -36,6 +36,13 @@ class ResolvedDayPlanItem {
   });
 }
 
+String _formatDateYmd(DateTime dt) {
+  final y = dt.year.toString().padLeft(4, '0');
+  final m = dt.month.toString().padLeft(2, '0');
+  final d = dt.day.toString().padLeft(2, '0');
+  return '$y-$m-$d';
+}
+
 class TaskCalculations {
   /// Calculates the total time spent on a subtask for the current day (local time).
   /// Includes completed sessions from today and the current elapsed time of an active timer if running.
@@ -65,7 +72,7 @@ class TaskCalculations {
   /// in schedule allocate their proportional fraction of the realtime difference.
   static double getHistoricalTodaySeconds(SubTask subTask, [List<MainTask>? allTasks]) {
     final now = DateTime.now();
-    final todayStr = DateFormat('yyyy-MM-dd').format(now);
+    final todayStr = _formatDateYmd(now);
     if (allTasks != null) {
       final recalibrated = recalculateAllTimeLogs(allTasks);
       return (recalibrated.dailySubtaskTimes[todayStr]?[subTask.id] ?? 0).toDouble();
@@ -113,7 +120,7 @@ class TaskCalculations {
     final recalibrated = allTasks != null 
         ? recalculateAllTimeLogs(allTasks) 
         : _cachedRecalibratedData;
-    final dayStr = DateFormat('yyyy-MM-dd').format(day);
+    final dayStr = _formatDateYmd(day);
     if (recalibrated != null && recalibrated.dailySubtaskTimes.containsKey(dayStr)) {
       return recalibrated.dailySubtaskTimes[dayStr]?[subTask.id] ?? 0;
     }
@@ -131,7 +138,7 @@ class TaskCalculations {
     final recalibrated = allTasks != null 
         ? recalculateAllTimeLogs(allTasks) 
         : _cachedRecalibratedData;
-    final dayStr = DateFormat('yyyy-MM-dd').format(day);
+    final dayStr = _formatDateYmd(day);
     if (recalibrated != null && recalibrated.dailyTaskTimes.containsKey(dayStr)) {
       return recalibrated.dailyTaskTimes[dayStr]?[task.id] ?? 0;
     }
@@ -414,7 +421,7 @@ class TaskCalculations {
             final curEnd = session.endTime.isBefore(nextMidnight) ? session.endTime : nextMidnight;
 
             if (curEnd.isAfter(curStart)) {
-              final dateStr = DateFormat('yyyy-MM-dd').format(curStart);
+              final dateStr = _formatDateYmd(curStart);
               intervalsByDay.putIfAbsent(dateStr, () => []).add(_SessionInterval(
                 sessionId: session.id,
                 subTaskId: sub.id,

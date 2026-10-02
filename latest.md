@@ -1,3 +1,26 @@
+# ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100205)
+
+### 🔄 Background & Realtime Cloud Sync Engine
+- **Non-blocking Realtime Sync**: Integrated reactive `watchLastModified` listener from storage service. Whenever remote data updates occur, Arcane silently compares timestamps and pulls fresh data in the background without UI interruption.
+- **Auto-Sync on Connectivity Recovery**: Attached real-time `Connectivity` monitor that initiates instant data synchronization whenever device network connectivity is restored.
+- **Background Periodic Syncing**: Configured a reliable 10-minute background periodic synchronization timer.
+- **Lifecycle-Aware State Preservation**: Ensures state saves and background synchronization execute cleanly across all app lifecycle transitions (`paused`, `hidden`, `inactive`, `resumed`).
+
+### 🛡️ Automated Daily Local Backups with 7-Day Retention
+- **Automated Daily Snapshots**: Creates daily local snapshots (`backups/daily_backup_${userId}_YYYY-MM-DD.json`) during saves and daily reset events.
+- **Strict 7-Day Retention Policy**: Prunes backups older than 7 days (`_pruneDailyBackups`), keeping local storage lean while ensuring a full week of disaster recovery points.
+- **Multi-Tier Disaster Recovery**: In the event of primary cache and `.bak` cache corruption or deletion, `LocalStorageService` seamlessly falls back to the most recent daily backup snapshot.
+- **Cross-Platform Data Recovery**: Enabled backup file discovery, inspection, and one-tap restore across Linux, macOS, iOS, Windows, and Android.
+
+### ⚡ System Performance, Memory & Battery Optimizations
+- **Image Cache Tuning**: Capped Flutter image cache to 40MB and 100 entries to prevent memory bloat during prolonged media and session browsing.
+- **OS Memory Pressure Handling**: Implemented `didHaveMemoryPressure()` hook to purge image caches, analytics caches, calculations caches, and icon memory caches on OS memory warning signals.
+- **Date Calculation Acceleration**: Replaced heavy `DateFormat` instantiation in tight recalculation loops with ultra-fast numerical date formatting (`_formatDateYmd`).
+- **Duplicate Computation Elimination**: Streamlined task progress and submission card recalculations to eliminate duplicate time calculations.
+- **Battery-Saving Background Suspension**: Automatically pauses 1s launcher clock ticks and 30s Binance market polling timers whenever the app is hidden or backgrounded.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100204)
 
 ### 🎯 Multi-Method Voice-Tap Calibration & Touch Tracking

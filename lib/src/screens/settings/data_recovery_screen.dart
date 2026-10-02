@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -32,7 +33,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
   Future<void> _loadBackups() async {
     setState(() => _isLoading = true);
     try {
-      if (Platform.isAndroid || Platform.isWindows) {
+      if (!kIsWeb) {
         final docsDir = await getApplicationDocumentsDirectory();
         final backupDir = Directory('${docsDir.path}/backups');
         if (await backupDir.exists()) {

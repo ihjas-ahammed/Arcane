@@ -51,15 +51,28 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) => _clock.value = DateTime.now());
+    _startClockTimer();
     _loadNotes();
     _refreshSystem();
+  }
+
+  void _startClockTimer() {
+    _clockTimer?.cancel();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) _clock.value = DateTime.now();
+    });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Wi-Fi / Bluetooth / location are changed in system panels; re-read on return.
-    if (state == AppLifecycleState.resumed) _refreshSystem();
+    if (state == AppLifecycleState.resumed) {
+      _startClockTimer();
+      _refreshSystem();
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      _clockTimer?.cancel();
+      _clockTimer = null;
+    }
   }
 
   Future<void> _refreshSystem() async {

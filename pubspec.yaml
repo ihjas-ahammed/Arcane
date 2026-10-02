@@ -2,7 +2,7 @@ name: missions
 description: "A Flutter version of the Task Dominion application."
 publish_to: 'none'
 
-version: 2026.10.2+2126100204
+version: 2026.10.2+2126100205
 
 environment:
   sdk: '>=3.3.0 <4.0.0'

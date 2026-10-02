@@ -75,7 +75,9 @@ class SubmissionCard extends StatelessWidget {
     var avgSeconds = total7Days / 7.0;
     if (avgSeconds < 300) avgSeconds = 300;
 
-    final fullTotalToday = TaskCalculations.getTodaySeconds(current, timerState, provider.mainTasks);
+    final fullTotalToday = isRunning
+        ? TaskCalculations.getTodaySeconds(current, timerState, provider.mainTasks)
+        : displayBaseTime;
     final usagePct = isCompleted ? 1.0 : (fullTotalToday / avgSeconds).clamp(0.0, 1.0);
     final hierarchical = current.calculateProgress();
 

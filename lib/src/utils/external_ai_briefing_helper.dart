@@ -262,7 +262,7 @@ You are provided with a complete JSON dataset containing the user's historical b
 
 MISSION:
 1. Analyze the attached JSON dataset.
-2. Generate TODAY's official Daily Tactical Briefing ($dateStr).
+2. Generate TODAY's official DAILY TACTICAL BRIEFING ($dateStr).
 3. To save time tomorrow morning, ALSO synthesize TOMORROW's System Start-Up Sequence ($tomorrowStr) grounded in today's accomplishments, momentum, remaining tasks, and goals!
 
 Tone: Uplifting, highly optimistic, empowering, and deeply appreciative. Celebrate all accomplishments, small wins, and positive turning points. NEVER give negative or critical advice.

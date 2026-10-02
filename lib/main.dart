@@ -45,6 +45,10 @@ Future<void> _initFirebase() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Performance & RAM: constrain image cache to prevent unbounded heap allocations on Android
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 40 * 1024 * 1024; // 40MB
+  PaintingBinding.instance.imageCache.maximumSize = 100;
+
   // Launcher anti-kill safety: prevent unhandled exceptions from terminating the launcher process
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);

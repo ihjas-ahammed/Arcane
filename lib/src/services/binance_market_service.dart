@@ -300,8 +300,13 @@ class BinanceMarketService extends ChangeNotifier with WidgetsBindingObserver {
       _visibleIndianPollTimer?.cancel();
       _activeCryptoPollTimer?.cancel();
       _microTickTimer?.cancel();
+      _indianMarketPollTimer?.cancel();
     } else {
       _startFastTimers();
+      _indianMarketPollTimer?.cancel();
+      _indianMarketPollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+        _fetchIndianMarkets();
+      });
     }
   }
 

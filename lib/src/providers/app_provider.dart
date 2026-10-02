@@ -50,6 +50,7 @@ import 'package:missions/src/providers/actions/report_actions.dart';
 import 'package:missions/src/providers/actions/schedule_actions.dart';
 import 'package:missions/src/providers/actions/finance_actions.dart';
 import 'package:missions/src/providers/actions/journaling_actions.dart';
+import 'package:missions/src/screens/launcher/launcher_icon.dart';
 
 class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserMixin, HealthMixin, WidgetsBindingObserver {
   
@@ -211,12 +212,26 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       drainPendingEnergyLogs();
       if (currentUser != null) {
         fetchDailyReportsFromCloud();
+        autoSyncWithCloud();
       }
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    } else if (state == AppLifecycleState.paused ||
+               state == AppLifecycleState.inactive ||
+               state == AppLifecycleState.hidden) {
       if (hasUnsavedChanges) {
         forceLocalBackup();
       }
     }
+  }
+
+  @override
+  void didHaveMemoryPressure() {
+    debugPrint("[AppProvider] Memory pressure reported by OS. Purging memory caches.");
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
+    _cachedWeeklyReports.clear();
+    _cachedMonthlyReports.clear();
+    TaskCalculations.invalidateCache();
+    LauncherIconCache.instance.clearMemory();
   }
 
   @override
@@ -282,6 +297,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       body: s.energyNotificationBody,
       customTimes: s.energyNotificationTimes,
     );
+
+    NotificationService.instance.scheduleAllGoalContemplationReminders(goals);
   }
 
   /// Schedule or cancel one reminder with the OS, based on its current state.
@@ -817,6 +834,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
             debugPrint("Failed auto sync with cloud on auth change: $e");
           });
         }
+        initSync();
         setAuthLoading(false); 
       }
 
@@ -833,6 +851,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       rescheduleReminders();
 
     } else {
+      stopRealtimeSyncListener();
       if (currentUser == null && !authLoading) {
         // Already logged out and loading screen is gone. Nothing to do.
         return;
@@ -1872,6 +1891,9 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
       setLastLoginDate(todayStr);
       if (changed) setMainTasks(newMainTasks);
+      if (currentUser != null) {
+        _localStorage.performDailyBackup(currentUser!.uid, getFullAppState());
+      }
     }
   }
 

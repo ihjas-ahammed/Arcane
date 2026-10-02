@@ -126,11 +126,7 @@ mixin TaskMixin on ChangeNotifier {
   // --- Goal Actions ---
   void setGoals(List<GoalModel> goals) {
     _goals = List.from(goals);
-    for (final g in _goals) {
-      if (g.scope == GoalScope.daily && !g.isCompleted && g.reminderTimes.isNotEmpty) {
-        NotificationService.instance.scheduleGoalContemplationReminders(g);
-      }
-    }
+    NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
     sync.markDirty('tasks');
     notifyListeners();
   }
@@ -171,6 +167,7 @@ mixin TaskMixin on ChangeNotifier {
       }
 
       _goals = [..._goals, ...newSheetGoals];
+      NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
       sync.markDirty('tasks');
       notifyListeners();
       return newSheetGoals;
@@ -181,22 +178,14 @@ mixin TaskMixin on ChangeNotifier {
 
   void addGoal(GoalModel goal) {
     _goals = [..._goals, goal];
-    if (goal.scope == GoalScope.daily && !goal.isCompleted && goal.reminderTimes.isNotEmpty) {
-      NotificationService.instance.scheduleGoalContemplationReminders(goal);
-    }
+    NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
     sync.markDirty('tasks');
     notifyListeners();
   }
 
   void updateGoal(GoalModel goal) {
     _goals = _goals.map((g) => g.id == goal.id ? goal : g).toList();
-    if (goal.scope == GoalScope.daily) {
-      if (goal.isCompleted || goal.reminderTimes.isEmpty) {
-        NotificationService.instance.cancelGoalContemplationReminders(goal.id);
-      } else {
-        NotificationService.instance.scheduleGoalContemplationReminders(goal);
-      }
-    }
+    NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
     sync.markDirty('tasks');
     notifyListeners();
   }
@@ -208,20 +197,18 @@ mixin TaskMixin on ChangeNotifier {
     } else {
       _goals.add(goal);
     }
-    if (goal.scope == GoalScope.daily && !goal.isCompleted && goal.reminderTimes.isNotEmpty) {
-      NotificationService.instance.scheduleGoalContemplationReminders(goal);
-    }
+    NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
     sync.markDirty('tasks');
     notifyListeners();
   }
 
   void deleteGoal(String id, {bool silent = false}) {
-    NotificationService.instance.cancelGoalContemplationReminders(id);
     final index = _goals.indexWhere((g) => g.id == id);
     if (index == -1) return;
     final savedGoal = _goals[index].copyWith();
     final savedGoals = List<GoalModel>.from(_goals);
     _goals = _goals.where((g) => g.id != id).toList();
+    NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
     sync.markDirty('tasks');
     notifyListeners();
 
@@ -230,9 +217,7 @@ mixin TaskMixin on ChangeNotifier {
         message: 'Deleted goal "${savedGoal.title}"',
         onUndo: () {
           _goals = savedGoals;
-          if (savedGoal.scope == GoalScope.daily && !savedGoal.isCompleted && savedGoal.reminderTimes.isNotEmpty) {
-            NotificationService.instance.scheduleGoalContemplationReminders(savedGoal);
-          }
+          NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
           sync.markDirty('tasks');
           notifyListeners();
         },
@@ -252,17 +237,11 @@ mixin TaskMixin on ChangeNotifier {
                 ? g.subChecklist.map((s) => s.copyWith(isCompleted: false)).toList()
                 : g.subChecklist);
         final nextGoal = g.copyWith(isCompleted: nextState, subChecklist: updatedSubs);
-        if (nextGoal.scope == GoalScope.daily) {
-          if (nextState) {
-            NotificationService.instance.cancelGoalContemplationReminders(nextGoal.id);
-          } else {
-            NotificationService.instance.scheduleGoalContemplationReminders(nextGoal);
-          }
-        }
         return nextGoal;
       }
       return g;
     }).toList();
+    NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
     sync.markDirty('tasks');
     notifyListeners();
 
@@ -449,6 +428,7 @@ mixin TaskMixin on ChangeNotifier {
       _goals = (data['goals'] as List)
           .map((e) => GoalModel.fromJson(Map<String, dynamic>.from(e)))
           .toList();
+      NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
     } else {
       _goals = [];
     }

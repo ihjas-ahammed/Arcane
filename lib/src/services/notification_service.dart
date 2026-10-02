@@ -283,7 +283,7 @@ class NotificationService {
         final snoozeId = (notificationId ?? 60000) + 10000;
         scheduleOneTimeReminder(
           id: snoozeId,
-          title: 'SNOOZED // $goalTitle',
+          title: goalTitle,
           body: 'Your 2-hour contemplation window has resurfaced. Ready to engage & execute?',
           scheduledTime: DateTime.now().add(const Duration(hours: 2)),
         );
@@ -833,7 +833,7 @@ class NotificationService {
         actions: actions,
         styleInformation: BigTextStyleInformation(
           body,
-          contentTitle: '<b>◢ $title</b>',
+          contentTitle: '<b>$title</b>',
           summaryText: isMessageStyle ? '<i>WEARABLE AUTO-REPLY // READY</i>' : null,
           htmlFormatContent: true,
           htmlFormatContentTitle: true,
@@ -955,8 +955,57 @@ class NotificationService {
   static int goalReminderId(String goalId, int timeIndex) =>
       60000 + (('${goalId}_$timeIndex'.hashCode).abs() % 30000);
 
-  /// Schedule daily "think about it" contemplation reminder(s) for a daily goal.
-  /// Includes an interactive Snooze (2 hr) action button.
+  /// Schedule all daily goal contemplation reminders just like energy check reminders.
+  /// Header is strictly the goal name (no extras).
+  Future<void> scheduleAllGoalContemplationReminders(List<GoalModel> goals) async {
+    if (!_initialized) return;
+
+    // 1. Cancel existing goal contemplation reminders in dedicated range (60000 to 60200)
+    for (int i = 0; i < 200; i++) {
+      await cancelDailyReminder(60000 + i);
+      await cancelOneTimeReminder(70000 + i);
+    }
+
+    // 2. Filter active daily goals with contemplation reminder times
+    final activeDailyGoals = goals.where(
+      (g) => g.scope == GoalScope.daily && !g.isCompleted && g.reminderTimes.isNotEmpty,
+    ).toList();
+
+    int slotIndex = 0;
+    for (final goal in activeDailyGoals) {
+      for (final timeStr in goal.reminderTimes) {
+        if (slotIndex >= 200) break;
+        final parts = timeStr.split(':');
+        if (parts.length != 2) continue;
+        final h = int.tryParse(parts[0]);
+        final m = int.tryParse(parts[1]);
+        if (h == null || m == null) continue;
+
+        final id = 60000 + slotIndex;
+        slotIndex++;
+
+        await scheduleDailyReminder(
+          id: id,
+          title: goal.title,
+          body: 'Dedicated daily reflection window: mentally visualize and strategize your next move for this goal.',
+          hour: h,
+          minute: m,
+          payload: 'goal_contemplate:${goal.id}:${goal.title}',
+          actions: const [
+            AndroidNotificationAction(
+              'snooze_goal_2h',
+              'Snooze (2 hr)',
+              showsUserInterface: false,
+              cancelNotification: true,
+            ),
+          ],
+        );
+      }
+    }
+  }
+
+  /// Schedule daily contemplation reminder(s) for a daily goal.
+  /// Includes an interactive Snooze (2 hr) action button. Header is strictly the goal title.
   Future<void> scheduleGoalContemplationReminders(GoalModel goal) async {
     if (!_initialized) return;
     await cancelGoalContemplationReminders(goal.id);
@@ -978,7 +1027,7 @@ class NotificationService {
       final id = goalReminderId(goal.id, i);
       await scheduleDailyReminder(
         id: id,
-        title: 'THINK & CONTEMPLATE // ${goal.title}',
+        title: goal.title,
         body: 'Dedicated daily reflection window: mentally visualize and strategize your next move for this goal.',
         hour: h,
         minute: m,
@@ -1294,7 +1343,7 @@ void _backgroundResponseHandler(NotificationResponse resp) async {
       final snoozeId = (resp.id ?? 60000) + 10000;
       await NotificationService.instance.scheduleOneTimeReminder(
         id: snoozeId,
-        title: 'SNOOZED // $goalTitle',
+        title: goalTitle,
         body: 'Your 2-hour contemplation window has resurfaced. Ready to engage & execute?',
         scheduledTime: DateTime.now().add(const Duration(hours: 2)),
       );
