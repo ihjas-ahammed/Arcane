@@ -4,6 +4,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/services/update_service.dart';
 import 'package:missions/src/widgets/dialogs/whats_new_update_dialog.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -133,11 +134,13 @@ class UpdateSettingsSection extends StatelessWidget {
                           updateService: appProvider.updateService,
                         );
                       } else {
+                        final rawBuild = int.tryParse(packageInfo.buildNumber) ?? 0;
+                        final displayBuild = UpdateService.normalizeVersionCode(rawBuild);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             backgroundColor: JweTheme.panel,
                             content: Text(
-                              '✓ You are on the latest build (v${packageInfo.version} #${packageInfo.buildNumber})!',
+                              '✓ You are on the latest build (v${packageInfo.version} #$displayBuild)!',
                               style: GoogleFonts.jetBrainsMono(
                                 color: JweTheme.accentTeal,
                               ),

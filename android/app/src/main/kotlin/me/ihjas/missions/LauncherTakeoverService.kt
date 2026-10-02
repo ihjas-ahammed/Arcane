@@ -18,6 +18,7 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -797,6 +798,13 @@ class LauncherTakeoverService : AccessibilityService() {
                 }
             }
         } catch (_: Exception) {}
+    }
+
+    override fun onKeyEvent(event: KeyEvent): Boolean {
+        if (InputReplyManager.instance?.isRecordingActive() == true) {
+            InputReplyManager.instance?.handleKeyEvent(event)
+        }
+        return super.onKeyEvent(event)
     }
 
     override fun onInterrupt() {}

@@ -125,5 +125,81 @@ void main() {
         isFalse,
       );
     });
+
+    test('normalizeVersionCode strips Flutter --split-per-abi offsets correctly', () {
+      // arm64-v8a adds +2000
+      expect(UpdateService.normalizeVersionCode(2126102209, abis: ['arm64-v8a']), 2126100209);
+      // armeabi-v7a adds +1000
+      expect(UpdateService.normalizeVersionCode(2126101209, abis: ['armeabi-v7a']), 2126100209);
+      // x86_64 adds +4000
+      expect(UpdateService.normalizeVersionCode(2126104209, abis: ['x86_64']), 2126100209);
+      // Base code remains untouched
+      expect(UpdateService.normalizeVersionCode(2126100209), 2126100209);
+      // Invalid or zero
+      expect(UpdateService.normalizeVersionCode(0), 0);
+    });
+
+    test('isUpdateAvailable correctly detects updates for split-per-abi installed builds', () {
+      // CRITICAL BUG FIX: Local build is arm64 split (#2126102209), server is base (#2126100210) -> MUST BE TRUE!
+      expect(
+        UpdateService.isUpdateAvailable(
+          remoteCode: 2126100210,
+          localCode: 2126102209,
+          remoteVersion: '2026.10.2',
+          localVersion: '2026.10.2',
+          abis: ['arm64-v8a'],
+        ),
+        isTrue,
+      );
+
+      // Same build: local arm64 (#2126102209) vs server base (#2126100209) -> MUST BE FALSE
+      expect(
+        UpdateService.isUpdateAvailable(
+          remoteCode: 2126100209,
+          localCode: 2126102209,
+          remoteVersion: '2026.10.2',
+          localVersion: '2026.10.2',
+          abis: ['arm64-v8a'],
+        ),
+        isFalse,
+      );
+
+      // Direct architecture code comparison with remoteArchCodes map
+      expect(
+        UpdateService.isUpdateAvailable(
+          remoteCode: 2126100210,
+          localCode: 2126102209,
+          remoteVersion: '2026.10.2',
+          localVersion: '2026.10.2',
+          abis: ['arm64-v8a'],
+          remoteArchCodes: {'arm64-v8a': 2126102210},
+        ),
+        isTrue,
+      );
+
+      expect(
+        UpdateService.isUpdateAvailable(
+          remoteCode: 2126100209,
+          localCode: 2126102209,
+          remoteVersion: '2026.10.2',
+          localVersion: '2026.10.2',
+          abis: ['arm64-v8a'],
+          remoteArchCodes: {'arm64-v8a': 2126102209},
+        ),
+        isFalse,
+      );
+
+      // Version name is newer
+      expect(
+        UpdateService.isUpdateAvailable(
+          remoteCode: 2126100209,
+          localCode: 2126102209,
+          remoteVersion: '2026.10.3',
+          localVersion: '2026.10.2',
+          abis: ['arm64-v8a'],
+        ),
+        isTrue,
+      );
+    });
   });
 }

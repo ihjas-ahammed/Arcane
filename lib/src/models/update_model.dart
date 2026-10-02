@@ -6,6 +6,7 @@ class UpdateModel {
   final String apkFilename;
   final String apkUrl;
   final Map<String, String> apkArchUrls;
+  final Map<String, int> apkArchVersionCodes;
   final String changelogUrl;
   final String? changelogMarkdown;
 
@@ -17,6 +18,7 @@ class UpdateModel {
     required this.apkFilename,
     required this.apkUrl,
     this.apkArchUrls = const {},
+    this.apkArchVersionCodes = const {},
     required this.changelogUrl,
     this.changelogMarkdown,
   });
@@ -37,6 +39,17 @@ class UpdateModel {
       });
     }
 
+    final rawArchCodes = json['apk_arch_version_codes'];
+    final archCodesMap = <String, int>{};
+    if (rawArchCodes is Map) {
+      rawArchCodes.forEach((k, v) {
+        if (k is String) {
+          final code = (v as num?)?.toInt();
+          if (code != null) archCodesMap[k] = code;
+        }
+      });
+    }
+
     return UpdateModel(
       versionCode: json['version_code'] as int? ?? 0,
       versionName: json['version_name'] as String? ?? 'Unknown',
@@ -45,6 +58,7 @@ class UpdateModel {
       apkFilename: json['apk_filename'] as String? ?? 'Arcane.apk',
       apkUrl: json['apk_url'] as String? ?? '',
       apkArchUrls: archMap,
+      apkArchVersionCodes: archCodesMap,
       changelogUrl: json['changelog_url'] as String? ?? '',
       changelogMarkdown: changelogMarkdown ?? json['changelog_markdown'] as String?,
     );
@@ -64,6 +78,7 @@ class UpdateModel {
       apkFilename: apkFilename,
       apkUrl: apkUrl,
       apkArchUrls: apkArchUrls,
+      apkArchVersionCodes: apkArchVersionCodes,
       changelogUrl: changelogUrl,
       changelogMarkdown: changelogMarkdown ?? this.changelogMarkdown,
     );

@@ -66,6 +66,9 @@ class InputReplyOverlay(private val service: AccessibilityService) {
     private var sensorView: TouchSensorLayer? = null
     private var sensorParams: WindowManager.LayoutParams? = null
 
+    private var replayIndicatorView: ReplayIndicatorLayer? = null
+    private var replayIndicatorParams: WindowManager.LayoutParams? = null
+
     var isKeyboardOpen: Boolean = false
         private set
 
@@ -102,6 +105,7 @@ class InputReplyOverlay(private val service: AccessibilityService) {
         stepCount = 0
         activePackageLabel = macroName
         isKeyboardOpen = false
+        removeReplayIndicatorLayer()
         ensureShown()
     }
 
@@ -115,6 +119,12 @@ class InputReplyOverlay(private val service: AccessibilityService) {
         ensureShown()
     }
 
+    fun showReplayTapIndicator(x: Float, y: Float) {
+        handler.post {
+            replayIndicatorView?.showTap(x, y)
+        }
+    }
+
     fun setKeyboardOpen(open: Boolean) {
         if (isKeyboardOpen == open) return
         isKeyboardOpen = open
@@ -126,6 +136,7 @@ class InputReplyOverlay(private val service: AccessibilityService) {
         currentMode = Mode.IDLE
         isKeyboardOpen = false
         removeSensorLayer()
+        removeReplayIndicatorLayer()
         pillView?.let {
             try { wm.removeView(it) } catch (_: Exception) {}
         }
@@ -139,6 +150,14 @@ class InputReplyOverlay(private val service: AccessibilityService) {
         }
         sensorView = null
         sensorParams = null
+    }
+
+    private fun removeReplayIndicatorLayer() {
+        replayIndicatorView?.let {
+            try { wm.removeView(it) } catch (_: Exception) {}
+        }
+        replayIndicatorView = null
+        replayIndicatorParams = null
     }
 
     private fun overlayType(): Int {
@@ -181,6 +200,25 @@ class InputReplyOverlay(private val service: AccessibilityService) {
                 wm.addView(sView, sParams)
                 sensorView = sView
                 sensorParams = sParams
+            } catch (_: Exception) {}
+        } else if (currentMode == Mode.REPLAYING && replayIndicatorView == null) {
+            val iView = ReplayIndicatorLayer(service)
+            val iParams = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                overlayType(),
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSLUCENT
+            ).apply {
+                gravity = Gravity.TOP or Gravity.START
+            }
+            try {
+                wm.addView(iView, iParams)
+                replayIndicatorView = iView
+                replayIndicatorParams = iParams
             } catch (_: Exception) {}
         }
 
@@ -320,6 +358,11 @@ class InputReplyOverlay(private val service: AccessibilityService) {
         private var rippleAlpha = 0
         private var rippleAnimator: ValueAnimator? = null
 
+        private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+            color = CYAN_ACCENT
+        }
+
         private val ripplePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = dp(2f).toFloat()
@@ -336,7 +379,7 @@ class InputReplyOverlay(private val service: AccessibilityService) {
             rippleX = x
             rippleY = y
             rippleAnimator?.cancel()
-            rippleAnimator = ValueAnimator.ofFloat(dp(6f).toFloat(), dp(26f).toFloat()).apply {
+            rippleAnimator = ValueAnimator.ofFloat(dp(4f).toFloat(), dp(26f).toFloat()).apply {
                 duration = 200L
                 addUpdateListener {
                     rippleRadius = it.animatedValue as Float
@@ -352,6 +395,12 @@ class InputReplyOverlay(private val service: AccessibilityService) {
             if (rippleAlpha > 0 && rippleX > 0 && rippleY > 0) {
                 ripplePaint.alpha = rippleAlpha
                 reticlePaint.alpha = rippleAlpha
+                dotPaint.alpha = rippleAlpha
+
+                // Tactical center dot right at touch point
+                canvas.drawCircle(rippleX, rippleY, dp(2.5f).toFloat(), dotPaint)
+
+                // Expanding ripple
                 canvas.drawCircle(rippleX, rippleY, rippleRadius, ripplePaint)
 
                 val notch = dp(5f).toFloat()
@@ -392,7 +441,8 @@ class InputReplyOverlay(private val service: AccessibilityService) {
                     if (!isDraggingOrSwiping && dx <= touchSlop && dy <= touchSlop) {
                         // Direct physical tap captured via touch sensor!
                         performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                        triggerTapFeedback(finalX, finalY)
+                        // Trigger visual feedback in local View coordinates so it's perfectly centered on touch
+                        triggerTapFeedback(event.x, event.y)
                         onTapCaptured?.invoke(finalX, finalY)
                         passTapToApp(finalX, finalY)
                     } else {
@@ -409,6 +459,73 @@ class InputReplyOverlay(private val service: AccessibilityService) {
                 }
             }
             return super.onTouchEvent(event)
+        }
+    }
+
+    // ── Full-Screen Replay Indicator Layer ──────────────────────────────────
+    @SuppressLint("ViewConstructor")
+    private inner class ReplayIndicatorLayer(ctx: Context) : View(ctx) {
+        private var tapX = -1f
+        private var tapY = -1f
+        private var tapRadius = 0f
+        private var tapAlpha = 0
+        private var tapAnimator: ValueAnimator? = null
+
+        private val ripplePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = dp(2.2f).toFloat()
+            color = CYAN_ACCENT
+        }
+
+        private val reticlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = dp(1.8f).toFloat()
+            color = CYAN_ACCENT
+        }
+
+        private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+            color = CYAN_ACCENT
+        }
+
+        fun showTap(screenX: Float, screenY: Float) {
+            val loc = IntArray(2)
+            getLocationOnScreen(loc)
+            tapX = screenX - loc[0]
+            tapY = screenY - loc[1]
+
+            tapAnimator?.cancel()
+            tapAnimator = ValueAnimator.ofFloat(dp(4f).toFloat(), dp(28f).toFloat()).apply {
+                duration = 260L
+                addUpdateListener {
+                    tapRadius = it.animatedValue as Float
+                    tapAlpha = ((1f - it.animatedFraction) * 255).toInt().coerceIn(0, 255)
+                    invalidate()
+                }
+                start()
+            }
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            if (tapAlpha > 0 && tapX > 0 && tapY > 0) {
+                ripplePaint.alpha = tapAlpha
+                reticlePaint.alpha = tapAlpha
+                dotPaint.alpha = tapAlpha
+
+                // Center dot at exact tap location
+                canvas.drawCircle(tapX, tapY, dp(3f).toFloat(), dotPaint)
+
+                // Expanding ripple ring
+                canvas.drawCircle(tapX, tapY, tapRadius, ripplePaint)
+
+                // Tactical crosshair notches
+                val notch = dp(6f).toFloat()
+                canvas.drawLine(tapX - tapRadius - notch, tapY, tapX - tapRadius, tapY, reticlePaint)
+                canvas.drawLine(tapX + tapRadius, tapY, tapX + tapRadius + notch, tapY, reticlePaint)
+                canvas.drawLine(tapX, tapY - tapRadius - notch, tapX, tapY - tapRadius, reticlePaint)
+                canvas.drawLine(tapX, tapY + tapRadius, tapX, tapY + tapRadius + notch, reticlePaint)
+            }
         }
     }
 

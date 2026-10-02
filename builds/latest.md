@@ -1,3 +1,16 @@
+# ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100210)
+
+### 🎯 Input-Reply Calibration, Keyboard Interception & Send Button Accuracy
+- **Precision Touch Pointer Centering**: Eliminated the vertical offset in `TouchSensorLayer` caused by window insets / status bar heights. The touch pointer, tactile ripples, and center reticle now render exactly at the physical touch point. Added real-time tactical reticle indicators on screen during macro replay.
+- **Hardware & Navigation Back Key Interception**: Integrated `flagRequestFilterKeyEvents` and `onKeyEvent` into the Accessibility takeover service to capture hardware Back and navigation bar Back taps as `type: "key", key: "BACK"`. Replaying a Back key dismisses virtual keyboards with an automated 350ms transition delay before executing subsequent steps.
+- **Messaging App 'Send' vs 'v' Fixed**: Identified and resolved the root cause where missing node lookups defaulted to screen center bottom coordinates $(0.5, 0.85)$, which coincided with the virtual keyboard's 'v' key. Send actions are now guarded against keyboard center coordinates, shifting automatically to the right-hand send area $(0.92, 0.58 / 0.94)$ and scanning all interactive windows via `clickSmartSendButton()`.
+
+### 🚀 Update Detection Fix Across Split-per-ABI Builds
+- **Normalized Version Codes**: Resolved false negative update checks where Flutter's `--split-per-abi` offsets (`arm64-v8a: +2000`, `armeabi-v7a: +1000`, `x86_64: +4000`) caused local build numbers (e.g. 2126102209) to appear larger than base remote build numbers (e.g. 2126100210).
+- **Architecture Code Matching**: Added `apk_arch_version_codes` mapping to `update_info.json` and `UpdateModel`, and implemented `normalizeVersionCode` to strip ABI offsets, with fallback to semantic version string comparisons.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100209)
 
 ### 🔓 Automated Lock Screen Unlock Sequence for External AI Assistants

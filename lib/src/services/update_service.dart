@@ -58,20 +58,102 @@ class UpdateService {
     return false;
   }
 
+  /// Map of Flutter Gradle plugin ABI offsets added when --split-per-abi is used
+  static int abiOffsetFor(String? abi) {
+    switch (abi) {
+      case 'arm64-v8a':
+        return 2000;
+      case 'armeabi-v7a':
+        return 1000;
+      case 'x86_64':
+        return 4000;
+      case 'x86':
+        return 3000;
+      default:
+        return 0;
+    }
+  }
+
+  /// Normalizes a version code back to its base version code by removing Flutter's
+  /// per-ABI offset (+2000 for arm64-v8a, +1000 for armeabi-v7a, +4000 for x86_64).
+  /// Works reliably for Arcane's 10-digit 21YYMMDDxx build code scheme and standard builds.
+  static int normalizeVersionCode(int code, {List<String>? abis}) {
+    if (code <= 0) return code;
+
+    final candidateOffsets = <int>[];
+    if (abis != null) {
+      for (final abi in abis) {
+        final off = abiOffsetFor(abi);
+        if (off > 0 && !candidateOffsets.contains(off)) candidateOffsets.add(off);
+      }
+    }
+    for (final off in [2000, 1000, 4000, 3000]) {
+      if (!candidateOffsets.contains(off)) candidateOffsets.add(off);
+    }
+
+    for (final offset in candidateOffsets) {
+      final stripped = code - offset;
+      if (stripped >= 2000000000) {
+        final s = stripped.toString();
+        if (s.length == 10 && s.startsWith('21')) {
+          final mm = int.tryParse(s.substring(4, 6)) ?? 0;
+          final dd = int.tryParse(s.substring(6, 8)) ?? 0;
+          if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
+            return stripped;
+          }
+        }
+      }
+    }
+    return code;
+  }
+
+  /// Resolves the device's supported ABIs
+  Future<List<String>> getSupportedAbis() async {
+    if (!Platform.isAndroid) return const [];
+    try {
+      return await _native.invokeListMethod<String>('supportedAbis') ?? const <String>[];
+    } catch (_) {
+      return const [];
+    }
+  }
+
   /// Evaluates whether a remote release is strictly newer than the currently installed build.
-  /// An update is available ONLY if remote build is strictly greater than local build.
+  /// Seamlessly normalizes per-ABI build numbers (e.g. arm64 +2000 offset) and checks architecture codes.
   static bool isUpdateAvailable({
     required int remoteCode,
     required int localCode,
     required String remoteVersion,
     required String localVersion,
+    List<String>? abis,
+    Map<String, int>? remoteArchCodes,
     bool forceCheck = false,
   }) {
-    if (remoteCode > 0 && localCode > 0) {
-      if (remoteCode > localCode) return true;
-      if (remoteCode < localCode) return false;
+    // 1. Direct ABI matching if remote provides architecture-specific version codes
+    if (abis != null && remoteArchCodes != null && remoteArchCodes.isNotEmpty && localCode > 0) {
+      for (final abi in abis) {
+        final archRemoteCode = remoteArchCodes[abi];
+        if (archRemoteCode != null && archRemoteCode > 0) {
+          if (archRemoteCode > localCode) return true;
+          if (archRemoteCode < localCode) {
+            return isVersionStringNewer(remoteVersion, localVersion);
+          }
+          return isVersionStringNewer(remoteVersion, localVersion);
+        }
+      }
+    }
+
+    // 2. Normalized base version code comparison (stripping split-per-abi offsets)
+    final normLocal = normalizeVersionCode(localCode, abis: abis);
+    final normRemote = normalizeVersionCode(remoteCode, abis: abis);
+
+    if (normRemote > 0 && normLocal > 0) {
+      if (normRemote > normLocal) return true;
+      if (normRemote < normLocal) {
+        return isVersionStringNewer(remoteVersion, localVersion);
+      }
       return isVersionStringNewer(remoteVersion, localVersion);
     }
+
     return isVersionStringNewer(remoteVersion, localVersion);
   }
 
@@ -153,12 +235,15 @@ class UpdateService {
           if (json == null || json['version_code'] == null) return null;
           final packageInfo = await getLocalPackageInfo();
           final localBuild = int.tryParse(packageInfo.buildNumber) ?? 0;
+          final abis = await getSupportedAbis();
           final update = UpdateModel.fromJson(json);
           if (isUpdateAvailable(
             remoteCode: update.versionCode,
             localCode: localBuild,
             remoteVersion: update.versionName,
             localVersion: packageInfo.version,
+            abis: abis,
+            remoteArchCodes: update.apkArchVersionCodes,
           )) {
             debugPrint('[UpdateService] Instant update detected via Firebase RTDB stream: #${update.versionCode}');
             return update;
@@ -284,11 +369,14 @@ class UpdateService {
 
       final updateModel = UpdateModel.fromJson(metadataJson, changelogMarkdown: changelogMarkdown);
 
+      final abis = await getSupportedAbis();
       final isNewer = isUpdateAvailable(
         remoteCode: remoteVersionCode,
         localCode: localBuildNumber,
         remoteVersion: updateModel.versionName,
         localVersion: packageInfo.version,
+        abis: abis,
+        remoteArchCodes: updateModel.apkArchVersionCodes,
         forceCheck: forceCheck,
       );
 
@@ -493,9 +581,11 @@ class UpdateService {
 
       // Android rejects an APK that isn't newer than the installed app, so verify first.
       final archiveCode = await apkVersionCode(tempFile.path);
-      if (archiveCode > 0 && update.versionCode > 0 && archiveCode < update.versionCode) {
+      final normArchive = normalizeVersionCode(archiveCode);
+      final normUpdate = normalizeVersionCode(update.versionCode);
+      if (normArchive > 0 && normUpdate > 0 && normArchive < normUpdate) {
         throw Exception(
-          'The server returned an older build (#$archiveCode instead of #${update.versionCode}). '
+          'The server returned an older build (#$normArchive instead of #$normUpdate). '
           'The new build is still propagating. Try again in a few minutes.',
         );
       }

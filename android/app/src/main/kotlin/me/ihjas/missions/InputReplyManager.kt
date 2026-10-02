@@ -14,6 +14,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
@@ -243,6 +244,47 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         Log.i(TAG, "Recorded touch sensor swipe $direction (dx=$dx, dy=$dy) pkg=$activePackageName")
     }
 
+    fun handleKeyEvent(event: KeyEvent): Boolean {
+        if (!isRecording) return false
+        if (event.action != KeyEvent.ACTION_UP) return false
+
+        when (event.keyCode) {
+            KeyEvent.KEYCODE_BACK -> {
+                recordKeyAction("BACK", "Hardware/Nav Back key")
+                return true
+            }
+            KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                recordKeyAction("ENTER", "Keyboard Enter key")
+                return true
+            }
+        }
+        return false
+    }
+
+    fun recordKeyAction(key: String, desc: String? = null) {
+        if (!isRecording) return
+        val now = SystemClock.elapsedRealtime()
+        val deltaSec = ((now - lastActionTime) / 1000f).coerceIn(0.2f, 4.0f)
+        addWaitStep(deltaSec)
+        val step = mapOf(
+            "type" to "key",
+            "key" to key,
+            "desc" to (desc ?: key),
+            "package" to activePackageName
+        )
+        recordedSteps.add(step)
+        lastActionTime = now
+        lastTextEditNodeId = null
+        lastTextEditStepIndex = -1
+        updateOverlay()
+        Log.i(TAG, "Recorded key action: $key ($desc)")
+
+        if (key == "BACK") {
+            mainHandler.postDelayed({ checkKeyboardState() }, 120L)
+            mainHandler.postDelayed({ checkKeyboardState() }, 350L)
+        }
+    }
+
     private fun getRecordingsDir(): File {
         val dir = File(service.filesDir, "input_reply/recordings")
         if (!dir.exists()) dir.mkdirs()
@@ -457,8 +499,22 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                     return
                 }
 
+                // 1. Check if user tapped a navigation or system Back button to close keyboard or navigate
+                val eventNode = event.source
+                val eventViewId = eventNode?.viewIdResourceName ?: ""
+                val eventDesc = event.contentDescription?.toString() ?: ""
+                val isNavBack = (pkg.contains("systemui", ignoreCase = true) && (eventViewId.contains("back", ignoreCase = true) || eventDesc.contains("back", ignoreCase = true))) ||
+                                eventDesc.equals("back", ignoreCase = true) ||
+                                eventDesc.equals("navigate up", ignoreCase = true) ||
+                                eventViewId.endsWith(":id/back")
+                if (isNavBack) {
+                    recordKeyAction("BACK", "Navigation Back")
+                    checkKeyboardState()
+                    return
+                }
+
                 // Resolve clicked node or fallback bounds gracefully so taps are NEVER dropped
-                var node = event.source
+                var node = eventNode
                 if (node == null && event.recordCount > 0) {
                     node = event.getRecord(0)?.source
                 }
@@ -482,15 +538,62 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 var desc: String? = event.contentDescription?.toString()
                 var text: String? = if (event.text.isNotEmpty()) event.text.joinToString("") else null
 
+                val isSendEvent = (desc?.contains("send", ignoreCase = true) == true) ||
+                                  (viewId?.contains("send", ignoreCase = true) == true) ||
+                                  (text?.contains("send", ignoreCase = true) == true)
+
+                // If node is not found and it's a send action, search other windows for send button
+                if (node == null && isSendEvent) {
+                    try {
+                        val windows = service.windows
+                        if (!windows.isNullOrEmpty()) {
+                            for (w in windows) {
+                                val r = w.root ?: continue
+                                val candidate = findSmartSendNode(r)
+                                if (candidate != null) {
+                                    node = candidate
+                                    break
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+
                 if (node != null) {
                     node.getBoundsInScreen(rect)
+                    // If node is a huge container (width > 40% screen and height > 20% screen),
+                    // drill down to find the specific clickable leaf child so center doesn't hit keyboard center
+                    if (node.childCount > 0 && (rect.width() > (dm.widthPixels * 0.4f) || rect.height() > (dm.heightPixels * 0.2f))) {
+                        val leaf = findSmallestClickableNode(node, dm)
+                        if (leaf != null) {
+                            leaf.getBoundsInScreen(rect)
+                            if (leaf.viewIdResourceName != null) viewId = leaf.viewIdResourceName
+                            if (leaf.contentDescription != null) desc = leaf.contentDescription.toString()
+                            if (leaf.text != null) text = leaf.text.toString()
+                        }
+                    }
                     if (viewId == null) viewId = node.viewIdResourceName
                     if (desc.isNullOrEmpty()) desc = node.contentDescription?.toString()
                     if (text.isNullOrEmpty()) text = node.text?.toString()
                 }
 
-                val finalCenterX = if (rect.width() > 0) rect.centerX().coerceAtLeast(0) else (dm.widthPixels / 2)
-                val finalCenterY = if (rect.height() > 0) rect.centerY().coerceAtLeast(0) else (dm.heightPixels - 100)
+                // Prevent defaulting to center screen ('v' key zone):
+                val finalCenterX = if (rect.width() > 0) {
+                    rect.centerX().coerceAtLeast(0)
+                } else if (isSendEvent) {
+                    (dm.widthPixels * 0.92f).roundToInt()
+                } else {
+                    dm.widthPixels / 2
+                }
+
+                val finalCenterY = if (rect.height() > 0) {
+                    rect.centerY().coerceAtLeast(0)
+                } else if (isSendEvent) {
+                    if (isKeyboardActive) (dm.heightPixels * 0.58f).roundToInt() else (dm.heightPixels * 0.94f).roundToInt()
+                } else {
+                    dm.heightPixels - 100
+                }
+
                 val xRatio = if (dm.widthPixels > 0) (finalCenterX.toFloat() / dm.widthPixels).coerceIn(0.01f, 0.99f) else 0.5f
                 val yRatio = if (dm.heightPixels > 0) (finalCenterY.toFloat() / dm.heightPixels).coerceIn(0.01f, 0.99f) else 0.85f
 
@@ -719,31 +822,58 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 val dm = service.resources.displayMetrics
                 val xRatio = (step["xRatio"] as? Number)?.toFloat()
                 val yRatio = (step["yRatio"] as? Number)?.toFloat()
-                val targetX = if (xRatio != null && xRatio in 0.0f..1.0f) {
+                var targetX = if (xRatio != null && xRatio in 0.0f..1.0f) {
                     xRatio * dm.widthPixels
                 } else {
                     (step["x"] as? Number)?.toFloat() ?: (dm.widthPixels / 2f)
                 }
-                val targetY = if (yRatio != null && yRatio in 0.0f..1.0f) {
+                var targetY = if (yRatio != null && yRatio in 0.0f..1.0f) {
                     yRatio * dm.heightPixels
                 } else {
                     (step["y"] as? Number)?.toFloat() ?: (dm.heightPixels / 2f)
                 }
 
-                // 1. Primary execution: Accurate touch coordinate tap!
-                // Directly dispatches physical tap gesture to the exact touch coordinates recorded.
-                var tapped = false
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    tapped = dispatchTapGesture(targetX, targetY, 50L)
-                    Log.i(TAG, "Replayed step 'click' via touch tap at ($targetX, $targetY) - result=$tapped")
+                val viewId = step["viewId"] as? String
+                val text = step["text"] as? String
+                val desc = step["desc"] as? String
+                val isSendAction = (desc?.contains("send", ignoreCase = true) == true) ||
+                                   (viewId?.contains("send", ignoreCase = true) == true) ||
+                                   (text?.contains("send", ignoreCase = true) == true)
+
+                // If this is a send action and coordinates fall in the keyboard center / 'v' key zone,
+                // adjust coordinates away from the virtual keyboard center to the send button area
+                if (isSendAction) {
+                    val isCenterHorizontal = targetX > (dm.widthPixels * 0.30f) && targetX < (dm.widthPixels * 0.70f)
+                    val isKeyboardHeight = targetY > (dm.heightPixels * 0.65f)
+                    if (isCenterHorizontal && isKeyboardHeight) {
+                        Log.w(TAG, "Replay: correcting send action coordinates away from keyboard center ('v' key) to send area")
+                        targetX = dm.widthPixels * 0.92f
+                        targetY = if (isKeyboardActive) dm.heightPixels * 0.58f else dm.heightPixels * 0.94f
+                    }
                 }
 
-                // 2. Secondary fallback: Look for button nodes only if gesture dispatch failed
-                if (!tapped) {
-                    val viewId = step["viewId"] as? String
-                    val text = step["text"] as? String
-                    val desc = step["desc"] as? String
+                // Show real-time tactical reticle indicator at target
+                mainHandler.post {
+                    overlay.showReplayTapIndicator(targetX, targetY)
+                }
 
+                // 1. If it's a send action, prioritize finding and clicking the smart send node directly
+                var handled = false
+                if (isSendAction) {
+                    handled = clickSmartSendButton()
+                    if (handled) {
+                        Log.i(TAG, "Replayed send action via clickSmartSendButton successfully")
+                    }
+                }
+
+                // 2. Primary execution: Accurate touch coordinate tap!
+                if (!handled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    handled = dispatchTapGesture(targetX, targetY, 50L)
+                    Log.i(TAG, "Replayed step 'click' via touch tap at ($targetX, $targetY) - result=$handled")
+                }
+
+                // 3. Secondary fallback: Look for button nodes if gesture tap was not handled
+                if (!handled) {
                     var clicked = false
                     if (!viewId.isNullOrEmpty()) {
                         clicked = clickNodeByViewId(viewId)
@@ -754,13 +884,8 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                     if (!clicked && !desc.isNullOrEmpty()) {
                         clicked = clickNodeByDesc(desc)
                     }
-                    if (!clicked) {
-                        val isSendAction = (desc?.contains("send", ignoreCase = true) == true) ||
-                                           (viewId?.contains("send", ignoreCase = true) == true) ||
-                                           (text?.contains("send", ignoreCase = true) == true)
-                        if (isSendAction) {
-                            clickSmartSendButton()
-                        }
+                    if (!clicked && isSendAction) {
+                        clickSmartSendButton()
                     }
                 }
                 SystemClock.sleep((300 / speed).toLong().coerceAtLeast(100L))
@@ -838,11 +963,21 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             "key" -> {
                 val key = step["keys"] as? String ?: step["key"] as? String ?: ""
                 when (key.uppercase()) {
-                    "BACK" -> service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+                    "BACK" -> {
+                        service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+                        // Give system and soft keyboard time to complete dismissal transition
+                        SystemClock.sleep((350 / speed).toLong().coerceAtLeast(150L))
+                    }
                     "HOME" -> service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
                     "RECENTS" -> service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS)
                     "NOTIFICATIONS" -> service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS)
                     "ENTER", "SEND", "DONE" -> {
+                        val dm = service.resources.displayMetrics
+                        val sendX = dm.widthPixels * 0.9f
+                        val sendY = if (isKeyboardActive) dm.heightPixels * 0.58f else dm.heightPixels * 0.92f
+                        mainHandler.post {
+                            overlay.showReplayTapIndicator(sendX, sendY)
+                        }
                         val root = service.rootInActiveWindow
                         var handled = false
                         if (root != null) {
@@ -855,8 +990,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                             }
                         }
                         if (!handled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                            val dm = service.resources.displayMetrics
-                            dispatchTapGesture(dm.widthPixels * 0.9f, dm.heightPixels * 0.92f, 50L)
+                            dispatchTapGesture(sendX, sendY, 50L)
                         }
                     }
                 }
@@ -966,25 +1100,52 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         return gestureSuccess || actionSuccess
     }
 
-    private fun clickSmartSendButton(): Boolean {
-        val root = service.rootInActiveWindow ?: return false
-        val candidates = mutableListOf<AccessibilityNodeInfo>()
+    private fun findSmartSendNode(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        var bestNode: AccessibilityNodeInfo? = null
         fun scan(node: AccessibilityNodeInfo) {
             val d = node.contentDescription?.toString() ?: ""
             val id = node.viewIdResourceName ?: ""
             val t = node.text?.toString() ?: ""
-            if (d.contains("send", ignoreCase = true) || id.contains("send", ignoreCase = true) || t.equals("send", ignoreCase = true)) {
-                candidates.add(node)
+            val isSend = d.contains("send", ignoreCase = true) ||
+                         id.contains("send", ignoreCase = true) ||
+                         t.equals("send", ignoreCase = true) ||
+                         d.contains("submit", ignoreCase = true) ||
+                         id.contains("submit", ignoreCase = true)
+            if (isSend) {
+                val isClickable = node.isClickable || node.actionList.any { it.id == AccessibilityNodeInfo.ACTION_CLICK }
+                if (bestNode == null || isClickable) {
+                    bestNode = node
+                    if (isClickable) return
+                }
             }
             for (i in 0 until node.childCount) {
                 val c = node.getChild(i) ?: continue
                 scan(c)
+                if (bestNode != null && (bestNode!!.isClickable || bestNode!!.actionList.any { it.id == AccessibilityNodeInfo.ACTION_CLICK })) {
+                    return
+                }
             }
         }
         scan(root)
-        for (candidate in candidates) {
-            if (clickNodeRobustly(candidate)) return true
+        return bestNode
+    }
+
+    private fun clickSmartSendButton(): Boolean {
+        val root = service.rootInActiveWindow
+        if (root != null) {
+            val candidate = findSmartSendNode(root)
+            if (candidate != null && clickNodeRobustly(candidate)) return true
         }
+        try {
+            val windows = service.windows
+            if (!windows.isNullOrEmpty()) {
+                for (w in windows) {
+                    val r = w.root ?: continue
+                    val candidate = findSmartSendNode(r)
+                    if (candidate != null && clickNodeRobustly(candidate)) return true
+                }
+            }
+        } catch (_: Exception) {}
         return false
     }
 
