@@ -34,6 +34,7 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
   String _activeFilter = 'all'; // 'all', 'user', 'assistants'
   String _searchQuery = '';
   Map<String, dynamic>? _recordedTapInfo;
+  Map<String, dynamic>? _unlockGestureInfo;
   bool _canDrawOverlays = true;
   String _calibrationMethod = 'reticle'; // 'reticle', 'touch_sensor', 'auto_detect', 'manual_coords'
   String _overlayWindowType = 'auto'; // 'auto', 'application', 'accessibility'
@@ -62,9 +63,17 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
       AssistantRoutingService.instance.canDrawOverlays().then((can) {
         if (mounted) setState(() => _canDrawOverlays = can);
       });
+      _refreshUnlockGestureInfo();
       if (_selectedApp != null) {
         _refreshRecordedTapInfo(_selectedApp!.package);
       }
+    }
+  }
+
+  Future<void> _refreshUnlockGestureInfo() async {
+    final info = await AssistantRoutingService.instance.getUnlockGestureInfo();
+    if (mounted) {
+      setState(() => _unlockGestureInfo = info);
     }
   }
 
@@ -76,6 +85,7 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
     final canDraw = await AssistantRoutingService.instance.canDrawOverlays();
     final method = await AssistantRoutingService.instance.getCalibrationMethod();
     final winType = await AssistantRoutingService.instance.getOverlayWindowType();
+    final unlockInfo = await AssistantRoutingService.instance.getUnlockGestureInfo();
 
     setState(() => _isLoadingApps = true);
     final apps = await AssistantRoutingService.instance.getAllInstalledApps();
@@ -85,6 +95,7 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
       _canDrawOverlays = canDraw;
       _calibrationMethod = method;
       _overlayWindowType = winType;
+      _unlockGestureInfo = unlockInfo;
       _allApps = apps;
       _isLoadingApps = false;
       _applyAppFilter();
@@ -661,6 +672,9 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
         ),
         // First-Time Tap Recording Card for external AI
         _buildRecordedTapCard(panelColor, cardColor, borderColor, primaryTextColor, secondaryTextColor, accentColor),
+
+        // Lock Screen Unlock Gesture Card
+        _buildUnlockGestureCard(panelColor, cardColor, borderColor, primaryTextColor, secondaryTextColor, accentColor),
 
         // Default Auto Voice option
         InkWell(
@@ -1349,5 +1363,204 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
         ),
       ),
     );
+  }
+
+  Widget _buildUnlockGestureCard(
+    Color panelColor,
+    Color cardColor,
+    Color borderColor,
+    Color primaryTextColor,
+    Color secondaryTextColor,
+    Color accentColor,
+  ) {
+    final isUnlockRecorded = _unlockGestureInfo != null;
+    final info = _unlockGestureInfo;
+    final fromPct = info != null ? (((info['startY'] as num?)?.toDouble() ?? 0.85) * 100).toInt() : 85;
+    final toPct = info != null ? (((info['endY'] as num?)?.toDouble() ?? 0.20) * 100).toInt() : 20;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isUnlockRecorded
+            ? (JweTheme.isLight ? Colors.green.withValues(alpha: 0.12) : Colors.green.withValues(alpha: 0.08))
+            : cardColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isUnlockRecorded
+              ? (JweTheme.isLight ? Colors.green.withValues(alpha: 0.7) : Colors.green.withValues(alpha: 0.6))
+              : accentColor.withValues(alpha: 0.35),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isUnlockRecorded ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
+                color: isUnlockRecorded
+                    ? (JweTheme.isLight ? const Color(0xFF1B5E20) : Colors.green)
+                    : accentColor,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isUnlockRecorded
+                      ? "LOCK SCREEN UNLOCK GESTURE ACTIVE"
+                      : "LOCK SCREEN UNLOCK CALIBRATION",
+                  style: TextStyle(
+                    color: isUnlockRecorded
+                        ? (JweTheme.isLight ? const Color(0xFF1B5E20) : Colors.green)
+                        : accentColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.1,
+                  ),
+                ),
+              ),
+              if (isUnlockRecorded)
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  color: Colors.redAccent,
+                  tooltip: "Clear Unlock Gesture",
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () async {
+                    await AssistantRoutingService.instance.clearUnlockGesture();
+                    await _refreshUnlockGestureInfo();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Cleared lock screen unlock gesture.")),
+                      );
+                    }
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            isUnlockRecorded
+                ? "Two-Step Automated Movement:\n"
+                  "  1. Screen auto-unlock (Swipe Up: $fromPct% → $toPct%)\n"
+                  "  2. Launch assistant & auto-click voice switch"
+                : "When external assistant is triggered while device is locked (smartwatch/Bluetooth):\n"
+                  "Arcane will automatically execute two movements:\n"
+                  "  1. Unlock screen (Swipe Up)\n"
+                  "  2. Click voice switch inside external assistant",
+            style: TextStyle(color: secondaryTextColor, fontSize: 11.5, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => _confirmAndStartUnlockCalibration(accentColor),
+                  icon: Icon(isUnlockRecorded ? Icons.refresh : Icons.swipe_up, size: 15),
+                  label: Text(
+                    isUnlockRecorded ? "RECALIBRATE" : "CALIBRATE UNLOCK",
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: accentColor,
+                    foregroundColor: JweTheme.onAccent,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+              if (isUnlockRecorded) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final ok = await AssistantRoutingService.instance.testUnlockGesture();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(ok ? "Testing unlock sequence..." : "Failed to trigger test."),
+                            backgroundColor: accentColor,
+                          ),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.play_arrow, size: 15),
+                    label: const Text("TEST UNLOCK", style: TextStyle(fontSize: 11)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primaryTextColor,
+                      side: BorderSide(color: borderColor),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmAndStartUnlockCalibration(Color accentColor) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: JweTheme.isLight ? JweTheme.panel : AppTheme.fhBgDark,
+        title: Row(
+          children: [
+            Icon(Icons.screen_lock_portrait, color: accentColor, size: 22),
+            const SizedBox(width: 8),
+            Text(
+              "CALIBRATE UNLOCK GESTURE",
+              style: TextStyle(
+                color: JweTheme.isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          "How calibration works:\n\n"
+          "1. Arcane will lock your screen.\n"
+          "2. The screen will turn on with a tactical banner.\n"
+          "3. Perform your unlock movement (e.g. swipe up).\n"
+          "4. Once your screen unlocks, Arcane automatically records and saves the gesture.\n\n"
+          "Make sure Arcane is switched ON in Accessibility Settings.",
+          style: TextStyle(
+            color: JweTheme.isLight ? JweTheme.textMid : AppTheme.fhTextSecondary,
+            fontSize: 12,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("CANCEL"),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: accentColor,
+              foregroundColor: JweTheme.onAccent,
+            ),
+            child: const Text("LOCK & RECORD", style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final started = await AssistantRoutingService.instance.startRecordingUnlockGesture();
+      if (!started && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Could not start calibration. Ensure Arcane has Accessibility enabled."),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 }

@@ -1,3 +1,19 @@
+# ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100209)
+
+### 🔓 Automated Lock Screen Unlock Sequence for External AI Assistants
+- **Two-Step Automated Movement**: When launching an external AI assistant (ChatGPT, Gemini, Claude, Perplexity, Copilot, or custom app) while the device is locked (e.g. from smartwatch or Bluetooth voice triggers), Arcane automatically executes:
+  1. **Movement 1**: Dispatches the recorded screen unlock gesture (e.g., swipe up) to dismiss the keyguard.
+  2. **Movement 2**: Launches the external assistant directly into voice mode and auto-clicks the microphone button using the calibrated coordinates.
+- **Lock Screen Unlock Gesture Calibration**: Added dedicated calibration flow:
+  - Arcane locks the device via accessibility command (`GLOBAL_ACTION_LOCK_SCREEN`).
+  - Automatically wakes up the screen with high-priority wake lock and mounts `UnlockSensorOverlay` directly over the Keyguard.
+  - Intercepts and traces operator's natural unlock movement (swipe up) while passing the stroke through to the system lock screen.
+  - Automatically commits and locks in the gesture coordinates upon device unlock (`ACTION_USER_PRESENT` / keyguard dismissal).
+- **Tactical Lock Screen Calibration HUD**: Features crosshair drag trail, coordinate vector readout, cancel controls, and clear haptic confirmation.
+- **Unlock Testing & Management Controls**: Operators can test the recorded unlock gesture, view saved normalized coordinates and percentages, tweak or recalibrate, and clear the gesture at any time in Custom Assistant Settings and Advanced AI Settings.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100208)
 
 ### 🛡️ Ironclad Data Saving & Offline-First Cloud Sync Fix

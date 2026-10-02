@@ -378,4 +378,58 @@ class AssistantRoutingService {
       return false;
     }
   }
+
+  /// Starts lock screen unlock gesture calibration session:
+  /// Locks the device, turns screen back on, captures unlock motion (e.g. swipe up),
+  /// and saves it automatically when the device is unlocked.
+  Future<bool> startRecordingUnlockGesture() async {
+    try {
+      final success = await _channel.invokeMethod<bool>('startRecordingUnlockGesture');
+      return success ?? false;
+    } catch (e) {
+      debugPrint('[AssistantRoutingService] Error starting unlock gesture calibration: $e');
+      return false;
+    }
+  }
+
+  /// Tests the recorded unlock gesture by locking device, waking up, and dispatching gesture.
+  Future<bool> testUnlockGesture() async {
+    try {
+      final success = await _channel.invokeMethod<bool>('testUnlockGesture');
+      return success ?? false;
+    } catch (e) {
+      debugPrint('[AssistantRoutingService] Error testing unlock gesture: $e');
+      return false;
+    }
+  }
+
+  /// Clears the recorded lock screen unlock gesture.
+  Future<bool> clearUnlockGesture() async {
+    try {
+      final success = await _channel.invokeMethod<bool>('clearUnlockGesture');
+      return success ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Retrieves the recorded lock screen unlock gesture info.
+  Future<Map<String, dynamic>?> getUnlockGestureInfo() async {
+    try {
+      final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>('getUnlockGestureInfo');
+      return raw == null ? null : Map<String, dynamic>.from(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Checks if a lock screen unlock gesture is recorded.
+  Future<bool> hasUnlockGesture() async {
+    try {
+      final res = await _channel.invokeMethod<bool>('hasUnlockGesture');
+      return res ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
 }

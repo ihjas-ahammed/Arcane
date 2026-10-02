@@ -449,7 +449,8 @@ class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
             );
           },
         ),
-        if (appProvider.settings.bluetoothAssistantRedirectTarget == 'custom') ...[
+        if (appProvider.settings.bluetoothAssistantRedirectTarget != 'nora' &&
+            appProvider.settings.bluetoothAssistantRedirectTarget != 'system_assist') ...[
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(12),
@@ -467,7 +468,9 @@ class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      "CUSTOM ASSISTANT TARGET",
+                      appProvider.settings.bluetoothAssistantRedirectTarget == 'custom'
+                          ? "CUSTOM ASSISTANT TARGET"
+                          : "EXTERNAL AI ASSISTANT",
                       style: TextStyle(
                         color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
                         fontSize: 10,
@@ -475,37 +478,45 @@ class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
                         letterSpacing: 1.5,
                       ),
                     ),
-                    if (appProvider.settings.bluetoothAssistantCustomPackage.isNotEmpty)
-                      InkWell(
-                        onTap: () async {
-                          final launched = await AssistantRoutingService.instance.launchVoiceMode(
-                            appProvider.settings.bluetoothAssistantCustomPackage,
-                            activity: appProvider.settings.bluetoothAssistantCustomActivity,
-                          );
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(launched ? 'Target launched in voice mode' : 'Failed to launch target'),
-                              behavior: SnackBarBehavior.floating,
+                    InkWell(
+                      onTap: () async {
+                        final redirectTarget = appProvider.settings.bluetoothAssistantRedirectTarget;
+                        final targetPkg = switch (redirectTarget) {
+                          'chatgpt' => 'com.openai.chatgpt',
+                          'gemini' => 'com.google.android.apps.googleassistant',
+                          'claude' => 'com.anthropic.claude',
+                          'perplexity' => 'ai.perplexity.app',
+                          'copilot' => 'com.microsoft.copilot',
+                          _ => appProvider.settings.bluetoothAssistantCustomPackage,
+                        };
+                        final launched = await AssistantRoutingService.instance.launchVoiceMode(
+                          targetPkg,
+                          activity: appProvider.settings.bluetoothAssistantCustomActivity,
+                        );
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(launched ? 'Target launched in voice mode' : 'Failed to launch target'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.rocket_launch, size: 14, color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple),
+                          const SizedBox(width: 4),
+                          Text(
+                            "TEST",
+                            style: TextStyle(
+                              color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
                             ),
-                          );
-                        },
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.rocket_launch, size: 14, color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple),
-                            const SizedBox(width: 4),
-                            Text(
-                              "TEST",
-                              style: TextStyle(
-                                color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -522,9 +533,18 @@ class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            appProvider.settings.bluetoothAssistantCustomPackage.isEmpty
-                                ? "No application selected"
-                                : appProvider.settings.bluetoothAssistantCustomPackage,
+                            appProvider.settings.bluetoothAssistantRedirectTarget == 'custom'
+                                ? (appProvider.settings.bluetoothAssistantCustomPackage.isEmpty
+                                    ? "No application selected"
+                                    : appProvider.settings.bluetoothAssistantCustomPackage)
+                                : switch (appProvider.settings.bluetoothAssistantRedirectTarget) {
+                                    'chatgpt' => 'ChatGPT (com.openai.chatgpt)',
+                                    'gemini' => 'Google Gemini / Assistant',
+                                    'claude' => 'Claude (com.anthropic.claude)',
+                                    'perplexity' => 'Perplexity AI',
+                                    'copilot' => 'Microsoft Copilot',
+                                    _ => appProvider.settings.bluetoothAssistantRedirectTarget,
+                                  },
                             style: TextStyle(
                               color: JweTheme.isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary,
                               fontWeight: FontWeight.bold,
@@ -534,7 +554,7 @@ class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
                           ),
                           Text(
                             appProvider.settings.bluetoothAssistantCustomActivity.isEmpty
-                                ? "Activity: Auto-Detect Voice / Default"
+                                ? "Two-Step Sequence: Auto-Unlock + Mic Tap"
                                 : "Activity: ${appProvider.settings.bluetoothAssistantCustomActivity}",
                             style: TextStyle(
                               color: JweTheme.isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
@@ -552,8 +572,8 @@ class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    icon: const Icon(Icons.touch_app, size: 16),
-                    label: const Text("BROWSE APPS & ACTIVITIES"),
+                    icon: const Icon(Icons.tune, size: 16),
+                    label: const Text("CALIBRATE MIC & UNLOCK GESTURE"),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withValues(alpha: 0.15),
                       foregroundColor: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,

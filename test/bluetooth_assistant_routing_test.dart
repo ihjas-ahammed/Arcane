@@ -154,6 +154,76 @@ void main() {
       expect(launchedPackage, 'com.openai.chatgpt');
       expect(launchedActivity, 'com.openai.voice.AssistantActivity');
     });
+
+    test('startRecordingUnlockGesture invokes native startRecordingUnlockGesture', () async {
+      bool invoked = false;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+        if (methodCall.method == 'startRecordingUnlockGesture') {
+          invoked = true;
+          return true;
+        }
+        return null;
+      });
+
+      final result = await AssistantRoutingService.instance.startRecordingUnlockGesture();
+      expect(result, isTrue);
+      expect(invoked, isTrue);
+    });
+
+    test('testUnlockGesture invokes native testUnlockGesture', () async {
+      bool invoked = false;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+        if (methodCall.method == 'testUnlockGesture') {
+          invoked = true;
+          return true;
+        }
+        return null;
+      });
+
+      final result = await AssistantRoutingService.instance.testUnlockGesture();
+      expect(result, isTrue);
+      expect(invoked, isTrue);
+    });
+
+    test('getUnlockGestureInfo and hasUnlockGesture parses native gesture map', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+        if (methodCall.method == 'getUnlockGestureInfo') {
+          return {
+            'hasGesture': true,
+            'startX': 0.5,
+            'startY': 0.85,
+            'endX': 0.5,
+            'endY': 0.20,
+            'durationMs': 320,
+          };
+        }
+        if (methodCall.method == 'hasUnlockGesture') {
+          return true;
+        }
+        if (methodCall.method == 'clearUnlockGesture') {
+          return true;
+        }
+        return null;
+      });
+
+      final has = await AssistantRoutingService.instance.hasUnlockGesture();
+      expect(has, isTrue);
+
+      final info = await AssistantRoutingService.instance.getUnlockGestureInfo();
+      expect(info, isNotNull);
+      expect(info!['hasGesture'], isTrue);
+      expect(info['startX'], 0.5);
+      expect(info['startY'], 0.85);
+      expect(info['endX'], 0.5);
+      expect(info['endY'], 0.20);
+      expect(info['durationMs'], 320);
+
+      final cleared = await AssistantRoutingService.instance.clearUnlockGesture();
+      expect(cleared, isTrue);
+    });
   });
 
   group('SttService Native Channel & State Tests', () {

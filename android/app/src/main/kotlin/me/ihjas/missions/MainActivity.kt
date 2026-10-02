@@ -527,60 +527,67 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         val customPkg = prefs.getString("flutter.bluetooth_assistant_custom_package", "") ?: ""
         val customActivity = prefs.getString("flutter.bluetooth_assistant_custom_activity", "") ?: ""
 
-        if (redirectTarget != "nora") {
-            val targetPackage = when (redirectTarget) {
-                "chatgpt" -> "com.openai.chatgpt"
-                "gemini" -> "com.google.android.apps.googleassistant"
-                "claude" -> "com.anthropic.claude"
-                "perplexity" -> "ai.perplexity.app"
-                "copilot" -> "com.microsoft.copilot"
-                "custom" -> {
-                    val pkg = customPkg.trim()
-                    val act = customActivity.trim()
-                    if (pkg.isNotEmpty() && act.isNotEmpty() && !pkg.contains("/")) {
-                        "$pkg/$act"
-                    } else {
-                        pkg
-                    }
-                }
-                else -> redirectTarget
-            }
+        val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        val isLocked = km?.isKeyguardLocked == true || km?.isDeviceLocked == true
 
-            if (redirectTarget == "system_assist") {
-                routeAudioToBluetooth(true)
-                val assistIntent = Intent("android.intent.action.VOICE_ASSIST").apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
-                    putExtra("open_voice", true)
+        val proceedWithLaunch = {
+            if (redirectTarget != "nora") {
+                val targetPackage = when (redirectTarget) {
+                    "chatgpt" -> "com.openai.chatgpt"
+                    "gemini" -> "com.google.android.apps.googleassistant"
+                    "claude" -> "com.anthropic.claude"
+                    "perplexity" -> "ai.perplexity.app"
+                    "copilot" -> "com.microsoft.copilot"
+                    "custom" -> {
+                        val pkg = customPkg.trim()
+                        val act = customActivity.trim()
+                        if (pkg.isNotEmpty() && act.isNotEmpty() && !pkg.contains("/")) {
+                            "$pkg/$act"
+                        } else {
+                            pkg
+                        }
+                    }
+                    else -> redirectTarget
                 }
-                try {
-                    startActivity(assistIntent)
-                    // Keep Arcane alive in background; never call finish()
-                    return true
-                } catch (_: Exception) {
-                    val fallbackIntent = Intent(Intent.ACTION_ASSIST).apply {
+
+                if (redirectTarget == "system_assist") {
+                    routeAudioToBluetooth(true)
+                    val assistIntent = Intent("android.intent.action.VOICE_ASSIST").apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
+                        putExtra("open_voice", true)
                     }
                     try {
-                        startActivity(fallbackIntent)
-                        return true
-                    } catch (_: Exception) {}
+                        startActivity(assistIntent)
+                    } catch (_: Exception) {
+                        val fallbackIntent = Intent(Intent.ACTION_ASSIST).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        try {
+                            startActivity(fallbackIntent)
+                        } catch (_: Exception) {}
+                    }
+                } else if (targetPackage.isNotEmpty()) {
+                    launchAssistantVoiceMode(targetPackage)
                 }
-            } else if (targetPackage.isNotEmpty()) {
-                val launched = launchAssistantVoiceMode(targetPackage)
-                if (launched) {
-                    // Keep Arcane alive in background; never call finish()
-                    return true
+            } else {
+                // Default: Open Nora with auto mic start (floating HUD or full screen)
+                if (NoraBubbleOverlay.isFloatingForWatch(this) && LauncherTakeoverService.isServiceEnabled(this)) {
+                    NoraBubbleOverlay.summonAndListen(this)
+                } else {
+                    pendingAssistantAction = "open_nora_voice"
+                    dispatchWidgetAction("open_nora_voice")
                 }
             }
         }
 
-        // Default: Open Nora with auto mic start (floating HUD or full screen)
-        if (NoraBubbleOverlay.isFloatingForWatch(this) && LauncherTakeoverService.isServiceEnabled(this)) {
-            NoraBubbleOverlay.summonAndListen(this)
+        if (isLocked && LauncherTakeoverService.hasUnlockGesture(this) && LauncherTakeoverService.activeInstance != null) {
+            android.util.Log.i("MainActivity", "Lock screen active: executing Movement 1 (Unlock screen) before Movement 2 (Assistant launch + mic tap)")
+            LauncherTakeoverService.activeInstance?.executeUnlockSequence {
+                proceedWithLaunch()
+            }
         } else {
-            pendingAssistantAction = "open_nora_voice"
-            dispatchWidgetAction("open_nora_voice")
+            proceedWithLaunch()
         }
         return true
     }
@@ -804,8 +811,17 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                     val act = call.argument<String>("activity") ?: ""
                     val target = if (act.isNotEmpty() && !pkg.contains("/")) "$pkg/$act" else pkg
                     if (target.isNotEmpty()) {
-                        val launched = launchAssistantVoiceMode(target)
-                        result.success(launched)
+                        val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+                        val isLocked = km?.isKeyguardLocked == true || km?.isDeviceLocked == true
+                        if (isLocked && LauncherTakeoverService.hasUnlockGesture(this) && LauncherTakeoverService.activeInstance != null) {
+                            LauncherTakeoverService.activeInstance?.executeUnlockSequence {
+                                val launched = launchAssistantVoiceMode(target)
+                                result.success(launched)
+                            }
+                        } else {
+                            val launched = launchAssistantVoiceMode(target)
+                            result.success(launched)
+                        }
                     } else {
                         result.success(false)
                     }
@@ -1076,6 +1092,22 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                 "summonFloatingNora" -> {
                     NoraBubbleOverlay.summonAndListen(this)
                     result.success(true)
+                }
+                "startRecordingUnlockGesture" -> {
+                    result.success(LauncherTakeoverService.startRecordingUnlockGesture(this))
+                }
+                "testUnlockGesture" -> {
+                    result.success(LauncherTakeoverService.testUnlockGesture(this))
+                }
+                "clearUnlockGesture" -> {
+                    LauncherTakeoverService.clearUnlockGesture(this)
+                    result.success(true)
+                }
+                "getUnlockGestureInfo" -> {
+                    result.success(LauncherTakeoverService.getUnlockGestureInfo(this))
+                }
+                "hasUnlockGesture" -> {
+                    result.success(LauncherTakeoverService.hasUnlockGesture(this))
                 }
                 else -> result.notImplemented()
             }

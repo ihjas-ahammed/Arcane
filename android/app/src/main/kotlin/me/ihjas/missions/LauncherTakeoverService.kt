@@ -3,6 +3,7 @@ package me.ihjas.missions
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.app.ActivityOptions
+import android.app.KeyguardManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -13,6 +14,7 @@ import android.graphics.Rect
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
@@ -148,6 +150,89 @@ class LauncherTakeoverService : AccessibilityService() {
                 activeInstance?.updateEventFilter()
             }
         }
+
+        fun hasUnlockGesture(context: Context): Boolean {
+            val prefs = context.getSharedPreferences(PREFS_AUTO_TAP, Context.MODE_PRIVATE)
+            return prefs.getBoolean("unlock_has_gesture", false)
+        }
+
+        fun saveUnlockGesture(
+            context: Context,
+            startX: Float,
+            startY: Float,
+            endX: Float,
+            endY: Float,
+            durationMs: Long
+        ) {
+            val prefs = context.getSharedPreferences(PREFS_AUTO_TAP, Context.MODE_PRIVATE)
+            prefs.edit()
+                .putBoolean("unlock_has_gesture", true)
+                .putFloat("unlock_start_x", startX)
+                .putFloat("unlock_start_y", startY)
+                .putFloat("unlock_end_x", endX)
+                .putFloat("unlock_end_y", endY)
+                .putLong("unlock_duration_ms", durationMs)
+                .apply()
+        }
+
+        fun clearUnlockGesture(context: Context) {
+            val prefs = context.getSharedPreferences(PREFS_AUTO_TAP, Context.MODE_PRIVATE)
+            prefs.edit()
+                .remove("unlock_has_gesture")
+                .remove("unlock_start_x")
+                .remove("unlock_start_y")
+                .remove("unlock_end_x")
+                .remove("unlock_end_y")
+                .remove("unlock_duration_ms")
+                .apply()
+        }
+
+        fun getUnlockGestureInfo(context: Context): Map<String, Any?>? {
+            val prefs = context.getSharedPreferences(PREFS_AUTO_TAP, Context.MODE_PRIVATE)
+            if (!prefs.getBoolean("unlock_has_gesture", false)) return null
+            return mapOf(
+                "hasGesture" to true,
+                "startX" to prefs.getFloat("unlock_start_x", 0.5f),
+                "startY" to prefs.getFloat("unlock_start_y", 0.85f),
+                "endX" to prefs.getFloat("unlock_end_x", 0.5f),
+                "endY" to prefs.getFloat("unlock_end_y", 0.20f),
+                "durationMs" to prefs.getLong("unlock_duration_ms", 300L)
+            )
+        }
+
+        fun startRecordingUnlockGesture(context: Context): Boolean {
+            val instance = activeInstance
+            if (instance != null) {
+                instance.startUnlockCalibration()
+                return true
+            } else {
+                Handler(Looper.getMainLooper()).post {
+                    android.widget.Toast.makeText(
+                        context.applicationContext,
+                        "Please enable Arcane in Accessibility Settings first.",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+                return false
+            }
+        }
+
+        fun testUnlockGesture(context: Context): Boolean {
+            val instance = activeInstance
+            if (instance != null) {
+                instance.testUnlockSequence()
+                return true
+            } else {
+                Handler(Looper.getMainLooper()).post {
+                    android.widget.Toast.makeText(
+                        context.applicationContext,
+                        "Please enable Arcane in Accessibility Settings first.",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+                return false
+            }
+        }
     }
 
     private var homePackages: Set<String> = emptySet()
@@ -158,6 +243,7 @@ class LauncherTakeoverService : AccessibilityService() {
     private var micTapOverlay: ExternalMicTapOverlay? = null
     private var reticleOverlay: ReticleCalibrationOverlay? = null
     private var touchSensorOverlay: TouchSensorOverlay? = null
+    private var unlockOverlay: UnlockSensorOverlay? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onServiceConnected() {
@@ -188,6 +274,8 @@ class LauncherTakeoverService : AccessibilityService() {
         reticleOverlay = null
         touchSensorOverlay?.hide()
         touchSensorOverlay = null
+        unlockOverlay?.hide()
+        unlockOverlay = null
         return super.onUnbind(intent)
     }
 
@@ -203,6 +291,8 @@ class LauncherTakeoverService : AccessibilityService() {
         reticleOverlay = null
         touchSensorOverlay?.hide()
         touchSensorOverlay = null
+        unlockOverlay?.hide()
+        unlockOverlay = null
         super.onDestroy()
     }
 
@@ -357,6 +447,147 @@ class LauncherTakeoverService : AccessibilityService() {
                 "Mic tap calibration cancelled.",
                 android.widget.Toast.LENGTH_SHORT
             ).show()
+        }
+    }
+
+    fun wakeScreen() {
+        try {
+            val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return
+            @Suppress("DEPRECATION")
+            val wakeLock = pm.newWakeLock(
+                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or
+                    PowerManager.ACQUIRE_CAUSES_WAKEUP or
+                    PowerManager.ON_AFTER_RELEASE,
+                "Arcane:UnlockCalibrationWake"
+            )
+            wakeLock.acquire(6000L)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error acquiring wake lock", e)
+        }
+    }
+
+    fun startUnlockCalibration() {
+        mainHandler.post {
+            // Step 1: Lock the screen programmatically
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+            } else {
+                android.widget.Toast.makeText(
+                    applicationContext,
+                    "Lock the screen manually and turn it back on to record unlock gesture.",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+
+            // Step 2: Wake up the screen after delay and show unlock calibration overlay
+            mainHandler.postDelayed({
+                wakeScreen()
+                if (unlockOverlay == null) {
+                    unlockOverlay = UnlockSensorOverlay(this)
+                }
+                unlockOverlay?.onUnlockSaved = { _, _, _, _, _ ->
+                    unlockOverlay?.hide()
+                    unlockOverlay = null
+                    bringArcaneToFront()
+                }
+                unlockOverlay?.onCancelled = {
+                    unlockOverlay?.hide()
+                    unlockOverlay = null
+                }
+                unlockOverlay?.show()
+            }, 850L)
+        }
+    }
+
+    fun cancelUnlockCalibration() {
+        mainHandler.post {
+            unlockOverlay?.hide()
+            unlockOverlay = null
+        }
+    }
+
+    fun executeUnlockSequence(onCompleted: () -> Unit) {
+        if (!hasUnlockGesture(this)) {
+            onCompleted()
+            return
+        }
+
+        val prefs = getSharedPreferences(PREFS_AUTO_TAP, Context.MODE_PRIVATE)
+        val startXRatio = prefs.getFloat("unlock_start_x", 0.5f)
+        val startYRatio = prefs.getFloat("unlock_start_y", 0.85f)
+        val endXRatio = prefs.getFloat("unlock_end_x", 0.5f)
+        val endYRatio = prefs.getFloat("unlock_end_y", 0.20f)
+        val duration = prefs.getLong("unlock_duration_ms", 300L).coerceIn(100L, 800L)
+
+        val dm = resources.displayMetrics
+        val startX = startXRatio * dm.widthPixels
+        val startY = startYRatio * dm.heightPixels
+        val endX = endXRatio * dm.widthPixels
+        val endY = endYRatio * dm.heightPixels
+
+        val path = Path().apply {
+            moveTo(startX, startY)
+            lineTo(endX, endY)
+        }
+        val stroke = GestureDescription.StrokeDescription(path, 0L, duration)
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+
+        wakeScreen()
+
+        dispatchGesture(
+            gesture,
+            object : GestureResultCallback() {
+                override fun onCompleted(gestureDescription: GestureDescription?) {
+                    Log.i(TAG, "Screen unlock swipe gesture executed successfully")
+                    mainHandler.postDelayed({
+                        onCompleted()
+                    }, 450L)
+                }
+
+                override fun onCancelled(gestureDescription: GestureDescription?) {
+                    Log.w(TAG, "Screen unlock swipe gesture cancelled by system")
+                    mainHandler.postDelayed({
+                        onCompleted()
+                    }, 250L)
+                }
+            },
+            mainHandler
+        )
+    }
+
+    fun testUnlockSequence() {
+        mainHandler.post {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+            }
+            mainHandler.postDelayed({
+                wakeScreen()
+                mainHandler.postDelayed({
+                    executeUnlockSequence {
+                        android.widget.Toast.makeText(
+                            applicationContext,
+                            "✓ Unlock test complete!",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                        bringArcaneToFront()
+                    }
+                }, 600L)
+            }, 1000L)
+        }
+    }
+
+    fun bringArcaneToFront() {
+        try {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+                )
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to bring Arcane to front", e)
         }
     }
 
