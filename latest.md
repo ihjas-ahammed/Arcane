@@ -1,3 +1,19 @@
+# ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100208)
+
+### 🛡️ Ironclad Data Saving & Offline-First Cloud Sync Fix
+- **Zero Local Data Loss**: Eliminated the critical bug where local uncommitted changes were overwritten by background cloud sync. The sync engine strictly enforces that whenever local unsaved changes exist (`_hasUnsavedChanges == true` or `_dirtyCollections.isNotEmpty`), local data always takes precedence and is uploaded rather than wiped.
+- **Timestamp Desync Loop Eradicated**: Synchronized the timestamp source of truth (`settings.lastModified` and `users/$userId/lastModified`) across all collection chunks and RTDB nodes before serialization. `_manuallyLoadFromCloudInternal` guarantees local timestamp matches or exceeds remote RTDB timestamp, preventing the recurring desync loop.
+- **Forced Collection Persistence**: `autoSyncWithCloud()` and `performManualSync()` execute saves with `force: true` to ensure all state categories (tasks, history, reflections, finance, health, trading, settings) are written to RTDB even if collection dirty flags were reset.
+- **Network Hang Protection & Sanitization**: Added 15-second timeouts (`_rtdbTimeout`) to all Realtime Database calls and sanitized RTDB node keys, preventing socket stalls from locking background sync indefinitely.
+- **Automatic State Restoration**: `_manuallyLoadFromCloudInternal` and `_performActualSaveInternal` safely persist local snapshots atomically, guaranteeing 100% offline-first reliability.
+
+### 👆 Touch-Sensor Macro Automation & Keyboard Interception
+- **Full-Screen Physical Touch Sensor**: Replaced inaccurate bounding box guesses with a physical full-screen `TouchSensorLayer` capturing exact tap and swipe `(rawX, rawY)` coordinates with tactical visual reticle animations and haptic feedback.
+- **Automatic Soft-Keyboard Pass-Through**: The touch sensor layer automatically yields (`FLAG_NOT_TOUCHABLE`) when the virtual keyboard opens, enabling completely unobstructed typing in search bars and forms.
+- **Tactical Keyboard Guidance**: HUD controller dynamically displays `⌨ KEYBOARD OPEN · CLOSE KEYBOARD TO SUBMIT` when typing, and Macro recording setup sheets advise operators to close the virtual keyboard before tapping submit buttons so the physical tap is captured precisely.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100207)
 
 ### 🔋 Unified Notch Status Bar & Real Hardware Telemetry

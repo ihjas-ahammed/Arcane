@@ -16,6 +16,7 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 import android.view.inputmethod.InputMethodManager
 import org.json.JSONArray
 import org.json.JSONObject
@@ -76,14 +77,19 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
     private var isReplaying = false
     private var shouldAbortReplay = false
 
-    // ── Physical Touch Observation ─────────────────────────────────────────
-    private var lastPhysicalTouchX = -1f
-    private var lastPhysicalTouchY = -1f
-    private var lastPhysicalTouchTime = 0L
-    private var pendingTapRunnable: Runnable? = null
-    private var pendingTapX = -1f
-    private var pendingTapY = -1f
-    private var pendingTapTime = 0L
+    // ── Touch Sensor & Keyboard State ──────────────────────────────────────
+    private var lastRecordedTapTime = 0L
+    private var lastRecordedSwipeTime = 0L
+    private var isKeyboardActive = false
+    private var activeImePackageVisible = false
+
+    private val keyboardCheckRunnable = object : Runnable {
+        override fun run() {
+            if (!isRecording) return
+            checkKeyboardState()
+            mainHandler.postDelayed(this, 350L)
+        }
+    }
 
     init {
         overlay.onStopClicked = {
@@ -93,45 +99,61 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 stopReplay()
             }
         }
-        overlay.onPhysicalTouchObserved = { rx, ry ->
-            onPhysicalTouchObserved(rx, ry)
+        overlay.onTapCaptured = { rx, ry ->
+            commitDirectTap(rx, ry)
+        }
+        overlay.onSwipeCaptured = { sx, sy, ex, ey ->
+            commitDirectSwipe(sx, sy, ex, ey)
         }
     }
 
-    fun onPhysicalTouchObserved(rawX: Float, rawY: Float) {
+    fun isKeyboardShowing(): Boolean {
+        // 1. AccessibilityWindowInfo check for TYPE_INPUT_METHOD
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                val windows = service.windows
+                if (!windows.isNullOrEmpty()) {
+                    val dm = service.resources.displayMetrics
+                    val imeWindow = windows.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+                    if (imeWindow != null) {
+                        val rect = Rect()
+                        imeWindow.getBoundsInScreen(rect)
+                        // A visible soft keyboard occupies substantial vertical screen space
+                        if (rect.height() > (dm.heightPixels * 0.15f)) {
+                            return true
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        // 2. Focused editable node with IME package active
+        try {
+            val root = service.rootInActiveWindow
+            if (root != null) {
+                val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+                if (focused != null && focused.isEditable && activeImePackageVisible) {
+                    return true
+                }
+            }
+        } catch (_: Exception) {}
+
+        return false
+    }
+
+    fun checkKeyboardState() {
         if (!isRecording) return
-        val now = SystemClock.elapsedRealtime()
-
-        // Flush any previously uncommitted pending tap so fast successive taps aren't dropped
-        pendingTapRunnable?.let {
-            mainHandler.removeCallbacks(it)
-            if (pendingTapX > 0f && pendingTapY > 0f) {
-                commitDirectTap(pendingTapX, pendingTapY, pendingTapTime)
+        val showing = isKeyboardShowing()
+        if (showing != isKeyboardActive) {
+            isKeyboardActive = showing
+            mainHandler.post {
+                overlay.setKeyboardOpen(showing)
             }
-            pendingTapRunnable = null
+            Log.i(TAG, "Soft keyboard state changed: isOpen=$showing (sensor touchable=${!showing})")
         }
-
-        lastPhysicalTouchX = rawX
-        lastPhysicalTouchY = rawY
-        lastPhysicalTouchTime = now
-        pendingTapX = rawX
-        pendingTapY = rawY
-        pendingTapTime = now
-
-        val runnable = Runnable {
-            if (!isRecording) return@Runnable
-            if (pendingTapX > 0f && pendingTapY > 0f) {
-                commitDirectTap(pendingTapX, pendingTapY, pendingTapTime)
-                pendingTapX = -1f
-                pendingTapY = -1f
-                pendingTapRunnable = null
-            }
-        }
-        pendingTapRunnable = runnable
-        mainHandler.postDelayed(runnable, 240L)
     }
 
-    private fun commitDirectTap(touchX: Float, touchY: Float, touchTime: Long) {
+    private fun commitDirectTap(touchX: Float, touchY: Float) {
         if (!isRecording || touchX <= 0f || touchY <= 0f) return
 
         val dm = service.resources.displayMetrics
@@ -176,10 +198,49 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         )
         recordedSteps.add(step)
         lastActionTime = now
+        lastRecordedTapTime = now
         lastTextEditNodeId = null
         lastTextEditStepIndex = -1
         updateOverlay()
-        Log.i(TAG, "Recorded direct physical tap at ($finalX, $finalY) ratio=($xRatio, $yRatio) pkg=$pkg viewId=$viewId")
+        Log.i(TAG, "Recorded touch sensor tap at ($finalX, $finalY) ratio=($xRatio, $yRatio) pkg=$pkg viewId=$viewId")
+
+        // Re-check keyboard state quickly in case this tap focused an input field
+        mainHandler.postDelayed({ checkKeyboardState() }, 150L)
+        mainHandler.postDelayed({ checkKeyboardState() }, 400L)
+    }
+
+    private fun commitDirectSwipe(startX: Float, startY: Float, endX: Float, endY: Float) {
+        if (!isRecording) return
+
+        val dx = endX - startX
+        val dy = endY - startY
+        val direction = when {
+            kotlin.math.abs(dy) >= kotlin.math.abs(dx) -> if (dy < 0) "up" else "down"
+            else -> if (dx < 0) "left" else "right"
+        }
+
+        val now = SystemClock.elapsedRealtime()
+        val deltaSec = ((now - lastActionTime) / 1000f).coerceIn(0.2f, 4.0f)
+        addWaitStep(deltaSec)
+
+        val step = mutableMapOf<String, Any?>(
+            "type" to "scroll",
+            "direction" to direction,
+            "dx" to dx.roundToInt(),
+            "dy" to dy.roundToInt(),
+            "startX" to startX.roundToInt(),
+            "startY" to startY.roundToInt(),
+            "endX" to endX.roundToInt(),
+            "endY" to endY.roundToInt(),
+            "package" to activePackageName
+        )
+        recordedSteps.add(step)
+        lastActionTime = now
+        lastRecordedSwipeTime = now
+        lastTextEditNodeId = null
+        lastTextEditStepIndex = -1
+        updateOverlay()
+        Log.i(TAG, "Recorded touch sensor swipe $direction (dx=$dx, dy=$dy) pkg=$activePackageName")
     }
 
     private fun getRecordingsDir(): File {
@@ -216,9 +277,12 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         }
 
         // Show floating HUD controller over all apps
+        isKeyboardActive = false
+        activeImePackageVisible = false
         mainHandler.post {
             overlay.showRecording(activeRecordingName)
             service.updateEventFilter()
+            mainHandler.postDelayed(keyboardCheckRunnable, 350L)
         }
 
         // Launch target app if provided
@@ -237,17 +301,9 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
     fun stopRecording(): Map<String, Any?>? {
         if (!isRecording) return null
 
-        // Flush any pending direct tap before concluding recording
-        pendingTapRunnable?.let {
-            mainHandler.removeCallbacks(it)
-            if (pendingTapX > 0f && pendingTapY > 0f) {
-                commitDirectTap(pendingTapX, pendingTapY, pendingTapTime)
-                pendingTapX = -1f
-                pendingTapY = -1f
-            }
-            pendingTapRunnable = null
-        }
-
+        mainHandler.removeCallbacks(keyboardCheckRunnable)
+        isKeyboardActive = false
+        activeImePackageVisible = false
         isRecording = false
 
         mainHandler.post {
@@ -275,10 +331,9 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
 
     fun cancelRecording() {
         if (!isRecording) return
-        pendingTapRunnable?.let { mainHandler.removeCallbacks(it) }
-        pendingTapRunnable = null
-        pendingTapX = -1f
-        pendingTapY = -1f
+        mainHandler.removeCallbacks(keyboardCheckRunnable)
+        isKeyboardActive = false
+        activeImePackageVisible = false
         isRecording = false
         recordedSteps.clear()
         recordedParameters.clear()
@@ -320,12 +375,22 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         val deltaSec = ((now - lastActionTime) / 1000f).coerceIn(0.2f, 4.0f)
 
         when (event.eventType) {
+            AccessibilityEvent.TYPE_WINDOWS_CHANGED -> {
+                checkKeyboardState()
+            }
+
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 // Soft keyboard popups should not trigger app-launch step
-                if (isImePackage(pkg)) return
+                if (isImePackage(pkg)) {
+                    activeImePackageVisible = true
+                    checkKeyboardState()
+                    return
+                }
 
                 if (pkg != activePackageName && pkg != service.packageName) {
                     // App changed
+                    activeImePackageVisible = false
+                    checkKeyboardState()
                     addWaitStep(deltaSec)
                     recordedSteps.add(
                         mapOf(
@@ -340,11 +405,31 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
 
             AccessibilityEvent.TYPE_VIEW_CLICKED -> {
-                // System delivered a genuine view click event: cancel any pending fallback physical tap
-                pendingTapRunnable?.let { mainHandler.removeCallbacks(it) }
-                pendingTapRunnable = null
-                pendingTapX = -1f
-                pendingTapY = -1f
+                // Check if this click event was generated right after our own touch sensor tap
+                val timeSinceLastTap = now - lastRecordedTapTime
+                if (timeSinceLastTap < 800L && recordedSteps.isNotEmpty()) {
+                    val lastStep = recordedSteps.last()
+                    if (lastStep["type"] == "click") {
+                        var viewId = lastStep["viewId"] as? String
+                        var desc = lastStep["desc"] as? String
+                        var text = lastStep["text"] as? String
+                        val node = event.source
+                        if (node != null) {
+                            if (viewId.isNullOrEmpty()) viewId = node.viewIdResourceName
+                            if (desc.isNullOrEmpty()) desc = node.contentDescription?.toString()
+                            if (text.isNullOrEmpty()) text = node.text?.toString()
+                            if (viewId != null || desc != null || text != null) {
+                                val updated = lastStep.toMutableMap()
+                                if (viewId != null) updated["viewId"] = viewId
+                                if (desc != null) updated["desc"] = desc
+                                if (text != null) updated["text"] = text
+                                recordedSteps[recordedSteps.size - 1] = updated
+                            }
+                        }
+                    }
+                    checkKeyboardState()
+                    return
+                }
 
                 // If this is an IME soft keyboard package, check if user tapped the Action/Send/Done/Enter key
                 if (isImePackage(pkg)) {
@@ -392,10 +477,6 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 }
 
                 val dm = service.resources.displayMetrics
-                val hasFreshTouch = (lastPhysicalTouchX > 0f && lastPhysicalTouchY > 0f && (now - lastPhysicalTouchTime) < 1500L)
-                val touchX = if (hasFreshTouch) lastPhysicalTouchX.roundToInt() else -1
-                val touchY = if (hasFreshTouch) lastPhysicalTouchY.roundToInt() else -1
-
                 val rect = Rect()
                 var viewId: String? = null
                 var desc: String? = event.contentDescription?.toString()
@@ -403,33 +484,13 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
 
                 if (node != null) {
                     node.getBoundsInScreen(rect)
-                    // If we captured exact touch coordinates, search specifically for the child under the user's finger!
-                    if (hasFreshTouch && node.childCount > 0) {
-                        val childAtTouch = findNodeAtPoint(node, touchX, touchY)
-                        if (childAtTouch != null) {
-                            childAtTouch.getBoundsInScreen(rect)
-                            if (childAtTouch.viewIdResourceName != null) viewId = childAtTouch.viewIdResourceName
-                            if (childAtTouch.contentDescription != null) desc = childAtTouch.contentDescription.toString()
-                            if (childAtTouch.text != null) text = childAtTouch.text.toString()
-                        }
-                    } else if (node.childCount > 0 && (rect.width() > (dm.widthPixels * 0.4f) || rect.height() > (dm.heightPixels * 0.15f))) {
-                        // Drill down to the leaf clickable / action button
-                        val leaf = findSmallestClickableNode(node, dm)
-                        if (leaf != null) {
-                            leaf.getBoundsInScreen(rect)
-                            if (leaf.viewIdResourceName != null) viewId = leaf.viewIdResourceName
-                            if (leaf.contentDescription != null) desc = leaf.contentDescription.toString()
-                            if (leaf.text != null) text = leaf.text.toString()
-                        }
-                    }
                     if (viewId == null) viewId = node.viewIdResourceName
                     if (desc.isNullOrEmpty()) desc = node.contentDescription?.toString()
                     if (text.isNullOrEmpty()) text = node.text?.toString()
                 }
 
-                // Prefer exact physical touch coordinates over container center
-                val finalCenterX = if (hasFreshTouch) touchX else (if (rect.width() > 0) rect.centerX().coerceAtLeast(0) else (dm.widthPixels / 2))
-                val finalCenterY = if (hasFreshTouch) touchY else (if (rect.height() > 0) rect.centerY().coerceAtLeast(0) else (dm.heightPixels - 100))
+                val finalCenterX = if (rect.width() > 0) rect.centerX().coerceAtLeast(0) else (dm.widthPixels / 2)
+                val finalCenterY = if (rect.height() > 0) rect.centerY().coerceAtLeast(0) else (dm.heightPixels - 100)
                 val xRatio = if (dm.widthPixels > 0) (finalCenterX.toFloat() / dm.widthPixels).coerceIn(0.01f, 0.99f) else 0.5f
                 val yRatio = if (dm.heightPixels > 0) (finalCenterY.toFloat() / dm.heightPixels).coerceIn(0.01f, 0.99f) else 0.85f
 
@@ -448,9 +509,11 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 )
                 recordedSteps.add(step)
                 lastActionTime = now
+                lastRecordedTapTime = now
                 lastTextEditNodeId = null
                 lastTextEditStepIndex = -1
                 updateOverlay()
+                checkKeyboardState()
             }
 
             AccessibilityEvent.TYPE_VIEW_LONG_CLICKED -> {
@@ -479,6 +542,9 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
 
             AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> {
+                activeImePackageVisible = true
+                checkKeyboardState()
+
                 val node = event.source
                 val eventText = if (event.text.isNotEmpty()) event.text.joinToString("") else ""
                 val nodeText = node?.text?.toString() ?: ""
@@ -513,28 +579,18 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
 
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
+                // Ignore scroll events generated by or immediately following direct touch taps or swipes
+                if (now - lastRecordedSwipeTime < 800L || now - lastRecordedTapTime < 500L) {
+                    return
+                }
                 val deltaX = event.scrollDeltaX
                 val deltaY = event.scrollDeltaY
                 val absDeltaX = kotlin.math.abs(deltaX)
                 val absDeltaY = kotlin.math.abs(deltaY)
 
-                // 1. Ignore sub-threshold micro-scroll jitter from finger tapping/releasing
+                // Ignore sub-threshold micro-scroll jitter from finger tapping/releasing
                 if (absDeltaX < 25 && absDeltaY < 25) {
                     return
-                }
-
-                // 2. If a physical tap occurred within the last 300ms, distinguish tap jitter vs real swipe
-                val timeSinceTouch = now - pendingTapTime
-                if (pendingTapX > 0f && timeSinceTouch < 300L) {
-                    if (absDeltaX < 50 && absDeltaY < 50) {
-                        // Jitter during tap release on scrollable container: do not misread tap as swipe
-                        return
-                    }
-                    // Substantial delta (>= 50px) confirms an intentional swipe: cancel pending fallback tap
-                    pendingTapRunnable?.let { mainHandler.removeCallbacks(it) }
-                    pendingTapRunnable = null
-                    pendingTapX = -1f
-                    pendingTapY = -1f
                 }
 
                 addWaitStep(deltaSec)

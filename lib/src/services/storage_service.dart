@@ -175,6 +175,7 @@ Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
 class _FlutterFireStorageService implements StorageService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseDatabase _rtdb = FirebaseDatabase.instance;
+  static const Duration _rtdbTimeout = Duration(seconds: 15);
 
   DatabaseReference _rtdbRef(String userId, String chunk) =>
       _rtdb.ref('users/$userId/data/$chunk');
@@ -188,13 +189,13 @@ class _FlutterFireStorageService implements StorageService {
 
       // Fetch each chunk independently to avoid downloading a single massive unchunked snapshot (prevents OOM)
       final results = await Future.wait([
-        baseRef.child(_docSettings).get(),
-        baseRef.child(_docTasks).get(),
-        baseRef.child(_docFinance).get(),
-        baseRef.child(_docHealth).get(),
-        baseRef.child(_docTrading).get(),
-        baseRef.child('history').orderByKey().limitToLast(365).get(),
-        baseRef.child('reflections').orderByKey().limitToLast(150).get(),
+        baseRef.child(_docSettings).get().timeout(_rtdbTimeout),
+        baseRef.child(_docTasks).get().timeout(_rtdbTimeout),
+        baseRef.child(_docFinance).get().timeout(_rtdbTimeout),
+        baseRef.child(_docHealth).get().timeout(_rtdbTimeout),
+        baseRef.child(_docTrading).get().timeout(_rtdbTimeout),
+        baseRef.child('history').orderByKey().limitToLast(365).get().timeout(_rtdbTimeout),
+        baseRef.child('reflections').orderByKey().limitToLast(150).get().timeout(_rtdbTimeout),
       ]);
 
       final settingsSnap = results[0];
@@ -230,7 +231,7 @@ class _FlutterFireStorageService implements StorageService {
   Future<int> getLastModified(String userId) async {
     if (userId.isEmpty) return 0;
     try {
-      final snap = await _rtdb.ref('users/$userId/lastModified').get();
+      final snap = await _rtdb.ref('users/$userId/lastModified').get().timeout(_rtdbTimeout);
       return (snap.value as num?)?.toInt() ?? 0;
     } catch (e, stack) {
       debugPrint('[StorageService.getLastModified] $e\n$stack');
@@ -241,7 +242,11 @@ class _FlutterFireStorageService implements StorageService {
   @override
   Future<void> setLastModified(String userId, int timestamp) async {
     if (userId.isEmpty) return;
-    await _rtdb.ref('users/$userId/lastModified').set(timestamp);
+    try {
+      await _rtdb.ref('users/$userId/lastModified').set(timestamp).timeout(_rtdbTimeout);
+    } catch (e, stack) {
+      debugPrint('[StorageService.setLastModified] $e\n$stack');
+    }
   }
 
   @override
@@ -272,7 +277,7 @@ class _FlutterFireStorageService implements StorageService {
   Future<Map<String, dynamic>?> getTrading(String userId) async {
     if (userId.isEmpty) return null;
     try {
-      final snap = await _rtdbRef(userId, _docTrading).get();
+      final snap = await _rtdbRef(userId, _docTrading).get().timeout(_rtdbTimeout);
       if (snap.exists && snap.value != null) {
         if (snap.value is String) {
           return jsonDecode(snap.value as String) as Map<String, dynamic>?;
@@ -291,7 +296,7 @@ class _FlutterFireStorageService implements StorageService {
       String userId, String chunk, Map<String, dynamic> data) async {
     if (userId.isEmpty) return false;
     try {
-      await _rtdbRef(userId, chunk).set(jsonEncode(data));
+      await _rtdbRef(userId, chunk).set(jsonEncode(data)).timeout(_rtdbTimeout);
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService._saveChunkToRTDB:$chunk] $e\n$stack');
@@ -308,10 +313,11 @@ class _FlutterFireStorageService implements StorageService {
       final sortedKeys = history.keys.toList()..sort();
       final keysToSave = sortedKeys.length > 365 ? sortedKeys.sublist(sortedKeys.length - 365) : sortedKeys;
       for (final date in keysToSave) {
-        updates[date.toString()] = jsonEncode(history[date]);
+        final cleanKey = date.toString().replaceAll(RegExp(r'[.#$\[\]/]'), '_');
+        updates[cleanKey] = jsonEncode(history[date]);
       }
       if (updates.isNotEmpty) {
-        await _rtdb.ref('users/$userId/data/history').update(updates);
+        await _rtdb.ref('users/$userId/data/history').update(updates).timeout(_rtdbTimeout);
       }
       return true;
     } catch (e, stack) {
@@ -329,11 +335,12 @@ class _FlutterFireStorageService implements StorageService {
       final Map<String, dynamic> updates = {};
       for (var log in logsToSave) {
         if (log is Map && log['id'] != null) {
-          updates[log['id'].toString()] = jsonEncode(log);
+          final cleanId = log['id'].toString().replaceAll(RegExp(r'[.#$\[\]/]'), '_');
+          updates[cleanId] = jsonEncode(log);
         }
       }
       if (updates.isNotEmpty) {
-        await _rtdb.ref('users/$userId/data/reflections').set(updates);
+        await _rtdb.ref('users/$userId/data/reflections').set(updates).timeout(_rtdbTimeout);
       }
       return true;
     } catch (e, stack) {
@@ -513,6 +520,8 @@ class _LinuxStorageService implements StorageService {
   fd.FirebaseDatabase get _rtdb => fd.FirebaseDatabase(app: fd.Firebase.app());
   firedart.Firestore get _firestore => firedart.Firestore.instance;
 
+  static const Duration _rtdbTimeout = Duration(seconds: 15);
+
   fd.DatabaseReference _rtdbRef(String userId, String chunk) =>
       _rtdb.reference().child('users/$userId/data/$chunk');
 
@@ -523,13 +532,13 @@ class _LinuxStorageService implements StorageService {
       final baseRef = _rtdb.reference().child('users/$userId/data');
 
       final results = await Future.wait([
-        baseRef.child(_docSettings).once(),
-        baseRef.child(_docTasks).once(),
-        baseRef.child(_docFinance).once(),
-        baseRef.child(_docHealth).once(),
-        baseRef.child(_docTrading).once(),
-        baseRef.child('history').orderByKey().limitToLast(365).once(),
-        baseRef.child('reflections').orderByKey().limitToLast(150).once(),
+        baseRef.child(_docSettings).once().timeout(_rtdbTimeout),
+        baseRef.child(_docTasks).once().timeout(_rtdbTimeout),
+        baseRef.child(_docFinance).once().timeout(_rtdbTimeout),
+        baseRef.child(_docHealth).once().timeout(_rtdbTimeout),
+        baseRef.child(_docTrading).once().timeout(_rtdbTimeout),
+        baseRef.child('history').orderByKey().limitToLast(365).once().timeout(_rtdbTimeout),
+        baseRef.child('reflections').orderByKey().limitToLast(150).once().timeout(_rtdbTimeout),
       ]);
 
       final settingsSnap = results[0];
@@ -564,7 +573,7 @@ class _LinuxStorageService implements StorageService {
     if (userId.isEmpty) return 0;
     try {
       final snap =
-          await _rtdb.reference().child('users/$userId/lastModified').once();
+          await _rtdb.reference().child('users/$userId/lastModified').once().timeout(_rtdbTimeout);
       return (snap.value as num?)?.toInt() ?? 0;
     } catch (e, stack) {
       debugPrint('[StorageService.getLastModified/linux] $e\n$stack');
@@ -575,7 +584,11 @@ class _LinuxStorageService implements StorageService {
   @override
   Future<void> setLastModified(String userId, int timestamp) async {
     if (userId.isEmpty) return;
-    await _rtdb.reference().child('users/$userId/lastModified').set(timestamp);
+    try {
+      await _rtdb.reference().child('users/$userId/lastModified').set(timestamp).timeout(_rtdbTimeout);
+    } catch (e, stack) {
+      debugPrint('[StorageService.setLastModified/linux] $e\n$stack');
+    }
   }
 
   @override
@@ -608,7 +621,7 @@ class _LinuxStorageService implements StorageService {
   Future<Map<String, dynamic>?> getTrading(String userId) async {
     if (userId.isEmpty) return null;
     try {
-      final snap = await _rtdbRef(userId, _docTrading).once();
+      final snap = await _rtdbRef(userId, _docTrading).once().timeout(_rtdbTimeout);
       if (snap.value != null) {
         if (snap.value is String) {
           return jsonDecode(snap.value as String) as Map<String, dynamic>?;
@@ -627,7 +640,7 @@ class _LinuxStorageService implements StorageService {
       String userId, String chunk, Map<String, dynamic> data) async {
     if (userId.isEmpty) return false;
     try {
-      await _rtdbRef(userId, chunk).set(jsonEncode(data));
+      await _rtdbRef(userId, chunk).set(jsonEncode(data)).timeout(_rtdbTimeout);
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService._saveChunkToRTDB:$chunk/linux] $e\n$stack');
@@ -644,13 +657,15 @@ class _LinuxStorageService implements StorageService {
       final sortedKeys = history.keys.toList()..sort();
       final keysToSave = sortedKeys.length > 365 ? sortedKeys.sublist(sortedKeys.length - 365) : sortedKeys;
       for (final date in keysToSave) {
-        updates[date.toString()] = jsonEncode(history[date]);
+        final cleanKey = date.toString().replaceAll(RegExp(r'[.#$\[\]/]'), '_');
+        updates[cleanKey] = jsonEncode(history[date]);
       }
       if (updates.isNotEmpty) {
         await _rtdb
             .reference()
             .child('users/$userId/data/history')
-            .update(updates);
+            .update(updates)
+            .timeout(_rtdbTimeout);
       }
       return true;
     } catch (e, stack) {
@@ -668,14 +683,16 @@ class _LinuxStorageService implements StorageService {
       final Map<String, dynamic> updates = {};
       for (var log in logsToSave) {
         if (log is Map && log['id'] != null) {
-          updates[log['id'].toString()] = jsonEncode(log);
+          final cleanId = log['id'].toString().replaceAll(RegExp(r'[.#$\[\]/]'), '_');
+          updates[cleanId] = jsonEncode(log);
         }
       }
       if (updates.isNotEmpty) {
         await _rtdb
             .reference()
             .child('users/$userId/data/reflections')
-            .set(updates);
+            .set(updates)
+            .timeout(_rtdbTimeout);
       }
       return true;
     } catch (e, stack) {

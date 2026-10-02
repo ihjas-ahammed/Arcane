@@ -90,11 +90,21 @@ mixin SyncMixin on ChangeNotifier {
     _realtimeSyncSubscription = _storageService.watchLastModified(uid).listen((remoteTs) async {
       if (currentUser == null || currentUser!.uid != uid || _dataLoadInProgress || _isSyncing) return;
       if (remoteTs <= 0) return;
+
+      // CRITICAL DATA PROTECTION: Never overwrite uncommitted local user changes in background!
+      if (_hasUnsavedChanges || _dirtyCollections.isNotEmpty) {
+        debugPrint("[SyncMixin] Realtime sync: Local has unsaved changes. Scheduling cloud push instead of pulling.");
+        if (settings.autoSaveEnabled) {
+          _scheduleCloudSave();
+        }
+        return;
+      }
+
       final localTs = settings.lastModified;
       if (remoteTs > localTs) {
         debugPrint("[SyncMixin] Realtime sync: Remote is newer ($remoteTs > $localTs). Auto-pulling updates in background.");
         await _manuallyLoadFromCloudInternal();
-      } else if (localTs > remoteTs || _hasUnsavedChanges) {
+      } else if (localTs > remoteTs) {
         if (settings.autoSaveEnabled) {
           debugPrint("[SyncMixin] Realtime sync: Local is newer ($localTs >= $remoteTs). Scheduling cloud save.");
           _scheduleCloudSave();
@@ -144,9 +154,15 @@ mixin SyncMixin on ChangeNotifier {
 
   void _scheduleCloudSave() {
     _cloudDebounce?.cancel();
-    _cloudDebounce = Timer(const Duration(milliseconds: 2500), () {
-      if (currentUser != null && _hasUnsavedChanges && !_isSyncing) {
-        _performActualSaveInternal();
+    _cloudDebounce = Timer(const Duration(milliseconds: 2500), () async {
+      if (currentUser != null && _hasUnsavedChanges && !_isSyncing && !_dataLoadInProgress) {
+        _isSyncing = true;
+        try {
+          await _performActualSaveInternal(force: true);
+        } finally {
+          _isSyncing = false;
+          notifyListeners();
+        }
       }
     });
   }
@@ -183,21 +199,43 @@ mixin SyncMixin on ChangeNotifier {
   }
 
   Future<void> performManualSync() async {
-    if (currentUser == null || _isSyncing) return;
+    if (currentUser == null || _isSyncing || _dataLoadInProgress) return;
 
     _isSyncing = true;
     notifyListeners();
 
-    final localTs = settings.lastModified;
     try {
+      if (_hasUnsavedChanges || _dirtyCollections.isNotEmpty) {
+        // User has local edits: prioritize saving local changes to cloud
+        final success = await _performActualSaveInternal(force: true);
+        if (success) {
+          showGlobalToast("Local changes synced to cloud");
+        } else {
+          showGlobalToast("Failed to sync some changes to cloud");
+        }
+        return;
+      }
+
+      final localTs = settings.lastModified;
       final remoteTs = await _storageService.getLastModified(currentUser!.uid);
       if (remoteTs > localTs) {
-        await _manuallyLoadFromCloudInternal();
-      } else if (localTs > remoteTs || _hasUnsavedChanges) {
-        await _performActualSaveInternal(force: true);
+        final success = await _manuallyLoadFromCloudInternal();
+        if (success) {
+          showGlobalToast("Synced latest data from cloud");
+        } else {
+          showGlobalToast("Failed to pull latest cloud data");
+        }
+      } else {
+        final success = await _performActualSaveInternal(force: true);
+        if (success) {
+          showGlobalToast("Data synchronized with cloud");
+        } else {
+          showGlobalToast("Failed to sync some data to cloud");
+        }
       }
     } catch (e) {
       debugPrint("Sync Error: $e");
+      showGlobalToast("Sync failed: $e");
     } finally {
       _isSyncing = false;
       notifyListeners();
@@ -206,22 +244,28 @@ mixin SyncMixin on ChangeNotifier {
 
   /// Automatically compares remote vs local timestamps on login or startup and synchronizes in the background.
   Future<void> autoSyncWithCloud() async {
-    if (currentUser == null || _isSyncing) return;
-    // Compare against the timestamp of the data as loaded. Startup maintenance runs while the
-    // remote timestamp is being fetched and re-stamps it with "now", which made stale local data
-    // look newer than the cloud and get pushed over it.
-    final localTs = settings.lastModified;
+    if (currentUser == null || _isSyncing || _dataLoadInProgress) return;
+    _isSyncing = true;
     try {
+      if (_hasUnsavedChanges || _dirtyCollections.isNotEmpty) {
+        debugPrint("[SyncMixin] autoSyncWithCloud: Local has unsaved changes. Syncing to cloud.");
+        await _performActualSaveInternal(force: true);
+        return;
+      }
+
+      final localTs = settings.lastModified;
       final remoteTs = await _storageService.getLastModified(currentUser!.uid);
       if (remoteTs > localTs) {
         debugPrint("[SyncMixin] Remote cloud data is newer ($remoteTs > $localTs). Pulling updates.");
         await _manuallyLoadFromCloudInternal();
-      } else if (localTs > remoteTs || _hasUnsavedChanges) {
-        debugPrint("[SyncMixin] Local changes newer ($localTs >= $remoteTs). Syncing to cloud.");
-        await _performActualSaveInternal();
+      } else if (localTs > remoteTs) {
+        debugPrint("[SyncMixin] Local changes newer ($localTs > $remoteTs). Syncing to cloud.");
+        await _performActualSaveInternal(force: true);
       }
     } catch (e) {
       debugPrint("[SyncMixin] autoSyncWithCloud error: $e");
+    } finally {
+      _isSyncing = false;
     }
   }
 
@@ -246,6 +290,16 @@ mixin SyncMixin on ChangeNotifier {
       }
       _hasUnsavedChanges = false;
       _dirtyCollections.clear();
+
+      // Ensure local settings.lastModified matches or exceeds remote RTDB timestamp
+      // to prevent an immediate desync loop
+      try {
+        final remoteTs = await _storageService.getLastModified(currentUser!.uid);
+        if (remoteTs > settings.lastModified) {
+          settings.lastModified = remoteTs;
+        }
+      } catch (_) {}
+
       // Inside an outer load the caller persists once it ends.
       if (!nested) await _saveLocalSnapshot(forceFlush: true);
       return true;
@@ -292,6 +346,10 @@ mixin SyncMixin on ChangeNotifier {
   Future<bool> _performActualSaveInternal({bool force = false}) async {
     if (currentUser == null || _dataLoadInProgress) return false;
     try {
+      // 1. Establish a single synchronized timestamp across all collections and RTDB
+      final nowTs = DateTime.now().millisecondsSinceEpoch;
+      settings.lastModified = nowTs;
+
       final tasksData = Map<String, dynamic>.from(getTaskStateMap());
       final financeData = Map<String, dynamic>.from(getFinanceStateMap());
       final healthData = Map<String, dynamic>.from(getHealthStateMap());
@@ -356,7 +414,7 @@ mixin SyncMixin on ChangeNotifier {
       }
 
       if (success) {
-        await _storageService.setLastModified(currentUser!.uid, settings.lastModified);
+        await _storageService.setLastModified(currentUser!.uid, nowTs);
         _dirtyCollections.clear();
         _hasUnsavedChanges = false;
         _lastSuccessfulSaveTimestamp = DateTime.now();

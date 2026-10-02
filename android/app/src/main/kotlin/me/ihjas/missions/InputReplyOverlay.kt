@@ -1,14 +1,15 @@
 package me.ihjas.missions
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.PixelFormat
-import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.Build
@@ -25,12 +26,16 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * Tactical floating HUD controller for device-wide input recording and replaying.
+ * Tactical floating HUD controller and full-screen touch sensor layer for Arcane.
  * Drawn by [LauncherTakeoverService] as an accessibility overlay (TYPE_ACCESSIBILITY_OVERLAY).
  *
- * Supports two dynamic modes:
- *  1. RECORDING: Glowing pulsating red disc with live step counter and [■ STOP] trigger.
- *  2. REPLAYING: Tactical cyan HUD indicator showing active step execution and emergency [■ STOP] abort.
+ * Architecture:
+ *  1. TouchSensorLayer: Full-screen transparent touch interceptor that captures exact physical
+ *     tap coordinates (X, Y) and directional swipes, dispatches gestures through to underlying apps,
+ *     and automatically steps down (FLAG_NOT_TOUCHABLE) when the soft keyboard is open so typing
+ *     is completely unimpeded.
+ *  2. ControllerView: Floating HUD pill positioned over the touch sensor displaying live status,
+ *     step counts, keyboard guidance suggestions ("CLOSE KEYBOARD BEFORE SUBMITTING"), and the [■ STOP] button.
  */
 class InputReplyOverlay(private val service: AccessibilityService) {
 
@@ -56,10 +61,17 @@ class InputReplyOverlay(private val service: AccessibilityService) {
 
     private var currentMode = Mode.IDLE
     private var pillView: ControllerView? = null
-    private var params: WindowManager.LayoutParams? = null
+    private var pillParams: WindowManager.LayoutParams? = null
+
+    private var sensorView: TouchSensorLayer? = null
+    private var sensorParams: WindowManager.LayoutParams? = null
+
+    var isKeyboardOpen: Boolean = false
+        private set
 
     var onStopClicked: (() -> Unit)? = null
-    var onPhysicalTouchObserved: ((rawX: Float, rawY: Float) -> Unit)? = null
+    var onTapCaptured: ((rawX: Float, rawY: Float) -> Unit)? = null
+    var onSwipeCaptured: ((startX: Float, startY: Float, endX: Float, endY: Float) -> Unit)? = null
 
     var stepCount: Int = 0
         set(value) {
@@ -89,6 +101,7 @@ class InputReplyOverlay(private val service: AccessibilityService) {
         currentMode = Mode.RECORDING
         stepCount = 0
         activePackageLabel = macroName
+        isKeyboardOpen = false
         ensureShown()
     }
 
@@ -97,16 +110,35 @@ class InputReplyOverlay(private val service: AccessibilityService) {
         replayStep = current
         replayTotalSteps = total
         activePackageLabel = name
+        // Hide sensor during replay
+        removeSensorLayer()
         ensureShown()
+    }
+
+    fun setKeyboardOpen(open: Boolean) {
+        if (isKeyboardOpen == open) return
+        isKeyboardOpen = open
+        setSensorTouchable(!open)
+        pillView?.postInvalidate()
     }
 
     fun hide() {
         currentMode = Mode.IDLE
+        isKeyboardOpen = false
+        removeSensorLayer()
         pillView?.let {
             try { wm.removeView(it) } catch (_: Exception) {}
         }
         pillView = null
-        params = null
+        pillParams = null
+    }
+
+    private fun removeSensorLayer() {
+        sensorView?.let {
+            try { wm.removeView(it) } catch (_: Exception) {}
+        }
+        sensorView = null
+        sensorParams = null
     }
 
     private fun overlayType(): Int {
@@ -131,33 +163,256 @@ class InputReplyOverlay(private val service: AccessibilityService) {
     }
 
     private fun ensureShown() {
-        if (pillView != null) {
+        // 1. In RECORDING mode, add full-screen touch sensor layer FIRST (below pill in z-order)
+        if (currentMode == Mode.RECORDING && sensorView == null) {
+            val sView = TouchSensorLayer(service)
+            val sParams = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                overlayType(),
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSLUCENT
+            ).apply {
+                gravity = Gravity.TOP or Gravity.START
+            }
+            try {
+                wm.addView(sView, sParams)
+                sensorView = sView
+                sensorParams = sParams
+            } catch (_: Exception) {}
+        }
+
+        // 2. Add floating HUD controller pill ON TOP of sensor layer
+        if (pillView == null) {
+            val view = ControllerView(service)
+            val p = WindowManager.LayoutParams(
+                dp(295f),
+                dp(52f),
+                overlayType(),
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                PixelFormat.TRANSLUCENT
+            ).apply {
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                y = dp(32f)
+            }
+            try {
+                wm.addView(view, p)
+                pillView = view
+                pillParams = p
+            } catch (_: Exception) {}
+        } else {
             pillView?.postInvalidate()
-            return
         }
-
-        val view = ControllerView(service)
-        val p = WindowManager.LayoutParams(
-            dp(220f),
-            dp(48f),
-            overlayType(),
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = dp(32f)
-        }
-
-        try {
-            wm.addView(view, p)
-            pillView = view
-            params = p
-        } catch (_: Exception) {}
     }
 
+    private fun setSensorTouchable(touchable: Boolean) {
+        val sv = sensorView ?: return
+        val p = sensorParams ?: return
+        val currentFlags = p.flags
+        val newFlags = if (touchable && !isKeyboardOpen) {
+            currentFlags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        } else {
+            currentFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        }
+        if (currentFlags != newFlags) {
+            p.flags = newFlags
+            try {
+                wm.updateViewLayout(sv, p)
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun passTapToApp(x: Float, y: Float) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
+
+        setSensorTouchable(false)
+        val path = Path().apply { moveTo(x, y) }
+        val stroke = GestureDescription.StrokeDescription(path, 0, 40L)
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+
+        var restored = false
+        val restoreTouch = {
+            if (!restored) {
+                restored = true
+                if (!isKeyboardOpen && currentMode == Mode.RECORDING) {
+                    setSensorTouchable(true)
+                }
+            }
+        }
+
+        handler.postDelayed({ restoreTouch() }, 220L)
+
+        try {
+            service.dispatchGesture(
+                gesture,
+                object : AccessibilityService.GestureResultCallback() {
+                    override fun onCompleted(gestureDescription: GestureDescription?) {
+                        restoreTouch()
+                    }
+                    override fun onCancelled(gestureDescription: GestureDescription?) {
+                        restoreTouch()
+                    }
+                },
+                handler
+            )
+        } catch (_: Exception) {
+            restoreTouch()
+        }
+    }
+
+    private fun passSwipeToApp(startX: Float, startY: Float, endX: Float, endY: Float) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
+
+        setSensorTouchable(false)
+        val path = Path().apply {
+            moveTo(startX, startY)
+            lineTo(endX, endY)
+        }
+        val stroke = GestureDescription.StrokeDescription(path, 0, 200L)
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+
+        var restored = false
+        val restoreTouch = {
+            if (!restored) {
+                restored = true
+                if (!isKeyboardOpen && currentMode == Mode.RECORDING) {
+                    setSensorTouchable(true)
+                }
+            }
+        }
+
+        handler.postDelayed({ restoreTouch() }, 320L)
+
+        try {
+            service.dispatchGesture(
+                gesture,
+                object : AccessibilityService.GestureResultCallback() {
+                    override fun onCompleted(gestureDescription: GestureDescription?) {
+                        restoreTouch()
+                    }
+                    override fun onCancelled(gestureDescription: GestureDescription?) {
+                        restoreTouch()
+                    }
+                },
+                handler
+            )
+        } catch (_: Exception) {
+            restoreTouch()
+        }
+    }
+
+    // ── Full-Screen Touch Sensor Layer ───────────────────────────────────────
+    @SuppressLint("ViewConstructor")
+    private inner class TouchSensorLayer(ctx: Context) : View(ctx) {
+        private var initialDownX = -1f
+        private var initialDownY = -1f
+        private var isDraggingOrSwiping = false
+        private val touchSlop = ViewConfiguration.get(ctx).scaledTouchSlop
+
+        // Tactical ripple feedback
+        private var rippleX = -1f
+        private var rippleY = -1f
+        private var rippleRadius = 0f
+        private var rippleAlpha = 0
+        private var rippleAnimator: ValueAnimator? = null
+
+        private val ripplePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = dp(2f).toFloat()
+            color = CYAN_ACCENT
+        }
+
+        private val reticlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = dp(1.5f).toFloat()
+            color = CYAN_ACCENT
+        }
+
+        fun triggerTapFeedback(x: Float, y: Float) {
+            rippleX = x
+            rippleY = y
+            rippleAnimator?.cancel()
+            rippleAnimator = ValueAnimator.ofFloat(dp(6f).toFloat(), dp(26f).toFloat()).apply {
+                duration = 200L
+                addUpdateListener {
+                    rippleRadius = it.animatedValue as Float
+                    rippleAlpha = ((1f - it.animatedFraction) * 255).toInt().coerceIn(0, 255)
+                    invalidate()
+                }
+                start()
+            }
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            if (rippleAlpha > 0 && rippleX > 0 && rippleY > 0) {
+                ripplePaint.alpha = rippleAlpha
+                reticlePaint.alpha = rippleAlpha
+                canvas.drawCircle(rippleX, rippleY, rippleRadius, ripplePaint)
+
+                val notch = dp(5f).toFloat()
+                canvas.drawLine(rippleX - rippleRadius - notch, rippleY, rippleX - rippleRadius, rippleY, reticlePaint)
+                canvas.drawLine(rippleX + rippleRadius, rippleY, rippleX + rippleRadius + notch, rippleY, reticlePaint)
+                canvas.drawLine(rippleX, rippleY - rippleRadius - notch, rippleX, rippleY - rippleRadius, reticlePaint)
+                canvas.drawLine(rippleX, rippleY + rippleRadius, rippleX, rippleY + rippleRadius + notch, reticlePaint)
+            }
+        }
+
+        @SuppressLint("ClickableViewAccessibility")
+        override fun onTouchEvent(event: MotionEvent): Boolean {
+            if (isKeyboardOpen || currentMode != Mode.RECORDING) {
+                return false
+            }
+
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    initialDownX = event.rawX
+                    initialDownY = event.rawY
+                    isDraggingOrSwiping = false
+                    return true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = abs(event.rawX - initialDownX)
+                    val dy = abs(event.rawY - initialDownY)
+                    if (dx > touchSlop || dy > touchSlop) {
+                        isDraggingOrSwiping = true
+                    }
+                    return true
+                }
+                MotionEvent.ACTION_UP -> {
+                    val finalX = event.rawX
+                    val finalY = event.rawY
+                    val dx = abs(finalX - initialDownX)
+                    val dy = abs(finalY - initialDownY)
+
+                    if (!isDraggingOrSwiping && dx <= touchSlop && dy <= touchSlop) {
+                        // Direct physical tap captured via touch sensor!
+                        performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        triggerTapFeedback(finalX, finalY)
+                        onTapCaptured?.invoke(finalX, finalY)
+                        passTapToApp(finalX, finalY)
+                    } else {
+                        // Swipe / scroll captured
+                        onSwipeCaptured?.invoke(initialDownX, initialDownY, finalX, finalY)
+                        passSwipeToApp(initialDownX, initialDownY, finalX, finalY)
+                    }
+                    isDraggingOrSwiping = false
+                    return true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    isDraggingOrSwiping = false
+                    return true
+                }
+            }
+            return super.onTouchEvent(event)
+        }
+    }
+
+    // ── Floating HUD Controller Pill ─────────────────────────────────────────
     @SuppressLint("ViewConstructor")
     private inner class ControllerView(ctx: Context) : View(ctx) {
 
@@ -179,12 +434,21 @@ class InputReplyOverlay(private val service: AccessibilityService) {
             typeface = Typeface.MONOSPACE
             textSize = dp(11f).toFloat()
             color = TEXT_WHITE
+            isFakeBoldText = true
         }
 
         private val subTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = Typeface.MONOSPACE
-            textSize = dp(9f).toFloat()
+            textSize = dp(9.5f).toFloat()
             color = TEXT_MUTED
+            isFakeBoldText = true
+        }
+
+        private val tipTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = Typeface.MONOSPACE
+            textSize = dp(9.5f).toFloat()
+            color = AMBER_WARN
+            isFakeBoldText = true
         }
 
         private val stopBtnPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -197,6 +461,7 @@ class InputReplyOverlay(private val service: AccessibilityService) {
             textSize = dp(10f).toFloat()
             color = Color.WHITE
             textAlign = Paint.Align.CENTER
+            isFakeBoldText = true
         }
 
         private var pulsePhase = 0f
@@ -232,57 +497,74 @@ class InputReplyOverlay(private val service: AccessibilityService) {
             super.onDraw(canvas)
             val w = width.toFloat()
             val h = height.toFloat()
-            val r = h / 2f
-            val rect = RectF(borderPaint.strokeWidth / 2f, borderPaint.strokeWidth / 2f, w - borderPaint.strokeWidth / 2f, h - borderPaint.strokeWidth / 2f)
+            val r = dp(8f).toFloat()
+            val rect = RectF(
+                borderPaint.strokeWidth / 2f,
+                borderPaint.strokeWidth / 2f,
+                w - borderPaint.strokeWidth / 2f,
+                h - borderPaint.strokeWidth / 2f
+            )
 
             // Draw background pill
             canvas.drawRoundRect(rect, r, r, bgPaint)
 
             // Dynamic accent border
-            val accent = if (currentMode == Mode.RECORDING) RED_REC else CYAN_ACCENT
+            val accent = when {
+                isKeyboardOpen -> AMBER_WARN
+                currentMode == Mode.RECORDING -> RED_REC
+                else -> CYAN_ACCENT
+            }
             borderPaint.color = accent
             canvas.drawRoundRect(rect, r, r, borderPaint)
 
-            // Draw status indicator
+            // Status indicator and text
             if (currentMode == Mode.RECORDING) {
-                // Pulsating red recording dot
-                val alpha = ((0.5f + pulsePhase * 0.5f) * 255).toInt().coerceIn(100, 255)
-                dotPaint.color = (RED_REC and 0x00FFFFFF) or (alpha shl 24)
-                canvas.drawCircle(dp(16f).toFloat(), h / 2f, dp(5f).toFloat(), dotPaint)
+                if (isKeyboardOpen) {
+                    // Soft keyboard open state: highlight tip to close keyboard before submitting
+                    val alpha = ((0.5f + pulsePhase * 0.5f) * 255).toInt().coerceIn(120, 255)
+                    dotPaint.color = (AMBER_WARN and 0x00FFFFFF) or (alpha shl 24)
+                    canvas.drawCircle(dp(14f).toFloat(), h / 2f, dp(5f).toFloat(), dotPaint)
 
-                // Recording label
-                textPaint.color = RED_REC
-                canvas.drawText("REC", dp(28f).toFloat(), h / 2f - dp(1f), textPaint)
+                    textPaint.color = AMBER_WARN
+                    canvas.drawText("⌨ KEYBOARD OPEN", dp(24f).toFloat(), h / 2f - dp(2f), textPaint)
 
-                // Step count telemetry
-                subTextPaint.color = TEXT_WHITE
-                val stepLabel = "$stepCount step${if (stepCount == 1) "" else "s"}"
-                canvas.drawText(stepLabel, dp(58f).toFloat(), h / 2f - dp(1f), subTextPaint)
+                    canvas.drawText("▼ CLOSE KEYBOARD TO SUBMIT", dp(24f).toFloat(), h / 2f + dp(12f), tipTextPaint)
+                } else {
+                    // Normal touch sensor active recording state
+                    val alpha = ((0.5f + pulsePhase * 0.5f) * 255).toInt().coerceIn(100, 255)
+                    dotPaint.color = (RED_REC and 0x00FFFFFF) or (alpha shl 24)
+                    canvas.drawCircle(dp(14f).toFloat(), h / 2f, dp(5f).toFloat(), dotPaint)
 
-                // Subtitle / target
-                val displayTarget = if (activePackageLabel.isNotEmpty()) activePackageLabel else "DEVICE"
-                val truncatedTarget = if (displayTarget.length > 12) displayTarget.take(10) + ".." else displayTarget
-                subTextPaint.color = TEXT_MUTED
-                canvas.drawText("[$truncatedTarget]", dp(28f).toFloat(), h / 2f + dp(12f), subTextPaint)
+                    textPaint.color = RED_REC
+                    canvas.drawText("REC", dp(24f).toFloat(), h / 2f - dp(2f), textPaint)
+
+                    subTextPaint.color = TEXT_WHITE
+                    val stepLabel = "$stepCount step${if (stepCount == 1) "" else "s"}"
+                    canvas.drawText(stepLabel, dp(52f).toFloat(), h / 2f - dp(2f), subTextPaint)
+
+                    subTextPaint.color = CYAN_ACCENT
+                    val displayTarget = if (activePackageLabel.isNotEmpty()) activePackageLabel else "TOUCH SENSOR"
+                    val truncatedTarget = if (displayTarget.length > 18) displayTarget.take(16) + ".." else displayTarget
+                    canvas.drawText("[$truncatedTarget]", dp(24f).toFloat(), h / 2f + dp(12f), subTextPaint)
+                }
             } else if (currentMode == Mode.REPLAYING) {
-                // Cyan playback dot
                 dotPaint.color = CYAN_ACCENT
-                canvas.drawCircle(dp(16f).toFloat(), h / 2f, dp(5f).toFloat(), dotPaint)
+                canvas.drawCircle(dp(14f).toFloat(), h / 2f, dp(5f).toFloat(), dotPaint)
 
                 textPaint.color = CYAN_ACCENT
-                canvas.drawText("PLAY", dp(28f).toFloat(), h / 2f - dp(1f), textPaint)
+                canvas.drawText("PLAY", dp(24f).toFloat(), h / 2f - dp(2f), textPaint)
 
                 subTextPaint.color = TEXT_WHITE
                 val stepLabel = "$replayStep/$replayTotalSteps"
-                canvas.drawText(stepLabel, dp(64f).toFloat(), h / 2f - dp(1f), subTextPaint)
+                canvas.drawText(stepLabel, dp(60f).toFloat(), h / 2f - dp(2f), subTextPaint)
 
                 subTextPaint.color = TEXT_MUTED
-                canvas.drawText("[REPLAYING]", dp(28f).toFloat(), h / 2f + dp(12f), subTextPaint)
+                canvas.drawText("[REPLAYING]", dp(24f).toFloat(), h / 2f + dp(12f), subTextPaint)
             }
 
             // Draw [■ STOP] button on right side
             val btnW = dp(62f).toFloat()
-            val btnH = dp(30f).toFloat()
+            val btnH = dp(32f).toFloat()
             val btnLeft = w - btnW - dp(10f)
             val btnTop = (h - btnH) / 2f
             stopBtnRect.set(btnLeft, btnTop, btnLeft + btnW, btnTop + btnH)
@@ -294,17 +576,9 @@ class InputReplyOverlay(private val service: AccessibilityService) {
 
         @SuppressLint("ClickableViewAccessibility")
         override fun onTouchEvent(event: MotionEvent): Boolean {
-            val p = params ?: return super.onTouchEvent(event)
+            val p = pillParams ?: return super.onTouchEvent(event)
 
             when (event.action) {
-                MotionEvent.ACTION_OUTSIDE -> {
-                    val rx = event.rawX
-                    val ry = event.rawY
-                    if (rx > 0 && ry > 0) {
-                        onPhysicalTouchObserved?.invoke(rx, ry)
-                    }
-                    return false
-                }
                 MotionEvent.ACTION_DOWN -> {
                     initialX = p.x
                     initialY = p.y

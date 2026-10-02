@@ -2169,7 +2169,33 @@ class _RecordingModeSheetState extends State<_RecordingModeSheet> {
               ],
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: JweTheme.accentAmber.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(MdiIcons.keyboardClose, size: 16, color: JweTheme.accentAmber),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'TIP: While typing, the touch sensor steps aside for the keyboard. Close the keyboard before submitting any forms so your tap is captured via physical touch coordinates.',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.textMid,
+                      fontSize: 10,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -2209,6 +2235,32 @@ class _RecordingModeSheetState extends State<_RecordingModeSheet> {
             color: JweTheme.textMid,
             fontSize: 10.5,
             height: 1.3,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: JweTheme.accentAmber.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(MdiIcons.keyboardClose, size: 16, color: JweTheme.accentAmber),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'TIP: While typing, touch coordinates pause. Close the keyboard before tapping submit buttons so the physical touch is recorded.',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.textMid,
+                    fontSize: 10,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 10),
