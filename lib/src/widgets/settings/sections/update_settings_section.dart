@@ -119,20 +119,6 @@ class UpdateSettingsSection extends StatelessWidget {
               onPressed: appProvider.isCheckingUpdate
                   ? null
                   : () async {
-                      if (UpdateService.isDebugBuild) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            backgroundColor: JweTheme.panel,
-                            content: Text(
-                              'Updates are disabled on debug builds (kDebugMode).',
-                              style: GoogleFonts.jetBrainsMono(
-                                color: JweTheme.accentWarn,
-                              ),
-                            ),
-                          ),
-                        );
-                        return;
-                      }
                       final update =
                           await appProvider.checkForAppUpdate(forceCheck: true);
                       if (!context.mounted) return;

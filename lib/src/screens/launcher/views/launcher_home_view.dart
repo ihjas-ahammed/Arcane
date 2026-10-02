@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -42,9 +43,13 @@ class LauncherHomeView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const TacticalStatusBar(),
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 6, 24, 12),
+            padding: EdgeInsets.fromLTRB(
+              24,
+              max(MediaQuery.viewPaddingOf(context).top, 28.0) + 6.0,
+              24,
+              12,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

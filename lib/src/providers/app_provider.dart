@@ -24,6 +24,9 @@ import 'package:missions/src/models/update_model.dart';
 import 'package:missions/src/services/bus_location_service.dart';
 import 'package:missions/src/services/update_service.dart';
 import 'package:missions/src/services/nora_agent_engine.dart';
+import 'package:missions/src/services/widget_action_router.dart';
+import 'package:missions/src/widgets/dialogs/whats_new_update_dialog.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
 import 'package:uuid/uuid.dart';
@@ -112,16 +115,38 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   List<Map<String, dynamic>> get cachedWeeklyReports => List.unmodifiable(_cachedWeeklyReports);
   List<Map<String, dynamic>> get cachedMonthlyReports => List.unmodifiable(_cachedMonthlyReports);
 
+  int? _promptedVersionCode;
+
+  void promptUpdateIfAvailable(UpdateModel update) {
+    if (_promptedVersionCode == update.versionCode) return;
+    _promptedVersionCode = update.versionCode;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final navContext = WidgetActionRouter.instance.navigatorKey.currentContext;
+      if (navContext != null && navContext.mounted) {
+        final packageInfo = await _updateService.getLocalPackageInfo();
+        if (navContext.mounted) {
+          WhatsNewUpdateDialog.show(
+            navContext,
+            update: update,
+            currentVersion: packageInfo.version,
+            currentBuildNumber: packageInfo.buildNumber,
+            updateService: _updateService,
+          );
+        }
+      }
+    });
+  }
+
   Future<UpdateModel?> checkForAppUpdate({bool forceCheck = false}) async {
-    if (UpdateService.isDebugBuild) {
-      debugPrint("[AppProvider.checkForAppUpdate] Debug APK detected. Skipping update check.");
-      return null;
-    }
     _isCheckingUpdate = true;
     notifyListeners();
     try {
       final update = await _updateService.checkForUpdate(forceCheck: forceCheck);
       _availableUpdate = update;
+      if (update != null) {
+        promptUpdateIfAvailable(update);
+      }
       return update;
     } catch (e) {
       debugPrint("[AppProvider.checkForAppUpdate] Error: $e");
@@ -149,6 +174,20 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         debugPrint('[AppProvider] Real-time update detected from Firebase: #${update.versionCode}');
         _availableUpdate = update;
         notifyListeners();
+        promptUpdateIfAvailable(update);
+      }
+    });
+
+    // Background periodic update check (every 15 minutes)
+    Timer.periodic(const Duration(minutes: 15), (_) {
+      checkForAppUpdate();
+    });
+
+    // Auto-check updates as soon as internet connectivity recovers
+    Connectivity().onConnectivityChanged.listen((results) {
+      final isOnline = results.any((r) => r != ConnectivityResult.none);
+      if (isOnline) {
+        checkForAppUpdate();
       }
     });
 

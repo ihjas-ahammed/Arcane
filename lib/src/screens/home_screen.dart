@@ -108,12 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     LauncherNative.arcaneVisible.addListener(onVisible);
   }
-
   Future<void> _checkUpdateOnStartup() async {
-    if (UpdateService.isDebugBuild) {
-      debugPrint('[HomeScreen] Debug build detected. Skipping startup update checks.');
-      return;
-    }
     await Future.delayed(const Duration(seconds: 3));
     if (!mounted) return;
     try {
@@ -141,7 +136,6 @@ class _HomeScreenState extends State<HomeScreen> {
           changelogMarkdown: changelog,
           updateService: _appProvider.updateService,
         );
-        return;
       } else if (lastSeenBuild == null) {
         // First run on this installation: register current build number
         await prefs.setString('last_seen_build_number', currentBuild);

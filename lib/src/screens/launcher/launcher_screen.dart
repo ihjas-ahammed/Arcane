@@ -7,12 +7,16 @@ import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/launcher_service.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
 import 'package:missions/src/screens/launcher/launcher_wallpaper_painter.dart';
+import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/screens/launcher/views/launcher_drawer_view.dart';
 import 'package:missions/src/screens/launcher/views/launcher_home_view.dart';
 import 'package:missions/src/screens/launcher/views/launcher_items.dart';
 import 'package:missions/src/screens/launcher/views/launcher_sheets.dart';
+import 'package:missions/src/screens/launcher/views/launcher_status_bar.dart';
 import 'package:missions/src/screens/launcher/views/launcher_widget_view.dart';
 import 'package:missions/src/services/widget_action_router.dart';
+import 'package:missions/src/widgets/dialogs/whats_new_update_dialog.dart';
+import 'package:provider/provider.dart';
 
 /// Arcane home-screen launcher.
 ///
@@ -73,6 +77,7 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
     // insight watcher, tab routing) run even if the user never opens it — without delaying boot.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_arcaneBuilt) setState(() => _arcaneBuilt = true);
+      _checkUpdateOnLauncherStartup();
     });
 
     // Opened from another launcher's icon, a widget deep link or the assistant: show Arcane at once.
@@ -81,6 +86,27 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
       _launchedAsApp = true;
       _openArcane(animate: false);
     });
+  }
+
+  Future<void> _checkUpdateOnLauncherStartup() async {
+    await Future.delayed(const Duration(seconds: 4));
+    if (!mounted) return;
+    try {
+      final appProvider = context.read<AppProvider>();
+      final update = await appProvider.checkForAppUpdate();
+      if (!mounted) return;
+      if (update != null) {
+        final packageInfo = await appProvider.updateService.getLocalPackageInfo();
+        if (!mounted) return;
+        WhatsNewUpdateDialog.show(
+          context,
+          update: update,
+          currentVersion: packageInfo.version,
+          currentBuildNumber: packageInfo.buildNumber,
+          updateService: appProvider.updateService,
+        );
+      }
+    } catch (_) {}
   }
 
   @override
@@ -403,6 +429,12 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
                     _buildPages(),
                     _buildDrawer(),
                     _buildDragChrome(),
+                    const Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: TacticalStatusBar(),
+                    ),
                   ],
                 ),
               ),

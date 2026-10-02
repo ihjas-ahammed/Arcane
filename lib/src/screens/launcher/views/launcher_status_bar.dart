@@ -1,15 +1,16 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/launcher_service.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
-import 'package:missions/src/theme/jwe_theme.dart';
-import 'package:missions/theme/valorant_theme.dart';
 
-/// Fullscreen tactical status bar positioned at the top of the launcher.
-/// Displays live battery gauge, charging state, network transport, and 4-step range bar.
+/// Fullscreen tactical status bar positioned at the top of the launcher (at the notch/cutout line).
+/// Displays live clock, 4-step range bar, network transport, charging status, and battery gauge.
+/// In dark theme, it renders in crisp white; in light theme, in dark tactical paper charcoal.
 class TacticalStatusBar extends StatefulWidget {
   const TacticalStatusBar({super.key});
 
@@ -19,6 +20,9 @@ class TacticalStatusBar extends StatefulWidget {
 
 class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindingObserver {
   Timer? _pollTimer;
+  Timer? _clockTimer;
+  DateTime _now = DateTime.now();
+
   int _batteryLevel = 100;
   bool _isCharging = false;
   String _networkType = 'WIFI';
@@ -30,8 +34,18 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _refreshTelemetry();
+    _startClock();
     _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (mounted) _refreshTelemetry();
+    });
+  }
+
+  void _startClock() {
+    _clockTimer?.cancel();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() => _now = DateTime.now());
+      }
     });
   }
 
@@ -39,6 +53,7 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _refreshTelemetry();
+      setState(() => _now = DateTime.now());
     }
   }
 
@@ -60,6 +75,7 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
+    _clockTimer?.cancel();
     super.dispose();
   }
 
@@ -70,16 +86,23 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
       builder: (context, isFullscreen, _) {
         if (!isFullscreen) return const SizedBox.shrink();
 
-        final topInset = MediaQuery.paddingOf(context).top;
-        final effectiveTop = topInset > 0 ? topInset + 2.0 : 8.0;
+        final viewPaddingTop = MediaQuery.viewPaddingOf(context).top;
+        final barHeight = max(viewPaddingTop, 28.0);
         final isLight = LauncherTheme.isLight;
-        final activeTeal = isLight ? const Color(0xFF009668) : ValorantColors.teal;
-        final redAlert = LauncherTheme.red;
+
+        // Dark theme: crisp pure white. Light theme: dark tactical charcoal.
+        final Color activeColor = isLight ? const Color(0xFF1B2028) : Colors.white;
+        final Color inactiveColor = isLight
+            ? const Color(0xFF1B2028).withValues(alpha: 0.25)
+            : Colors.white.withValues(alpha: 0.28);
+        final Color alertColor = LauncherTheme.red;
+
+        final timeFormatted = DateFormat('HH:mm').format(_now);
 
         return Semantics(
-          label: 'System Status: Battery $_batteryLevel%, $_networkType, Signal $_signalLevel of 4',
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(18, effectiveTop, 18, 4),
+          label: 'Status Bar: $timeFormatted, Battery $_batteryLevel%, $_networkType, Signal $_signalLevel of 4',
+          child: Material(
+            color: Colors.transparent,
             child: InkWell(
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -89,20 +112,34 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
                 HapticFeedback.mediumImpact();
                 _refreshTelemetry();
               },
-              borderRadius: BorderRadius.circular(6),
-              child: SizedBox(
-                height: 24,
+              child: Container(
+                height: barHeight,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                alignment: Alignment.center,
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // ── Left: Range & Network Telemetry ──
-                    _buildRangeBar(activeTeal, redAlert),
+                    // ── Left: Time & Network / Range Telemetry ──
+                    Text(
+                      timeFormatted,
+                      style: LauncherTheme.rajdhani(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: activeColor,
+                        height: 1.0,
+                      ),
+                    ),
                     const SizedBox(width: 8),
-                    _buildNetworkBadge(activeTeal, redAlert),
+                    _buildRangeBar(activeColor, inactiveColor, alertColor),
+                    const SizedBox(width: 6),
+                    _buildNetworkBadge(activeColor, alertColor),
 
+                    // ── Center: Cutout / Notch Void ──
                     const Spacer(),
 
                     // ── Right: Battery Telemetry ──
-                    _buildBatteryTelemetry(activeTeal, redAlert),
+                    _buildBatteryTelemetry(activeColor, inactiveColor, alertColor),
                   ],
                 ),
               ),
@@ -113,7 +150,7 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
     );
   }
 
-  Widget _buildRangeBar(Color activeColor, Color alertColor) {
+  Widget _buildRangeBar(Color activeColor, Color inactiveColor, Color alertColor) {
     final barHeights = [4.0, 7.5, 11.0, 14.5];
     final isOffline = !_isOnline || _networkType == 'OFFLINE';
 
@@ -123,14 +160,12 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
         for (int i = 0; i < 4; i++) ...[
           if (i > 0) const SizedBox(width: 2.0),
           Container(
-            width: 3.0,
+            width: 2.5,
             height: barHeights[i],
             decoration: BoxDecoration(
               color: isOffline
-                  ? LauncherTheme.muted.withValues(alpha: 0.25)
-                  : (i < _signalLevel
-                      ? activeColor
-                      : LauncherTheme.muted.withValues(alpha: 0.25)),
+                  ? inactiveColor
+                  : (i < _signalLevel ? activeColor : inactiveColor),
               borderRadius: BorderRadius.circular(0.5),
             ),
           ),
@@ -146,19 +181,20 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
     final IconData icon = isOffline
         ? MdiIcons.wifiOff
         : (isWifi ? MdiIcons.wifi : MdiIcons.signalCellular3);
-    final Color color = isOffline ? alertColor : LauncherTheme.text;
+    final Color color = isOffline ? alertColor : activeColor;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(icon, size: 12, color: isOffline ? alertColor : activeColor),
-        const SizedBox(width: 4),
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 3),
         Text(
           _networkType,
           style: LauncherTheme.rajdhani(
             fontSize: 11,
             fontWeight: FontWeight.w700,
-            letterSpacing: 1.2,
+            letterSpacing: 1.1,
             color: color,
             height: 1.0,
           ),
@@ -167,10 +203,9 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
     );
   }
 
-  Widget _buildBatteryTelemetry(Color activeColor, Color alertColor) {
-    final Color batColor = _batteryLevel > 30
-        ? activeColor
-        : (_batteryLevel >= 15 ? JweTheme.accentAmber : alertColor);
+  Widget _buildBatteryTelemetry(Color activeColor, Color inactiveColor, Color alertColor) {
+    final bool isCritical = _batteryLevel < 15 && !_isCharging;
+    final Color batColor = isCritical ? alertColor : activeColor;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -190,15 +225,15 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
             height: 1.0,
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 5),
         Container(
-          width: 24,
-          height: 12,
-          padding: const EdgeInsets.all(1.5),
+          width: 22,
+          height: 11,
+          padding: const EdgeInsets.all(1.2),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(2.5),
             border: Border.all(
-              color: LauncherTheme.line,
+              color: batColor,
               width: 1.2,
             ),
           ),
@@ -216,10 +251,10 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
           ),
         ),
         Container(
-          width: 2.0,
-          height: 5.0,
+          width: 1.5,
+          height: 4.5,
           decoration: BoxDecoration(
-            color: LauncherTheme.line,
+            color: batColor,
             borderRadius: const BorderRadius.horizontal(right: Radius.circular(1.0)),
           ),
         ),

@@ -177,8 +177,7 @@ class UpdateService {
   /// Checks whether an update is available via Firebase RTDB (zero cache) or GitHub
   Future<UpdateModel?> checkForUpdate({bool forceCheck = false}) async {
     if (isDebugBuild) {
-      debugPrint('[UpdateService] Debug build detected (isDebugBuild=true). Skipping update check.');
-      return null;
+      debugPrint('[UpdateService] Debug build detected (isDebugBuild=true). Proceeding with update check.');
     }
 
     final packageInfo = await getLocalPackageInfo();
@@ -338,7 +337,7 @@ class UpdateService {
     if (url.isEmpty) return false;
     try {
       final res = await client.head(_bust(url, versionCode)).timeout(const Duration(seconds: 5));
-      if (res.statusCode == 200) return true;
+      if (res.statusCode >= 200 && res.statusCode < 400) return true;
       if (res.statusCode == 404) {
         // Fastly CDN on GitHub raw can briefly cache 404 for newly pushed releases.
         // Test with range request before concluding it's unavailable.
@@ -346,9 +345,9 @@ class UpdateService {
           _bust(url, versionCode),
           headers: {'Range': 'bytes=0-10'},
         ).timeout(const Duration(seconds: 5));
-        return getRes.statusCode == 200 || getRes.statusCode == 206;
+        return (getRes.statusCode >= 200 && getRes.statusCode < 400) || getRes.statusCode == 206;
       }
-      return false;
+      return true;
     } catch (_) {
       // Network hiccup on HEAD only: don't hide a real update, the download reports errors itself.
       return true;

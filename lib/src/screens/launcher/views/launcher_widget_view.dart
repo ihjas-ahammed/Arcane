@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -137,10 +138,14 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
       top: false,
       child: Column(
         children: [
-          const TacticalStatusBar(),
           // ── Header ──────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 16, 12),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              max(MediaQuery.viewPaddingOf(context).top, 28.0) + 6.0,
+              16,
+              12,
+            ),
             child: Row(
               children: [
                 Expanded(

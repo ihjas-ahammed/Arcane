@@ -836,6 +836,11 @@ class LauncherBridge(
     }
 
     private fun getBatteryAndNetworkStatus(): Map<String, Any?> {
+        val bm = try { appContext.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager } catch (_: Exception) { null }
+        val propLevel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            try { bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1 } catch (_: Exception) { -1 }
+        } else -1
+
         val batteryIntent = try {
             appContext.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         } catch (_: Exception) { null }
@@ -843,10 +848,20 @@ class LauncherBridge(
         val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
         val status = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
         val plugged = batteryIntent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) ?: 0
-        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                         status == BatteryManager.BATTERY_STATUS_FULL ||
-                         plugged > 0
-        val batteryPct = if (level >= 0 && scale > 0) ((level.toFloat() / scale.toFloat()) * 100).toInt() else 100
+        val isCharging = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            (bm?.isCharging == true) || status == BatteryManager.BATTERY_STATUS_CHARGING ||
+            status == BatteryManager.BATTERY_STATUS_FULL || plugged > 0
+        } else {
+            status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL || plugged > 0
+        }
+
+        val batteryPct = if (propLevel in 0..100) {
+            propLevel
+        } else if (level >= 0 && scale > 0) {
+            ((level.toFloat() / scale.toFloat()) * 100).toInt()
+        } else {
+            100
+        }
 
         val cm = try { appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager } catch (_: Exception) { null }
         val wm = try { appContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager } catch (_: Exception) { null }
@@ -886,20 +901,23 @@ class LauncherBridge(
         }
 
         if (isWifi) {
-            val wifiInfo = wm?.connectionInfo
+            val wifiInfo = try { wm?.connectionInfo } catch (_: Exception) { null }
             val rssi = wifiInfo?.rssi ?: -127
-            signalLevel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                wm?.calculateSignalLevel(rssi) ?: 0
+            signalLevel = if (rssi > -127 && rssi != 0) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    try { wm?.calculateSignalLevel(rssi) ?: 3 } catch (_: Exception) { 3 }
+                } else {
+                    @Suppress("DEPRECATION")
+                    try { WifiManager.calculateSignalLevel(rssi, 5) } catch (_: Exception) { 3 }
+                }
             } else {
-                @Suppress("DEPRECATION")
-                WifiManager.calculateSignalLevel(rssi, 5)
+                4
             }
         } else if (isCellular) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val ss = tm?.signalStrength
-                signalLevel = ss?.level ?: 3
+            signalLevel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                try { tm?.signalStrength?.level ?: 3 } catch (_: Exception) { 3 }
             } else {
-                signalLevel = 3
+                3
             }
             val dataNetworkType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 try { tm?.dataNetworkType } catch (_: Exception) { TelephonyManager.NETWORK_TYPE_UNKNOWN }
@@ -916,7 +934,7 @@ class LauncherBridge(
                 TelephonyManager.NETWORK_TYPE_UMTS -> "3G"
                 TelephonyManager.NETWORK_TYPE_EDGE,
                 TelephonyManager.NETWORK_TYPE_GPRS -> "2G"
-                else -> "LTE"
+                else -> "4G"
             }
         }
 

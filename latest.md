@@ -1,3 +1,20 @@
+# ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100207)
+
+### 🔋 Unified Notch Status Bar & Real Hardware Telemetry
+- **Hardware Telemetry Readout**: Upgraded `LauncherBridge` to query hardware `BatteryManager.BATTERY_PROPERTY_CAPACITY` and direct `isCharging` state alongside receiver updates. Added signal strength calculation fallbacks.
+- **Notch / Cutout Alignment**: Mounted tactical status bar directly in the top notch zone (`max(viewPadding.top, 28.0)`) with content vertically centered.
+- **Unified Screen Architecture**: Single persistent status bar in `LauncherScreen` body across all screens (Widgets, Home, Drawer), dynamically padded in child views so content does not overlap. Automatically concealed when Arcane Mission views are focused.
+- **Dual-Theme High Contrast**: Status bar text, clock, signal bars, and battery gauge render in crisp pure white (`#FFFFFF`) on dark mode, transitioning to tactical charcoal (`#1B2028`) on light theme.
+- **Real-Time Digital Clock**: Integrated live-updating digital clock (`HH:mm`) with seconds-aligned tick updates.
+
+### 🚀 Instant Auto-Update Delivery & Background Reliability
+- **Unrestricted Update Detection**: Removed development/debug environment blockers in `UpdateService` and Settings manual checks.
+- **Instant Cloud Update Prompting**: Wired Firebase Realtime Database stream (`watchAppUpdates`) directly to in-app update prompts (`promptUpdateIfAvailable`) for immediate notification delivery.
+- **Background & Startup Update Sweeps**: Added 15-minute periodic update checks, connectivity-recovery update triggers, and an automated 4s post-boot update check in `LauncherScreen`.
+- **HTTP Redirect & Download Reliability**: Relaxed `_isDownloadable` header checks to accept all 2xx and 3xx responses from GitHub raw releases.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100206)
 
 ### 🔋 Tactical Status Bar (Battery & Range Bars)
