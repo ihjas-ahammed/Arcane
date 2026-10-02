@@ -11,6 +11,7 @@ import 'package:missions/firebase_options.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/providers/paper_trading_provider.dart';
 import 'package:missions/src/services/ai_service.dart';
+import 'package:missions/src/services/debug_user.dart';
 import 'package:missions/src/services/home_widget_service.dart';
 import 'package:missions/src/services/notification_service.dart';
 import 'package:missions/src/services/widget_action_router.dart';
@@ -64,6 +65,8 @@ void main() async {
   } catch (e) {
     debugPrint("Firebase init error (Native modules might be missing): $e");
   }
+
+  await DebugUser.ensureSignedIn();
 
   // Wire the widget-action channel synchronously so a cold-start widget click
   // isn't dropped; the async service inits below run without blocking the

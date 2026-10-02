@@ -120,6 +120,24 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         initTts()
         if (!handleAssistantIntent(intent)) disableLockScreenDisplay()
         launcherBridge?.handlePinRequest(intent)
+        registerDebugScoReceiver()
+    }
+
+    private var debugScoReceiver: android.content.BroadcastReceiver? = null
+
+    /** Debug hook: adb shell am broadcast -a me.ihjas.missions.DEBUG_SCO --ez enable true */
+    private fun registerDebugScoReceiver() {
+        if (debugScoReceiver != null || (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) == 0) return
+        val r = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context?, i: Intent?) {
+                val enable = i?.getBooleanExtra("enable", true) ?: true
+                BluetoothAudioRouter.setForceBluetoothScoCallEnabled(this@MainActivity, true)
+                BluetoothAudioRouter.routeAudio(this@MainActivity, enable)
+            }
+        }
+        val f = android.content.IntentFilter("me.ihjas.missions.DEBUG_SCO")
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(r, f, Context.RECEIVER_EXPORTED) else registerReceiver(r, f)
+        debugScoReceiver = r
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -294,7 +312,9 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
      * Never calls finish() to keep Arcane running and protect user session & data!
      */
     private fun launchAssistantVoiceMode(target: String): Boolean {
-        routeAudioToBluetooth(true)
+        // Explicitly release any Arcane audio routing lock so the external app can freely
+        // bind to the watch/Bluetooth SCO microphone without interference from Arcane in the background.
+        routeAudioToBluetooth(false)
         val pm = packageManager
 
         var targetPackage = target
@@ -520,7 +540,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                 }
 
                 if (redirectTarget == "system_assist") {
-                    routeAudioToBluetooth(true)
+                    routeAudioToBluetooth(false)
                     val assistIntent = Intent("android.intent.action.VOICE_ASSIST").apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
                         putExtra("android.intent.extra.ASSIST_INPUT_HINT_KEYBOARD", false)
@@ -1257,6 +1277,8 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() {
+        debugScoReceiver?.let { try { unregisterReceiver(it) } catch (_: Exception) {} }
+        debugScoReceiver = null
         engineAlive = false
         launcherBridge?.dispose()
         launcherBridge = null

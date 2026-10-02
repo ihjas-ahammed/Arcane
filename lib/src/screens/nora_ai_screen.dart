@@ -22,6 +22,10 @@ class NoraAiScreen extends StatefulWidget {
   final bool isVoiceCommandLaunch;
   const NoraAiScreen({super.key, this.isVoiceCommandLaunch = false});
 
+  /// Set while a voice-command Nora screen is open, so repeated assistant-button
+  /// presses re-trigger the mic on it instead of stacking a second screen.
+  static VoidCallback? activeVoiceRetrigger;
+
   @override
   State<NoraAiScreen> createState() => _NoraAiScreenState();
 }
@@ -51,6 +55,9 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
     super.initState();
     if (widget.isVoiceCommandLaunch) {
       _isLiveVoiceOpen = true;
+      NoraAiScreen.activeVoiceRetrigger = () {
+        if (mounted && !_isRecognizing && !_isSending) _startAutoListening();
+      };
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
@@ -93,6 +100,7 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
 
   @override
   void dispose() {
+    if (widget.isVoiceCommandLaunch) NoraAiScreen.activeVoiceRetrigger = null;
     _greetingTimer?.cancel();
     TtsService.instance.onSpeechCompleted = null;
     SttService.instance.stopListening();

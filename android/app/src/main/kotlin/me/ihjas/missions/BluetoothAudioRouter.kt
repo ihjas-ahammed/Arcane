@@ -80,8 +80,8 @@ object BluetoothAudioRouter {
                 }
             }
 
-            // 3. Bluetooth SCO link initialization (crucial for call-only smartwatches)
-            if (forceScoCall || audioManager.isBluetoothScoAvailableOffCall) {
+            // 3. Bluetooth SCO link initialization (crucial for call-only smartwatches or pre-Android 12)
+            if (forceScoCall || (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && audioManager.isBluetoothScoAvailableOffCall)) {
                 registerScoReceiver(context)
                 try {
                     audioManager.startBluetoothSco()
@@ -100,13 +100,13 @@ object BluetoothAudioRouter {
 
             isScoCallActive = true
 
-            // 4. Safety watchdog timer: release after 60s to prevent permanent in-call audio lock
+            // 4. Safety watchdog timer: release after 120s to prevent permanent in-call audio lock
             val timeout = Runnable {
-                Log.i(TAG, "Safety timeout reached (60s). Releasing Bluetooth SCO call mode.")
+                Log.i(TAG, "Safety timeout reached (120s). Releasing Bluetooth SCO call mode.")
                 stopAudioRouting(context, audioManager)
             }
             safetyTimeoutRunnable = timeout
-            mainHandler.postDelayed(timeout, 60_000L)
+            mainHandler.postDelayed(timeout, 120_000L)
 
         } catch (e: Exception) {
             Log.e(TAG, "Error starting audio routing", e)

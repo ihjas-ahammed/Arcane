@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Arcane // AI Assistant & Bluetooth Mic Auto-Capture Architecture</title>
+<style>
+  @page {
+    size: A4;
+    margin: 14mm 14mm 14mm 14mm;
+  }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #0b1016;
+    color: #e2e8f0;
+    font-size: 11pt;
+    line-height: 1.5;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .header {
+    border-bottom: 2px solid #00f2fe;
+    padding-bottom: 12px;
+    margin-bottom: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  .title-group h1 {
+    font-size: 20pt;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    color: #ffffff;
+    text-transform: uppercase;
+  }
+  .title-group .subtitle {
+    font-size: 9pt;
+    color: #00f2fe;
+    font-family: "JetBrains Mono", "Courier New", monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .meta-tag {
+    font-family: "JetBrains Mono", "Courier New", monospace;
+    font-size: 8pt;
+    color: #94a3b8;
+    background: #151f2b;
+    border: 1px solid #233547;
+    padding: 6px 10px;
+    border-radius: 4px;
+    text-align: right;
+  }
+  .badge {
+    display: inline-block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 7.5pt;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .badge-cyan { background: rgba(0, 242, 254, 0.15); color: #00f2fe; border: 1px solid #00f2fe; }
+  .badge-amber { background: rgba(255, 183, 3, 0.15); color: #ffb703; border: 1px solid #ffb703; }
+  .badge-green { background: rgba(0, 230, 118, 0.15); color: #00e676; border: 1px solid #00e676; }
+  .badge-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid #c084fc; }
+
+  h2 {
+    font-size: 13pt;
+    font-weight: 700;
+    color: #38bdf8;
+    margin-top: 18px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-left: 3px solid #00f2fe;
+    padding-left: 8px;
+  }
+  h3 {
+    font-size: 11pt;
+    font-weight: 600;
+    color: #f1f5f9;
+    margin-top: 12px;
+    margin-bottom: 6px;
+  }
+  p {
+    color: #cbd5e1;
+    margin-bottom: 8px;
+  }
+  ul, ol {
+    margin-left: 18px;
+    margin-bottom: 10px;
+    color: #cbd5e1;
+  }
+  li {
+    margin-bottom: 4px;
+  }
+  strong {
+    color: #ffffff;
+  }
+  .card {
+    background: #111923;
+    border: 1px solid #1e2c3d;
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+  }
+  .card-highlight {
+    background: #0f1c29;
+    border: 1px solid #0284c7;
+  }
+  .callout-amber {
+    background: rgba(255, 183, 3, 0.08);
+    border-left: 3px solid #ffb703;
+    padding: 10px 12px;
+    border-radius: 0 4px 4px 0;
+    margin: 10px 0;
+    font-size: 10pt;
+  }
+  .callout-cyan {
+    background: rgba(0, 242, 254, 0.08);
+    border-left: 3px solid #00f2fe;
+    padding: 10px 12px;
+    border-radius: 0 4px 4px 0;
+    margin: 10px 0;
+    font-size: 10pt;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 14px 0;
+    font-size: 9.5pt;
+  }
+  th, td {
+    padding: 7px 10px;
+    border: 1px solid #233547;
+    text-align: left;
+  }
+  th {
+    background: #152230;
+    color: #38bdf8;
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8.5pt;
+    text-transform: uppercase;
+  }
+  td {
+    background: #0e151e;
+  }
+  code {
+    font-family: "JetBrains Mono", "Courier New", monospace;
+    font-size: 8.5pt;
+    background: #172331;
+    color: #38bdf8;
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid #233547;
+  }
+  pre {
+    background: #090e15;
+    border: 1px solid #1e2c3d;
+    border-radius: 5px;
+    padding: 10px 12px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8pt;
+    color: #93c5fd;
+    overflow-x: auto;
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+  .step-box {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+  .step-num {
+    background: #00f2fe;
+    color: #0b1016;
+    font-weight: 800;
+    font-family: "JetBrains Mono", monospace;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9pt;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .step-content {
+    flex: 1;
+  }
+  .page-break {
+    page-break-before: always;
+  }
+  .footer {
+    margin-top: 18px;
+    padding-top: 10px;
+    border-top: 1px solid #1e2c3d;
+    display: flex;
+    justify-content: space-between;
+    font-size: 8pt;
+    font-family: "JetBrains Mono", monospace;
+    color: #64748b;
+  }
+</style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="title-group">
+      <div class="subtitle">// ARCANE TACTICAL OS · SYSTEM ENGINEERING DOSSIER</div>
+      <h1>External AI Assistant & Bluetooth Mic Capture</h1>
+    </div>
+    <div class="meta-tag">
+      DATE: Oct 2, 2026<br>
+      BRANCH: revive2<br>
+      BUILDS: #2126100204 - #2126100211
+    </div>
+  </div>
+
+  <!-- EXECUTIVE SUMMARY -->
+  <div class="card card-highlight">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+      <strong style="color: #38bdf8; font-family: monospace; font-size: 9pt; letter-spacing: 0.1em;">[EXECUTIVE OVERVIEW]</strong>
+      <span class="badge badge-cyan">PRODUCTION VERIFIED</span>
+    </div>
+    <p style="margin-bottom: 0;">
+      Today’s engineering upgrades transformed Arcane from a passive launcher/assistant router into an autonomous, hardware-aware voice bridge. When an operator triggers voice commands from a connected smartwatch, earbuds, or Bluetooth steering wheel, Arcane intercepts the hardware intent, unlocks the keyguard if needed, routes bidirectional audio to the wearable via <strong>Bluetooth SCO</strong>, launches external frontier LLMs (ChatGPT, Gemini, Claude, Perplexity, Copilot, or custom packages), and auto-clicks their internal microphone using precision calibrated touch gestures after an audio-channel sync delay.
+    </p>
+  </div>
+
+  <!-- SECTION 1: TODAY'S TIMELINE -->
+  <h2>1. Comprehensive Log of Assistant Changes Made Today</h2>
+  <p>All core assistant features developed across git commits and working-tree improvements today (Oct 2, 2026):</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 14%;">Commit / Build</th>
+        <th style="width: 30%;">Feature Scope</th>
+        <th>Engineering Details & Impact</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>Working Tree</code><br><span class="badge badge-amber">Uncommitted</span></td>
+        <td><strong>Active Recording Guard & SCO Watchdog</strong></td>
+        <td>
+          • <strong>Audio Session Protection</strong> (<code>sessionLikelyActive</code>): Evaluates <code>am.activeRecordingConfigurations</code>. If external AI holds the mic, repeat watch button clicks skip auto-tap to prevent toggling voice OFF.<br>
+          • <strong>SCO Watchdog Extended</strong>: Bumped timeout from 60s to 120s.<br>
+          • <strong>Nora Voice Retrigger Hook</strong>: Prevents stacking duplicate screens on repeated assistant clicks.<br>
+          • <strong>Debug Broadcast Receiver</strong>: <code>me.ihjas.missions.DEBUG_SCO</code> for ADB validation.
+        </td>
+      </tr>
+      <tr>
+        <td><code>c3006fc</code><br><span class="badge badge-cyan">Build 2126100211</span></td>
+        <td><strong>Configurable Mic Tap Delay & SCO Audio Mode</strong></td>
+        <td>
+          • <strong>Mic Tap Latency Calibration</strong>: Adds 200ms–4000ms delay slider & quick chips (500, 800, 1000, 1200, 1500, 2000, 3000ms) to allow Bluetooth SCO handshakes to settle.<br>
+          • <strong>Bluetooth SCO Call Simulation</strong> (<code>BluetoothAudioRouter.kt</code>): Simulates <code>MODE_IN_COMMUNICATION</code> with low-level silent PCM keep-alive track for call-only smartwatches.
+        </td>
+      </tr>
+      <tr>
+        <td><code>b17f0b4</code><br><span class="badge badge-cyan">Build 2126100209</span></td>
+        <td><strong>Automated Lock Screen Unlock Sequence</strong></td>
+        <td>
+          • <strong>Two-Step Sequence</strong>: Movement 1 (Screen unlock swipe) &rarr; Movement 2 (Launch assistant + mic tap).<br>
+          • <code>UnlockSensorOverlay.kt</code>: Mounts over Keyguard upon screen wake, intercepts operator swipe-up, and commits on <code>ACTION_USER_PRESENT</code>.<br>
+          • Added unlock calibration and test actions to Settings.
+        </td>
+      </tr>
+      <tr>
+        <td><code>a38ce31</code><br><span class="badge badge-cyan">Build 2126100204</span></td>
+        <td><strong>Multi-Method Voice Tap Calibration</strong></td>
+        <td>
+          • 4 calibration modes: <strong>Reticle</strong> (crosshair overlay), <strong>Touch Sensor</strong> (raw tap tracker), <strong>Auto-Detect</strong> (accessibility node drilldown), and <strong>Manual Coords</strong>.<br>
+          • Upgraded click replay to <code>dispatchGesture()</code> physical touch coordinates.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 2: HOW BLUETOOTH MIC AUTO-CAPTURE WORKS -->
+  <h2>2. Deep-Dive: How Bluetooth Mic Auto-Capture Works</h2>
+  <p>The primary hurdle in external assistant integration is that Android treats third-party apps as isolated sandboxes. When launched via Bluetooth triggers, apps like ChatGPT or Gemini default to the phone's internal microphone rather than the smartwatch/headset. Arcane resolves this through a multi-tier audio stack:</p>
+
+  <div class="card">
+    <h3 style="color: #38bdf8; margin-top: 0;">A. Audio Routing & Bluetooth SCO Channel (<code>BluetoothAudioRouter.kt</code>)</h3>
+    <ol>
+      <li>
+        <strong>Communication Mode Activation</strong>:
+        <code>audioManager.mode = AudioManager.MODE_IN_COMMUNICATION</code>. This instructs Android's AudioFlinger to prioritize two-way voice communication over standard A2DP media playback.
+      </li>
+      <li>
+        <strong>Android 12+ Communication Device Binding</strong>:
+        On Android 12 (API 31+), queries <code>availableCommunicationDevices</code> and explicitly selects <code>TYPE_BLUETOOTH_SCO</code>, <code>TYPE_BLE_HEADSET</code>, or <code>TYPE_HEARING_AID</code> via <code>audioManager.setCommunicationDevice(btDevice)</code>.
+      </li>
+      <li>
+        <strong>Forced Bluetooth SCO Call Simulation (For Call-Only Watches)</strong>:
+        Many smartwatches (especially WearOS and proprietary fitness watches) only connect as hands-free call devices (HFP/SCO) and cannot stream media. Arcane executes:
+        <pre>audioManager.startBluetoothSco()
+audioManager.isBluetoothScoOn = true</pre>
+      </li>
+      <li>
+        <strong>Silent PCM Keep-Alive Track</strong>:
+        If an app opens but does not instantly open an audio recording line, Android's audio server tears down the SCO link within 500ms. To prevent this, Arcane starts a lightweight 8000Hz 16-bit mono <code>AudioTrack</code> with <code>USAGE_VOICE_COMMUNICATION</code> streaming silence. This pins the SCO link open until the assistant binds to the mic.
+      </li>
+      <li>
+        <strong>120s Safety Watchdog</strong>:
+        A dedicated <code>Handler.postDelayed</code> runnable automatically calls <code>stopAudioRouting()</code> after 120 seconds, preventing the phone from getting trapped in permanent phone-call mode.
+      </li>
+    </ol>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- PAGE 2 -->
+  <div class="header">
+    <div class="title-group">
+      <div class="subtitle">// ARCANE TACTICAL OS · SYSTEM ENGINEERING DOSSIER</div>
+      <h1>Bluetooth Mic Capture & Auto-Tap Architecture (Cont.)</h1>
+    </div>
+    <div class="meta-tag">PAGE 2 OF 2</div>
+  </div>
+
+  <div class="card">
+    <h3 style="color: #38bdf8; margin-top: 0;">B. Mic Tap Sync Latency Calibration (<code>LauncherTakeoverService.kt</code>)</h3>
+    <p>
+      Smartwatches and Bluetooth headsets require <strong>800ms to 1500ms</strong> to establish the SCO audio link and negotiate audio codecs. If the assistant's mic button is tapped immediately upon window launch, the assistant grabs the phone's internal microphone instead of the watch!
+    </p>
+    <div class="callout-amber">
+      <strong>Latency Solution:</strong> Arcane delays the auto-tap execution by a user-calibrated interval (configurable between <code>200ms</code> and <code>4000ms</code>, defaulting to <code>1000ms</code>).
+    </div>
+    <pre>// LauncherTakeoverService.kt
+val delayMs = getMicClickDelay(this)
+Log.i(TAG, "Waiting $delayMs ms for watch/Bluetooth mic ready before auto-tap...")
+mainHandler.postDelayed({
+    executeRecordedTap(pendingAuto)
+}, delayMs)</pre>
+  </div>
+
+  <div class="card">
+    <h3 style="color: #38bdf8; margin-top: 0;">C. Toggle Protection via Active Recording Inspection</h3>
+    <p>
+      In third-party AI assistants, the voice/mic button is a toggle switch (tap to start, tap again to cancel/hang up). If the operator taps their watch assistant button while already in a voice session, a naive auto-tap would terminate the conversation!
+    </p>
+    <p>
+      Arcane checks active hardware recording configurations before dispatching taps:
+    </p>
+    <pre>// LauncherTakeoverService.kt
+private fun sessionLikelyActive(context: Context, pkg: String): Boolean {
+    val last = lastAutoTapAt[pkg] ?: return false
+    if (SystemClock.elapsedRealtime() - last >= AUTO_TAP_SESSION_WINDOW_MS) return false
+    val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return false
+    return try { am.activeRecordingConfigurations.isNotEmpty() } catch (_: Exception) { false }
+}</pre>
+    <p style="margin-bottom: 0;">
+      Because Arcane itself is not recording when the assistant intent arrives, any active recording configuration belongs to the external AI assistant. If an active session is detected, the auto-tap is gracefully bypassed.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3 style="color: #38bdf8; margin-top: 0;">D. Full End-to-End Execution Sequence</h3>
+    <div class="step-box">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <strong>Hardware Trigger Ingestion</strong>: Smartwatch or Bluetooth button triggers <code>ACTION_VOICE_COMMAND</code> or <code>ACTION_ASSIST</code>. <code>MainActivity.kt</code> catches the intent.
+      </div>
+    </div>
+    <div class="step-box">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <strong>Lock Screen Dismissal (Movement 1)</strong>: If device is locked, Arcane wakes the screen and executes the calibrated unlock swipe gesture (<code>executeUnlockSequence</code>).
+      </div>
+    </div>
+    <div class="step-box">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <strong>Audio SCO Bridge Engaged</strong>: <code>BluetoothAudioRouter.routeAudio(enable=true)</code> forces communication mode, claims Bluetooth SCO device, and starts silent PCM keep-alive track.
+      </div>
+    </div>
+    <div class="step-box">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <strong>Assistant Launch & Arming</strong>: Target app (e.g. ChatGPT, Gemini) is launched via <code>launchAssistantVoiceMode</code>. <code>LauncherTakeoverService.armAutoTap</code> is primed.
+      </div>
+    </div>
+    <div class="step-box">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <strong>Delayed Precision Tap (Movement 2)</strong>: Upon window transition, the service waits for the configured mic delay (e.g. 1000ms), verifies session is not already active, and dispatches direct touch tap gesture <code>dispatchGesture()</code> at calibrated <code>(xRatio, yRatio)</code>.
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <span>ARCANE TACTICAL OS · ME.IHJAS.MISSIONS</span>
+    <span>ENGINEER: IHJAS AHAMMED · REVIVE2</span>
+    <span>CONFIDENTIAL · OPERATIONAL SYSTEM</span>
+  </div>
+
+</body>
+</html>

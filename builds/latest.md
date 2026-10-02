@@ -1,3 +1,12 @@
+# ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100212)
+
+### 🎙️ Watch Mic Priority & External Assistant Audio Conflict Fix
+- **Background Audio Lock Release**: Resolved an issue where external assistants (ChatGPT, Gemini, etc.) defaulted to the phone's built-in microphone instead of the smartwatch/Bluetooth mic. Arcane now explicitly yields the audio routing channel (`routeAudioToBluetooth(false)`) when delegating to external assistants and system assist, allowing the external app to directly negotiate and capture the wearable's Bluetooth SCO channel.
+- **Active Recording Auto-Tap Guard**: `LauncherTakeoverService` now verifies whether the external assistant has already started recording audio before executing the delayed auto-tap. If the app successfully initiated recording from the voice intent, the auto-tap is automatically skipped to prevent toggling off the session or resetting the audio route.
+- **Modern SCO Routing Safety**: Restricts legacy `startBluetoothSco()` invocations on Android 12+ (API 31+) to only when explicit call simulation mode (`forceScoCall`) is enabled, preventing communication device contention on modern Android audio frameworks.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100211)
 
 ### 🎙️ Configurable Mic Tap Delay & Calibration for External Assistants

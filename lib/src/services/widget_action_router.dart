@@ -197,6 +197,11 @@ class WidgetActionRouter {
       case 'open_nora':
       case 'open_nora_voice':
       case 'bluetooth_assistant':
+        final retrigger = NoraAiScreen.activeVoiceRetrigger;
+        if (retrigger != null) {
+          retrigger();
+          break;
+        }
         _push((_) => const NoraAiScreen(isVoiceCommandLaunch: true));
         break;
 

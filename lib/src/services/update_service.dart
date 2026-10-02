@@ -218,6 +218,7 @@ class UpdateService {
   /// Checks whether an update is available on GitHub
   /// Real-time reactive stream watching for instant updates pushed to Firebase RTDB
   Stream<UpdateModel?> watchAppUpdates() {
+    if (kDebugMode) return const Stream.empty();
     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       try {
         return FirebaseDatabase.instance
@@ -261,8 +262,9 @@ class UpdateService {
 
   /// Checks whether an update is available via Firebase RTDB (zero cache) or GitHub
   Future<UpdateModel?> checkForUpdate({bool forceCheck = false}) async {
-    if (isDebugBuild) {
-      debugPrint('[UpdateService] Debug build detected (isDebugBuild=true). Proceeding with update check.');
+    if (kDebugMode) {
+      debugPrint('[UpdateService] Debug build: update checks disabled.');
+      return null;
     }
 
     final packageInfo = await getLocalPackageInfo();

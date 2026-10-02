@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.media.AudioManager
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
@@ -55,6 +56,21 @@ class LauncherTakeoverService : AccessibilityService() {
 
         @Volatile
         var autoTapPendingPackage: String? = null
+
+        // A repeat assistant press while the external AI is still in its session must not
+        // replay the tap: the recorded tap is a toggle (call/mic button) and would end it.
+        private const val AUTO_TAP_SESSION_WINDOW_MS = 10 * 60 * 1000L
+        private val lastAutoTapAt = HashMap<String, Long>()
+
+        // Recent tap alone is not enough (the user may have ended the session since); the
+        // external AI must also be holding the mic right now. Arcane is not recording at
+        // the moment an assistant press arrives, so any active recording is the AI's.
+        private fun sessionLikelyActive(context: Context, pkg: String): Boolean {
+            val last = lastAutoTapAt[pkg] ?: return false
+            if (SystemClock.elapsedRealtime() - last >= AUTO_TAP_SESSION_WINDOW_MS) return false
+            val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return false
+            return try { am.activeRecordingConfigurations.isNotEmpty() } catch (_: Exception) { false }
+        }
 
         fun isEnabled(context: Context): Boolean =
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, false)
@@ -161,6 +177,10 @@ class LauncherTakeoverService : AccessibilityService() {
 
         fun armAutoTap(context: Context, targetPackage: String) {
             if (hasRecordedTap(context, targetPackage)) {
+                if (sessionLikelyActive(context, targetPackage)) {
+                    Log.i(TAG, "armAutoTap skipped for $targetPackage: session already active, not toggling it off")
+                    return
+                }
                 autoTapPendingPackage = targetPackage
                 activeInstance?.updateEventFilter()
 
@@ -756,6 +776,15 @@ class LauncherTakeoverService : AccessibilityService() {
     }
 
     private fun executeRecordedTap(pkg: String) {
+        val am = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        val alreadyRecording = try { am?.activeRecordingConfigurations?.isNotEmpty() == true } catch (_: Exception) { false }
+        if (alreadyRecording) {
+            Log.i(TAG, "executeRecordedTap skipped for $pkg: app is already actively recording audio!")
+            lastAutoTapAt[pkg] = SystemClock.elapsedRealtime()
+            return
+        }
+
+        lastAutoTapAt[pkg] = SystemClock.elapsedRealtime()
         try {
             val prefs = getSharedPreferences(PREFS_AUTO_TAP, Context.MODE_PRIVATE)
             val viewId = prefs.getString("tap_id_${pkg}", null)
