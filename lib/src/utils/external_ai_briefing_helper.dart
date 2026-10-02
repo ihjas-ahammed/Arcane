@@ -253,78 +253,114 @@ class ExternalAiBriefingHelper {
 
     switch (type) {
       case BriefingType.daily:
+        final tomorrow = targetDate.add(const Duration(days: 1));
+        final tomorrowStr = DateFormat('yyyy-MM-dd').format(tomorrow);
+
         return """
 You are an expert executive coach and tactical psychological analyst for Arcane.
-You are provided with a complete JSON dataset containing the user's historical briefings and activity telemetry for $dateStr.
+You are provided with a complete JSON dataset containing the user's historical briefings and activity telemetry for today ($dateStr).
 
-Analyze the attached JSON dataset:
-- Review past daily, weekly, and monthly briefs to understand long-term trajectory, commitments, and habits.
-- Inspect today's reflections, goals, tasks, finance, and time usage.
-- Tone: Uplifting, highly optimistic, empowering, and deeply appreciative. Celebrate all accomplishments, small wins, and positive turning points. NEVER give negative or critical advice.
-- Writing rules: Address the user directly as "you". Plain prose only — no markdown, no headers, no bullet/numbered lists inside any string. Be concrete and specific to the data.
+MISSION:
+1. Analyze the attached JSON dataset.
+2. Generate TODAY's official Daily Tactical Briefing ($dateStr).
+3. To save time tomorrow morning, ALSO synthesize TOMORROW's System Start-Up Sequence ($tomorrowStr) grounded in today's accomplishments, momentum, remaining tasks, and goals!
 
-Generate the official DAILY TACTICAL BRIEFING adhering strictly to this JSON schema:
+Tone: Uplifting, highly optimistic, empowering, and deeply appreciative. Celebrate all accomplishments, small wins, and positive turning points. NEVER give negative or critical advice.
+Writing rules: Address the user directly as "you". Plain prose only — no markdown, no headers, no bullet/numbered lists inside any string. Be concrete and specific to the data.
+
+CRITICAL OUTPUT FORMAT:
+Return a single valid JSON object containing BOTH "daily_briefing" and "tomorrow_startup_report" adhering strictly to this schema:
 
 {
-  "summary": "string (uplifting read of today celebrating wins and progress with 1-2 granular emotion words and an empowering positive reframe, max 80 words)",
-  "quote_reflections": [
-    {
-      "user_quote": "string (the user's exact positive statement from reflections/logs)",
-      "ai_comment": "string (warm, appreciative validation celebrating what the user wrote)"
+  "daily_briefing": {
+    "summary": "string (uplifting read of today celebrating wins and progress with 1-2 granular emotion words and an empowering positive reframe, max 80 words)",
+    "quote_reflections": [
+      {
+        "user_quote": "string (the user's exact positive statement from reflections/logs)",
+        "ai_comment": "string (warm, appreciative validation celebrating what the user wrote)"
+      }
+    ],
+    "improvements": [
+      {
+        "ability": "string",
+        "insight": "string"
+      }
+    ],
+    "grateful_people": [
+      {
+        "name": "string",
+        "relation": "string",
+        "reason": "string",
+        "express": "string"
+      }
+    ],
+    "grateful_today": [
+      {
+        "text": "string (2-7 words)",
+        "icon_type": "string (people/nature/health/learning/work/home/food/social/growth/mind/moment/general)"
+      }
+    ],
+    "savor_moment": "string (single best moment of the day in 2-3 sensory sentences)",
+    "small_win": "string (today's most meaningful concrete progress step)",
+    "tomorrow_intention": "string (positive implementation intention: When [cue], I will [action])",
+    "suggested_activities": [
+      {
+        "activity": "string",
+        "reason": "string"
+      }
+    ],
+    "finance_briefing": {
+      "income": "string",
+      "expense": "string",
+      "net": "string",
+      "ai_feedback": "string (encouraging positive feedback, or empty string if no activity)"
+    },
+    "suggested_sops": [
+      {
+        "title": "string (e.g. Protocol: Evening Transition)",
+        "description": "string (2-3 sentences specifying trigger condition and context)"
+      },
+      {
+        "title": "string",
+        "description": "string"
+      },
+      {
+        "title": "string",
+        "description": "string"
+      }
+    ],
+    "contingency": {
+      "risk": "string (one realistic obstacle or friction point likely to show up tomorrow)",
+      "if_then": "string (concrete if-then plan to route around it)"
     }
-  ],
-  "improvements": [
-    {
-      "ability": "string",
-      "insight": "string"
-    }
-  ],
-  "grateful_people": [
-    {
-      "name": "string",
-      "relation": "string",
-      "reason": "string",
-      "express": "string"
-    }
-  ],
-  "grateful_today": [
-    {
-      "text": "string (2-7 words)",
-      "icon_type": "string (people/nature/health/learning/work/home/food/social/growth/mind/moment/general)"
-    }
-  ],
-  "savor_moment": "string (single best moment of the day in 2-3 sensory sentences)",
-  "small_win": "string (today's most meaningful concrete progress step)",
-  "tomorrow_intention": "string (positive implementation intention: When [cue], I will [action])",
-  "suggested_activities": [
-    {
-      "activity": "string",
-      "reason": "string"
-    }
-  ],
-  "finance_briefing": {
-    "income": "string",
-    "expense": "string",
-    "net": "string",
-    "ai_feedback": "string (encouraging positive feedback, or empty string if no activity)"
   },
-  "suggested_sops": [
-    {
-      "title": "string (e.g. Protocol: Evening Transition)",
-      "description": "string (2-3 sentences specifying trigger condition and context)"
+  "tomorrow_startup_report": {
+    "forecast": "string (40-70 words: energizing morning forecast setting an inspiring tone for tomorrow)",
+    "yesterday_quote": "string (a prominent positive or representative good quote from today's reflections)",
+    "ai_today_advice": "string (warm, appreciative AI encouragement inspired by that quote)",
+    "motivational_quote": {
+      "quote": "string",
+      "author": "string"
     },
-    {
-      "title": "string",
-      "description": "string"
+    "suggested_contacts": [
+      {
+        "name": "string",
+        "relation": "string",
+        "type": "RECONNECT|FOLLOW UP|APPRECIATION|STAY IN TOUCH",
+        "reason": "string"
+      }
+    ],
+    "highlight": "string (single most leveraged task for tomorrow)",
+    "obstacle_plan": {
+      "obstacle": "string",
+      "if_then": "string"
     },
-    {
-      "title": "string",
-      "description": "string"
-    }
-  ],
-  "contingency": {
-    "risk": "string (one realistic obstacle or friction point likely to show up tomorrow)",
-    "if_then": "string (concrete if-then plan to route around it)"
+    "anticipate": "string (one concrete thing tomorrow worth genuinely looking forward to)",
+    "directives": [
+      "string",
+      "string",
+      "string"
+    ]
   }
 }
 
@@ -520,52 +556,38 @@ OUTPUT RULES:
 
     switch (type) {
       case BriefingType.daily:
-      case BriefingType.startup:
-        provider.saveTacticalBriefing(dateStr, data);
-        // Synchronize grateful assets into chatbotMemory (identical to AiService)
-        final rawAssets = data['grateful_today'] ?? data['grateful_assets'];
-        if (rawAssets is List && rawAssets.isNotEmpty) {
-          final currentAssets = List<GratitudeItem>.from(provider.chatbotMemory.gratitudeList);
-          bool changed = false;
-          for (final item in rawAssets) {
-            String name = '';
-            String type = 'resource';
-            String why = '';
-            String what = '';
-            if (item is Map) {
-              name = (item['text'] ?? item['name'])?.toString() ?? '';
-              type = item['icon_type']?.toString() ?? item['type']?.toString() ?? 'resource';
-              why = item['why']?.toString() ?? '';
-              what = item['what']?.toString() ?? '';
-            } else if (item is String) {
-              name = item;
-            }
-            if (name.trim().isNotEmpty) {
-              final existingIdx = currentAssets.indexWhere((a) => a.name.toLowerCase() == name.trim().toLowerCase());
-              if (existingIdx != -1) {
-                if (why.isNotEmpty && !currentAssets[existingIdx].why.contains(why)) {
-                  currentAssets[existingIdx].why += (currentAssets[existingIdx].why.isEmpty ? '' : ' ') + why;
-                  changed = true;
-                }
-              } else {
-                currentAssets.insert(
-                  0,
-                  GratitudeItem(
-                    id: const Uuid().v4(),
-                    type: type,
-                    name: name.trim(),
-                    why: why,
-                    what: what,
-                  ),
-                );
-                changed = true;
-              }
-            }
+        Map<String, dynamic> dailyData;
+        Map<String, dynamic>? startupData;
+
+        if (data.containsKey('daily_briefing') && data['daily_briefing'] is Map) {
+          dailyData = Map<String, dynamic>.from(data['daily_briefing'] as Map);
+          if (data.containsKey('tomorrow_startup_report') && data['tomorrow_startup_report'] is Map) {
+            startupData = Map<String, dynamic>.from(data['tomorrow_startup_report'] as Map);
           }
-          if (changed) {
-            provider.updateGratitudeList(currentAssets);
+        } else {
+          dailyData = Map<String, dynamic>.from(data);
+          if (data.containsKey('tomorrow_startup_report') && data['tomorrow_startup_report'] is Map) {
+            startupData = Map<String, dynamic>.from(data['tomorrow_startup_report'] as Map);
+            dailyData.remove('tomorrow_startup_report');
           }
         }
+
+        provider.saveTacticalBriefing(dateStr, dailyData);
+        _syncGratitudeItems(provider, dailyData);
+
+        // Also save tomorrow's startup sequence if generated
+        if (startupData != null) {
+          final tomorrow = targetDate.add(const Duration(days: 1));
+          final tomorrowStr = DateFormat('yyyy-MM-dd').format(tomorrow);
+          startupData['snapshot_time'] = DateTime.now().toIso8601String();
+          provider.saveStartDayReport(tomorrowStr, startupData);
+          _syncSuggestedContacts(provider, startupData, tomorrow);
+        }
+        break;
+
+      case BriefingType.startup:
+        provider.saveStartDayReport(dateStr, data);
+        _syncSuggestedContacts(provider, data, targetDate);
         break;
 
       case BriefingType.weekly:
@@ -575,6 +597,74 @@ OUTPUT RULES:
       case BriefingType.monthly:
         await provider.saveMonthlyReport(dateStr, data);
         break;
+    }
+  }
+
+  static void _syncGratitudeItems(AppProvider provider, Map<String, dynamic> data) {
+    final rawAssets = data['grateful_today'] ?? data['grateful_assets'];
+    if (rawAssets is List && rawAssets.isNotEmpty) {
+      final currentAssets = List<GratitudeItem>.from(provider.chatbotMemory.gratitudeList);
+      bool changed = false;
+      for (final item in rawAssets) {
+        String name = '';
+        String type = 'resource';
+        String why = '';
+        String what = '';
+        if (item is Map) {
+          name = (item['text'] ?? item['name'])?.toString() ?? '';
+          type = item['icon_type']?.toString() ?? item['type']?.toString() ?? 'resource';
+          why = item['why']?.toString() ?? '';
+          what = item['what']?.toString() ?? '';
+        } else if (item is String) {
+          name = item;
+        }
+        if (name.trim().isNotEmpty) {
+          final existingIdx = currentAssets.indexWhere((a) => a.name.toLowerCase() == name.trim().toLowerCase());
+          if (existingIdx != -1) {
+            if (why.isNotEmpty && !currentAssets[existingIdx].why.contains(why)) {
+              currentAssets[existingIdx].why += (currentAssets[existingIdx].why.isEmpty ? '' : ' ') + why;
+              changed = true;
+            }
+          } else {
+            currentAssets.insert(
+              0,
+              GratitudeItem(
+                id: const Uuid().v4(),
+                type: type,
+                name: name.trim(),
+                why: why,
+                what: what,
+              ),
+            );
+            changed = true;
+          }
+        }
+      }
+      if (changed) {
+        provider.updateGratitudeList(currentAssets);
+      }
+    }
+  }
+
+  static void _syncSuggestedContacts(AppProvider provider, Map<String, dynamic> data, DateTime date) {
+    if (data['suggested_contacts'] is List) {
+      for (final c in data['suggested_contacts'] as List) {
+        if (c is Map) {
+          final name = c['name']?.toString() ?? '';
+          final relation = c['relation']?.toString() ?? 'Acquaintance';
+          final reason = c['reason']?.toString() ?? '';
+          final type = c['type']?.toString() ?? 'CONTACT';
+          if (name.isNotEmpty) {
+            provider.logInteractionForPerson(
+              name: name,
+              relation: relation,
+              interactionSummary: "Startup Recommendation [$type]: $reason",
+              nextActionPlan: "[$type] $reason",
+              date: date,
+            );
+          }
+        }
+      }
     }
   }
 }

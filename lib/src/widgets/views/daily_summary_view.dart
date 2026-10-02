@@ -868,6 +868,15 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                                     onSave: savedBriefing == null
                                         ? () {
                                             appProvider.saveTacticalBriefing(_selectedDate!, displayBriefing);
+                                            if (displayBriefing.containsKey('tomorrow_startup_report') &&
+                                                displayBriefing['tomorrow_startup_report'] is Map) {
+                                              final startupData = Map<String, dynamic>.from(displayBriefing['tomorrow_startup_report'] as Map);
+                                              final d = DateTime.tryParse(_selectedDate!) ?? DateTime.now();
+                                              final tomorrow = d.add(const Duration(days: 1));
+                                              final tomorrowStr = DateFormat('yyyy-MM-dd').format(tomorrow);
+                                              startupData['snapshot_time'] = DateTime.now().toIso8601String();
+                                              appProvider.saveStartDayReport(tomorrowStr, startupData);
+                                            }
                                             setState(() {});
                                           }
                                         : null,

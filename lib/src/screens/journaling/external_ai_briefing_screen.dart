@@ -7,12 +7,12 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/screens/journaling/monthly_review_screen.dart';
 import 'package:missions/src/screens/journaling/weekly_review_screen.dart';
+import 'package:missions/src/services/data_export_service.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/external_ai_briefing_helper.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/widgets/ui/tactical_briefing_indicator.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 /// Dedicated screen for zero-latency briefing synthesis via External AI engines (ChatGPT, Claude, etc.).
 /// Operates as an independent screen that updates the realtime AppProvider upon ingestion.
@@ -123,13 +123,13 @@ class _ExternalAiBriefingScreenState extends State<ExternalAiBriefingScreen> {
       targetDate: _selectedDate,
       type: _selectedType,
     );
-    final jsonStr = const JsonEncoder.withIndent('  ').convert(data);
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
 
-    // ignore: deprecated_member_use
-    await Share.share(
-      jsonStr,
+    await DataExportService().shareJsonFile(
+      data: data,
+      baseFilename: 'arcane_briefing_${_selectedType.name}_$dateStr',
       subject: 'Arcane ${_selectedType.label} Data ($dateStr)',
+      text: 'Arcane ${_selectedType.label} Telemetry & Context Dataset ($dateStr)',
     );
   }
 
@@ -195,11 +195,16 @@ class _ExternalAiBriefingScreenState extends State<ExternalAiBriefingScreen> {
       if (!mounted) return;
 
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final hasTomorrowStartup = _selectedType == BriefingType.daily &&
+          (parsed.containsKey('tomorrow_startup_report') ||
+              (parsed['daily_briefing'] is Map && parsed.containsKey('tomorrow_startup_report')));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: JweTheme.accentTeal,
           content: Text(
-            '${_selectedType.label} ($dateStr) successfully saved to live databanks!',
+            hasTomorrowStartup
+                ? '${_selectedType.label} ($dateStr) + Tomorrow Startup Brief successfully saved!'
+                : '${_selectedType.label} ($dateStr) successfully saved to live databanks!',
             style: GoogleFonts.jetBrainsMono(color: Colors.black, fontWeight: FontWeight.bold),
           ),
         ),
@@ -208,6 +213,11 @@ class _ExternalAiBriefingScreenState extends State<ExternalAiBriefingScreen> {
       // Navigate to the post-briefing screen
       switch (_selectedType) {
         case BriefingType.daily:
+          final dailyData = parsed.containsKey('daily_briefing') && parsed['daily_briefing'] is Map
+              ? Map<String, dynamic>.from(parsed['daily_briefing'] as Map)
+              : parsed;
+          Navigator.of(context).pop(dailyData);
+          break;
         case BriefingType.startup:
           // Pop back to Daily Summary View which will now immediately display the saved tactical briefing card
           Navigator.of(context).pop(parsed);
@@ -428,6 +438,15 @@ class _ExternalAiBriefingScreenState extends State<ExternalAiBriefingScreen> {
                       value: '$reflectionsCount reflections • $goalsCount goals • $txCount txs • ${(trackedMinutes / 60).toStringAsFixed(1)}h tracked',
                       accent: JweTheme.accentTeal,
                     ),
+                    if (_selectedType == BriefingType.daily) ...[
+                      const SizedBox(height: 6),
+                      _dataBullet(
+                        icon: MdiIcons.weatherSunny,
+                        title: 'Advance Synthesis:',
+                        value: 'Synthesizes tomorrow morning\'s System Start-Up Sequence in advance',
+                        accent: JweTheme.accentCyan,
+                      ),
+                    ],
                   ],
                 ),
               ),

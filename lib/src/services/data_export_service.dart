@@ -43,6 +43,43 @@ class DataExportService {
     }
   }
 
+  /// Shares a JSON payload as an actual file attachment via native sharing intent.
+  Future<void> shareJsonFile({
+    required Map<String, dynamic> data,
+    required String baseFilename,
+    String? subject,
+    String? text,
+  }) async {
+    final jsonStr = const JsonEncoder.withIndent('  ').convert(data);
+    final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+    final filename = '${baseFilename}_$timestamp.json';
+
+    if (kIsWeb) {
+      final bytes = utf8.encode(jsonStr);
+      final blob = html.Blob([bytes]);
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final anchor = html.document.createElement('a') as html.AnchorElement
+        ..href = url
+        ..style.display = 'none'
+        ..download = filename;
+      html.document.body!.children.add(anchor);
+      anchor.click();
+      html.document.body!.children.remove(anchor);
+      html.Url.revokeObjectUrl(url);
+    } else {
+      final directory = await getTemporaryDirectory();
+      final file = File('${directory.path}/$filename');
+      await file.writeAsString(jsonStr);
+
+      // ignore: deprecated_member_use
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/json')],
+        subject: subject ?? 'Arcane JSON Export',
+        text: text,
+      );
+    }
+  }
+
   /// Imports a JSON file and returns the parsed Map.
   /// 
   /// Triggers a file picker dialog.

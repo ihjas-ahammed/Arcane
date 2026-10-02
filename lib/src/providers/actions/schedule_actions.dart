@@ -114,7 +114,21 @@ class ScheduleActions {
     }
   }
 
-  Future<List<TimelineEntry>> predictSchedule() async {
+  Future<List<TimelineEntry>> predictSchedule({
+    DateTime? targetDate,
+    TimeOfDay? startTime,
+  }) async {
+    final effectiveDate = targetDate ?? DateTime.now();
+    final now = DateTime.now();
+    final isToday = effectiveDate.year == now.year &&
+        effectiveDate.month == now.month &&
+        effectiveDate.day == now.day;
+    final effectiveStartTime = startTime ?? (isToday ? TimeOfDay.now() : const TimeOfDay(hour: 8, minute: 0));
+    final startHourStr = effectiveStartTime.hour.toString().padLeft(2, '0');
+    final startMinStr = effectiveStartTime.minute.toString().padLeft(2, '0');
+    final currentTimeStr = "$startHourStr:$startMinStr";
+    final targetDateStr = DateFormat('yyyy-MM-dd').format(effectiveDate);
+
     final historyLogs = _provider.getLast7DaysData()['sessions'] as String;
     final availableTasks = _provider.mainTasks
         .where((t) => !t.isDeleted && t.isActive)
@@ -122,7 +136,6 @@ class ScheduleActions {
         .join("\n");
     final reflectionLogs = _provider.getLast30DaysReflectionLogsContext();
     final uncompletedPlan = _provider.getTodayUncompletedPlanContext();
-    final now = DateTime.now();
 
     // Use Pro AI models first (heavyModels), with fallback to liteModels
     final proModels = _provider.settings.heavyModels.isNotEmpty
@@ -139,7 +152,8 @@ class ScheduleActions {
     try {
       final predictions = await _provider.aiService.generateSchedulePrediction(
         sessionHistory: historyLogs,
-        currentTime: DateFormat('HH:mm').format(now),
+        currentTime: currentTimeStr,
+        targetDate: targetDateStr,
         availableTasksContext: availableTasks,
         reflectionLogsContext: reflectionLogs,
         uncompletedPlanContext: uncompletedPlan,
@@ -151,13 +165,54 @@ class ScheduleActions {
       );
 
       final List<TimelineEntry> newEntries = [];
-      for (var p in predictions) {
-        final offset = p['startOffsetMinutes'] as int? ?? 0;
-        final duration = p['durationMinutes'] as int? ?? 30;
-        final taskName = p['taskName'] as String? ?? "Predicted";
+      final baseAnchor = DateTime(
+        effectiveDate.year,
+        effectiveDate.month,
+        effectiveDate.day,
+        effectiveStartTime.hour,
+        effectiveStartTime.minute,
+      );
 
-        final start = now.add(Duration(minutes: offset));
-        final end = start.add(Duration(minutes: duration));
+      for (int i = 0; i < predictions.length; i++) {
+        final p = predictions[i];
+        final taskName = p['taskName'] as String? ?? "Predicted";
+        final subTaskName = p['subTaskName'] as String? ?? "Predicted Session";
+        final startStr = p['startTime']?.toString();
+        final endStr = p['endTime']?.toString();
+
+        DateTime? start;
+        DateTime? end;
+
+        if (startStr != null && startStr.contains(':')) {
+          final parts = startStr.split(':');
+          final h = int.tryParse(parts[0]);
+          final m = int.tryParse(parts[1]);
+          if (h != null && m != null) {
+            start = DateTime(effectiveDate.year, effectiveDate.month, effectiveDate.day, h, m);
+          }
+        }
+
+        if (endStr != null && endStr.contains(':')) {
+          final parts = endStr.split(':');
+          final h = int.tryParse(parts[0]);
+          final m = int.tryParse(parts[1]);
+          if (h != null && m != null) {
+            end = DateTime(effectiveDate.year, effectiveDate.month, effectiveDate.day, h, m);
+          }
+        }
+
+        final offset = p['startOffsetMinutes'] as int?;
+        final duration = p['durationMinutes'] as int? ?? 30;
+
+        if (start == null && offset != null) {
+          start = baseAnchor.add(Duration(minutes: offset));
+        }
+        start ??= baseAnchor.add(Duration(minutes: i * 45));
+
+        end ??= start.add(Duration(minutes: duration.clamp(5, 240)));
+        if (!end.isAfter(start)) {
+          end = start.add(const Duration(minutes: 30));
+        }
 
         Color c = AppTheme.fhTextDisabled;
         final matchedTask = _provider.mainTasks.firstWhereOrNull(
@@ -165,10 +220,10 @@ class ScheduleActions {
         if (matchedTask != null) c = matchedTask.taskColor;
 
         newEntries.add(TimelineEntry(
-          id: "pred_${DateTime.now().millisecondsSinceEpoch}_${newEntries.length}",
+          id: "pred_${effectiveDate.millisecondsSinceEpoch}_${newEntries.length}_${DateTime.now().microsecondsSinceEpoch}",
           startTime: start,
           endTime: end,
-          title: p['subTaskName'] ?? "Predicted Session",
+          title: subTaskName,
           subtitle: taskName,
           color: c,
           isPredicted: true,
@@ -176,12 +231,12 @@ class ScheduleActions {
         ));
       }
 
-      await setPredictedEntriesForDate(now, newEntries);
+      await setPredictedEntriesForDate(effectiveDate, newEntries);
 
       _provider.addAiLog(
         action: 'Schedule Prediction',
         model: modelCandidates.first,
-        promptSnippet: 'Predicted ${newEntries.length} schedule entries using Pro AI model, reflection logs & today uncompleted plan',
+        promptSnippet: 'Predicted ${newEntries.length} schedule entries for $targetDateStr using Pro AI model, reflection logs & plan',
         status: 'SUCCESS',
       );
 

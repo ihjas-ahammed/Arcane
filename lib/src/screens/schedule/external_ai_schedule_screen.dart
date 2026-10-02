@@ -5,10 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import 'package:missions/src/models/timeline_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/services/data_export_service.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/external_ai_schedule_helper.dart';
 
@@ -32,6 +32,7 @@ class ExternalAiScheduleScreen extends StatefulWidget {
 
 class _ExternalAiScheduleScreenState extends State<ExternalAiScheduleScreen> {
   late DateTime _selectedDate;
+  late TimeOfDay _startTime;
   final TextEditingController _outputController = TextEditingController();
   List<TimelineEntry>? _parsedEntries;
   String? _parseError;
@@ -41,12 +42,44 @@ class _ExternalAiScheduleScreenState extends State<ExternalAiScheduleScreen> {
   void initState() {
     super.initState();
     _selectedDate = widget.initialDate ?? DateTime.now();
+    final now = DateTime.now();
+    final isToday = _selectedDate.year == now.year &&
+        _selectedDate.month == now.month &&
+        _selectedDate.day == now.day;
+    _startTime = isToday ? TimeOfDay.now() : const TimeOfDay(hour: 8, minute: 0);
   }
 
   @override
   void dispose() {
     _outputController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickStartTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _startTime,
+      helpText: 'SELECT SCHEDULE START TIME',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: JweTheme.pickerScheme(
+              accent: JweTheme.accentAmber,
+              surface: JweTheme.panel,
+            ),
+            dialogTheme: DialogThemeData(backgroundColor: JweTheme.bgDeep),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _startTime) {
+      setState(() {
+        _startTime = picked;
+        _parsedEntries = null;
+        _parseError = null;
+      });
+    }
   }
 
   Future<void> _pickDate() async {
@@ -69,8 +102,15 @@ class _ExternalAiScheduleScreenState extends State<ExternalAiScheduleScreen> {
       },
     );
     if (picked != null && picked != _selectedDate) {
+      final now = DateTime.now();
+      final isToday = picked.year == now.year &&
+          picked.month == now.month &&
+          picked.day == now.day;
       setState(() {
         _selectedDate = picked;
+        if (!isToday) {
+          _startTime = const TimeOfDay(hour: 8, minute: 0);
+        }
         _parsedEntries = null;
         _parseError = null;
       });
@@ -81,6 +121,7 @@ class _ExternalAiScheduleScreenState extends State<ExternalAiScheduleScreen> {
     final prompt = ExternalAiScheduleHelper.buildPrompt(
       provider: provider,
       targetDate: _selectedDate,
+      startTime: _startTime,
     );
     Clipboard.setData(ClipboardData(text: prompt));
     HapticFeedback.mediumImpact();
@@ -104,6 +145,7 @@ class _ExternalAiScheduleScreenState extends State<ExternalAiScheduleScreen> {
     final data = ExternalAiScheduleHelper.buildExportData(
       provider: provider,
       targetDate: _selectedDate,
+      startTime: _startTime,
     );
     final jsonStr = const JsonEncoder.withIndent('  ').convert(data);
     Clipboard.setData(ClipboardData(text: jsonStr));
@@ -128,12 +170,12 @@ class _ExternalAiScheduleScreenState extends State<ExternalAiScheduleScreen> {
     final data = ExternalAiScheduleHelper.buildExportData(
       provider: provider,
       targetDate: _selectedDate,
+      startTime: _startTime,
     );
-    final jsonStr = const JsonEncoder.withIndent('  ').convert(data);
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-    // ignore: deprecated_member_use
-    await Share.share(
-      jsonStr,
+    await DataExportService().shareJsonFile(
+      data: data,
+      baseFilename: 'arcane_schedule_context_$dateStr',
       subject: 'Arcane Schedule Prediction Context - $dateStr',
     );
   }
@@ -170,6 +212,7 @@ class _ExternalAiScheduleScreenState extends State<ExternalAiScheduleScreen> {
         text,
         targetDate: _selectedDate,
         provider: provider,
+        startTime: _startTime,
       );
 
       if (entries.isEmpty) {
@@ -319,6 +362,30 @@ class _ExternalAiScheduleScreenState extends State<ExternalAiScheduleScreen> {
         ),
         actions: [
           Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: ActionChip(
+              backgroundColor: JweTheme.panel2,
+              side: BorderSide(
+                color: JweTheme.accentAmber.withValues(alpha: 0.5),
+                width: 1,
+              ),
+              avatar: Icon(
+                MdiIcons.clockOutline,
+                size: 14,
+                color: JweTheme.accentAmber,
+              ),
+              label: Text(
+                _startTime.format(context),
+                style: GoogleFonts.jetBrainsMono(
+                  color: JweTheme.accentAmber,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onPressed: _pickStartTime,
+            ),
+          ),
+          Padding(
             padding: const EdgeInsets.only(right: 12),
             child: ActionChip(
               backgroundColor: isToday
@@ -422,7 +489,6 @@ class _ExternalAiScheduleScreenState extends State<ExternalAiScheduleScreen> {
   Widget _buildTelemetryCard(AppProvider provider) {
     final uncompletedCount = provider.taskActions.getDayPlan(DateFormat('yyyy-MM-dd').format(_selectedDate)).length;
     final activeTasksCount = provider.mainTasks.where((t) => !t.isDeleted && t.isActive).length;
-    final currentTime = DateFormat('HH:mm').format(DateTime.now());
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -448,12 +514,31 @@ class _ExternalAiScheduleScreenState extends State<ExternalAiScheduleScreen> {
                 ),
               ),
               const Spacer(),
-              Text(
-                'REF TIME: $currentTime',
-                style: GoogleFonts.jetBrainsMono(
-                  color: JweTheme.textMuted,
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w600,
+              InkWell(
+                onTap: _pickStartTime,
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: JweTheme.accentAmber.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(MdiIcons.clockEditOutline, size: 11, color: JweTheme.accentAmber),
+                      const SizedBox(width: 4),
+                      Text(
+                        'START: ${_startTime.format(context)}',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: JweTheme.accentAmber,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

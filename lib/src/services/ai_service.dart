@@ -1018,6 +1018,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
   Future<List<Map<String, dynamic>>> generateSchedulePrediction({
     required String sessionHistory, 
     required String currentTime,
+    String? targetDate,
     required String availableTasksContext, 
     required String reflectionLogsContext,
     required String uncompletedPlanContext,
@@ -1027,8 +1028,10 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
+    final dateLabel = targetDate ?? "today";
     final prompt = """
-    You are an intelligent schedule predictor. Based on the user's recent session history, reflection logs, and today's remaining uncompleted plan, predict a realistic schedule for the REST of today (starting from $currentTime).
+    You are an intelligent schedule predictor and tactical planner for Arcane.
+    Based on the user's recent session history, reflection logs, and uncompleted plan items, predict and plan a realistic schedule for $dateLabel starting from reference time $currentTime onward.
     
     HISTORICAL SESSIONS (Last 14 days):
     $sessionHistory
@@ -1036,7 +1039,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     RECENT REFLECTION LOGS (Last 30 days):
     $reflectionLogsContext
     
-    TODAY'S REMAINING UNCOMPLETED PLAN:
+    REMAINING UNCOMPLETED PLAN:
     $uncompletedPlanContext
 
     AVAILABLE ACTIVE TASKS & PROTOCOLS:
@@ -1044,10 +1047,11 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     
     INSTRUCTIONS:
     1. Analyze user habits, energy patterns, reflection logs, and remaining plan items.
-    2. PRIORITIZE scheduling today's remaining uncompleted plan items during realistic available time slots today.
-    3. Suggest 1-8 likely sessions for the remainder of today.
-    4. Do not predict past midnight. Respect regular sleep time.
-    5. CONFIDENTIALITY: Do not use specific names of real people.
+    2. PRIORITIZE scheduling remaining uncompleted plan items during realistic available time slots on $dateLabel.
+    3. Suggest 2-8 likely sessions starting from $currentTime onward for $dateLabel.
+    4. Provide explicit start and end times in 24-hour "HH:mm" format.
+    5. Do not predict past midnight (23:59). Respect regular sleep time.
+    6. CONFIDENTIALITY: Do not use specific names of real people.
     
     CRITICAL OUTPUT FORMATTING:
     - Return ONLY valid JSON.
@@ -1059,8 +1063,10 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
       {
         "taskName": "Exact Main Task Name from Available Tasks",
         "subTaskName": "Specific Activity / Subtask Name",
-        "startOffsetMinutes": int (minutes from NOW to start session, e.g. 15 for 15 minutes from now),
-        "durationMinutes": int (duration of session in minutes, e.g. 30)
+        "startTime": "HH:mm",
+        "endTime": "HH:mm",
+        "startOffsetMinutes": 0,
+        "durationMinutes": 45
       }
     ]
     """;
@@ -1344,6 +1350,16 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
         - "title": concise, professional tactical protocol name (e.g. "Protocol: Evening Transition", "SOP: Deep Focus Recovery", "Protocol: Quick Task Clearance")
         - "description": 2-3 sentences specifying the situation/trigger condition and context when this procedure should be initiated. DO NOT provide steps or expected outcomes, write only the title and situation description.
     12. "contingency": ONE realistic obstacle or friction point likely to show up tomorrow, inferred from today's actual patterns, goals context (especially anything AT RISK), or logs — plus a concrete if-then plan to route around it. Keep both fields to a single sentence each, still warm and constructive (not alarming). Format: {"risk": "string", "if_then": "string"}.
+    13. "tomorrow_startup_report": Synthesize tomorrow's morning System Start-Up Sequence in advance based on today's logs and momentum to save time tomorrow morning. Include:
+        - "forecast" (40-70 words): An optimistic, energizing morning forecast celebrating today's momentum and setting an inspiring tone for tomorrow.
+        - "yesterday_quote": A prominent positive, inspiring, or representative good quote/phrase from today's reflections.
+        - "ai_today_advice": Warm, appreciative, and optimistic AI encouragement for tomorrow inspired by that quote.
+        - "motivational_quote": A famous, deeply inspiring quote from a scientist, philosopher, writer, polymath, inventor, or historical figure. Format: {"quote": "string", "author": "string"}.
+        - "suggested_contacts": 1-3 people to reach out to tomorrow. Format: [{"name": "string", "relation": "string", "type": "RECONNECT|FOLLOW UP|APPRECIATION|STAY IN TOUCH", "reason": "string"}].
+        - "highlight": ONE sentence naming the single most leveraged task for tomorrow.
+        - "obstacle_plan": {"obstacle": "string", "if_then": "string"}.
+        - "anticipate": one concrete thing tomorrow worth genuinely looking forward to.
+        - "directives" (exactly 3): specific implementation intentions for tomorrow.
 
     Output JSON ONLY:
     {
@@ -1362,7 +1378,18 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
         {"title": "string", "description": "string"},
         {"title": "string", "description": "string"}
       ],
-      "contingency": {"risk": "string", "if_then": "string"}
+      "contingency": {"risk": "string", "if_then": "string"},
+      "tomorrow_startup_report": {
+        "forecast": "string",
+        "yesterday_quote": "string",
+        "ai_today_advice": "string",
+        "motivational_quote": {"quote": "string", "author": "string"},
+        "suggested_contacts": [{"name": "string", "relation": "string", "type": "string", "reason": "string"}],
+        "highlight": "string",
+        "obstacle_plan": {"obstacle": "string", "if_then": "string"},
+        "anticipate": "string",
+        "directives": ["string", "string", "string"]
+      }
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;

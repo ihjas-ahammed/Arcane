@@ -69,17 +69,51 @@ class _ScheduleViewState extends State<ScheduleView> {
   }
 
   Future<void> _handlePredictSchedule(AppProvider provider) async {
-    if (!_isSameDay(_selectedDate, DateTime.now())) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Predictions only available for today.")));
-      return;
+    final now = DateTime.now();
+    final isToday = _isSameDay(_selectedDate, now);
+    TimeOfDay startTime = isToday ? TimeOfDay.now() : const TimeOfDay(hour: 8, minute: 0);
+
+    if (!isToday) {
+      final pickedTime = await showTimePicker(
+        context: context,
+        initialTime: startTime,
+        helpText: 'SELECT SCHEDULE START TIME FOR ${DateFormat('MMM d').format(_selectedDate).toUpperCase()}',
+        builder: (context, child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: JweTheme.pickerScheme(
+                accent: JweTheme.accentAmber,
+                surface: JweTheme.panel,
+              ),
+              dialogTheme: DialogThemeData(backgroundColor: JweTheme.bgDeep),
+            ),
+            child: child!,
+          );
+        },
+      );
+      if (pickedTime == null) return;
+      startTime = pickedTime;
     }
+
     setState(() => _isPredicting = true);
     try {
-      final newEntries = await provider.scheduleActions.predictSchedule();
+      final newEntries = await provider.scheduleActions.predictSchedule(
+        targetDate: _selectedDate,
+        startTime: startTime,
+      );
       if (!mounted) return;
       setState(() {
         _predictedEntries = newEntries;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: JweTheme.accentTeal,
+          content: Text(
+            '✓ Predicted ${newEntries.length} shadow plan sessions for ${DateFormat('MMM d').format(_selectedDate)}',
+            style: GoogleFonts.jetBrainsMono(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Prediction failed: $e")));
     } finally {

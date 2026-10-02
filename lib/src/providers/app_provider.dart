@@ -1747,6 +1747,34 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       }
     }
 
+    if (result['tomorrow_startup_report'] != null && result['tomorrow_startup_report'] is Map) {
+      final startupData = Map<String, dynamic>.from(result['tomorrow_startup_report'] as Map);
+      final tomorrow = targetDate.add(const Duration(days: 1));
+      final tomorrowStr = DateFormat('yyyy-MM-dd').format(tomorrow);
+      startupData['snapshot_time'] = DateTime.now().toIso8601String();
+      saveStartDayReport(tomorrowStr, startupData);
+
+      if (startupData['suggested_contacts'] is List) {
+        for (final c in startupData['suggested_contacts'] as List) {
+          if (c is Map) {
+            final name = c['name']?.toString() ?? '';
+            final relation = c['relation']?.toString() ?? 'Acquaintance';
+            final reason = c['reason']?.toString() ?? '';
+            final type = c['type']?.toString() ?? 'CONTACT';
+            if (name.isNotEmpty) {
+              logInteractionForPerson(
+                name: name,
+                relation: relation,
+                interactionSummary: "Startup Recommendation [$type]: $reason",
+                nextActionPlan: "[$type] $reason",
+                date: tomorrow,
+              );
+            }
+          }
+        }
+      }
+    }
+
     return result;
   }
 

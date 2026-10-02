@@ -1,3 +1,25 @@
+# ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100201)
+
+### 🌅 Tomorrow's Start-Up Sequence Advance Synthesis
+- **Advance Morning Preparation**: Daily tactical briefings now automatically synthesize tomorrow morning's System Start-Up Sequence (`tomorrow_startup_report`) in advance to save critical time each morning.
+- **Unified Engine Parity**: Both in-app Gemini synthesis and external AI manual briefing protocols generate and persist tomorrow's startup briefing databanks (`saveStartDayReport`), including motivational quotes, morning directives, obstacles & contingency plans, and reconnect recommendations.
+- **Automatic Contact Sync**: Suggested reconnects and follow-up contacts synthesized in the advance morning report are immediately logged into the interaction registry for tomorrow.
+
+### 📦 Robust File Sharing Intent for External AI Datasets
+- **Intent Transaction Limits Solved**: Replaced raw string clipboard/binder intents (`Share.share`) with native file sharing (`Share.shareXFiles`) via temporary `.json` datasets. Prevents binder IPC payload crashes and transaction exceptions across all external AI features.
+- **Universal App Compatibility**: Exported JSON datasets share cleanly to ChatGPT, Claude, Gemini, notes apps, and desktop sync targets with proper MIME types.
+
+### 📋 Lightweight Schema-Only Prompts
+- **Context-Free Clipboard Content**: The "Copy Prompt" action now generates a lightweight, schema-focused prompt without duplicative 30-day logs or raw task text.
+- **Strict Separation of Concerns**: All activity telemetry, uncompleted plans, and reflection history reside exclusively in the exported JSON file, keeping prompt tokens small and within LLM clipboard buffers.
+
+### 🔮 Future Schedule Predictor & Start-Time Calibration
+- **Future Date Shadow Planning**: Unlocked schedule predictions for tomorrow and any future dates, eliminating the restriction to today only.
+- **Interactive Start-Time Selection**: Configurable reference start time (defaulting to 08:00 AM for future dates) selectable via AppBar action chips, telemetry badges, and interactive time pickers.
+- **Explicit 24h Output Formatting**: Both internal and external AI engines now generate explicit `"startTime": "HH:mm"` and `"endTime": "HH:mm"` sessions anchored strictly to the target inspection date.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.1 (Build #2126100105)
 
 ### 🔮 External AI Schedule Predictor & Non-Editable Blueprint Overlay ("OVY")

@@ -12,30 +12,38 @@ import 'package:collection/collection.dart';
 /// prompt generation, output parsing, and converting to non-editable overlay entries.
 class ExternalAiScheduleHelper {
   /// Builds the complete telemetry and context JSON dataset for external AI:
+  /// - Target date and plan start time
   /// - Today's remaining uncompleted plan items
-  /// - Today's already recorded sessions
+  /// - Already recorded sessions on target date
   /// - Available active tasks and subtasks
   /// - Historical sessions over last 14 days
   /// - Reflection logs over last 30 days
-  /// - Current time reference
   static Map<String, dynamic> buildExportData({
     required AppProvider provider,
     required DateTime targetDate,
+    TimeOfDay? startTime,
   }) {
     final targetDateStr = DateFormat('yyyy-MM-dd').format(targetDate);
     final now = DateTime.now();
+    final isToday = targetDate.year == now.year &&
+        targetDate.month == now.month &&
+        targetDate.day == now.day;
+    final effectiveStartTime = startTime ?? (isToday ? TimeOfDay.now() : const TimeOfDay(hour: 8, minute: 0));
+    final startHourStr = effectiveStartTime.hour.toString().padLeft(2, '0');
+    final startMinStr = effectiveStartTime.minute.toString().padLeft(2, '0');
+    final planStartTimeStr = "$startHourStr:$startMinStr";
     final currentTimeStr = DateFormat('HH:mm').format(now);
 
     final dayStart = DateTime(targetDate.year, targetDate.month, targetDate.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
 
-    // 1. Today's recorded sessions
-    final todaySessions = <Map<String, dynamic>>[];
+    // 1. Target date's recorded sessions
+    final recordedSessions = <Map<String, dynamic>>[];
     for (final task in provider.mainTasks) {
       for (final sub in task.subTasks) {
         for (final session in sub.sessions) {
           if (session.startTime.isBefore(dayEnd) && session.endTime.isAfter(dayStart)) {
-            todaySessions.add({
+            recordedSessions.add({
               'taskName': task.name,
               'subTaskName': sub.name,
               'startTime': DateFormat('HH:mm').format(session.startTime),
@@ -46,7 +54,7 @@ class ExternalAiScheduleHelper {
         }
       }
     }
-    todaySessions.sort((a, b) => (a['startTime'] as String).compareTo(b['startTime'] as String));
+    recordedSessions.sort((a, b) => (a['startTime'] as String).compareTo(b['startTime'] as String));
 
     // 2. Available active tasks and subtasks
     final availableTasks = provider.mainTasks
@@ -80,15 +88,15 @@ class ExternalAiScheduleHelper {
       }
     }
 
-    // 4. Today's uncompleted plan
+    // 4. Uncompleted plan for target date
     final uncompletedPlanStr = provider.getTodayUncompletedPlanContext();
     final dayPlanRaw = provider.taskActions.getDayPlan(targetDateStr);
 
     // 5. Recent reflections
     final reflectionLogsStr = provider.getLast30DaysReflectionLogsContext();
 
-    // 6. Today's goals
-    final todayGoals = provider.goals
+    // 6. Goals for target date
+    final targetGoals = provider.goals
         .where((g) => g.dateKey == targetDateStr || g.scope == GoalScope.daily)
         .map((g) => {
               'title': g.title,
@@ -102,75 +110,68 @@ class ExternalAiScheduleHelper {
     return {
       'meta': {
         'target_date': targetDateStr,
+        'plan_start_time': planStartTimeStr,
+        'is_future_date': !isToday,
         'current_time': currentTimeStr,
         'generated_at': now.toIso8601String(),
-        'instructions': 'Generate predicted schedule overlay blocks for the remainder of today starting from $currentTimeStr.',
+        'instructions': 'Generate predicted schedule overlay blocks for $targetDateStr starting from $planStartTimeStr onward.',
       },
-      'today_plan': {
+      'plan_context': {
         'uncompleted_plan_context': uncompletedPlanStr,
         'plan_items': dayPlanRaw,
-        'goals': todayGoals,
+        'goals': targetGoals,
       },
-      'already_recorded_sessions_today': todaySessions,
+      'already_recorded_sessions_on_date': recordedSessions,
       'available_active_tasks': availableTasks,
       'historical_sessions_last_14_days_sample': historySummary.take(100).toList(),
       'reflection_logs_last_30_days': reflectionLogsStr,
     };
   }
 
-  /// Builds the prompt formatted for external frontier AI models (ChatGPT, Claude, Gemini, etc.)
+  /// Builds the compact prompt formatted for external frontier AI models (ChatGPT, Claude, Gemini, etc.)
+  /// NOTE: Bulky reflection logs, active tasks, and history are kept entirely inside the exported JSON
+  /// to keep the clipboard content small and lightweight.
   static String buildPrompt({
     required AppProvider provider,
     required DateTime targetDate,
+    TimeOfDay? startTime,
   }) {
     final targetDateStr = DateFormat('yyyy-MM-dd').format(targetDate);
     final now = DateTime.now();
-    final currentTimeStr = DateFormat('HH:mm').format(now);
-
-    final uncompletedPlan = provider.getTodayUncompletedPlanContext();
-    final reflectionLogs = provider.getLast30DaysReflectionLogsContext();
-    final availableTasks = provider.mainTasks
-        .where((t) => !t.isDeleted && t.isActive)
-        .map((t) => "${t.name}: ${t.subTasks.where((s) => !s.isDeleted && s.isActive && !s.completed).map((s) => s.name).join(', ')}")
-        .join("\n");
+    final isToday = targetDate.year == now.year &&
+        targetDate.month == now.month &&
+        targetDate.day == now.day;
+    final effectiveStartTime = startTime ?? (isToday ? TimeOfDay.now() : const TimeOfDay(hour: 8, minute: 0));
+    final startHourStr = effectiveStartTime.hour.toString().padLeft(2, '0');
+    final startMinStr = effectiveStartTime.minute.toString().padLeft(2, '0');
+    final planStartTimeStr = "$startHourStr:$startMinStr";
 
     return """
 You are Arcane's Tactical Schedule Predictor & Daily Planner AI.
-Your mission is to predict and plan a realistic, high-leverage schedule for the REST of today ($targetDateStr), starting from current reference time: $currentTimeStr.
+Your mission is to predict and generate a realistic, high-leverage schedule plan for $targetDateStr, starting from reference time $planStartTimeStr onward.
 
 CONTEXT:
-==================================================
-CURRENT REFERENCE TIME: $currentTimeStr
-TARGET DATE: $targetDateStr
-
-TODAY'S REMAINING UNCOMPLETED PLAN:
-$uncompletedPlan
-
-AVAILABLE ACTIVE TASKS & PROTOCOLS:
-$availableTasks
-
-RECENT REFLECTION LOGS (Last 30 Days):
-$reflectionLogs
-==================================================
+All activity telemetry, uncompleted plan items, active tasks, historical sessions, and reflection logs are provided in the attached JSON dataset.
 
 INSTRUCTIONS:
-1. Analyze user habits, energy rhythms, reflection patterns, and remaining today's plan.
-2. PRIORITIZE scheduling today's remaining uncompleted plan items during realistic available time slots today.
-3. Schedule sessions starting from $currentTimeStr onward for the remainder of today.
-4. Provide appropriate breaks (10-15m) between intensive focus sessions.
-5. Do NOT predict past midnight (24:00). Respect regular sleep and evening wind-down time.
-6. Match "taskName" to the EXACT Available Task Names provided above whenever possible.
-7. Return between 2 to 8 focused session blocks.
+1. Analyze user habits, reflection patterns, and remaining plan in the attached JSON dataset.
+2. PRIORITIZE scheduling uncompleted plan items and active protocols from the JSON dataset into realistic time slots on $targetDateStr.
+3. Schedule sessions starting from $planStartTimeStr onward for $targetDateStr.
+4. Each session MUST specify explicit "startTime": "HH:mm" and "endTime": "HH:mm" in 24-hour format on $targetDateStr.
+5. Provide appropriate breaks (10-15m) between intensive focus sessions.
+6. Do NOT schedule past 23:59. Respect regular sleep and evening wind-down time.
+7. Match "taskName" to the EXACT Available Task Names provided in the JSON dataset whenever possible.
+8. Return between 2 to 8 focused session blocks.
 
 CRITICAL OUTPUT FORMATTING:
-- Return ONLY valid JSON array.
+- Return ONLY a valid JSON array.
 - Do NOT wrap in markdown code blocks (e.g. no ```json ... ```).
 - Do NOT include comments, explanations, or trailing commas.
 
 OUTPUT JSON SCHEMA:
 [
   {
-    "taskName": "Exact Main Task Name from Available Tasks",
+    "taskName": "Exact Main Task Name from active tasks in JSON",
     "subTaskName": "Specific subtask or activity description",
     "startTime": "HH:mm",
     "endTime": "HH:mm",
@@ -184,11 +185,13 @@ OUTPUT JSON SCHEMA:
   /// All parsed entries are strictly configured as:
   /// - `isPredicted = true`
   /// - `isEditable = false`
+  /// - Anchored directly to `targetDate`
   /// - Non-editable background overlay blueprint
   static List<TimelineEntry> parsePredictions(
     String rawText, {
     required DateTime targetDate,
     required AppProvider provider,
+    TimeOfDay? startTime,
   }) {
     if (rawText.trim().isEmpty) return [];
 
@@ -220,6 +223,18 @@ OUTPUT JSON SCHEMA:
     }
 
     final now = DateTime.now();
+    final isToday = targetDate.year == now.year &&
+        targetDate.month == now.month &&
+        targetDate.day == now.day;
+    final effectiveStartTime = startTime ?? (isToday ? TimeOfDay.now() : const TimeOfDay(hour: 8, minute: 0));
+    final baseAnchor = DateTime(
+      targetDate.year,
+      targetDate.month,
+      targetDate.day,
+      effectiveStartTime.hour,
+      effectiveStartTime.minute,
+    );
+
     final entries = <TimelineEntry>[];
 
     for (int i = 0; i < decoded.length; i++) {
@@ -238,16 +253,20 @@ OUTPUT JSON SCHEMA:
 
       if (startStr != null && startStr.contains(':')) {
         final parts = startStr.split(':');
-        final h = int.tryParse(parts[0]) ?? now.hour;
-        final m = int.tryParse(parts[1]) ?? 0;
-        start = DateTime(targetDate.year, targetDate.month, targetDate.day, h, m);
+        final h = int.tryParse(parts[0]);
+        final m = int.tryParse(parts[1]);
+        if (h != null && m != null) {
+          start = DateTime(targetDate.year, targetDate.month, targetDate.day, h, m);
+        }
       }
 
       if (endStr != null && endStr.contains(':')) {
         final parts = endStr.split(':');
-        final h = int.tryParse(parts[0]) ?? now.hour;
-        final m = int.tryParse(parts[1]) ?? 0;
-        end = DateTime(targetDate.year, targetDate.month, targetDate.day, h, m);
+        final h = int.tryParse(parts[0]);
+        final m = int.tryParse(parts[1]);
+        if (h != null && m != null) {
+          end = DateTime(targetDate.year, targetDate.month, targetDate.day, h, m);
+        }
       }
 
       // Format 2: startOffsetMinutes & durationMinutes
@@ -257,10 +276,10 @@ OUTPUT JSON SCHEMA:
           : (item['duration'] is num ? (item['duration'] as num).toInt() : 30);
 
       if (start == null && offsetMins != null) {
-        start = now.add(Duration(minutes: offsetMins));
+        start = baseAnchor.add(Duration(minutes: offsetMins));
       }
 
-      start ??= now.add(Duration(minutes: i * 45));
+      start ??= baseAnchor.add(Duration(minutes: i * 45));
 
       end ??= start.add(Duration(minutes: durationMins.clamp(5, 240)));
 
