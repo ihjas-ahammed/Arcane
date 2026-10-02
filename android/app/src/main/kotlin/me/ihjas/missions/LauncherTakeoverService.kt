@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -34,6 +35,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 class LauncherTakeoverService : AccessibilityService() {
 
     companion object {
+        private const val TAG = "LauncherTakeoverService"
         private const val PREFS = "arcane_launcher"
         private const val PREFS_AUTO_TAP = "arcane_auto_tap"
         private const val KEY_ENABLED = "takeover_enabled"
@@ -290,11 +292,8 @@ class LauncherTakeoverService : AccessibilityService() {
             if (node == null && event.recordCount > 0) {
                 node = event.getRecord(0)?.source
             }
-            if (node == null) {
-                node = rootInActiveWindow
-            }
-            val rect = Rect()
             val dm = resources.displayMetrics
+            val rect = Rect()
             var xRatio = 0.5f
             var yRatio = 0.85f
             var viewId: String? = null
@@ -303,11 +302,21 @@ class LauncherTakeoverService : AccessibilityService() {
 
             if (node != null) {
                 node.getBoundsInScreen(rect)
-                if (rect.width() > 0 && rect.height() > 0) {
-                    xRatio = if (dm.widthPixels > 0) rect.centerX().toFloat() / dm.widthPixels else 0.5f
-                    yRatio = if (dm.heightPixels > 0) rect.centerY().toFloat() / dm.heightPixels else 0.5f
+                // If container spans large screen area and has children, drill down to specific clickable child
+                if (rect.width() > (dm.widthPixels * 0.7f) && rect.height() > (dm.heightPixels * 0.35f) && node.childCount > 0) {
+                    val leaf = findSmallestClickableNode(node, dm)
+                    if (leaf != null) {
+                        leaf.getBoundsInScreen(rect)
+                        if (leaf.viewIdResourceName != null) viewId = leaf.viewIdResourceName
+                        if (leaf.contentDescription != null) desc = leaf.contentDescription.toString()
+                        if (leaf.text != null) text = leaf.text.toString()
+                    }
                 }
-                viewId = node.viewIdResourceName
+                if (rect.width() > 0 && rect.height() > 0) {
+                    xRatio = if (dm.widthPixels > 0) (rect.centerX().toFloat() / dm.widthPixels).coerceIn(0.01f, 0.99f) else 0.5f
+                    yRatio = if (dm.heightPixels > 0) (rect.centerY().toFloat() / dm.heightPixels).coerceIn(0.01f, 0.99f) else 0.85f
+                }
+                if (viewId == null) viewId = node.viewIdResourceName
                 if (desc.isNullOrEmpty()) desc = node.contentDescription?.toString()
                 if (text.isNullOrEmpty()) text = node.text?.toString()
             }
@@ -373,6 +382,35 @@ class LauncherTakeoverService : AccessibilityService() {
         }
     }
 
+    private fun findSmallestClickableNode(parent: AccessibilityNodeInfo, dm: android.util.DisplayMetrics): AccessibilityNodeInfo? {
+        var smallest: AccessibilityNodeInfo? = null
+        var minArea = Long.MAX_VALUE
+        val r = Rect()
+
+        fun search(node: AccessibilityNodeInfo) {
+            node.getBoundsInScreen(r)
+            val w = r.width()
+            val h = r.height()
+            if (w > 0 && h > 0 && w < (dm.widthPixels * 0.8f) && h < (dm.heightPixels * 0.4f)) {
+                val area = w.toLong() * h.toLong()
+                val isMicMatch = node.contentDescription?.contains("mic", ignoreCase = true) == true ||
+                                 node.contentDescription?.contains("voice", ignoreCase = true) == true ||
+                                 node.viewIdResourceName?.contains("mic", ignoreCase = true) == true ||
+                                 node.viewIdResourceName?.contains("voice", ignoreCase = true) == true
+                if (area < minArea && (node.isClickable || isMicMatch)) {
+                    minArea = area
+                    smallest = node
+                }
+            }
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i) ?: continue
+                search(child)
+            }
+        }
+        search(parent)
+        return smallest
+    }
+
     private fun executeRecordedTap(pkg: String) {
         try {
             val prefs = getSharedPreferences(PREFS_AUTO_TAP, Context.MODE_PRIVATE)
@@ -383,57 +421,63 @@ class LauncherTakeoverService : AccessibilityService() {
             val yRatio = prefs.getFloat("tap_y_${pkg}", 0.5f)
 
             var clicked = false
-            val root = rootInActiveWindow
-            if (root != null) {
-                // Try finding by view ID
-                if (!viewId.isNullOrEmpty()) {
-                    val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
-                    for (node in nodes) {
-                        if (node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
-                            clicked = true
-                            break
-                        }
-                    }
-                }
-                // Try finding by content description
-                if (!clicked && !desc.isNullOrEmpty()) {
-                    val nodes = root.findAccessibilityNodeInfosByText(desc)
-                    for (node in nodes) {
-                        if (node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
-                            clicked = true
-                            break
-                        }
-                    }
-                }
-                // Try finding by text
-                if (!clicked && !text.isNullOrEmpty()) {
-                    val nodes = root.findAccessibilityNodeInfosByText(text)
-                    for (node in nodes) {
-                        if (node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
-                            clicked = true
-                            break
-                        }
-                    }
-                }
-            }
 
-            // Fallback: Dispatch precision gesture click at recorded screen coordinates!
-            if (!clicked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            // 1. Primary execution: Accurate touch coordinate tap!
+            // Directly dispatches physical tap gesture to the calibrated touch coordinates.
+            // Works reliably across Flutter, Jetpack Compose, Web, and Native layouts.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && xRatio in 0.01f..0.99f && yRatio in 0.01f..0.99f) {
                 val dm = resources.displayMetrics
                 val targetX = xRatio * dm.widthPixels
                 val targetY = yRatio * dm.heightPixels
                 val path = Path().apply { moveTo(targetX, targetY) }
-                val stroke = GestureDescription.StrokeDescription(path, 0, 60)
+                val stroke = GestureDescription.StrokeDescription(path, 0, 50L)
                 val gesture = GestureDescription.Builder().addStroke(stroke).build()
-                dispatchGesture(gesture, null, null)
-                clicked = true
+                clicked = dispatchGesture(gesture, null, null)
+                Log.i(TAG, "executeRecordedTap dispatched direct touch tap at ($targetX, $targetY) - result=$clicked")
+            }
+
+            // 2. Secondary fallback: Look for button nodes only if gesture dispatch failed
+            if (!clicked) {
+                val root = rootInActiveWindow
+                if (root != null) {
+                    // Try finding by view ID
+                    if (!viewId.isNullOrEmpty()) {
+                        val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
+                        for (node in nodes) {
+                            if (node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                                clicked = true
+                                break
+                            }
+                        }
+                    }
+                    // Try finding by content description
+                    if (!clicked && !desc.isNullOrEmpty()) {
+                        val nodes = root.findAccessibilityNodeInfosByText(desc)
+                        for (node in nodes) {
+                            if (node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                                clicked = true
+                                break
+                            }
+                        }
+                    }
+                    // Try finding by text
+                    if (!clicked && !text.isNullOrEmpty()) {
+                        val nodes = root.findAccessibilityNodeInfosByText(text)
+                        for (node in nodes) {
+                            if (node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                                clicked = true
+                                break
+                            }
+                        }
+                    }
+                }
             }
 
             if (clicked) {
                 mainHandler.post {
                     android.widget.Toast.makeText(
                         applicationContext,
-                        "Auto-engaged voice mode",
+                        "Auto-engaged voice mode via touch tap",
                         android.widget.Toast.LENGTH_SHORT
                     ).show()
                 }

@@ -142,6 +142,15 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     _paperTrading = PaperTradingProvider.instance;
     _paperTrading.onStateChanged = () => markDirty('trading');
 
+    // Real-time instant app update stream from Firebase Realtime Database
+    _updateService.watchAppUpdates().listen((update) {
+      if (update != null && update.versionCode != _availableUpdate?.versionCode) {
+        debugPrint('[AppProvider] Real-time update detected from Firebase: #${update.versionCode}');
+        _availableUpdate = update;
+        notifyListeners();
+      }
+    });
+
     // Route notification taps / action buttons.
     // Payload for the timer notification is encoded as "<subtaskId>|<mainTaskId>".
     NotificationService.instance.setOnTap((payload) {
@@ -2370,7 +2379,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     notifyListeners();
   }
 
-  Future<void> sendNoraMessage(String text) async {
+  Future<void> sendNoraMessage(String text, {bool isLiveVoice = false}) async {
     var session = activeNoraSession;
     if (session == null) {
       final p = chatbotMemory.getPersona(null);
@@ -2420,8 +2429,10 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
       for (var resp in messages) {
         final respStr = resp.toString();
-        // Dynamic typing delay
-        await Future.delayed(Duration(milliseconds: 350 + (respStr.length * 8).clamp(0, 1500)));
+        // Dynamic typing delay only when not in live voice mode
+        if (!isLiveVoice) {
+          await Future.delayed(Duration(milliseconds: 100 + (respStr.length * 4).clamp(0, 400)));
+        }
         final botMsg = ChatbotMessage(
           id: const Uuid().v4(),
           text: respStr,

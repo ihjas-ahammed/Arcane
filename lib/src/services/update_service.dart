@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:firebase_database/firebase_database.dart';
 import 'package:missions/src/models/update_model.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -10,6 +11,10 @@ import 'package:path_provider/path_provider.dart';
 
 class UpdateService {
   static const MethodChannel _native = MethodChannel('arcane/update');
+
+  /// Instantaneous zero-cache Firebase Realtime Database update metadata endpoint
+  static const String _firebaseRtdbUpdateUrl =
+      'https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app/app_updates/latest.json';
 
   static const List<String> _updateMetadataUrls = [
     'https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/update_info.json',
@@ -129,6 +134,47 @@ class UpdateService {
   static bool get isDebugBuild => kDebugMode || !kReleaseMode;
 
   /// Checks whether an update is available on GitHub
+  /// Real-time reactive stream watching for instant updates pushed to Firebase RTDB
+  Stream<UpdateModel?> watchAppUpdates() {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      try {
+        return FirebaseDatabase.instance
+            .ref('app_updates/latest')
+            .onValue
+            .asyncMap((event) async {
+          final val = event.snapshot.value;
+          if (val == null) return null;
+          Map<String, dynamic>? json;
+          if (val is Map) {
+            json = Map<String, dynamic>.from(val);
+          } else if (val is String) {
+            json = jsonDecode(val) as Map<String, dynamic>?;
+          }
+          if (json == null || json['version_code'] == null) return null;
+          final packageInfo = await getLocalPackageInfo();
+          final localBuild = int.tryParse(packageInfo.buildNumber) ?? 0;
+          final update = UpdateModel.fromJson(json);
+          if (isUpdateAvailable(
+            remoteCode: update.versionCode,
+            localCode: localBuild,
+            remoteVersion: update.versionName,
+            localVersion: packageInfo.version,
+          )) {
+            debugPrint('[UpdateService] Instant update detected via Firebase RTDB stream: #${update.versionCode}');
+            return update;
+          }
+          return null;
+        }).handleError((e) {
+          debugPrint('[UpdateService] watchAppUpdates error: $e');
+        });
+      } catch (e) {
+        debugPrint('[UpdateService] watchAppUpdates setup failed: $e');
+      }
+    }
+    return const Stream.empty();
+  }
+
+  /// Checks whether an update is available via Firebase RTDB (zero cache) or GitHub
   Future<UpdateModel?> checkForUpdate({bool forceCheck = false}) async {
     if (isDebugBuild) {
       debugPrint('[UpdateService] Debug build detected (isDebugBuild=true). Skipping update check.');
@@ -145,42 +191,88 @@ class UpdateService {
 
     final client = http.Client();
     try {
-      for (final url in _updateMetadataUrls) {
-        try {
-          final uri = Uri.parse('$url?t=${DateTime.now().millisecondsSinceEpoch}');
-          final response = await client.get(
-            uri,
-            headers: {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
-          ).timeout(const Duration(seconds: 10));
+      // 1. Primary: Query Firebase Realtime Database for instant zero-cache update metadata
+      try {
+        if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+          final snap = await FirebaseDatabase.instance
+              .ref('app_updates/latest')
+              .get()
+              .timeout(const Duration(seconds: 4));
+          if (snap.exists && snap.value != null) {
+            final val = snap.value;
+            if (val is Map) {
+              metadataJson = Map<String, dynamic>.from(val);
+            } else if (val is String) {
+              metadataJson = jsonDecode(val) as Map<String, dynamic>?;
+            }
+            if (metadataJson != null && metadataJson['version_code'] != null) {
+              debugPrint('[UpdateService] Retrieved instant update metadata from Firebase RTDB SDK: #${metadataJson['version_code']}');
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('[UpdateService] Firebase RTDB SDK fetch error: $e');
+      }
 
-          if (response.statusCode == 200 && response.body.trim().isNotEmpty) {
-            metadataJson = jsonDecode(response.body) as Map<String, dynamic>;
-            resolvedChangelogUrl = metadataJson['changelog_url'] as String? ?? fallbackChangelogUrl;
-            break;
+      // If SDK didn't return metadata, query Firebase RTDB REST directly (guaranteed zero cache)
+      if (metadataJson == null || metadataJson['version_code'] == null) {
+        try {
+          final rtdbUri = Uri.parse('$_firebaseRtdbUpdateUrl?t=${DateTime.now().millisecondsSinceEpoch}');
+          final res = await client.get(
+            rtdbUri,
+            headers: {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
+          ).timeout(const Duration(seconds: 4));
+          if (res.statusCode == 200 && res.body.trim().isNotEmpty && res.body.trim() != 'null') {
+            metadataJson = jsonDecode(res.body) as Map<String, dynamic>?;
+            if (metadataJson != null && metadataJson['version_code'] != null) {
+              debugPrint('[UpdateService] Retrieved instant update metadata from Firebase RTDB REST: #${metadataJson['version_code']}');
+            }
           }
         } catch (e) {
-          debugPrint('[UpdateService] Failed to fetch metadata from $url: $e');
+          debugPrint('[UpdateService] Firebase RTDB REST fetch error: $e');
         }
       }
 
-      if (metadataJson == null) {
+      // 2. Secondary: Fall back to GitHub raw URLs if Firebase is unreachable
+      if (metadataJson == null || metadataJson['version_code'] == null) {
+        for (final url in _updateMetadataUrls) {
+          try {
+            final uri = Uri.parse('$url?t=${DateTime.now().millisecondsSinceEpoch}');
+            final response = await client.get(
+              uri,
+              headers: {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
+            ).timeout(const Duration(seconds: 8));
+
+            if (response.statusCode == 200 && response.body.trim().isNotEmpty) {
+              metadataJson = jsonDecode(response.body) as Map<String, dynamic>;
+              resolvedChangelogUrl = metadataJson['changelog_url'] as String? ?? fallbackChangelogUrl;
+              break;
+            }
+          } catch (e) {
+            debugPrint('[UpdateService] Failed to fetch metadata from $url: $e');
+          }
+        }
+      }
+
+      if (metadataJson == null || metadataJson['version_code'] == null) {
         debugPrint('[UpdateService] Could not reach update endpoints.');
         return null;
       }
 
-      final remoteVersionCode = metadataJson['version_code'] as int? ?? 0;
+      final remoteVersionCode = (metadataJson['version_code'] as num?)?.toInt() ?? 0;
+      resolvedChangelogUrl ??= metadataJson['changelog_url'] as String? ?? fallbackChangelogUrl;
       debugPrint('[UpdateService] Remote version code: $remoteVersionCode');
 
       // Fetch changelog markdown
       String? changelogMarkdown = metadataJson['changelog_markdown'] as String?;
       if (changelogMarkdown == null || changelogMarkdown.trim().isEmpty) {
-        if (resolvedChangelogUrl != null && resolvedChangelogUrl.isNotEmpty) {
+        if (resolvedChangelogUrl.isNotEmpty) {
           try {
             final clUri = Uri.parse('$resolvedChangelogUrl?t=${DateTime.now().millisecondsSinceEpoch}');
             final clResponse = await client.get(
               clUri,
               headers: {'Cache-Control': 'no-cache'},
-            ).timeout(const Duration(seconds: 8));
+            ).timeout(const Duration(seconds: 6));
 
             if (clResponse.statusCode == 200) {
               changelogMarkdown = clResponse.body;
@@ -207,8 +299,6 @@ class UpdateService {
       );
 
       if (isNewer) {
-        // The metadata can be committed before CI has finished building the APK it points
-        // to. Only announce the update once that exact APK is actually downloadable.
         final apkUrl = await resolveApkUrl(updateModel);
         if (!await _isDownloadable(client, apkUrl, updateModel.versionCode)) {
           debugPrint('[UpdateService] APK for #$remoteVersionCode not published yet: $apkUrl');
@@ -247,8 +337,18 @@ class UpdateService {
   Future<bool> _isDownloadable(http.Client client, String url, int versionCode) async {
     if (url.isEmpty) return false;
     try {
-      final res = await client.head(_bust(url, versionCode)).timeout(const Duration(seconds: 8));
-      return res.statusCode == 200;
+      final res = await client.head(_bust(url, versionCode)).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) return true;
+      if (res.statusCode == 404) {
+        // Fastly CDN on GitHub raw can briefly cache 404 for newly pushed releases.
+        // Test with range request before concluding it's unavailable.
+        final getRes = await client.get(
+          _bust(url, versionCode),
+          headers: {'Range': 'bytes=0-10'},
+        ).timeout(const Duration(seconds: 5));
+        return getRes.statusCode == 200 || getRes.statusCode == 206;
+      }
+      return false;
     } catch (_) {
       // Network hiccup on HEAD only: don't hide a real update, the download reports errors itself.
       return true;

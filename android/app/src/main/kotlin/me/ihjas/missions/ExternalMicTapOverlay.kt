@@ -250,18 +250,18 @@ class ExternalMicTapOverlay(private val service: AccessibilityService) {
 
             // Subtitle: Tap Candidate or Prompt
             if (hasCandidate) {
-                val candidateLabel = when {
-                    !candidateDesc.isNullOrEmpty() -> "✓ $candidateDesc"
-                    !candidateId.isNullOrEmpty() -> "✓ ${candidateId!!.substringAfterLast('/')}"
-                    !candidateText.isNullOrEmpty() -> "✓ $candidateText"
-                    else -> "✓ Tapped (${(candidateXRatio * 100).toInt()}%, ${(candidateYRatio * 100).toInt()}%)"
+                val tag = candidateDesc ?: candidateText ?: candidateId?.substringAfterLast('/')
+                val candidateLabel = if (!tag.isNullOrEmpty()) {
+                    "✓ Touch ${(candidateXRatio * 100).toInt()}%,${(candidateYRatio * 100).toInt()}% ($tag)"
+                } else {
+                    "✓ Touch (${(candidateXRatio * 100).toInt()}%, ${(candidateYRatio * 100).toInt()}%)"
                 }
-                val truncated = if (candidateLabel.length > 20) candidateLabel.take(18) + ".." else candidateLabel
+                val truncated = if (candidateLabel.length > 22) candidateLabel.take(20) + ".." else candidateLabel
                 subTextPaint.color = TEXT_WHITE
                 canvas.drawText(truncated, dp(28f).toFloat(), h / 2f + dp(11f), subTextPaint)
             } else {
                 subTextPaint.color = TEXT_MUTED
-                canvas.drawText("Tap mic in app...", dp(28f).toFloat(), h / 2f + dp(11f), subTextPaint)
+                canvas.drawText("Tap mic on screen...", dp(28f).toFloat(), h / 2f + dp(11f), subTextPaint)
             }
 
             // Buttons layout on right side

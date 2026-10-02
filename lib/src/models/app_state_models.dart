@@ -299,11 +299,11 @@ class AppSettings {
     'gemini-1.5-pro',
   ];
   static const List<String> defaultLiveModels = [
-    'gemini-3.8-flash-live-preview',
-    'gemini-3.1-flash-live-preview',
-    'gemini-2.0-flash-realtime-exp',
-    'gemini-2.0-flash-exp',
     'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-2.5-flash',
+    'gemini-1.5-flash',
+    'gemini-2.0-flash-realtime-exp',
   ];
 
   AppSettings({
@@ -423,6 +423,8 @@ class AppSettings {
             .where((e) => e.isNotEmpty)
             .toList();
         final list = (parsed != null && parsed.isNotEmpty) ? parsed : List<String>.from(defaultLiveModels);
+        // Prune broken / non-existent model tags that cause live link hangs
+        list.removeWhere((m) => m.contains('3.8') || m.contains('3.1') || m.contains('live-preview'));
         for (final m in defaultLiveModels) {
           if (!list.contains(m)) list.add(m);
         }

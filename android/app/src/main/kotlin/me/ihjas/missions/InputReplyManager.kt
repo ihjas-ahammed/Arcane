@@ -278,18 +278,28 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 var desc: String? = event.contentDescription?.toString()
                 var text: String? = if (event.text.isNotEmpty()) event.text.joinToString("") else null
 
+                val dm = service.resources.displayMetrics
                 if (node != null) {
                     node.getBoundsInScreen(rect)
-                    viewId = node.viewIdResourceName
+                    // If container spans large screen area and has children, drill down to specific clickable child
+                    if (rect.width() > (dm.widthPixels * 0.7f) && rect.height() > (dm.heightPixels * 0.35f) && node.childCount > 0) {
+                        val leaf = findSmallestClickableNode(node, dm)
+                        if (leaf != null) {
+                            leaf.getBoundsInScreen(rect)
+                            if (leaf.viewIdResourceName != null) viewId = leaf.viewIdResourceName
+                            if (leaf.contentDescription != null) desc = leaf.contentDescription.toString()
+                            if (leaf.text != null) text = leaf.text.toString()
+                        }
+                    }
+                    if (viewId == null) viewId = node.viewIdResourceName
                     if (desc.isNullOrEmpty()) desc = node.contentDescription?.toString()
                     if (text.isNullOrEmpty()) text = node.text?.toString()
                 }
 
-                val dm = service.resources.displayMetrics
                 val centerX = if (rect.width() > 0) rect.centerX().coerceAtLeast(0) else (dm.widthPixels / 2)
                 val centerY = if (rect.height() > 0) rect.centerY().coerceAtLeast(0) else (dm.heightPixels - 100)
-                val xRatio = if (dm.widthPixels > 0) centerX.toFloat() / dm.widthPixels else 0.5f
-                val yRatio = if (dm.heightPixels > 0) centerY.toFloat() / dm.heightPixels else 0.85f
+                val xRatio = if (dm.widthPixels > 0) (centerX.toFloat() / dm.widthPixels).coerceIn(0.01f, 0.99f) else 0.5f
+                val yRatio = if (dm.heightPixels > 0) (centerY.toFloat() / dm.heightPixels).coerceIn(0.01f, 0.99f) else 0.85f
 
                 addWaitStep(deltaSec)
                 val step = mutableMapOf<String, Any?>(
@@ -498,41 +508,52 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
 
             "click" -> {
-                val viewId = step["viewId"] as? String
-                val text = step["text"] as? String
-                val desc = step["desc"] as? String
-
-                var clicked = false
-                // Try semantic node click first
-                if (!viewId.isNullOrEmpty()) {
-                    clicked = clickNodeByViewId(viewId)
+                val dm = service.resources.displayMetrics
+                val xRatio = (step["xRatio"] as? Number)?.toFloat()
+                val yRatio = (step["yRatio"] as? Number)?.toFloat()
+                val targetX = if (xRatio != null && xRatio in 0.0f..1.0f) {
+                    xRatio * dm.widthPixels
+                } else {
+                    (step["x"] as? Number)?.toFloat() ?: (dm.widthPixels / 2f)
                 }
-                if (!clicked && !text.isNullOrEmpty()) {
-                    clicked = clickNodeByText(text)
-                }
-                if (!clicked && !desc.isNullOrEmpty()) {
-                    clicked = clickNodeByDesc(desc)
+                val targetY = if (yRatio != null && yRatio in 0.0f..1.0f) {
+                    yRatio * dm.heightPixels
+                } else {
+                    (step["y"] as? Number)?.toFloat() ?: (dm.heightPixels / 2f)
                 }
 
-                // If this is a send/submit button and wasn't clicked, try smart send detection
-                if (!clicked) {
-                    val isSendAction = (desc?.contains("send", ignoreCase = true) == true) ||
-                                       (viewId?.contains("send", ignoreCase = true) == true) ||
-                                       (text?.contains("send", ignoreCase = true) == true)
-                    if (isSendAction) {
-                        clicked = clickSmartSendButton()
+                // 1. Primary execution: Accurate touch coordinate tap!
+                // Directly dispatches physical tap gesture to the exact touch coordinates recorded.
+                var tapped = false
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    tapped = dispatchTapGesture(targetX, targetY, 50L)
+                    Log.i(TAG, "Replayed step 'click' via touch tap at ($targetX, $targetY) - result=$tapped")
+                }
+
+                // 2. Secondary fallback: Look for button nodes only if gesture dispatch failed
+                if (!tapped) {
+                    val viewId = step["viewId"] as? String
+                    val text = step["text"] as? String
+                    val desc = step["desc"] as? String
+
+                    var clicked = false
+                    if (!viewId.isNullOrEmpty()) {
+                        clicked = clickNodeByViewId(viewId)
                     }
-                }
-
-                // Fallback to coordinates
-                if (!clicked) {
-                    val dm = service.resources.displayMetrics
-                    val x = (step["x"] as? Number)?.toFloat()
-                        ?: ((step["xRatio"] as? Number)?.toFloat()?.times(dm.widthPixels) ?: (dm.widthPixels / 2f))
-                    val y = (step["y"] as? Number)?.toFloat()
-                        ?: ((step["yRatio"] as? Number)?.toFloat()?.times(dm.heightPixels) ?: (dm.heightPixels / 2f))
-
-                    dispatchTapGesture(x, y, 50L)
+                    if (!clicked && !text.isNullOrEmpty()) {
+                        clicked = clickNodeByText(text)
+                    }
+                    if (!clicked && !desc.isNullOrEmpty()) {
+                        clicked = clickNodeByDesc(desc)
+                    }
+                    if (!clicked) {
+                        val isSendAction = (desc?.contains("send", ignoreCase = true) == true) ||
+                                           (viewId?.contains("send", ignoreCase = true) == true) ||
+                                           (text?.contains("send", ignoreCase = true) == true)
+                        if (isSendAction) {
+                            clickSmartSendButton()
+                        }
+                    }
                 }
                 SystemClock.sleep((300 / speed).toLong().coerceAtLeast(100L))
             }
@@ -636,14 +657,42 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         }
     }
 
-    private fun dispatchTapGesture(x: Float, y: Float, durationMs: Long) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
+    private fun findSmallestClickableNode(parent: AccessibilityNodeInfo, dm: android.util.DisplayMetrics): AccessibilityNodeInfo? {
+        var smallest: AccessibilityNodeInfo? = null
+        var minArea = Long.MAX_VALUE
+        val r = Rect()
+
+        fun search(node: AccessibilityNodeInfo) {
+            node.getBoundsInScreen(r)
+            val w = r.width()
+            val h = r.height()
+            if (w > 0 && h > 0 && w < (dm.widthPixels * 0.8f) && h < (dm.heightPixels * 0.4f)) {
+                val area = w.toLong() * h.toLong()
+                val isInteractive = node.isClickable ||
+                                    node.contentDescription?.contains("send", ignoreCase = true) == true ||
+                                    node.viewIdResourceName?.contains("send", ignoreCase = true) == true
+                if (area < minArea && isInteractive) {
+                    minArea = area
+                    smallest = node
+                }
+            }
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i) ?: continue
+                search(child)
+            }
+        }
+        search(parent)
+        return smallest
+    }
+
+    private fun dispatchTapGesture(x: Float, y: Float, durationMs: Long): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return false
         val path = Path().apply {
             moveTo(x, y)
         }
         val stroke = GestureDescription.StrokeDescription(path, 0, durationMs)
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
-        service.dispatchGesture(gesture, null, null)
+        return service.dispatchGesture(gesture, null, null)
     }
 
     private fun dispatchSwipeGesture(path: Path, durationMs: Long) {

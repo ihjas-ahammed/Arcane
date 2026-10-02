@@ -16,9 +16,7 @@ class AIService {
 
   static bool isLiveModel(String modelName) {
     final lower = modelName.toLowerCase();
-    return lower.contains('live') ||
-        lower.contains('realtime') ||
-        lower.contains('flash-exp');
+    return lower.contains('realtime');
   }
 
   /// Sends [prompt] over the Gemini Live API (WebSocket, TEXT modality) and
@@ -35,7 +33,20 @@ class AIService {
     final completer = Completer<String>();
     bool setupDone = false;
 
-    await channel.ready;
+    // Timeout connecting / setup after 2.5s to prevent long hangs on Analyzing tactical data
+    final setupTimer = Timer(const Duration(milliseconds: 2500), () {
+      if (!setupDone && !completer.isCompleted) {
+        completer.completeError(Exception('Gemini Live session setup timed out (2.5s).'));
+      }
+    });
+
+    try {
+      await channel.ready.timeout(const Duration(milliseconds: 2000));
+    } catch (e) {
+      setupTimer.cancel();
+      try { await channel.sink.close(); } catch (_) {}
+      throw Exception('Gemini Live WebSocket connect failed: $e');
+    }
 
     final sub = channel.stream.listen(
       (data) {
@@ -57,6 +68,7 @@ class AIService {
 
           if (msg.containsKey('setupComplete')) {
             setupDone = true;
+            setupTimer.cancel();
             channel.sink.add(jsonEncode({
               'clientContent': {
                 'turns': [
@@ -98,7 +110,11 @@ class AIService {
       },
       onDone: () {
         if (!completer.isCompleted) {
-          completer.complete(buffer.toString());
+          if (buffer.isEmpty) {
+            completer.completeError(Exception('Live stream closed without response.'));
+          } else {
+            completer.complete(buffer.toString());
+          }
         }
       },
       cancelOnError: true,
@@ -117,10 +133,11 @@ class AIService {
 
     String result;
     try {
-      result = await completer.future.timeout(const Duration(seconds: 15));
+      result = await completer.future.timeout(const Duration(seconds: 4));
     } finally {
+      setupTimer.cancel();
       await sub.cancel();
-      await channel.sink.close();
+      try { await channel.sink.close(); } catch (_) {}
     }
 
     if (!setupDone) throw Exception('Live session setup never completed.');

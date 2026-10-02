@@ -171,7 +171,10 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
     setState(() => _isSending = true);
 
     final appProvider = Provider.of<AppProvider>(context, listen: false);
-    await appProvider.sendNoraMessage(queryText);
+    await appProvider.sendNoraMessage(
+      queryText,
+      isLiveVoice: _isLiveVoiceOpen || widget.isVoiceCommandLaunch,
+    );
 
     if (mounted) {
       setState(() => _isSending = false);

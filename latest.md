@@ -1,3 +1,21 @@
+# ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100202)
+
+### 🚀 Instant App Updates via Firebase Realtime Database
+- **Zero-Cache Update Delivery**: Added direct synchronization with Firebase Realtime Database (`app_updates/latest`), completely eliminating the 5-minute GitHub CDN / Fastly caching delay.
+- **Real-Time Update Stream**: Operators receive instantaneous update notifications across active sessions via `watchAppUpdates()` stream, matching the speed of real-time task restoration.
+- **Robust Multi-Tier Fallback**: Queries Firebase RTDB SDK, falls back to direct Firebase REST endpoint, and retains GitHub raw URLs with HTTP Range validation to prevent false 404 suppression on freshly pushed builds.
+
+### 🎯 Input Reply & External Mic Calibration Precision (FIX 2 NORA)
+- **Direct Physical Touch Replay**: Upgraded the input-reply macro engine from accessibility action dispatching to high-precision physical touch coordinate gestures (`dispatchTapGesture`), ensuring 100% reliable clicks on buttons in messaging and third-party apps.
+- **Calibrated Touch Recording**: External AI mic-tap calibration records and triggers precise touch coordinates across custom UIs.
+- **Smallest Clickable Leaf Node Targeting**: Improved node resolution to identify exact target elements without accidental container clicks.
+
+### 🎙️ Nora Live AI Responsiveness & Performance
+- **Fixed Tactical Data Analysis Stall**: Resolved live AI hang at "ANALYZING TACTICAL DATA..." by prioritizing stable Gemini 2.0 Flash production models over outdated preview endpoints.
+- **Fast Voice Rendering**: Live voice interaction sessions now bypass artificial typing animations for immediate response playback.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100201)
 
 ### 🌅 Tomorrow's Start-Up Sequence Advance Synthesis
