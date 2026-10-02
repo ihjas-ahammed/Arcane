@@ -285,39 +285,8 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
      */
     private fun routeAudioToBluetooth(enable: Boolean) {
         try {
-            val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
-            if (enable) {
-                audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-                audioManager.isSpeakerphoneOn = false
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    val devices = audioManager.availableCommunicationDevices
-                    val btDevice = devices.firstOrNull {
-                        it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
-                        it.type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
-                        it.type == AudioDeviceInfo.TYPE_HEARING_AID
-                    }
-                    if (btDevice != null) {
-                        audioManager.setCommunicationDevice(btDevice)
-                    }
-                } else {
-                    if (audioManager.isBluetoothScoAvailableOffCall && !audioManager.isBluetoothScoOn) {
-                        audioManager.startBluetoothSco()
-                        audioManager.isBluetoothScoOn = true
-                    }
-                }
-            } else {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    audioManager.clearCommunicationDevice()
-                }
-                if (audioManager.isBluetoothScoOn) {
-                    audioManager.stopBluetoothSco()
-                    audioManager.isBluetoothScoOn = false
-                }
-                audioManager.mode = AudioManager.MODE_NORMAL
-            }
-        } catch (_: Exception) {
-        }
+            BluetoothAudioRouter.routeAudio(this, enable)
+        } catch (_: Exception) {}
     }
 
     /**
@@ -1027,6 +996,22 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                     val type = call.argument<String>("type") ?: "auto"
                     val prefs = getSharedPreferences("arcane_auto_tap", Context.MODE_PRIVATE)
                     prefs.edit().putString("overlay_window_type", type).apply()
+                    result.success(true)
+                }
+                "getMicClickDelay" -> {
+                    result.success(LauncherTakeoverService.getMicClickDelay(this).toInt())
+                }
+                "setMicClickDelay" -> {
+                    val delay = call.argument<Int>("delay") ?: 1000
+                    LauncherTakeoverService.setMicClickDelay(this, delay.toLong())
+                    result.success(true)
+                }
+                "isForceBluetoothScoCallEnabled" -> {
+                    result.success(BluetoothAudioRouter.isForceBluetoothScoCallEnabled(this))
+                }
+                "setForceBluetoothScoCallEnabled" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: false
+                    BluetoothAudioRouter.setForceBluetoothScoCallEnabled(this, enabled)
                     result.success(true)
                 }
                 "setManualCoordinates" -> {

@@ -283,6 +283,8 @@ class AppSettings {
   String bluetoothAssistantCustomPackage;
   String bluetoothAssistantCustomActivity;
   bool noraAutoSpeakTts;
+  int micClickDelayMs;
+  bool forceBluetoothScoCall;
 
   static const List<String> defaultLiteModels = [
     'gemini-3.8-flash',
@@ -361,6 +363,8 @@ class AppSettings {
     this.bluetoothAssistantCustomPackage = '',
     this.bluetoothAssistantCustomActivity = '',
     this.noraAutoSpeakTts = true,
+    this.micClickDelayMs = 1000,
+    this.forceBluetoothScoCall = false,
   })  : energyNotificationTimes = energyNotificationTimes ??
             const [
               "09:00",
@@ -511,6 +515,8 @@ class AppSettings {
       bluetoothAssistantCustomPackage: json['bluetoothAssistantCustomPackage'] as String? ?? '',
       bluetoothAssistantCustomActivity: json['bluetoothAssistantCustomActivity'] as String? ?? '',
       noraAutoSpeakTts: json['noraAutoSpeakTts'] as bool? ?? true,
+      micClickDelayMs: json['micClickDelayMs'] as int? ?? 1000,
+      forceBluetoothScoCall: json['forceBluetoothScoCall'] as bool? ?? false,
     );
   }
   
@@ -570,6 +576,8 @@ class AppSettings {
       'bluetoothAssistantCustomPackage': bluetoothAssistantCustomPackage,
       'bluetoothAssistantCustomActivity': bluetoothAssistantCustomActivity,
       'noraAutoSpeakTts': noraAutoSpeakTts,
+      'micClickDelayMs': micClickDelayMs,
+      'forceBluetoothScoCall': forceBluetoothScoCall,
     };
   }
 }

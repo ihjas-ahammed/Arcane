@@ -1,3 +1,20 @@
+# ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100211)
+
+### 🎙️ Configurable Mic Tap Delay & Calibration for External Assistants
+- **Watch Mic Sync Latency Calibration**: Resolved an issue where external assistants (ChatGPT, Gemini, etc.) bound prematurely to the phone's built-in microphone and speaker when launched from external wearables or Bluetooth triggers. Wearables and headsets often require a brief interval (800ms–1500ms) to initialize their Bluetooth SCO audio channels.
+- **Configurable Delay Controls**: Added a customizable mic-tap delay setting in both the Custom Assistant Picker and Advanced AI Settings:
+  - Preset quick-select chips (`500ms`, `800ms`, `1000ms`, `1200ms`, `1500ms`, `2000ms`, `3000ms`).
+  - Fine-grained slider allowing adjustments from `200ms` up to `4000ms`.
+- **Intelligent Dispatch**: `LauncherTakeoverService` honors the configured delay when auto-tapping the external assistant's microphone button upon window transition or warm foreground activation.
+
+### 📞 Experimental Bluetooth Call SCO Audio Simulation
+- **Force Audio/Mic to Call-Only Smartwatches**: Added an optional tactical switch (`[EXPERIMENTAL · CALL-ONLY WATCHES]`) in Settings designed for smartwatches and Bluetooth accessories that only support phone call protocols (HFP/SCO) rather than standard media streaming.
+- **Bi-directional In-Call Audio Routing**: When enabled, Arcane simulates an active communication state (`MODE_IN_COMMUNICATION`), engages the Bluetooth SCO link, and directs both voice playback and microphone input to the connected Bluetooth wearable.
+- **Silent PCM Keep-Alive & Safety Watchdog**: Features a low-level silent PCM keep-alive audio track to prevent Android's audio server from tearing down the SCO link while waiting for the assistant app to bind, along with an automated 60-second safety watchdog timeout to prevent accidental permanent in-call audio locks.
+- **Optional & OEM-Guarded**: Marked clearly as experimental since behavior varies across Android OEM audio stacks; disabled by default to ensure maximum stability.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100210)
 
 ### 🎯 Input-Reply Calibration, Keyboard Interception & Send Button Accuracy

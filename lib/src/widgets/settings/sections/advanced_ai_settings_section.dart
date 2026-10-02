@@ -568,7 +568,101 @@ class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "MIC TAP DELAY",
+                      style: TextStyle(
+                        color: JweTheme.isLight ? JweTheme.textMid : AppTheme.fhTextSecondary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    Text(
+                      "${appProvider.settings.micClickDelayMs} ms",
+                      style: TextStyle(
+                        color: JweTheme.isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary,
+                        fontSize: 10.5,
+                        fontFamily: 'RobotoMono',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: appProvider.settings.micClickDelayMs.toDouble().clamp(200.0, 4000.0),
+                  min: 200.0,
+                  max: 4000.0,
+                  divisions: 38,
+                  activeColor: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+                  onChanged: (v) {
+                    setState(() {
+                      appProvider.settings.micClickDelayMs = v.round();
+                    });
+                  },
+                  onChangeEnd: (v) async {
+                    final d = v.round();
+                    await AssistantRoutingService.instance.setMicClickDelay(d);
+                    appProvider.setSettings(appProvider.settings);
+                  },
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: (JweTheme.isLight ? JweTheme.bgCanvas : Colors.black26),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: appProvider.settings.forceBluetoothScoCall
+                          ? (JweTheme.isLight ? const Color(0xFFD97706) : JweTheme.accentAmber)
+                          : (JweTheme.isLight ? JweTheme.border : Colors.white12),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "FORCE BLUETOOTH CALL SCO (EXPERIMENTAL)",
+                              style: TextStyle(
+                                color: appProvider.settings.forceBluetoothScoCall
+                                    ? (JweTheme.isLight ? const Color(0xFFD97706) : JweTheme.accentAmber)
+                                    : (JweTheme.isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary),
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              "Simulates call state to force audio/mic on call-only smartwatches. May fail on some devices.",
+                              style: TextStyle(
+                                color: JweTheme.isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
+                                fontSize: 9.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: appProvider.settings.forceBluetoothScoCall,
+                        activeColor: JweTheme.isLight ? const Color(0xFFD97706) : JweTheme.accentAmber,
+                        onChanged: (val) async {
+                          setState(() {
+                            appProvider.settings.forceBluetoothScoCall = val;
+                          });
+                          await AssistantRoutingService.instance.setForceBluetoothScoCallEnabled(val);
+                          appProvider.setSettings(appProvider.settings);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(

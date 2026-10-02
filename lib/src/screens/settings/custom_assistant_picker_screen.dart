@@ -41,6 +41,8 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
   double _manualXRatio = 0.5;
   double _manualYRatio = 0.85;
   bool _showManualTuner = false;
+  int _micClickDelayMs = 1000;
+  bool _forceBluetoothScoCall = false;
 
   @override
   void initState() {
@@ -86,6 +88,8 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
     final method = await AssistantRoutingService.instance.getCalibrationMethod();
     final winType = await AssistantRoutingService.instance.getOverlayWindowType();
     final unlockInfo = await AssistantRoutingService.instance.getUnlockGestureInfo();
+    final micDelay = await AssistantRoutingService.instance.getMicClickDelay();
+    final forceSco = await AssistantRoutingService.instance.isForceBluetoothScoCallEnabled();
 
     setState(() => _isLoadingApps = true);
     final apps = await AssistantRoutingService.instance.getAllInstalledApps();
@@ -96,6 +100,8 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
       _calibrationMethod = method;
       _overlayWindowType = winType;
       _unlockGestureInfo = unlockInfo;
+      _micClickDelayMs = micDelay;
+      _forceBluetoothScoCall = forceSco;
       _allApps = apps;
       _isLoadingApps = false;
       _applyAppFilter();
@@ -1233,7 +1239,216 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
               ),
             ),
           ],
-          const SizedBox(height: 12),
+          // ── Mic Tap Delay (Watch Audio Sync Calibration) ─────────────────────
+          Container(
+            margin: const EdgeInsets.only(top: 10, bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: panelColor,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: borderColor.withValues(alpha: 0.8),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.timer_outlined, size: 15, color: accentColor),
+                        const SizedBox(width: 6),
+                        Text(
+                          "MIC TAP DELAY (WATCH AUDIO SYNC)",
+                          style: TextStyle(
+                            color: accentColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      "${_micClickDelayMs} ms (${(_micClickDelayMs / 1000).toStringAsFixed(1)}s)",
+                      style: TextStyle(
+                        color: primaryTextColor,
+                        fontSize: 11,
+                        fontFamily: 'RobotoMono',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  "Delay before auto-clicking the mic switch. Increase if your watch takes a moment to establish its mic channel so the assistant doesn't default to the phone's built-in mic/speaker.",
+                  style: TextStyle(
+                    color: secondaryTextColor,
+                    fontSize: 10.5,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [500, 800, 1000, 1200, 1500, 2000, 3000].map((d) {
+                    final isSel = _micClickDelayMs == d;
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(4),
+                      onTap: () async {
+                        setState(() => _micClickDelayMs = d);
+                        await AssistantRoutingService.instance.setMicClickDelay(d);
+                        final appProvider = Provider.of<AppProvider>(context, listen: false);
+                        appProvider.settings.micClickDelayMs = d;
+                        appProvider.setSettings(appProvider.settings);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isSel
+                              ? accentColor.withValues(alpha: 0.2)
+                              : cardColor,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: isSel
+                                ? accentColor
+                                : borderColor.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Text(
+                          "${d}ms",
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                            color: isSel ? accentColor : primaryTextColor,
+                            fontFamily: 'RobotoMono',
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 6),
+                Slider(
+                  value: _micClickDelayMs.toDouble().clamp(200.0, 4000.0),
+                  min: 200.0,
+                  max: 4000.0,
+                  divisions: 38,
+                  activeColor: accentColor,
+                  onChanged: (v) {
+                    setState(() => _micClickDelayMs = v.round());
+                  },
+                  onChangeEnd: (v) async {
+                    final d = v.round();
+                    await AssistantRoutingService.instance.setMicClickDelay(d);
+                    final appProvider = Provider.of<AppProvider>(context, listen: false);
+                    appProvider.settings.micClickDelayMs = d;
+                    appProvider.setSettings(appProvider.settings);
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          // ── Experimental: Force Bluetooth Call SCO Audio ─────────────────────
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: panelColor,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _forceBluetoothScoCall
+                    ? (JweTheme.isLight ? const Color(0xFFD97706) : JweTheme.accentAmber)
+                    : borderColor.withValues(alpha: 0.8),
+                width: _forceBluetoothScoCall ? 1.2 : 1.0,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: JweTheme.isLight
+                                      ? const Color(0xFFFFF3CD)
+                                      : const Color(0x33FFB300),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: JweTheme.isLight
+                                        ? const Color(0xFFD97706)
+                                        : JweTheme.accentAmber,
+                                  ),
+                                ),
+                                child: Text(
+                                  "EXPERIMENTAL",
+                                  style: TextStyle(
+                                    color: JweTheme.isLight
+                                        ? const Color(0xFFB45309)
+                                        : JweTheme.accentAmber,
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  "FORCE BLUETOOTH CALL SCO AUDIO",
+                                  style: TextStyle(
+                                    color: primaryTextColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            "Simulates an in-call audio state (Bluetooth SCO) to force audio and microphone through smartwatches or Bluetooth headsets that only support phone calls. Optional feature: high chance of failure or audio glitches across different Android ROMs.",
+                            style: TextStyle(
+                              color: secondaryTextColor,
+                              fontSize: 10.5,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Switch(
+                      value: _forceBluetoothScoCall,
+                      activeColor: JweTheme.isLight ? const Color(0xFFD97706) : JweTheme.accentAmber,
+                      onChanged: (val) async {
+                        setState(() => _forceBluetoothScoCall = val);
+                        await AssistantRoutingService.instance.setForceBluetoothScoCallEnabled(val);
+                        final appProvider = Provider.of<AppProvider>(context, listen: false);
+                        appProvider.settings.forceBluetoothScoCall = val;
+                        appProvider.setSettings(appProvider.settings);
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
 
           // ── Action Buttons ──────────────────────────────────────────────────
           Row(

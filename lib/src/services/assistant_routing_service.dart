@@ -432,4 +432,48 @@ class AssistantRoutingService {
       return false;
     }
   }
+
+  /// Gets the delay (in milliseconds) before tapping the mic after opening the assistant.
+  Future<int> getMicClickDelay() async {
+    try {
+      final res = await _channel.invokeMethod<int>('getMicClickDelay');
+      return res ?? 1000;
+    } catch (e) {
+      return 1000;
+    }
+  }
+
+  /// Sets the delay (in milliseconds) before tapping the mic after opening the assistant.
+  Future<bool> setMicClickDelay(int delayMs) async {
+    try {
+      final res = await _channel.invokeMethod<bool>('setMicClickDelay', {
+        'delay': delayMs,
+      });
+      return res ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Checks if forced Bluetooth SCO Call audio simulation is enabled.
+  Future<bool> isForceBluetoothScoCallEnabled() async {
+    try {
+      final res = await _channel.invokeMethod<bool>('isForceBluetoothScoCallEnabled');
+      return res ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Enables or disables forced Bluetooth SCO Call audio simulation.
+  Future<bool> setForceBluetoothScoCallEnabled(bool enabled) async {
+    try {
+      final res = await _channel.invokeMethod<bool>('setForceBluetoothScoCallEnabled', {
+        'enabled': enabled,
+      });
+      return res ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
 }

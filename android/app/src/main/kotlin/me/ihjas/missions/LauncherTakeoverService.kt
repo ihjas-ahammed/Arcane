@@ -145,10 +145,37 @@ class LauncherTakeoverService : AccessibilityService() {
             )
         }
 
+        fun getMicClickDelay(context: Context): Long {
+            val prefs = context.getSharedPreferences(PREFS_AUTO_TAP, Context.MODE_PRIVATE)
+            return try {
+                prefs.getLong("mic_click_delay_ms", 1000L)
+            } catch (_: Exception) {
+                prefs.getInt("mic_click_delay_ms", 1000).toLong()
+            }
+        }
+
+        fun setMicClickDelay(context: Context, delayMs: Long) {
+            val prefs = context.getSharedPreferences(PREFS_AUTO_TAP, Context.MODE_PRIVATE)
+            prefs.edit().putLong("mic_click_delay_ms", delayMs.coerceIn(100L, 10000L)).apply()
+        }
+
         fun armAutoTap(context: Context, targetPackage: String) {
             if (hasRecordedTap(context, targetPackage)) {
                 autoTapPendingPackage = targetPackage
                 activeInstance?.updateEventFilter()
+
+                // If package is already the active window (e.g. testing in foreground), execute with delay directly
+                val currentPkg = activeInstance?.rootInActiveWindow?.packageName?.toString()
+                if (currentPkg == targetPackage) {
+                    val delay = getMicClickDelay(context)
+                    activeInstance?.mainHandler?.postDelayed({
+                        if (autoTapPendingPackage == targetPackage) {
+                            autoTapPendingPackage = null
+                            activeInstance?.updateEventFilter()
+                            activeInstance?.executeRecordedTap(targetPackage)
+                        }
+                    }, delay)
+                }
             }
         }
 
@@ -647,9 +674,11 @@ class LauncherTakeoverService : AccessibilityService() {
         if (pendingAuto != null && pkg == pendingAuto && event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             autoTapPendingPackage = null
             updateEventFilter()
+            val delayMs = getMicClickDelay(this)
+            Log.i(TAG, "Window changed for $pendingAuto. Waiting $delayMs ms for watch/Bluetooth mic ready before auto-tap...")
             mainHandler.postDelayed({
                 executeRecordedTap(pendingAuto)
-            }, 650)
+            }, delayMs)
             return
         }
 
