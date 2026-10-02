@@ -1,3 +1,19 @@
+# ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100206)
+
+### 🔋 Tactical Status Bar (Battery & Range Bars)
+- **Native Battery & Network Telemetry**: Integrated real-time hardware telemetry (`LauncherBridge.getBatteryAndNetworkStatus`) fetching battery percentage, charging state, active transport (`WIFI`, `CELLULAR`), network generation (`5G`, `4G`, etc.), and signal strength ($0\dots4$).
+- **Fullscreen Tactical Status Bar**: Mounted `TacticalStatusBar` at the top of the launcher when running in fullscreen mode.
+- **Stepped Range Indicator**: Displays 4 stepped signal strength bars styled in Valorant teal with offline/alert fail-safes.
+- **Dynamic Battery Gauge**: Features battery percentage readout, charging lightning icon, and tactical dual-tone battery bar with alert thresholds (Teal $>30\%$, Amber $15\text{--}30\%$, Red $<15\%$).
+- **Tactical Shade Expansion**: Tapping the status bar expands the system notification shade via native accessibility commands; long-pressing forces instant telemetry sync with haptic feedback.
+
+### 🛡️ Valorant Tactical Styling Across All Launcher & Home Widgets
+- **Hosted Android AppWidget Enclosure**: Encased non-adaptive native Android `AndroidView` widgets (`LauncherAppWidget`) into a chamfered tactical HUD frame with corner brackets (`Chamfer4CornerClipper`, `TacticalCardBorderPainter`), title headers (`// APP_WIDGET: [NAME]`), and dual-theme adaptation.
+- **Adaptive Home Widgets**: Upgraded `DayPlanHomeWidget`, `FinanceHomeWidget`, `JournalHomeWidget`, and `BusHomeWidget` with chamfered geometry and tactical borders supporting light and dark themes.
+- **Launcher Widget Deck Alignment**: Polished responsive card frames, tactical clock, focus gauge, system telemetry matrix, and quick notes pad.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100205)
 
 ### 🔄 Background & Realtime Cloud Sync Engine

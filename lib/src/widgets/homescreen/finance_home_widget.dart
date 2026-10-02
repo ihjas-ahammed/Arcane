@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
 
 class FinanceHomeWidget extends StatelessWidget {
   final double balance;
@@ -33,18 +35,25 @@ class FinanceHomeWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final clampedPct = budgetPct.clamp(0, 100);
+    final bgPanel = JweTheme.isLight ? JweTheme.panel : const Color(0xFF0D1426);
     return Material(
       color: Colors.transparent,
-      child: Container(
+      child: SizedBox(
         width: 400,
         height: 200,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppTheme.fhBgDark,
-          border: Border.all(color: AppTheme.fhAccentGold, width: 2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
+        child: ClipPath(
+          clipper: const Chamfer4CornerClipper(chamfer: 10),
+          child: CustomPaint(
+            foregroundPainter: TacticalCardBorderPainter(
+              themeColor: AppTheme.fhAccentGold,
+              chamfer: 10,
+              bracketSize: 12,
+              leftBarWidth: 3.0,
+            ),
+            child: Container(
+              color: bgPanel,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header Row
@@ -163,7 +172,10 @@ class FinanceHomeWidget extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),
+  ),
+),
+);
   }
 
   Widget _buildCol(String label, String value, Color valColor) {

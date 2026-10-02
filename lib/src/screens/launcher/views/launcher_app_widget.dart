@@ -7,9 +7,11 @@ import 'package:missions/src/screens/launcher/launcher_models.dart';
 import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/launcher_service.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
 
-/// A real Android AppWidget hosted through the `arcane/appwidget` platform view.
-/// Long-press opens its menu (resize, reorder, reconfigure, remove).
+/// A real Android AppWidget hosted through the `arcane/appwidget` platform view,
+/// encased in a Valorant tactical chamfered HUD frame to adapt non-native Android
+/// widgets to Arcane's visual language.
 class LauncherAppWidget extends StatefulWidget {
   final LauncherWidgetEntry entry;
 
@@ -38,6 +40,9 @@ class _LauncherAppWidgetState extends State<LauncherAppWidget> {
       context: context,
       backgroundColor: LauncherTheme.panel,
       showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (ctx) {
         Widget item(IconData icon, String label, VoidCallback onTap, {Color? color}) => ListTile(
               dense: true,
@@ -54,8 +59,25 @@ class _LauncherAppWidgetState extends State<LauncherAppWidget> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                child: Text(entry.label.toUpperCase(),
-                    style: LauncherTheme.rajdhani(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 1.6, color: LauncherTheme.muted)),
+                child: Row(
+                  children: [
+                    Container(width: 4, height: 14, color: LauncherTheme.red),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        entry.label.toUpperCase(),
+                        style: LauncherTheme.rajdhani(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.6,
+                          color: LauncherTheme.muted,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               item(MdiIcons.arrowExpandVertical, 'Taller', () => service.resizeWidget(entry, entry.height + 48)),
               item(MdiIcons.arrowCollapseVertical, 'Shorter', () => service.resizeWidget(entry, entry.height - 48)),
@@ -73,31 +95,90 @@ class _LauncherAppWidgetState extends State<LauncherAppWidget> {
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
+    final accent = LauncherTheme.red;
+
     return GestureDetector(
       onLongPress: _showMenu,
-      child: SizedBox(
-        height: entry.height,
-        child: switch (_available) {
-          null => const SizedBox.shrink(),
-          false => _Unavailable(entry: entry),
-          true => LayoutBuilder(
-              builder: (context, constraints) {
-                final width = constraints.maxWidth.round();
-                return AndroidView(
-                  // Recreate the host view when its size changes so the provider gets the new size.
-                  key: ValueKey('${entry.id}-$width-${entry.height.round()}'),
-                  viewType: 'arcane/appwidget',
-                  layoutDirection: Directionality.of(context),
-                  creationParams: {'id': entry.id, 'width': width, 'height': entry.height.round()},
-                  creationParamsCodec: const StandardMessageCodec(),
-                  // Horizontal swipes still page the launcher; taps and in-widget scrolls go to the widget.
-                  gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                    Factory<VerticalDragGestureRecognizer>(VerticalDragGestureRecognizer.new),
+      child: ClipPath(
+        clipper: const Chamfer4CornerClipper(chamfer: 10.0),
+        child: CustomPaint(
+          foregroundPainter: TacticalCardBorderPainter(
+            themeColor: accent,
+            chamfer: 10.0,
+            bracketSize: 12.0,
+            leftBarWidth: 3.0,
+            borderColor: LauncherTheme.line,
+          ),
+          child: Container(
+            color: LauncherTheme.panel,
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Tactical Title Bar ──
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 4, 4),
+                  child: Row(
+                    children: [
+                      Container(width: 4, height: 10, color: accent),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '// APP_WIDGET: ${entry.label.toUpperCase()}',
+                          style: LauncherTheme.rajdhani(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.4,
+                            color: LauncherTheme.muted,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      InkWell(
+                        onTap: _showMenu,
+                        borderRadius: BorderRadius.circular(4),
+                        child: Padding(
+                          padding: const EdgeInsets.all(3),
+                          child: Icon(MdiIcons.dotsVertical, size: 14, color: LauncherTheme.muted),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // ── Hosted Widget Surface ──
+                SizedBox(
+                  height: entry.height,
+                  child: switch (_available) {
+                    null => const SizedBox.shrink(),
+                    false => _Unavailable(entry: entry),
+                    true => LayoutBuilder(
+                        builder: (context, constraints) {
+                          final width = constraints.maxWidth.round();
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: AndroidView(
+                              // Recreate the host view when its size changes so the provider gets the new size.
+                              key: ValueKey('${entry.id}-$width-${entry.height.round()}'),
+                              viewType: 'arcane/appwidget',
+                              layoutDirection: Directionality.of(context),
+                              creationParams: {'id': entry.id, 'width': width, 'height': entry.height.round()},
+                              creationParamsCodec: const StandardMessageCodec(),
+                              // Horizontal swipes still page the launcher; taps and in-widget scrolls go to the widget.
+                              gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                                Factory<VerticalDragGestureRecognizer>(VerticalDragGestureRecognizer.new),
+                              },
+                            ),
+                          );
+                        },
+                      ),
                   },
-                );
-              },
+                ),
+              ],
             ),
-        },
+          ),
+        ),
       ),
     );
   }
@@ -111,22 +192,21 @@ class _Unavailable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: LauncherTheme.panel,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: LauncherTheme.line),
-      ),
+      color: LauncherTheme.panel,
       alignment: Alignment.center,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(MdiIcons.alertCircleOutline, size: 18, color: LauncherTheme.muted),
+          Icon(MdiIcons.alertCircleOutline, size: 16, color: LauncherTheme.red),
           const SizedBox(width: 8),
-          Text('${entry.label} is no longer available',
-              style: LauncherTheme.rajdhani(fontSize: 13, fontWeight: FontWeight.w600, color: LauncherTheme.muted)),
+          Text(
+            'FEED OFFLINE: ${entry.label.toUpperCase()}',
+            style: LauncherTheme.rajdhani(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.0, color: LauncherTheme.muted),
+          ),
+          const SizedBox(width: 8),
           TextButton(
             onPressed: () => LauncherService.instance.removeWidget(entry),
-            child: Text('REMOVE', style: LauncherTheme.rajdhani(fontSize: 12, fontWeight: FontWeight.w700, color: LauncherTheme.red)),
+            child: Text('DISMISS', style: LauncherTheme.rajdhani(fontSize: 11, fontWeight: FontWeight.w700, color: LauncherTheme.red)),
           ),
         ],
       ),

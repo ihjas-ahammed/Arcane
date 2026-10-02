@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/task_calculations.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
 
 class DayPlanHomeWidget extends StatelessWidget {
   final List<ResolvedDayPlanItem> tasks;
@@ -31,23 +32,22 @@ class DayPlanHomeWidget extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
-      child: Container(
+      child: SizedBox(
         width: 400,
         height: 200,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: bgPanel,
-          border: Border.all(color: accentCyan, width: 1.5),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: accentCyan.withValues(alpha: JweTheme.isLight ? 0.08 : 0.05),
-              blurRadius: 16,
-              spreadRadius: 2,
+        child: ClipPath(
+          clipper: const Chamfer4CornerClipper(chamfer: 10),
+          child: CustomPaint(
+            foregroundPainter: TacticalCardBorderPainter(
+              themeColor: accentCyan,
+              chamfer: 10,
+              bracketSize: 12,
+              leftBarWidth: 3.0,
             ),
-          ],
-        ),
-        child: Column(
+            child: Container(
+              color: bgPanel,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header Row
@@ -220,8 +220,11 @@ class DayPlanHomeWidget extends StatelessWidget {
               ],
             ),
           ],
+            ),
+          ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

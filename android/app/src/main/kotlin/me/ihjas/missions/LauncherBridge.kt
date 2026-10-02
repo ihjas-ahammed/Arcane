@@ -22,9 +22,13 @@ import android.graphics.drawable.Drawable
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.location.LocationManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.net.wifi.WifiManager
+import android.os.BatteryManager
 import android.os.Build
+import android.telephony.TelephonyManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -371,6 +375,7 @@ class LauncherBridge(
 
             // System quick controls
             "getSystemStatus" -> result.success(getSystemStatus())
+            "getBatteryAndNetworkStatus" -> result.success(getBatteryAndNetworkStatus())
             "openSystemPanel" -> result.success(openSystemPanel(call.argument<String>("panel") ?: ""))
             "setTorch" -> result.success(setTorch(call.argument<Boolean>("on") ?: false))
 
@@ -828,6 +833,100 @@ class LauncherBridge(
             else lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
         } catch (_: Exception) { false }
         return mapOf("wifi" to wifi, "bluetooth" to bt, "airplane" to airplane, "location" to location, "torch" to torchOn)
+    }
+
+    private fun getBatteryAndNetworkStatus(): Map<String, Any?> {
+        val batteryIntent = try {
+            appContext.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        } catch (_: Exception) { null }
+        val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        val status = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val plugged = batteryIntent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) ?: 0
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                         status == BatteryManager.BATTERY_STATUS_FULL ||
+                         plugged > 0
+        val batteryPct = if (level >= 0 && scale > 0) ((level.toFloat() / scale.toFloat()) * 100).toInt() else 100
+
+        val cm = try { appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager } catch (_: Exception) { null }
+        val wm = try { appContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager } catch (_: Exception) { null }
+        val tm = try { appContext.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager } catch (_: Exception) { null }
+
+        var networkType = "OFFLINE"
+        var signalLevel = 0
+        var isWifi = false
+        var isCellular = false
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val activeNetwork = cm?.activeNetwork
+            val caps = cm?.getNetworkCapabilities(activeNetwork)
+            if (caps != null) {
+                if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                    isWifi = true
+                    networkType = "WIFI"
+                } else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+                    isCellular = true
+                    networkType = "CELLULAR"
+                } else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
+                    networkType = "ETH"
+                }
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            val info = cm?.activeNetworkInfo
+            if (info != null && info.isConnected) {
+                if (info.type == ConnectivityManager.TYPE_WIFI) {
+                    isWifi = true
+                    networkType = "WIFI"
+                } else if (info.type == ConnectivityManager.TYPE_MOBILE) {
+                    isCellular = true
+                    networkType = "CELLULAR"
+                }
+            }
+        }
+
+        if (isWifi) {
+            val wifiInfo = wm?.connectionInfo
+            val rssi = wifiInfo?.rssi ?: -127
+            signalLevel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                wm?.calculateSignalLevel(rssi) ?: 0
+            } else {
+                @Suppress("DEPRECATION")
+                WifiManager.calculateSignalLevel(rssi, 5)
+            }
+        } else if (isCellular) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val ss = tm?.signalStrength
+                signalLevel = ss?.level ?: 3
+            } else {
+                signalLevel = 3
+            }
+            val dataNetworkType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                try { tm?.dataNetworkType } catch (_: Exception) { TelephonyManager.NETWORK_TYPE_UNKNOWN }
+            } else {
+                @Suppress("DEPRECATION")
+                tm?.networkType
+            }
+            networkType = when (dataNetworkType) {
+                TelephonyManager.NETWORK_TYPE_NR -> "5G"
+                TelephonyManager.NETWORK_TYPE_LTE -> "4G"
+                TelephonyManager.NETWORK_TYPE_HSPAP,
+                TelephonyManager.NETWORK_TYPE_HSPA,
+                TelephonyManager.NETWORK_TYPE_HSDPA,
+                TelephonyManager.NETWORK_TYPE_UMTS -> "3G"
+                TelephonyManager.NETWORK_TYPE_EDGE,
+                TelephonyManager.NETWORK_TYPE_GPRS -> "2G"
+                else -> "LTE"
+            }
+        }
+
+        return mapOf(
+            "batteryLevel" to batteryPct.coerceIn(0, 100),
+            "isCharging" to isCharging,
+            "networkType" to networkType,
+            "signalLevel" to signalLevel.coerceIn(0, 4),
+            "isOnline" to (networkType != "OFFLINE")
+        )
     }
 
     private fun openSystemPanel(panel: String): Boolean {

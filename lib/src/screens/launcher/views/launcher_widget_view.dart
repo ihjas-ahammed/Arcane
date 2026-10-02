@@ -8,12 +8,15 @@ import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
 import 'package:missions/src/screens/launcher/views/launcher_command_deck.dart';
 import 'package:missions/src/screens/launcher/views/launcher_sheets.dart';
+import 'package:missions/src/screens/launcher/views/launcher_status_bar.dart';
 import 'package:missions/src/screens/settings/homescreen_widgets_preview_screen.dart';
 import 'package:missions/src/services/home_widget_service.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
 import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/widgets/homescreen_widgets.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
+import 'package:missions/theme/valorant_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -131,11 +134,13 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
     final provider = Provider.of<AppProvider>(context);
 
     return SafeArea(
+      top: false,
       child: Column(
         children: [
+          const TacticalStatusBar(),
           // ── Header ──────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 16, 12),
+            padding: const EdgeInsets.fromLTRB(20, 8, 16, 12),
             child: Row(
               children: [
                 Expanded(
@@ -266,21 +271,39 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
                 if (_activeTab == _WidgetTab.all) ...[
                   _buildSectionHeader('ANDROID WIDGETS', 'ANY INSTALLED APP WIDGET, ON YOUR HOME PAGE'),
                   const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(46),
-                      side: BorderSide(color: LauncherTheme.redSoft),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: () => showWidgetPicker(context),
-                    icon: Icon(MdiIcons.plus, color: LauncherTheme.red, size: 18),
-                    label: Text(
-                      'ADD ANDROID WIDGET',
-                      style: LauncherTheme.rajdhani(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.5,
-                        color: LauncherTheme.red,
+                  InkWell(
+                    onTap: () => showWidgetPicker(context),
+                    child: ClipPath(
+                      clipper: const Chamfer4CornerClipper(chamfer: 8),
+                      child: CustomPaint(
+                        foregroundPainter: TacticalCardBorderPainter(
+                          themeColor: LauncherTheme.red,
+                          chamfer: 8,
+                          bracketSize: 8,
+                          leftBarWidth: 2.5,
+                          borderColor: LauncherTheme.redSoft,
+                        ),
+                        child: Container(
+                          height: 46,
+                          color: LauncherTheme.panel,
+                          alignment: Alignment.center,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(MdiIcons.plus, color: LauncherTheme.red, size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                'ADD ANDROID WIDGET',
+                                style: LauncherTheme.rajdhani(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.5,
+                                  color: LauncherTheme.red,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -298,26 +321,30 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
     final isSelected = _activeTab == tab;
     return InkWell(
       onTap: () => setState(() => _activeTab = tab),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? LauncherTheme.red
-              : (LauncherTheme.isLight ? const Color(0xFFE8E2D6) : const Color(0xFF13161C)),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? LauncherTheme.red : LauncherTheme.line,
-            width: 1,
+      child: ClipPath(
+        clipper: const Chamfer4CornerClipper(chamfer: 6),
+        child: CustomPaint(
+          foregroundPainter: TacticalCardBorderPainter(
+            themeColor: isSelected ? LauncherTheme.red : LauncherTheme.line,
+            chamfer: 6,
+            bracketSize: 6,
+            leftBarWidth: isSelected ? 2.0 : 0.0,
+            borderColor: isSelected ? LauncherTheme.red : LauncherTheme.line,
           ),
-        ),
-        child: Text(
-          label,
-          style: LauncherTheme.rajdhani(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.4,
-            color: isSelected ? Colors.white : LauncherTheme.text,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            color: isSelected
+                ? LauncherTheme.red
+                : (LauncherTheme.isLight ? const Color(0xFFE8E2D6) : const Color(0xFF13161C)),
+            child: Text(
+              label,
+              style: LauncherTheme.rajdhani(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+                color: isSelected ? Colors.white : LauncherTheme.text,
+              ),
+            ),
           ),
         ),
       ),
@@ -527,64 +554,74 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
     final isLight = LauncherTheme.isLight;
     final focusPct = (live.progress * 100).clamp(0, 100).toInt();
 
+    final tealAccent = isLight ? const Color(0xFF009668) : ValorantColors.teal;
+
     return Row(
       children: [
         // Cyber Clock HUD
         Expanded(
           flex: 3,
-          child: Container(
-            height: 120,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: LauncherTheme.panel,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: LauncherTheme.line),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
+          child: ClipPath(
+            clipper: const Chamfer4CornerClipper(chamfer: 10),
+            child: CustomPaint(
+              foregroundPainter: TacticalCardBorderPainter(
+                themeColor: LauncherTheme.red,
+                chamfer: 10,
+                bracketSize: 10,
+                leftBarWidth: 3.0,
+                borderColor: LauncherTheme.line,
+              ),
+              child: Container(
+                height: 120,
+                padding: const EdgeInsets.all(14),
+                color: LauncherTheme.panel,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'TACTICAL TIME',
-                      style: LauncherTheme.rajdhani(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.5,
-                        color: LauncherTheme.muted,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'TACTICAL TIME',
+                          style: LauncherTheme.rajdhani(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5,
+                            color: LauncherTheme.muted,
+                          ),
+                        ),
+                        Icon(MdiIcons.radar, size: 14, color: LauncherTheme.red),
+                      ],
+                    ),
+                    ValueListenableBuilder<DateTime>(
+                      valueListenable: _clock,
+                      builder: (_, now, __) => Text(
+                        DateFormat('HH:mm:ss').format(now),
+                        style: LauncherTheme.rajdhani(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                          color: LauncherTheme.text,
+                          height: 1.0,
+                        ),
                       ),
                     ),
-                    Icon(MdiIcons.radar, size: 14, color: LauncherTheme.red),
+                    ValueListenableBuilder<DateTime>(
+                      valueListenable: _clock,
+                      builder: (_, now, __) => Text(
+                        DateFormat('EEE, d MMM yyyy').format(now).toUpperCase(),
+                        style: LauncherTheme.rajdhani(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.2,
+                          color: LauncherTheme.muted,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-                ValueListenableBuilder<DateTime>(
-                  valueListenable: _clock,
-                  builder: (_, now, __) => Text(
-                    DateFormat('HH:mm:ss').format(now),
-                    style: LauncherTheme.rajdhani(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                      color: LauncherTheme.text,
-                      height: 1.0,
-                    ),
-                  ),
-                ),
-                ValueListenableBuilder<DateTime>(
-                  valueListenable: _clock,
-                  builder: (_, now, __) => Text(
-                    DateFormat('EEE, d MMM yyyy').format(now).toUpperCase(),
-                    style: LauncherTheme.rajdhani(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.2,
-                      color: LauncherTheme.muted,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -592,51 +629,60 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
         // Focus Gauge HUD
         Expanded(
           flex: 2,
-          child: Container(
-            height: 120,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: LauncherTheme.panel,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: LauncherTheme.line),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Stack(
-                  alignment: Alignment.center,
+          child: ClipPath(
+            clipper: const Chamfer4CornerClipper(chamfer: 10),
+            child: CustomPaint(
+              foregroundPainter: TacticalCardBorderPainter(
+                themeColor: tealAccent,
+                chamfer: 10,
+                bracketSize: 10,
+                leftBarWidth: 3.0,
+                borderColor: LauncherTheme.line,
+              ),
+              child: Container(
+                height: 120,
+                padding: const EdgeInsets.all(12),
+                color: LauncherTheme.panel,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(
-                      width: 58,
-                      height: 58,
-                      child: CircularProgressIndicator(
-                        value: live.progress.clamp(0.05, 1.0),
-                        strokeWidth: 5,
-                        backgroundColor: isLight ? const Color(0xFFD8D2C5) : const Color(0xFF22262E),
-                        valueColor: AlwaysStoppedAnimation<Color>(LauncherTheme.red),
-                      ),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 58,
+                          height: 58,
+                          child: CircularProgressIndicator(
+                            value: live.progress.clamp(0.05, 1.0),
+                            strokeWidth: 5,
+                            backgroundColor: isLight ? const Color(0xFFD8D2C5) : const Color(0xFF22262E),
+                            valueColor: AlwaysStoppedAnimation<Color>(tealAccent),
+                          ),
+                        ),
+                        Text(
+                          '$focusPct%',
+                          style: GoogleFonts.teko(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: tealAccent,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 6),
                     Text(
-                      '$focusPct%',
+                      'FOCUS EFFICIENCY',
                       style: LauncherTheme.rajdhani(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: LauncherTheme.red,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                        color: LauncherTheme.muted,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'FOCUS EFFICIENCY',
-                  style: LauncherTheme.rajdhani(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                    color: LauncherTheme.muted,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -648,90 +694,98 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
   Widget _buildSystemMatrix(AppProvider provider) {
     final isLight = LauncherTheme.isLight;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: LauncherTheme.panel,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: LauncherTheme.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return ClipPath(
+      clipper: const Chamfer4CornerClipper(chamfer: 10),
+      child: CustomPaint(
+        foregroundPainter: TacticalCardBorderPainter(
+          themeColor: JweTheme.accentCyan,
+          chamfer: 10,
+          bracketSize: 12,
+          leftBarWidth: 3.0,
+          borderColor: LauncherTheme.line,
+        ),
+        child: Container(
+          color: LauncherTheme.panel,
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'SYSTEM TELEMETRY MATRIX',
-                style: LauncherTheme.rajdhani(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.8,
-                  color: LauncherTheme.muted,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'SYSTEM TELEMETRY MATRIX',
+                    style: LauncherTheme.rajdhani(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.8,
+                      color: LauncherTheme.muted,
+                    ),
+                  ),
+                  Text(
+                    isLight ? 'LIGHT MODE' : 'CYBER DARK',
+                    style: LauncherTheme.rajdhani(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                      color: LauncherTheme.red,
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                isLight ? 'LIGHT MODE' : 'CYBER DARK',
-                style: LauncherTheme.rajdhani(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                  color: LauncherTheme.red,
-                ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildSystemMatrixToggle(
+                    icon: MdiIcons.wifi,
+                    label: 'WiFi',
+                    isOn: _system['wifi'] ?? false,
+                    onTap: () => LauncherNative.openSystemPanel('wifi'),
+                  ),
+                  _buildSystemMatrixToggle(
+                    icon: MdiIcons.bluetooth,
+                    label: 'Bluetooth',
+                    isOn: _system['bluetooth'] ?? false,
+                    onTap: () => LauncherNative.openSystemPanel('bluetooth'),
+                  ),
+                  _buildSystemMatrixToggle(
+                    icon: MdiIcons.airplane,
+                    label: 'Airplane',
+                    isOn: _system['airplane'] ?? false,
+                    onTap: () => LauncherNative.openSystemPanel('airplane'),
+                  ),
+                  _buildSystemMatrixToggle(
+                    icon: isLight ? MdiIcons.weatherSunny : MdiIcons.moonWaningCrescent,
+                    label: 'Theme',
+                    isOn: !isLight,
+                    onTap: () {
+                      final newMode = isLight ? 'dark' : 'light';
+                      provider.setSettings(provider.settings..themeMode = newMode);
+                    },
+                  ),
+                  _buildSystemMatrixToggle(
+                    icon: MdiIcons.flashlight,
+                    label: 'Torch',
+                    isOn: _system['torch'] ?? false,
+                    onTap: () async {
+                      final on = !(_system['torch'] ?? false);
+                      if (await LauncherNative.setTorch(on) && mounted) {
+                        setState(() => _system = {..._system, 'torch': on});
+                      }
+                    },
+                  ),
+                  _buildSystemMatrixToggle(
+                    icon: MdiIcons.crosshairsGps,
+                    label: 'GPS',
+                    isOn: _system['location'] ?? false,
+                    onTap: () => LauncherNative.openSystemPanel('location'),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildSystemMatrixToggle(
-                icon: MdiIcons.wifi,
-                label: 'WiFi',
-                isOn: _system['wifi'] ?? false,
-                onTap: () => LauncherNative.openSystemPanel('wifi'),
-              ),
-              _buildSystemMatrixToggle(
-                icon: MdiIcons.bluetooth,
-                label: 'Bluetooth',
-                isOn: _system['bluetooth'] ?? false,
-                onTap: () => LauncherNative.openSystemPanel('bluetooth'),
-              ),
-              _buildSystemMatrixToggle(
-                icon: MdiIcons.airplane,
-                label: 'Airplane',
-                isOn: _system['airplane'] ?? false,
-                onTap: () => LauncherNative.openSystemPanel('airplane'),
-              ),
-              _buildSystemMatrixToggle(
-                icon: isLight ? MdiIcons.weatherSunny : MdiIcons.moonWaningCrescent,
-                label: 'Theme',
-                isOn: !isLight,
-                onTap: () {
-                  final newMode = isLight ? 'dark' : 'light';
-                  provider.setSettings(provider.settings..themeMode = newMode);
-                },
-              ),
-              _buildSystemMatrixToggle(
-                icon: MdiIcons.flashlight,
-                label: 'Torch',
-                isOn: _system['torch'] ?? false,
-                onTap: () async {
-                  final on = !(_system['torch'] ?? false);
-                  if (await LauncherNative.setTorch(on) && mounted) {
-                    setState(() => _system = {..._system, 'torch': on});
-                  }
-                },
-              ),
-              _buildSystemMatrixToggle(
-                icon: MdiIcons.crosshairsGps,
-                label: 'GPS',
-                isOn: _system['location'] ?? false,
-                onTap: () => LauncherNative.openSystemPanel('location'),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -742,36 +796,37 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
     required bool isOn,
     required VoidCallback onTap,
   }) {
+    final isLight = LauncherTheme.isLight;
+    final activeTeal = isLight ? const Color(0xFF009668) : ValorantColors.teal;
+    final toggleColor = isOn ? activeTeal : LauncherTheme.line;
+
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: isOn ? LauncherTheme.red : (LauncherTheme.isLight ? const Color(0xFFE2DDD2) : const Color(0xFF1A1D24)),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isOn ? LauncherTheme.red : LauncherTheme.line,
-                width: 1,
+          ClipPath(
+            clipper: const Chamfer4CornerClipper(chamfer: 6),
+            child: CustomPaint(
+              foregroundPainter: TacticalCardBorderPainter(
+                themeColor: toggleColor,
+                chamfer: 6,
+                bracketSize: 4,
+                leftBarWidth: 0,
+                borderColor: toggleColor,
               ),
-              boxShadow: isOn
-                  ? [
-                      BoxShadow(
-                        color: LauncherTheme.red.withValues(alpha: 0.35),
-                        blurRadius: 10,
-                        spreadRadius: 1,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: isOn ? Colors.white : LauncherTheme.text,
+              child: Container(
+                width: 44,
+                height: 44,
+                color: isOn
+                    ? activeTeal.withValues(alpha: isLight ? 0.2 : 0.25)
+                    : (isLight ? const Color(0xFFE2DDD2) : const Color(0xFF1A1D24)),
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: isOn ? activeTeal : LauncherTheme.text,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 5),
@@ -781,7 +836,7 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
               fontSize: 10,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.8,
-              color: LauncherTheme.muted,
+              color: isOn ? activeTeal : LauncherTheme.muted,
             ),
           ),
         ],
@@ -791,56 +846,64 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
 
   // ── Tactical HUD: Persistent Quick Notes ──────────────────────
   Widget _buildQuickNotesWidget() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: LauncherTheme.panel,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: LauncherTheme.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return ClipPath(
+      clipper: const Chamfer4CornerClipper(chamfer: 10),
+      child: CustomPaint(
+        foregroundPainter: TacticalCardBorderPainter(
+          themeColor: JweTheme.accentAmber,
+          chamfer: 10,
+          bracketSize: 12,
+          leftBarWidth: 3.0,
+          borderColor: LauncherTheme.line,
+        ),
+        child: Container(
+          color: LauncherTheme.panel,
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'TACTICAL SCRATCHPAD // PERSISTENT NOTES',
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'TACTICAL SCRATCHPAD // PERSISTENT NOTES',
+                    style: LauncherTheme.rajdhani(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.8,
+                      color: LauncherTheme.muted,
+                    ),
+                  ),
+                  Icon(MdiIcons.noteEditOutline, size: 16, color: LauncherTheme.red),
+                ],
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _notesController,
+                maxLines: 3,
+                onChanged: _saveNotes,
                 style: LauncherTheme.rajdhani(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.8,
-                  color: LauncherTheme.muted,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.8,
+                  color: LauncherTheme.text,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Enter mission notes, tactical directives, or immediate objectives...',
+                  hintStyle: LauncherTheme.rajdhani(
+                    fontSize: 12,
+                    letterSpacing: 0.8,
+                    color: LauncherTheme.muted.withValues(alpha: 0.6),
+                  ),
+                  border: InputBorder.none,
+                  filled: true,
+                  fillColor: LauncherTheme.isLight ? const Color(0xFFF3EFE7) : const Color(0xFF090A0E),
+                  contentPadding: const EdgeInsets.all(10),
                 ),
               ),
-              Icon(MdiIcons.noteEditOutline, size: 16, color: LauncherTheme.red),
             ],
           ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _notesController,
-            maxLines: 3,
-            onChanged: _saveNotes,
-            style: LauncherTheme.rajdhani(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.8,
-              color: LauncherTheme.text,
-            ),
-            decoration: InputDecoration(
-              hintText: 'Enter mission notes, tactical directives, or immediate objectives...',
-              hintStyle: LauncherTheme.rajdhani(
-                fontSize: 12,
-                letterSpacing: 0.8,
-                color: LauncherTheme.muted.withValues(alpha: 0.6),
-              ),
-              border: InputBorder.none,
-              filled: true,
-              fillColor: LauncherTheme.isLight ? const Color(0xFFF3EFE7) : const Color(0xFF090A0E),
-              contentPadding: const EdgeInsets.all(10),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -855,79 +918,87 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
     required VoidCallback onPin,
     required Widget child,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: LauncherTheme.panel,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: LauncherTheme.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Widget Card Titlebar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 10, 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: LauncherTheme.rajdhani(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.5,
-                      color: LauncherTheme.muted,
+    return ClipPath(
+      clipper: const Chamfer4CornerClipper(chamfer: 10),
+      child: CustomPaint(
+        foregroundPainter: TacticalCardBorderPainter(
+          themeColor: badgeColor,
+          chamfer: 10,
+          bracketSize: 12,
+          leftBarWidth: 3.0,
+          borderColor: LauncherTheme.line,
+        ),
+        child: Container(
+          color: LauncherTheme.panel,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Widget Card Titlebar
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 10, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(width: 4, height: 10, color: badgeColor),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: LauncherTheme.rajdhani(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.5,
+                          color: LauncherTheme.muted,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: badgeColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: badgeColor, width: 1),
-                  ),
-                  child: Text(
-                    badge,
-                    style: GoogleFonts.rajdhani(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w800,
-                      color: badgeColor,
+                    ClipPath(
+                      clipper: const Chamfer4CornerClipper(chamfer: 4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        color: badgeColor.withValues(alpha: 0.15),
+                        child: Text(
+                          badge,
+                          style: GoogleFonts.rajdhani(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                            color: badgeColor,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                IconButton(
-                  icon: Icon(MdiIcons.pinOutline, size: 16, color: LauncherTheme.muted),
-                  tooltip: 'Pin to Android Home',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: onPin,
-                ),
-              ],
-            ),
-          ),
-
-          // Scaled Widget Canvas
-          InkWell(
-            onTap: onTap,
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(14)),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-              alignment: Alignment.center,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: child,
+                    const SizedBox(width: 6),
+                    IconButton(
+                      icon: Icon(MdiIcons.pinOutline, size: 16, color: LauncherTheme.muted),
+                      tooltip: 'Pin to Android Home',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: onPin,
+                    ),
+                  ],
                 ),
               ),
-            ),
+
+              // Scaled Widget Canvas
+              InkWell(
+                onTap: onTap,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+                  alignment: Alignment.center,
+                  child: ClipPath(
+                    clipper: const Chamfer4CornerClipper(chamfer: 8),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: child,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

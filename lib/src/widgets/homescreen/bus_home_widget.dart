@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/ui/hud_components.dart';
 
 class BusHomeWidget extends StatelessWidget {
   final String origin;
@@ -47,19 +48,22 @@ class BusHomeWidget extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
-      child: Container(
+      child: SizedBox(
         width: 400,
         height: 200,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: bgPanel,
-          border: Border.all(
-            color: borderColor,
-            width: 1.5,
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
+        child: ClipPath(
+          clipper: const Chamfer4CornerClipper(chamfer: 10),
+          child: CustomPaint(
+            foregroundPainter: TacticalCardBorderPainter(
+              themeColor: borderColor,
+              chamfer: 10,
+              bracketSize: 12,
+              leftBarWidth: 3.0,
+            ),
+            child: Container(
+              color: bgPanel,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header Row
@@ -182,6 +186,9 @@ class BusHomeWidget extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),
+  ),
+),
+);
   }
 }

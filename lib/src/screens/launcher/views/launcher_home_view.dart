@@ -10,9 +10,11 @@ import 'package:missions/src/screens/launcher/launcher_theme.dart';
 import 'package:missions/src/screens/launcher/views/launcher_app_widget.dart';
 import 'package:missions/src/screens/launcher/views/launcher_items.dart';
 import 'package:missions/src/screens/launcher/views/launcher_sheets.dart';
+import 'package:missions/src/screens/launcher/views/launcher_status_bar.dart';
 import 'package:missions/src/screens/settings/widgets_studio/widgets_studio.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
+import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:provider/provider.dart';
 
 /// Home page: clock + Arcane status, the user's Android widgets, search pill and dock.
@@ -36,11 +38,13 @@ class LauncherHomeView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
+      top: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const TacticalStatusBar(),
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+            padding: const EdgeInsets.fromLTRB(24, 6, 24, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -187,28 +191,35 @@ class _ArcaneGlanceChip extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: LauncherTheme.isLight ? 0.08 : 0.12),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withValues(alpha: 0.35)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: LauncherTheme.rajdhani(fontSize: 11.5, fontWeight: FontWeight.w700, letterSpacing: 1.0, color: color),
-              ),
+      child: ClipPath(
+        clipper: const Chamfer4CornerClipper(chamfer: 6),
+        child: CustomPaint(
+          foregroundPainter: TacticalCardBorderPainter(
+            themeColor: color,
+            chamfer: 6,
+            bracketSize: 6,
+            leftBarWidth: 2.0,
+            borderColor: color.withValues(alpha: 0.35),
+          ),
+          child: Container(
+            color: color.withValues(alpha: LauncherTheme.isLight ? 0.08 : 0.12),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 14, color: color),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: LauncherTheme.rajdhani(fontSize: 11.5, fontWeight: FontWeight.w700, letterSpacing: 1.0, color: color),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -276,38 +287,51 @@ class _SearchPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: LauncherTheme.dockButtonBg,
-      shape: StadiumBorder(side: BorderSide(color: LauncherTheme.dockBorder)),
-      clipBehavior: Clip.antiAlias,
-      child: SizedBox(
-        height: 44,
-        child: Row(
-          children: [
-            Expanded(
-              child: InkWell(
-                onTap: onTap,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Icon(MdiIcons.magnify, size: 20, color: LauncherTheme.muted),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Search apps & web',
-                        style: LauncherTheme.rajdhani(fontSize: 15, fontWeight: FontWeight.w600, color: LauncherTheme.muted),
-                      ),
-                    ],
+    return ClipPath(
+      clipper: const Chamfer4CornerClipper(chamfer: 8),
+      child: CustomPaint(
+        foregroundPainter: TacticalCardBorderPainter(
+          themeColor: LauncherTheme.red,
+          chamfer: 8,
+          bracketSize: 8,
+          leftBarWidth: 0,
+          borderColor: LauncherTheme.dockBorder,
+        ),
+        child: Container(
+          color: LauncherTheme.dockButtonBg,
+          height: 44,
+          child: Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: onTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Icon(MdiIcons.magnify, size: 20, color: LauncherTheme.red),
+                        const SizedBox(width: 10),
+                        Text(
+                          'SEARCH APPS & WEB',
+                          style: LauncherTheme.rajdhani(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5,
+                            color: LauncherTheme.muted,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            IconButton(
-              onPressed: onDrawer,
-              tooltip: 'All apps',
-              icon: Icon(MdiIcons.dotsGrid, size: 20, color: LauncherTheme.text),
-            ),
-          ],
+              IconButton(
+                onPressed: onDrawer,
+                tooltip: 'All apps',
+                icon: Icon(MdiIcons.dotsGrid, size: 20, color: LauncherTheme.text),
+              ),
+            ],
+          ),
         ),
       ),
     );

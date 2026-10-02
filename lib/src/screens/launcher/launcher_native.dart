@@ -205,6 +205,12 @@ class LauncherNative {
     return raw.map((k, v) => MapEntry('$k', v == true));
   }
 
+  static Future<Map<String, dynamic>> getBatteryAndNetworkStatus() async {
+    final raw = await _invoke<Map<dynamic, dynamic>>('getBatteryAndNetworkStatus');
+    if (raw == null) return const {};
+    return raw.map((k, v) => MapEntry('$k', v));
+  }
+
   static Future<bool> openSystemPanel(String panel) async =>
       await _invoke<bool>('openSystemPanel', {'panel': panel}) ?? false;
   static Future<bool> setTorch(bool on) async => await _invoke<bool>('setTorch', {'on': on}) ?? false;
