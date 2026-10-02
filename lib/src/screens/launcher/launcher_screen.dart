@@ -123,6 +123,12 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
   // ── Navigation ──────────────────────────────────────────────
 
   void _openArcane({bool animate = true}) {
+    if (LauncherNative.isSupported) {
+      _closeDrawer(animate: false);
+      LauncherService.instance.recordArcaneOpen();
+      LauncherNative.launchApp(kArcanePackage, '$kArcanePackage.MainActivity');
+      return;
+    }
     if (!_arcaneBuilt) setState(() => _arcaneBuilt = true);
     _closeDrawer(animate: false);
     LauncherService.instance.recordArcaneOpen();

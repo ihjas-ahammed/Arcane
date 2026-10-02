@@ -566,7 +566,9 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       key: _planListKey,
       scrollController: _planScrollController,
       buildDefaultDragHandles: false,
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: EdgeInsets.only(
+        bottom: 24.0 + MediaQuery.of(context).padding.bottom,
+      ),
       itemCount: _rows.length,
       onReorderItem: (oldIndex, newIndex) {
         setState(() {

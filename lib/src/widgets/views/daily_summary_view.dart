@@ -624,7 +624,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
 
     final screenWidth = MediaQuery.of(context).size.width;
     final isLargeScreen = screenWidth > 900;
-    final bottomPadding = isLargeScreen ? 14.0 : (0 + MediaQuery.of(context).padding.bottom);
+    final bottomPadding = isLargeScreen ? 20.0 : (64.0 + MediaQuery.of(context).padding.bottom + 24.0);
 
     return Scaffold(
       backgroundColor: JweTheme.bgBase,

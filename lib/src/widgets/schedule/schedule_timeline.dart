@@ -609,7 +609,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
 
     final screenWidth = MediaQuery.of(context).size.width;
     final isLargeScreen = screenWidth > 900;
-    final bottomPadding = isLargeScreen ? 0.0 : (0 + MediaQuery.of(context).padding.bottom);
+    final bottomPadding = isLargeScreen ? 16.0 : (64.0 + MediaQuery.of(context).padding.bottom + 24.0);
 
     // Separate real sessions from predicted overlay entries so real sessions take full width and overdraw through
     final realEntries = widget.entries.where((e) => !e.isPredicted).toList();

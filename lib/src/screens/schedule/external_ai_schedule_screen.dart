@@ -413,9 +413,15 @@ class _ExternalAiScheduleScreenState extends State<ExternalAiScheduleScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            24.0 + MediaQuery.of(context).padding.bottom,
+          ),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Active overlay banner if present
@@ -475,7 +481,6 @@ class _ExternalAiScheduleScreenState extends State<ExternalAiScheduleScreen> {
             // 3. AI Ingestion & Paste Card
             _buildIngestionCard(provider),
 
-            // 4. Parsed Preview Card
             if (_parsedEntries != null && _parsedEntries!.isNotEmpty) ...[
               const SizedBox(height: 16),
               _buildPreviewCard(provider),
@@ -483,8 +488,9 @@ class _ExternalAiScheduleScreenState extends State<ExternalAiScheduleScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildTelemetryCard(AppProvider provider) {
     final uncompletedCount = provider.taskActions.getDayPlan(DateFormat('yyyy-MM-dd').format(_selectedDate)).length;

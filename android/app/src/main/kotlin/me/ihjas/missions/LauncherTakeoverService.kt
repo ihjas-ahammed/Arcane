@@ -362,7 +362,7 @@ class LauncherTakeoverService : AccessibilityService() {
 
         val intent = Intent(Intent.ACTION_MAIN)
             .addCategory(Intent.CATEGORY_HOME)
-            .setClass(this, MainActivity::class.java)
+            .setClass(this, LauncherActivity::class.java)
             .putExtra(EXTRA_TAKEOVER, true)
             .addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK or

@@ -1088,7 +1088,12 @@ class _InputReplyScreenState extends State<InputReplyScreen> with WidgetsBinding
               color: JweTheme.accentCyan,
               backgroundColor: JweTheme.panel,
               child: ListView(
-                padding: const EdgeInsets.all(16.0),
+                padding: EdgeInsets.fromLTRB(
+                  16.0,
+                  16.0,
+                  16.0,
+                  24.0 + MediaQuery.of(context).padding.bottom,
+                ),
                 children: [
                   // Accessibility banner
                   _buildAccessibilityBanner(),
@@ -1880,7 +1885,9 @@ class _RecordingModeSheetState extends State<_RecordingModeSheet> {
         left: 16,
         right: 16,
         top: 14,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom +
+            MediaQuery.of(context).padding.bottom +
+            16,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2001,6 +2008,9 @@ class _RecordingModeSheetState extends State<_RecordingModeSheet> {
 
   Widget _buildWholeDeviceTab() {
     return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        bottom: 24.0 + MediaQuery.of(context).padding.bottom,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -1,3 +1,17 @@
+# ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100203)
+
+### 🔀 Activity Splitting & Dedicated Task Affinities
+- **Complete Activity Independence**: `MainActivity` and `LauncherActivity` are now strictly separate Android activities running in independent task affinities (`me.ihjas.missions.app` vs `me.ihjas.missions.launcher`).
+- **Permanently Visible in Android Recents**: `MainActivity` runs as a standard app (`CATEGORY_LAUNCHER` without `excludeFromRecents`), ensuring it always stays visible in Android Overview / Recent Tasks, while `LauncherActivity` exclusively powers the home screen (`CATEGORY_HOME`, `excludeFromRecents="true"`).
+- **Direct Route Binding**: `MainActivity` initiates directly on `/app` to launch Arcane (`HomeScreen`), while `LauncherActivity` initiates `/launcher`. Tapping Arcane from the launcher docks launches `MainActivity` directly as an independent task.
+- **Shared Native Method Channels & Platform Views**: Both activities share native channels (`UpdateBridge`, `LauncherBridge`, AppWidgetHostView platform view factory) without interfering with each other's lifecycle.
+
+### 📐 Navigation Bar Clearance & Non-Fullscreen Screen Layout
+- **Dynamic Inset Calibration**: All views, tabs, and modals now strictly adapt to system navigation bar heights (`MediaQuery.of(context).padding.bottom`) and bottom navigation bar offsets (`64.0 + padding.bottom + 24.0`).
+- **Zero Input Obscurity**: `TaskDetailsView`, `ScheduleTimeline`, `DailySummaryView`, `HealthDashboardView`, `ProjectsView`, `FinanceLedgerTab`, `FinanceBudgetTab`, `FinanceAnalyticsTab`, `WellbeingDrawer`, `NoraAiScreen`, and `CreateGoalSheet` now position all action buttons, input fields, and lists comfortably above the system bar.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100202)
 
 ### 🚀 Instant App Updates via Firebase Realtime Database

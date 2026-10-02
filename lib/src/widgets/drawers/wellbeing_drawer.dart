@@ -114,7 +114,12 @@ class WellbeingDrawer extends StatelessWidget {
           
           // Sync Action
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.fromLTRB(
+              16.0,
+              16.0,
+              16.0,
+              16.0 + MediaQuery.of(context).padding.bottom,
+            ),
             child: ElevatedButton.icon(
               icon: loadingTaskName == "Analyzing Weekly Wellbeing..."
                 ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: JweTheme.onAccent))

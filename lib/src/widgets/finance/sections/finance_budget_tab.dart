@@ -37,15 +37,16 @@ class FinanceBudgetTab extends StatelessWidget {
 
     final screenWidth = MediaQuery.of(context).size.width;
     final isLargeScreen = screenWidth > 900;
-    final bottomPadding =
-        isLargeScreen ? 0.0 : (0 + MediaQuery.of(context).padding.bottom);
+    final bottomPadding = isLargeScreen
+        ? 20.0
+        : (64.0 + MediaQuery.of(context).padding.bottom + 24.0);
 
     return SingleChildScrollView(
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
         top: 14,
-        bottom: bottomPadding + 130.0,
+        bottom: bottomPadding + 40.0,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

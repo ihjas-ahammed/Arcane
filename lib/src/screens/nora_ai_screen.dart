@@ -701,7 +701,9 @@ class _NoraAiScreenState extends State<NoraAiScreen> {
 
                 // Bottom Call controllers
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 40.0),
+                  padding: EdgeInsets.only(
+                    bottom: 24.0 + MediaQuery.of(context).padding.bottom,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

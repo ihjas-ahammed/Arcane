@@ -194,7 +194,12 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.90,
           ),
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            20 + MediaQuery.of(context).padding.bottom,
+          ),
           child: SingleChildScrollView(
             child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1292,7 +1297,12 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
               side: BorderSide(color: themeColor, width: 1.5),
             ),
             child: Container(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                20 + MediaQuery.of(ctx).padding.bottom,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,

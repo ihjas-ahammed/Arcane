@@ -112,6 +112,8 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    override fun getInitialRoute(): String = "/app"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (intent?.getBooleanExtra(LauncherTakeoverService.EXTRA_TAKEOVER, false) == true) suppressTransition()

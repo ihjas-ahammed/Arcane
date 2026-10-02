@@ -39,32 +39,22 @@
             android:exported="true"
             android:label="Missions"
             android:launchMode="singleTask"
+            android:taskAffinity="me.ihjas.missions.app"
             android:clearTaskOnLaunch="false"
-            android:stateNotNeeded="true"
             android:resumeWhilePausing="true"
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize"
             android:showForAllUsers="true">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
             <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.HOME"/>
-                <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-            <!-- As the home app, accept AppWidgetManager.requestPinAppWidget() from any app -->
-            <intent-filter>
-                <action android:name="android.content.pm.action.CONFIRM_PIN_APPWIDGET"/>
-                <action android:name="android.content.pm.action.CONFIRM_PIN_SHORTCUT"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
             <!-- Home-screen widget deep links (arcane://widget?action=…) -->
             <intent-filter>
@@ -86,6 +76,38 @@
             <intent-filter>
                 <action android:name="android.intent.action.VOICE_ASSIST" />
                 <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Dedicated Android Home Launcher Activity -->
+        <activity
+            android:name=".LauncherActivity"
+            android:exported="true"
+            android:label="Arcane Launcher"
+            android:launchMode="singleTask"
+            android:taskAffinity="me.ihjas.missions.launcher"
+            android:excludeFromRecents="true"
+            android:clearTaskOnLaunch="false"
+            android:stateNotNeeded="true"
+            android:resumeWhilePausing="true"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize"
+            android:showForAllUsers="true">
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.HOME"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+            <!-- As the home app, accept AppWidgetManager.requestPinAppWidget() from any app -->
+            <intent-filter>
+                <action android:name="android.content.pm.action.CONFIRM_PIN_APPWIDGET"/>
+                <action android:name="android.content.pm.action.CONFIRM_PIN_SHORTCUT"/>
             </intent-filter>
         </activity>
 

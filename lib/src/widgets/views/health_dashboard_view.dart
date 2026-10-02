@@ -47,7 +47,8 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
     final log = provider.healthLogs[dateStr] ?? DailyHealthLog(dateStr: dateStr);
     final accentColor = JweTheme.accentTeal;
-    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
+    final isLargeScreen = MediaQuery.of(context).size.width > 900;
+    final bottomPadding = isLargeScreen ? 20.0 : (64.0 + MediaQuery.of(context).padding.bottom + 24.0);
 
     return Scaffold(
       backgroundColor: JweTheme.bgDeep,

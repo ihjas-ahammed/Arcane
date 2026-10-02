@@ -232,7 +232,7 @@ class LauncherBridge(
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "getLaunchMode" -> result.success(
-                if (isHomeIntent(activity.intent) || isPinRequest(activity.intent)) "home" else "app"
+                if (activity is LauncherActivity) "home" else "app"
             )
             "isDefaultLauncher" -> result.success(isDefaultLauncher())
             // Default home app, or the MIUI-style takeover mode that opens us over the stock launcher.

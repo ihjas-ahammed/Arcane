@@ -11,6 +11,7 @@ import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/widgets/common/insight_watcher.dart';
 import 'package:missions/src/screens/launcher/launcher_screen.dart';
+import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:provider/provider.dart';
 
 class AppScrollBehavior extends MaterialScrollBehavior {
@@ -33,9 +34,23 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  bool _isLauncher = false;
+
   @override
   void initState() {
     super.initState();
+    final defaultRoute = WidgetsBinding.instance.platformDispatcher.defaultRouteName;
+    _isLauncher = defaultRoute == '/launcher';
+
+    if (LauncherNative.isSupported) {
+      LauncherNative.launchMode().then((mode) {
+        final shouldBeLauncher = mode == 'home';
+        if (mounted && _isLauncher != shouldBeLauncher) {
+          setState(() => _isLauncher = shouldBeLauncher);
+        }
+      });
+    }
+
     // Drain any widget click that arrived before the navigator existed.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       WidgetActionRouter.instance.flushPending();
@@ -72,6 +87,34 @@ class _MyAppState extends State<MyApp> {
         AppTheme.fhAccentGold = currentTaskColor;
         AppTheme.fhAccentOrange = currentTaskColor;
 
+        final Widget mainAppChild = appProvider.authLoading
+            ? Scaffold(
+                backgroundColor: isLightTheme ? AppTheme.fhLightBgDeepDark : AppTheme.fhBgDeepDark,
+                body: Center(
+                  child: CircularProgressIndicator(
+                    color: isLightTheme ? AppTheme.fhLightTextPrimary : AppTheme.fhAccentTeal,
+                  ),
+                ),
+              )
+            : appProvider.currentUser == null
+                ? const LoginScreen()
+                : !appProvider.settings.hasCompletedTour
+                    ? Theme(
+                        data: AppTheme.getThemeData(
+                            primaryAccent: AppTheme.fhAccentTealFixed,
+                            isLightTheme: isLightTheme),
+                        child: const AppTourScreen(),
+                      )
+                    : Theme(
+                        data: AppTheme.getThemeData(
+                            primaryAccent: currentTaskColor,
+                            isLightTheme: isLightTheme),
+                        child: HomeWidgetHost(
+                          provider: appProvider,
+                          child: const InsightWatcher(child: HomeScreen()),
+                        ),
+                      );
+
         return MaterialApp(
           title: 'Missions',
           scrollBehavior: const AppScrollBehavior(),
@@ -86,35 +129,9 @@ class _MyAppState extends State<MyApp> {
                   : AppTheme.fhAccentTealFixed,
               isLightTheme: isLightTheme),
           debugShowCheckedModeBanner: false,
-          home: LauncherScreen(
-            arcaneChild: appProvider.authLoading
-                ? Scaffold(
-                    backgroundColor: isLightTheme ? AppTheme.fhLightBgDeepDark : AppTheme.fhBgDeepDark,
-                    body: Center(
-                      child: CircularProgressIndicator(
-                        color: isLightTheme ? AppTheme.fhLightTextPrimary : AppTheme.fhAccentTeal,
-                      ),
-                    ),
-                  )
-                : appProvider.currentUser == null
-                    ? const LoginScreen()
-                    : !appProvider.settings.hasCompletedTour
-                        ? Theme(
-                            data: AppTheme.getThemeData(
-                                primaryAccent: AppTheme.fhAccentTealFixed,
-                                isLightTheme: isLightTheme),
-                            child: const AppTourScreen(),
-                          )
-                        : Theme(
-                            data: AppTheme.getThemeData(
-                                primaryAccent: currentTaskColor,
-                                isLightTheme: isLightTheme),
-                            child: HomeWidgetHost(
-                              provider: appProvider,
-                              child: const InsightWatcher(child: HomeScreen()),
-                            ),
-                          ),
-          ),
+          home: _isLauncher
+              ? LauncherScreen(arcaneChild: mainAppChild)
+              : mainAppChild,
         );
       },
     );
