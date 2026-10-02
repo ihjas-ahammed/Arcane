@@ -85,12 +85,12 @@ class LauncherTakeoverService : AccessibilityService() {
             return out
         }
 
-        /** Starts tap recording session for an external assistant package with floating HUD bar. */
-        fun startRecordingTap(context: Context, targetPackage: String) {
+        /** Starts tap recording session for an external assistant package with floating HUD bar or reticle. */
+        fun startRecordingTap(context: Context, targetPackage: String, method: String? = null) {
             recordingTapPackage = targetPackage
             val instance = activeInstance
             if (instance != null) {
-                instance.startMicTapRecording(targetPackage)
+                instance.startMicTapRecording(targetPackage, method)
             } else {
                 Handler(Looper.getMainLooper()).post {
                     android.widget.Toast.makeText(
@@ -100,6 +100,17 @@ class LauncherTakeoverService : AccessibilityService() {
                     ).show()
                 }
             }
+        }
+
+        fun saveManualCoordinates(context: Context, targetPackage: String, xRatio: Float, yRatio: Float) {
+            val prefs = context.getSharedPreferences(PREFS_AUTO_TAP, Context.MODE_PRIVATE)
+            prefs.edit()
+                .remove("tap_id_${targetPackage}")
+                .remove("tap_desc_${targetPackage}")
+                .remove("tap_text_${targetPackage}")
+                .putFloat("tap_x_${targetPackage}", xRatio)
+                .putFloat("tap_y_${targetPackage}", yRatio)
+                .apply()
         }
 
         fun hasRecordedTap(context: Context, targetPackage: String): Boolean {
@@ -145,6 +156,8 @@ class LauncherTakeoverService : AccessibilityService() {
     private var taskBubble: TaskBubbleOverlay? = null
     private var noraBubble: NoraBubbleOverlay? = null
     private var micTapOverlay: ExternalMicTapOverlay? = null
+    private var reticleOverlay: ReticleCalibrationOverlay? = null
+    private var touchSensorOverlay: TouchSensorOverlay? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onServiceConnected() {
@@ -171,6 +184,10 @@ class LauncherTakeoverService : AccessibilityService() {
         noraBubble = null
         micTapOverlay?.hide()
         micTapOverlay = null
+        reticleOverlay?.hide()
+        reticleOverlay = null
+        touchSensorOverlay?.hide()
+        touchSensorOverlay = null
         return super.onUnbind(intent)
     }
 
@@ -182,6 +199,10 @@ class LauncherTakeoverService : AccessibilityService() {
         noraBubble = null
         micTapOverlay?.hide()
         micTapOverlay = null
+        reticleOverlay?.hide()
+        reticleOverlay = null
+        touchSensorOverlay?.hide()
+        touchSensorOverlay = null
         super.onDestroy()
     }
 
@@ -213,20 +234,80 @@ class LauncherTakeoverService : AccessibilityService() {
         updateEventFilter()
     }
 
-    fun startMicTapRecording(targetPackage: String) {
+    fun startMicTapRecording(targetPackage: String, method: String? = null) {
         recordingTapPackage = targetPackage
         updateEventFilter()
+        val prefs = getSharedPreferences(PREFS_AUTO_TAP, Context.MODE_PRIVATE)
+        val chosenMethod = method ?: prefs.getString("mic_calibration_method", "reticle") ?: "reticle"
+
         mainHandler.post {
-            if (micTapOverlay == null) {
-                micTapOverlay = ExternalMicTapOverlay(this)
+            micTapOverlay?.hide()
+            reticleOverlay?.hide()
+            touchSensorOverlay?.hide()
+
+            when (chosenMethod) {
+                "reticle" -> {
+                    if (reticleOverlay == null) {
+                        reticleOverlay = ReticleCalibrationOverlay(this)
+                    }
+                    reticleOverlay?.onSaved = { xRatio, yRatio ->
+                        saveManualCoordinates(targetPackage, xRatio, yRatio)
+                    }
+                    reticleOverlay?.onCancelled = {
+                        cancelMicTapRecording()
+                    }
+                    reticleOverlay?.show(targetPackage)
+                }
+                "touch_sensor" -> {
+                    if (touchSensorOverlay == null) {
+                        touchSensorOverlay = TouchSensorOverlay(this)
+                    }
+                    touchSensorOverlay?.onTouchCaptured = { xRatio, yRatio ->
+                        saveManualCoordinates(targetPackage, xRatio, yRatio)
+                    }
+                    touchSensorOverlay?.onCancelled = {
+                        cancelMicTapRecording()
+                    }
+                    touchSensorOverlay?.show(targetPackage)
+                }
+                else -> {
+                    // auto_detect
+                    if (micTapOverlay == null) {
+                        micTapOverlay = ExternalMicTapOverlay(this)
+                    }
+                    micTapOverlay?.onSave = {
+                        saveRecordedMicTap(targetPackage)
+                    }
+                    micTapOverlay?.onCancel = {
+                        cancelMicTapRecording()
+                    }
+                    micTapOverlay?.show(targetPackage)
+                }
             }
-            micTapOverlay?.onSave = {
-                saveRecordedMicTap(targetPackage)
-            }
-            micTapOverlay?.onCancel = {
-                cancelMicTapRecording()
-            }
-            micTapOverlay?.show(targetPackage)
+        }
+    }
+
+    fun saveManualCoordinates(targetPackage: String, xRatio: Float, yRatio: Float) {
+        val prefs = getSharedPreferences(PREFS_AUTO_TAP, Context.MODE_PRIVATE)
+        prefs.edit()
+            .remove("tap_id_${targetPackage}")
+            .remove("tap_desc_${targetPackage}")
+            .remove("tap_text_${targetPackage}")
+            .putFloat("tap_x_${targetPackage}", xRatio)
+            .putFloat("tap_y_${targetPackage}", yRatio)
+            .apply()
+
+        recordingTapPackage = null
+        updateEventFilter()
+        mainHandler.post {
+            reticleOverlay?.hide()
+            touchSensorOverlay?.hide()
+            micTapOverlay?.hide()
+            android.widget.Toast.makeText(
+                applicationContext,
+                "✓ Voice switch locked at ${(xRatio * 100).toInt()}%, ${(yRatio * 100).toInt()}%!",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
         }
     }
 
@@ -269,6 +350,8 @@ class LauncherTakeoverService : AccessibilityService() {
         updateEventFilter()
         mainHandler.post {
             micTapOverlay?.hide()
+            reticleOverlay?.hide()
+            touchSensorOverlay?.hide()
             android.widget.Toast.makeText(
                 applicationContext,
                 "Mic tap calibration cancelled.",
@@ -303,7 +386,7 @@ class LauncherTakeoverService : AccessibilityService() {
             if (node != null) {
                 node.getBoundsInScreen(rect)
                 // If container spans large screen area and has children, drill down to specific clickable child
-                if (rect.width() > (dm.widthPixels * 0.7f) && rect.height() > (dm.heightPixels * 0.35f) && node.childCount > 0) {
+                if (node.childCount > 0 && (rect.width() > (dm.widthPixels * 0.4f) || rect.height() > (dm.heightPixels * 0.15f))) {
                     val leaf = findSmallestClickableNode(node, dm)
                     if (leaf != null) {
                         leaf.getBoundsInScreen(rect)
@@ -391,7 +474,7 @@ class LauncherTakeoverService : AccessibilityService() {
             node.getBoundsInScreen(r)
             val w = r.width()
             val h = r.height()
-            if (w > 0 && h > 0 && w < (dm.widthPixels * 0.8f) && h < (dm.heightPixels * 0.4f)) {
+            if (w > 0 && h > 0 && w < (dm.widthPixels * 0.95f) && h < (dm.heightPixels * 0.7f)) {
                 val area = w.toLong() * h.toLong()
                 val isMicMatch = node.contentDescription?.contains("mic", ignoreCase = true) == true ||
                                  node.contentDescription?.contains("voice", ignoreCase = true) == true ||

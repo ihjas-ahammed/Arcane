@@ -34,6 +34,12 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
   String _activeFilter = 'all'; // 'all', 'user', 'assistants'
   String _searchQuery = '';
   Map<String, dynamic>? _recordedTapInfo;
+  bool _canDrawOverlays = true;
+  String _calibrationMethod = 'reticle'; // 'reticle', 'touch_sensor', 'auto_detect', 'manual_coords'
+  String _overlayWindowType = 'auto'; // 'auto', 'application', 'accessibility'
+  double _manualXRatio = 0.5;
+  double _manualYRatio = 0.85;
+  bool _showManualTuner = false;
 
   @override
   void initState() {
@@ -52,8 +58,13 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _selectedApp != null) {
-      _refreshRecordedTapInfo(_selectedApp!.package);
+    if (state == AppLifecycleState.resumed) {
+      AssistantRoutingService.instance.canDrawOverlays().then((can) {
+        if (mounted) setState(() => _canDrawOverlays = can);
+      });
+      if (_selectedApp != null) {
+        _refreshRecordedTapInfo(_selectedApp!.package);
+      }
     }
   }
 
@@ -62,11 +73,18 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
     final customPkg = appProvider.settings.bluetoothAssistantCustomPackage.trim();
     final customAct = appProvider.settings.bluetoothAssistantCustomActivity.trim();
 
+    final canDraw = await AssistantRoutingService.instance.canDrawOverlays();
+    final method = await AssistantRoutingService.instance.getCalibrationMethod();
+    final winType = await AssistantRoutingService.instance.getOverlayWindowType();
+
     setState(() => _isLoadingApps = true);
     final apps = await AssistantRoutingService.instance.getAllInstalledApps();
 
     if (!mounted) return;
     setState(() {
+      _canDrawOverlays = canDraw;
+      _calibrationMethod = method;
+      _overlayWindowType = winType;
       _allApps = apps;
       _isLoadingApps = false;
       _applyAppFilter();
@@ -154,7 +172,13 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
   Future<void> _refreshRecordedTapInfo(String pkg) async {
     final info = await AssistantRoutingService.instance.getRecordedTapInfo(pkg);
     if (!mounted) return;
-    setState(() => _recordedTapInfo = info);
+    setState(() {
+      _recordedTapInfo = info;
+      if (info != null) {
+        _manualXRatio = (info['xRatio'] as num?)?.toDouble() ?? 0.5;
+        _manualYRatio = (info['yRatio'] as num?)?.toDouble() ?? 0.85;
+      }
+    });
   }
 
   void _backToAppList() {
@@ -822,11 +846,22 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
     if (_selectedApp == null) return;
     final pkg = _selectedApp!.package;
     final label = _selectedApp!.label;
-    final ok = await AssistantRoutingService.instance.startRecordingTap(pkg);
+
+    if (_calibrationMethod == 'manual_coords') {
+      setState(() => _showManualTuner = true);
+      return;
+    }
+
+    final ok = await AssistantRoutingService.instance.startRecordingTap(pkg, method: _calibrationMethod);
     if (ok && mounted) {
+      final hint = _calibrationMethod == 'reticle'
+          ? "Drag the crosshair reticle over the mic button and tap [✓ LOCK TARGET]"
+          : (_calibrationMethod == 'touch_sensor'
+              ? "Touch Sensor active: Tap the mic button once on screen"
+              : "Tap the voice/mic button inside $label, then tap [SAVE]");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Recording tap: opening $label — tap its voice/mic button!"),
+          content: Text("Calibrating $label: $hint"),
           backgroundColor: accentColor,
           duration: const Duration(seconds: 4),
         ),
@@ -845,7 +880,9 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
   ) {
     final isRecorded = _recordedTapInfo != null;
     final info = _recordedTapInfo;
-    final tag = info?['viewId'] ?? info?['desc'] ?? (info != null ? 'Coordinates (${((info['xRatio'] as num? ?? 0.5) * 100).toInt()}%, ${((info['yRatio'] as num? ?? 0.5) * 100).toInt()}%)' : '');
+    final xPct = ((info?['xRatio'] as num? ?? _manualXRatio) * 100).toInt();
+    final yPct = ((info?['yRatio'] as num? ?? _manualYRatio) * 100).toInt();
+    final tag = info?['viewId'] ?? info?['desc'] ?? (info != null ? 'Coordinates ($xPct%, $yPct%)' : '');
 
     return Container(
       margin: const EdgeInsets.only(top: 12, bottom: 12),
@@ -865,17 +902,80 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Permission Alert Banner ─────────────────────────────────────────
+          if (!_canDrawOverlays) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: JweTheme.isLight ? const Color(0xFFFFF3E0) : const Color(0x33FFA726),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: JweTheme.isLight ? const Color(0xFFF57C00) : const Color(0xFFFFA726),
+                  width: 1.2,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: JweTheme.isLight ? const Color(0xFFE65100) : const Color(0xFFFFB74D),
+                    size: 22,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "OVERLAY PERMISSION REQUIRED",
+                          style: TextStyle(
+                            color: JweTheme.isLight ? const Color(0xFFE65100) : const Color(0xFFFFB74D),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "Grant 'Display over other apps' so Arcane can draw crosshairs and sensors over target apps.",
+                          style: TextStyle(
+                            color: primaryTextColor,
+                            fontSize: 10.5,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () async {
+                      await AssistantRoutingService.instance.openOverlaySettings();
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: JweTheme.isLight ? const Color(0xFFE65100) : const Color(0xFFFFB74D),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    ),
+                    child: const Text("GRANT", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // ── Status Header ───────────────────────────────────────────────────
           Row(
             children: [
               Icon(
-                isRecorded ? Icons.check_circle : Icons.touch_app,
+                isRecorded ? Icons.check_circle : Icons.gps_fixed,
                 color: isRecorded ? (JweTheme.isLight ? const Color(0xFF1B5E20) : Colors.green) : accentColor,
                 size: 20,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  isRecorded ? "VOICE SWITCH AUTO-TAP ACTIVE" : "RECORD FIRST-TIME VOICE TAP",
+                  isRecorded ? "VOICE SWITCH AUTO-TAP ACTIVE" : "CALIBRATE VOICE SWITCH TAP",
                   style: TextStyle(
                     color: isRecorded ? (JweTheme.isLight ? const Color(0xFF1B5E20) : Colors.green) : accentColor,
                     fontSize: 12,
@@ -889,11 +989,239 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
           const SizedBox(height: 6),
           Text(
             isRecorded
-                ? "Saved Trigger: $tag\nArcane will auto-click this switch whenever this AI is launched from your watch or headset."
-                : "Does this AI app not start the microphone on launch? Tap the button below, then click the voice/mic switch inside the app once. Arcane will save it via Accessibility and auto-click it every time you trigger voice from your watch or headset.",
+                ? "Saved Target: $tag\nArcane will automatically click this voice switch via touch gesture whenever triggered."
+                : "Choose a calibration tracking method below to record the microphone/voice button in this application:",
             style: TextStyle(color: secondaryTextColor, fontSize: 11.5, height: 1.4),
           ),
+          const SizedBox(height: 12),
+
+          // ── Calibration Method Selector ─────────────────────────────────────
+          Text(
+            "INPUT TRACKING METHOD",
+            style: TextStyle(
+              color: secondaryTextColor,
+              fontSize: 9.5,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _buildMethodChip(
+                id: 'reticle',
+                label: '🎯 Reticle',
+                subtitle: 'Draggable crosshair (Overcomes app touch block)',
+                accentColor: accentColor,
+                primaryTextColor: primaryTextColor,
+                secondaryTextColor: secondaryTextColor,
+                cardColor: cardColor,
+                borderColor: borderColor,
+              ),
+              _buildMethodChip(
+                id: 'touch_sensor',
+                label: '👆 Touch Sensor',
+                subtitle: 'One-tap transparent coordinate interceptor',
+                accentColor: accentColor,
+                primaryTextColor: primaryTextColor,
+                secondaryTextColor: secondaryTextColor,
+                cardColor: cardColor,
+                borderColor: borderColor,
+              ),
+              _buildMethodChip(
+                id: 'auto_detect',
+                label: '🔍 Auto-Detect',
+                subtitle: 'Accessibility click event listener',
+                accentColor: accentColor,
+                primaryTextColor: primaryTextColor,
+                secondaryTextColor: secondaryTextColor,
+                cardColor: cardColor,
+                borderColor: borderColor,
+              ),
+              _buildMethodChip(
+                id: 'manual_coords',
+                label: '📐 Manual Coords',
+                subtitle: 'Normalized X% & Y% slider tuner',
+                accentColor: accentColor,
+                primaryTextColor: primaryTextColor,
+                secondaryTextColor: secondaryTextColor,
+                cardColor: cardColor,
+                borderColor: borderColor,
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
+
+          // ── Window Type & Advanced Tuning ───────────────────────────────────
+          Row(
+            children: [
+              Text(
+                "OVERLAY TYPE: ",
+                style: TextStyle(
+                  color: secondaryTextColor,
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              DropdownButton<String>(
+                value: _overlayWindowType,
+                underline: const SizedBox.shrink(),
+                isDense: true,
+                dropdownColor: panelColor,
+                style: TextStyle(color: primaryTextColor, fontSize: 11),
+                items: const [
+                  DropdownMenuItem(value: 'auto', child: Text("Auto (Recommended)")),
+                  DropdownMenuItem(value: 'application', child: Text("System Alert Window")),
+                  DropdownMenuItem(value: 'accessibility', child: Text("Accessibility Overlay")),
+                ],
+                onChanged: (val) async {
+                  if (val == null) return;
+                  setState(() => _overlayWindowType = val);
+                  await AssistantRoutingService.instance.setOverlayWindowType(val);
+                },
+              ),
+              const Spacer(),
+              if (isRecorded)
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() => _showManualTuner = !_showManualTuner);
+                  },
+                  icon: Icon(_showManualTuner ? Icons.expand_less : Icons.tune, size: 14),
+                  label: Text(_showManualTuner ? "HIDE TUNER" : "TWEAK COORDS", style: const TextStyle(fontSize: 10.5)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: accentColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  ),
+                ),
+            ],
+          ),
+
+          // ── Manual Coordinate Tuner Sliders ─────────────────────────────────
+          if (_showManualTuner || _calibrationMethod == 'manual_coords') ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: panelColor,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: accentColor.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "MANUAL COORDINATE TUNER",
+                        style: TextStyle(color: accentColor, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        "X: ${(_manualXRatio * 100).toInt()}%  |  Y: ${(_manualYRatio * 100).toInt()}%",
+                        style: TextStyle(
+                          color: primaryTextColor,
+                          fontSize: 10.5,
+                          fontFamily: 'RobotoMono',
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 38,
+                        child: Text("X Pos", style: TextStyle(color: secondaryTextColor, fontSize: 10)),
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: _manualXRatio.clamp(0.01, 0.99),
+                          min: 0.01,
+                          max: 0.99,
+                          activeColor: accentColor,
+                          onChanged: (v) => setState(() => _manualXRatio = v),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 38,
+                        child: Text("Y Pos", style: TextStyle(color: secondaryTextColor, fontSize: 10)),
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: _manualYRatio.clamp(0.01, 0.99),
+                          min: 0.01,
+                          max: 0.99,
+                          activeColor: accentColor,
+                          onChanged: (v) => setState(() => _manualYRatio = v),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () async {
+                            if (_selectedApp == null) return;
+                            await AssistantRoutingService.instance.setManualCoordinates(
+                              _selectedApp!.package,
+                              _manualXRatio,
+                              _manualYRatio,
+                            );
+                            await _refreshRecordedTapInfo(_selectedApp!.package);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    "Saved tap coordinates: (${(_manualXRatio * 100).toInt()}%, ${(_manualYRatio * 100).toInt()}%)",
+                                  ),
+                                  backgroundColor: accentColor,
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.save, size: 13),
+                          label: const Text("APPLY COORDS", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: accentColor,
+                            foregroundColor: JweTheme.onAccent,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            if (_selectedApp == null) return;
+                            await AssistantRoutingService.instance.launchVoiceMode(_selectedApp!.package);
+                          },
+                          icon: const Icon(Icons.play_arrow, size: 14),
+                          label: const Text("TEST TAP", style: TextStyle(fontSize: 11)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: primaryTextColor,
+                            side: BorderSide(color: borderColor),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+
+          // ── Action Buttons ──────────────────────────────────────────────────
           Row(
             children: [
               if (isRecorded) ...[
@@ -917,7 +1245,7 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
                   child: OutlinedButton.icon(
                     onPressed: () => _startRecording(accentColor),
                     icon: const Icon(Icons.refresh, size: 14),
-                    label: const Text("REDO", style: TextStyle(fontSize: 11)),
+                    label: const Text("RECALIBRATE", style: TextStyle(fontSize: 11)),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: accentColor,
                       side: BorderSide(color: accentColor.withValues(alpha: 0.5)),
@@ -947,8 +1275,8 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
                   flex: 3,
                   child: FilledButton.icon(
                     onPressed: () => _startRecording(accentColor),
-                    icon: const Icon(Icons.fiber_manual_record, size: 14, color: Colors.red),
-                    label: const Text("RECORD FIRST-TIME TAP", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    icon: const Icon(Icons.adjust, size: 14),
+                    label: const Text("CALIBRATE MIC TAP", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                     style: FilledButton.styleFrom(
                       backgroundColor: accentColor,
                       foregroundColor: JweTheme.onAccent,
@@ -977,6 +1305,48 @@ class _CustomAssistantPickerScreenState extends State<CustomAssistantPickerScree
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMethodChip({
+    required String id,
+    required String label,
+    required String subtitle,
+    required Color accentColor,
+    required Color primaryTextColor,
+    required Color secondaryTextColor,
+    required Color cardColor,
+    required Color borderColor,
+  }) {
+    final isSelected = _calibrationMethod == id;
+    return InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: () async {
+        setState(() {
+          _calibrationMethod = id;
+          if (id == 'manual_coords') _showManualTuner = true;
+        });
+        await AssistantRoutingService.instance.setCalibrationMethod(id);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? accentColor.withValues(alpha: 0.16) : cardColor,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected ? accentColor : borderColor,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? accentColor : primaryTextColor,
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
       ),
     );
   }

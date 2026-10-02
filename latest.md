@@ -1,3 +1,20 @@
+# ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100204)
+
+### 🎯 Multi-Method Voice-Tap Calibration & Touch Tracking
+- **Multi-Method Input Tracking in Settings**: Upgraded External Voice-Tap Calibration with 4 selectable calibration methods:
+  - 🎯 **Reticle / Crosshair (`reticle`)**: Tactical draggable screen reticle overlay (`ReticleCalibrationOverlay`). Operators can drag the crosshair directly over the voice switch in any third-party app and tap `[✓ LOCK TARGET]`. Completely bypasses accessibility limits and works even when apps block touch overdraw.
+  - 👆 **Touch Sensor (`touch_sensor`)**: Full-screen transparent touch interceptor (`TouchSensorOverlay`). Tap the microphone button once on screen to capture exact physical touch coordinates, vibrate, and automatically lock coordinates.
+  - 🔍 **Auto-Detect HUD (`auto_detect`)**: Tactical floating bar (`ExternalMicTapOverlay`) with real-time candidate detection and leaf-node drilldown.
+  - 📐 **Manual Coordinates (`manual_coords`)**: Interactive normalized X% and Y% sliders with immediate `[APPLY COORDS]` and `[TEST TAP]` actions.
+- **Overlay Permissions & Overdraw Protection**: Declared `SYSTEM_ALERT_WINDOW`, added `canDrawOverlays` permission check banner with direct `[GRANT]` shortcut in Settings, and added window type toggle (`Auto` / `System Alert Window` / `Accessibility Overlay`). Added `FLAG_NOT_TOUCH_MODAL` to prevent Android from filtering touches on obscured windows.
+
+### 👆 Precision Touch Coordinate Interception for Input-Reply
+- **Direct Physical Touch Coordinate Tracking**: Upgraded `InputReplyOverlay` with `FLAG_WATCH_OUTSIDE_TOUCH` and `FLAG_NOT_TOUCH_MODAL` to capture the exact physical screen coordinates `(rawX, rawY)` where the finger lands.
+- **Child-Node & Point Resolution**: `InputReplyManager` maps observed touch points directly to the leaf button or clickable element (`findNodeAtPoint`), eliminating misclicks on large parent containers and chat list rows.
+- **Removed Restrictive Size Gates**: Drill-down logic now inspects leaf buttons and action keys even in low-height bars or message input containers.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100203)
 
 ### 🔀 Activity Splitting & Dedicated Task Affinities

@@ -26,6 +26,8 @@
     <!-- Foreground service: keeps reading/task timers and floating button alive in background -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <!-- System Alert Window: Enables drawing tactical HUD overlays and floating reticles over any application -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-feature android:name="android.hardware.bluetooth" android:required="false"/>
     <uses-feature android:name="android.hardware.microphone" android:required="false"/>
     <application

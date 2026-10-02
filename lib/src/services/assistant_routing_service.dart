@@ -207,11 +207,90 @@ class AssistantRoutingService {
     }
   }
 
+  /// Checks whether Arcane has permission to draw overlays (SYSTEM_ALERT_WINDOW).
+  Future<bool> canDrawOverlays() async {
+    try {
+      final res = await _channel.invokeMethod<bool>('canDrawOverlays');
+      return res ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Opens the system settings screen for "Display over other apps" permission.
+  Future<bool> openOverlaySettings() async {
+    try {
+      final res = await _channel.invokeMethod<bool>('openOverlaySettings');
+      return res ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Gets the current mic tap calibration method ('reticle', 'touch_sensor', 'auto_detect', 'manual_coords').
+  Future<String> getCalibrationMethod() async {
+    try {
+      final res = await _channel.invokeMethod<String>('getCalibrationMethod');
+      return res ?? 'reticle';
+    } catch (e) {
+      return 'reticle';
+    }
+  }
+
+  /// Sets the preferred mic tap calibration method.
+  Future<bool> setCalibrationMethod(String method) async {
+    try {
+      final res = await _channel.invokeMethod<bool>('setCalibrationMethod', {
+        'method': method,
+      });
+      return res ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Gets the preferred overlay window type ('auto', 'application', 'accessibility').
+  Future<String> getOverlayWindowType() async {
+    try {
+      final res = await _channel.invokeMethod<String>('getOverlayWindowType');
+      return res ?? 'auto';
+    } catch (e) {
+      return 'auto';
+    }
+  }
+
+  /// Sets the preferred overlay window type ('auto', 'application', 'accessibility').
+  Future<bool> setOverlayWindowType(String type) async {
+    try {
+      final res = await _channel.invokeMethod<bool>('setOverlayWindowType', {
+        'type': type,
+      });
+      return res ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Sets manual normalized screen coordinates (xRatio: 0.0 - 1.0, yRatio: 0.0 - 1.0).
+  Future<bool> setManualCoordinates(String package, double xRatio, double yRatio) async {
+    try {
+      final res = await _channel.invokeMethod<bool>('setManualCoordinates', {
+        'package': package,
+        'xRatio': xRatio,
+        'yRatio': yRatio,
+      });
+      return res ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   /// Starts first-time tap recording for an external assistant package.
-  Future<bool> startRecordingTap(String package) async {
+  Future<bool> startRecordingTap(String package, {String? method}) async {
     try {
       final success = await _channel.invokeMethod<bool>('startRecordingTap', {
         'package': package,
+        if (method != null) 'method': method,
       });
       return success ?? false;
     } catch (e) {

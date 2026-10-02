@@ -959,10 +959,76 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                         }
                     }.start()
                 }
+                "canDrawOverlays" -> {
+                    val canDraw = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        Settings.canDrawOverlays(this)
+                    } else {
+                        true
+                    }
+                    result.success(canDraw)
+                }
+                "openOverlaySettings" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        try {
+                            val intent = Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                android.net.Uri.parse("package:$packageName")
+                            ).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (_: Exception) {
+                            try {
+                                val fallback = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                startActivity(fallback)
+                                result.success(true)
+                            } catch (_: Exception) {
+                                result.success(false)
+                            }
+                        }
+                    } else {
+                        result.success(true)
+                    }
+                }
+                "getCalibrationMethod" -> {
+                    val prefs = getSharedPreferences("arcane_auto_tap", Context.MODE_PRIVATE)
+                    result.success(prefs.getString("mic_calibration_method", "reticle") ?: "reticle")
+                }
+                "setCalibrationMethod" -> {
+                    val method = call.argument<String>("method") ?: "reticle"
+                    val prefs = getSharedPreferences("arcane_auto_tap", Context.MODE_PRIVATE)
+                    prefs.edit().putString("mic_calibration_method", method).apply()
+                    result.success(true)
+                }
+                "getOverlayWindowType" -> {
+                    val prefs = getSharedPreferences("arcane_auto_tap", Context.MODE_PRIVATE)
+                    result.success(prefs.getString("overlay_window_type", "auto") ?: "auto")
+                }
+                "setOverlayWindowType" -> {
+                    val type = call.argument<String>("type") ?: "auto"
+                    val prefs = getSharedPreferences("arcane_auto_tap", Context.MODE_PRIVATE)
+                    prefs.edit().putString("overlay_window_type", type).apply()
+                    result.success(true)
+                }
+                "setManualCoordinates" -> {
+                    val pkg = call.argument<String>("package") ?: ""
+                    val xRatio = (call.argument<Double>("xRatio") ?: 0.5).toFloat()
+                    val yRatio = (call.argument<Double>("yRatio") ?: 0.85).toFloat()
+                    if (pkg.isNotEmpty()) {
+                        LauncherTakeoverService.saveManualCoordinates(this, pkg, xRatio, yRatio)
+                        result.success(true)
+                    } else {
+                        result.success(false)
+                    }
+                }
                 "startRecordingTap" -> {
                     val pkg = call.argument<String>("package") ?: ""
+                    val method = call.argument<String>("method")
                     if (pkg.isNotEmpty()) {
-                        LauncherTakeoverService.startRecordingTap(this, pkg)
+                        LauncherTakeoverService.startRecordingTap(this, pkg, method)
                         val pm = packageManager
                         val launchIntent = pm.getLaunchIntentForPackage(pkg)?.apply {
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

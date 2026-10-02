@@ -76,6 +76,11 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
     private var isReplaying = false
     private var shouldAbortReplay = false
 
+    // ── Physical Touch Observation ─────────────────────────────────────────
+    private var lastPhysicalTouchX = -1f
+    private var lastPhysicalTouchY = -1f
+    private var lastPhysicalTouchTime = 0L
+
     init {
         overlay.onStopClicked = {
             if (isRecording) {
@@ -84,6 +89,15 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 stopReplay()
             }
         }
+        overlay.onPhysicalTouchObserved = { rx, ry ->
+            onPhysicalTouchObserved(rx, ry)
+        }
+    }
+
+    fun onPhysicalTouchObserved(rawX: Float, rawY: Float) {
+        lastPhysicalTouchX = rawX
+        lastPhysicalTouchY = rawY
+        lastPhysicalTouchTime = SystemClock.elapsedRealtime()
     }
 
     private fun getRecordingsDir(): File {
@@ -273,16 +287,29 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                     }
                 }
 
+                val dm = service.resources.displayMetrics
+                val hasFreshTouch = (lastPhysicalTouchX > 0f && lastPhysicalTouchY > 0f && (now - lastPhysicalTouchTime) < 1500L)
+                val touchX = if (hasFreshTouch) lastPhysicalTouchX.roundToInt() else -1
+                val touchY = if (hasFreshTouch) lastPhysicalTouchY.roundToInt() else -1
+
                 val rect = Rect()
                 var viewId: String? = null
                 var desc: String? = event.contentDescription?.toString()
                 var text: String? = if (event.text.isNotEmpty()) event.text.joinToString("") else null
 
-                val dm = service.resources.displayMetrics
                 if (node != null) {
                     node.getBoundsInScreen(rect)
-                    // If container spans large screen area and has children, drill down to specific clickable child
-                    if (rect.width() > (dm.widthPixels * 0.7f) && rect.height() > (dm.heightPixels * 0.35f) && node.childCount > 0) {
+                    // If we captured exact touch coordinates, search specifically for the child under the user's finger!
+                    if (hasFreshTouch && node.childCount > 0) {
+                        val childAtTouch = findNodeAtPoint(node, touchX, touchY)
+                        if (childAtTouch != null) {
+                            childAtTouch.getBoundsInScreen(rect)
+                            if (childAtTouch.viewIdResourceName != null) viewId = childAtTouch.viewIdResourceName
+                            if (childAtTouch.contentDescription != null) desc = childAtTouch.contentDescription.toString()
+                            if (childAtTouch.text != null) text = childAtTouch.text.toString()
+                        }
+                    } else if (node.childCount > 0 && (rect.width() > (dm.widthPixels * 0.4f) || rect.height() > (dm.heightPixels * 0.15f))) {
+                        // Drill down to the leaf clickable / action button
                         val leaf = findSmallestClickableNode(node, dm)
                         if (leaf != null) {
                             leaf.getBoundsInScreen(rect)
@@ -296,16 +323,17 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                     if (text.isNullOrEmpty()) text = node.text?.toString()
                 }
 
-                val centerX = if (rect.width() > 0) rect.centerX().coerceAtLeast(0) else (dm.widthPixels / 2)
-                val centerY = if (rect.height() > 0) rect.centerY().coerceAtLeast(0) else (dm.heightPixels - 100)
-                val xRatio = if (dm.widthPixels > 0) (centerX.toFloat() / dm.widthPixels).coerceIn(0.01f, 0.99f) else 0.5f
-                val yRatio = if (dm.heightPixels > 0) (centerY.toFloat() / dm.heightPixels).coerceIn(0.01f, 0.99f) else 0.85f
+                // Prefer exact physical touch coordinates over container center
+                val finalCenterX = if (hasFreshTouch) touchX else (if (rect.width() > 0) rect.centerX().coerceAtLeast(0) else (dm.widthPixels / 2))
+                val finalCenterY = if (hasFreshTouch) touchY else (if (rect.height() > 0) rect.centerY().coerceAtLeast(0) else (dm.heightPixels - 100))
+                val xRatio = if (dm.widthPixels > 0) (finalCenterX.toFloat() / dm.widthPixels).coerceIn(0.01f, 0.99f) else 0.5f
+                val yRatio = if (dm.heightPixels > 0) (finalCenterY.toFloat() / dm.heightPixels).coerceIn(0.01f, 0.99f) else 0.85f
 
                 addWaitStep(deltaSec)
                 val step = mutableMapOf<String, Any?>(
                     "type" to "click",
-                    "x" to centerX,
-                    "y" to centerY,
+                    "x" to finalCenterX,
+                    "y" to finalCenterY,
                     "xRatio" to xRatio,
                     "yRatio" to yRatio,
                     "count" to 1,
@@ -657,6 +685,29 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         }
     }
 
+    private fun findNodeAtPoint(parent: AccessibilityNodeInfo, px: Int, py: Int): AccessibilityNodeInfo? {
+        val temp = Rect()
+        var bestMatch: AccessibilityNodeInfo? = null
+        var minArea = Long.MAX_VALUE
+
+        fun walk(n: AccessibilityNodeInfo) {
+            n.getBoundsInScreen(temp)
+            if (temp.contains(px, py)) {
+                val area = temp.width().toLong() * temp.height().toLong()
+                if (area in 1 until minArea) {
+                    minArea = area
+                    bestMatch = n
+                }
+            }
+            for (i in 0 until n.childCount) {
+                val c = n.getChild(i) ?: continue
+                walk(c)
+            }
+        }
+        walk(parent)
+        return bestMatch
+    }
+
     private fun findSmallestClickableNode(parent: AccessibilityNodeInfo, dm: android.util.DisplayMetrics): AccessibilityNodeInfo? {
         var smallest: AccessibilityNodeInfo? = null
         var minArea = Long.MAX_VALUE
@@ -666,9 +717,10 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             node.getBoundsInScreen(r)
             val w = r.width()
             val h = r.height()
-            if (w > 0 && h > 0 && w < (dm.widthPixels * 0.8f) && h < (dm.heightPixels * 0.4f)) {
+            if (w > 0 && h > 0 && w < (dm.widthPixels * 0.95f) && h < (dm.heightPixels * 0.7f)) {
                 val area = w.toLong() * h.toLong()
                 val isInteractive = node.isClickable ||
+                                    node.actionList.any { it.id == AccessibilityNodeInfo.ACTION_CLICK } ||
                                     node.contentDescription?.contains("send", ignoreCase = true) == true ||
                                     node.viewIdResourceName?.contains("send", ignoreCase = true) == true
                 if (area < minArea && isInteractive) {

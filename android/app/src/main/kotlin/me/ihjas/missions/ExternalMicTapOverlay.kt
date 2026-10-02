@@ -13,6 +13,7 @@ import android.graphics.Typeface
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
@@ -101,8 +102,18 @@ class ExternalMicTapOverlay(private val service: AccessibilityService) {
         params = null
     }
 
-    private fun overlayType(): Int =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+    private fun overlayType(): Int {
+        val prefs = service.getSharedPreferences("arcane_auto_tap", Context.MODE_PRIVATE)
+        val preferred = prefs.getString("overlay_window_type", "auto") ?: "auto"
+        if (preferred == "application" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(service)) {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            } else {
+                @Suppress("DEPRECATION")
+                WindowManager.LayoutParams.TYPE_PHONE
+            }
+        }
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -110,6 +121,7 @@ class ExternalMicTapOverlay(private val service: AccessibilityService) {
             @Suppress("DEPRECATION")
             WindowManager.LayoutParams.TYPE_PHONE
         }
+    }
 
     private fun ensureShown() {
         if (pillView != null) {
@@ -122,7 +134,10 @@ class ExternalMicTapOverlay(private val service: AccessibilityService) {
             dp(270f),
             dp(52f),
             overlayType(),
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
@@ -292,6 +307,17 @@ class ExternalMicTapOverlay(private val service: AccessibilityService) {
             val p = params ?: return super.onTouchEvent(event)
 
             when (event.action) {
+                MotionEvent.ACTION_OUTSIDE -> {
+                    val rx = event.rawX
+                    val ry = event.rawY
+                    if (rx > 0 && ry > 0) {
+                        val dm = service.resources.displayMetrics
+                        val xr = (rx / dm.widthPixels).coerceIn(0.01f, 0.99f)
+                        val yr = (ry / dm.heightPixels).coerceIn(0.01f, 0.99f)
+                        updateCandidate(null, null, null, xr, yr)
+                    }
+                    return false
+                }
                 MotionEvent.ACTION_DOWN -> {
                     initialX = p.x
                     initialY = p.y
