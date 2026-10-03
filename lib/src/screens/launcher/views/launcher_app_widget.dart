@@ -33,6 +33,14 @@ class _LauncherAppWidgetState extends State<LauncherAppWidget> {
     });
   }
 
+  @override
+  void dispose() {
+    if (LauncherActions.activeWidget.value?.entry.id == widget.entry.id) {
+      LauncherActions.activeWidget.value = null;
+    }
+    super.dispose();
+  }
+
   void _showMenu() {
     HapticFeedback.mediumImpact();
     final service = LauncherService.instance;
@@ -245,6 +253,9 @@ class _LauncherAppWidgetState extends State<LauncherAppWidget> {
                         onDragStarted: () {
                           HapticFeedback.heavyImpact();
                           LauncherActions.activeWidget.value = LauncherWidgetDragData(entry: entry, fromPage: entry.page);
+                        },
+                        onDragCompleted: () {
+                          LauncherActions.activeWidget.value = null;
                         },
                         onDragEnd: (_) {
                           LauncherActions.activeWidget.value = null;

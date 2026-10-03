@@ -113,9 +113,16 @@ class ReflectionLog {
       }
     });
 
+    DateTime parsedTimestamp = DateTime.now();
+    if (json['timestamp'] != null) {
+      parsedTimestamp = DateTime.tryParse(json['timestamp'].toString()) ?? DateTime.now();
+    } else if (json['id'] != null) {
+      parsedTimestamp = DateTime.tryParse(json['id'].toString()) ?? DateTime.now();
+    }
+
     return ReflectionLog(
       id: json['id'] as String? ?? 'unknown',
-      timestamp: DateTime.parse(json['timestamp'] as String),
+      timestamp: parsedTimestamp,
       trigger: json['trigger'] as String? ?? '',
       emotion: json['emotion'] as String? ?? '',
       reason: json['reason'] as String? ?? '',

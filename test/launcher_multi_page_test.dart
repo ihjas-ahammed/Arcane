@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:missions/src/screens/launcher/launcher_models.dart';
 import 'package:missions/src/screens/launcher/launcher_service.dart';
+import 'package:missions/src/screens/launcher/views/launcher_items.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -164,6 +165,31 @@ void main() {
       expect(service.widgetsForPage(0).map((w) => w.id).toList(), equals([103, 102]));
       expect(service.widgetsForPage(1).map((w) => w.id).toList(), equals([101]));
       expect(service.widgets.value.firstWhere((w) => w.id == 101).page, equals(1));
+    });
+
+    test('reorderWidget and removeWidget reset LauncherActions.activeWidget to null', () async {
+      SharedPreferences.setMockInitialValues({
+        'launcher_v4_widgets': jsonEncode([
+          {'id': 201, 'provider': 'p1', 'label': 'W1', 'height': 100, 'page': 0},
+          {'id': 202, 'provider': 'p2', 'label': 'W2', 'height': 100, 'page': 0},
+        ]),
+      });
+      final service = LauncherService.instance;
+      await service.init();
+
+      final w1 = service.widgets.value.firstWhere((w) => w.id == 201);
+      LauncherActions.activeWidget.value = LauncherWidgetDragData(entry: w1, fromPage: 0);
+      expect(LauncherActions.activeWidget.value, isNotNull);
+
+      // Reordering must clear activeWidget
+      service.reorderWidget(w1, 1);
+      expect(LauncherActions.activeWidget.value, isNull);
+
+      // Removing must also clear activeWidget
+      LauncherActions.activeWidget.value = LauncherWidgetDragData(entry: w1, fromPage: 0);
+      expect(LauncherActions.activeWidget.value, isNotNull);
+      service.removeWidget(w1);
+      expect(LauncherActions.activeWidget.value, isNull);
     });
   });
 }

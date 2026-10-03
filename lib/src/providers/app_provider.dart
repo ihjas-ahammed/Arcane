@@ -840,75 +840,103 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     // Seed initial auth state to avoid infinite loading if the auth stream does not emit on startup (common on Linux)
     try {
       final initialUser = fb_service.currentUser;
-      _onAuthStateChanged(initialUser);
+      unawaited(_onAuthStateChanged(initialUser));
     } catch (e) {
       debugPrint("Error getting initial auth state: $e");
       // Fallback: transition out of loading screen anyway
       setAuthLoading(false);
     }
+
+    // Zero-lag startup watchdog: ensure authLoading is never stuck on true under any circumstances
+    Timer(const Duration(milliseconds: 800), () {
+      if (authLoading) {
+        debugPrint("[AppProvider] Startup watchdog triggered: forcing authLoading to false");
+        setAuthLoading(false);
+      }
+    });
   }
 
   Future<void> _onAuthStateChanged(AppUser? user) async {
-    if (user != null) {
-      if (currentUser == null || currentUser!.uid != user.uid) {
-        // No saves or dirty-marking until the user's real data is in memory (see beginDataLoad).
-        beginDataLoad();
-        Map<String, dynamic>? localData;
-        var loadedFromCloud = false;
-        try {
-          setCurrentUser(user);
-          localData = await _localStorage.loadState(user.uid);
-          if (localData != null) {
-            loadStateFromMap(localData);
-          } else {
-            // FIX: Auto load from cloud if local state is missing (Fixes web resets)
-            await _resetToInitialState();
-            try {
-              loadedFromCloud = await manuallyLoadFromCloud();
-            } catch (e) {
-              debugPrint("Failed to load initial state from cloud: $e");
+    try {
+      if (user != null) {
+        final isDifferentUser = currentUser == null || currentUser!.uid != user.uid;
+        if (isDifferentUser) {
+          // No saves or dirty-marking until the user's real data is in memory (see beginDataLoad).
+          beginDataLoad();
+          Map<String, dynamic>? localData;
+          var loadedFromCloud = false;
+          try {
+            setCurrentUser(user);
+            localData = await _localStorage.loadState(user.uid);
+            if (localData != null) {
+              loadStateFromMap(localData);
+            } else {
+              // Auto load from cloud if local state is missing, with timeout to prevent startup lag
+              await _resetToInitialState();
+              try {
+                loadedFromCloud = await manuallyLoadFromCloud().timeout(
+                  const Duration(seconds: 3),
+                  onTimeout: () => false,
+                );
+              } catch (e) {
+                debugPrint("Failed to load initial state from cloud: $e");
+              }
             }
+          } catch (e, stack) {
+            debugPrint("Error loading user data on auth change: $e\n$stack");
+          } finally {
+            endDataLoad();
           }
-        } finally {
-          endDataLoad();
-        }
-        if (loadedFromCloud) await forceLocalBackup();
-        if (localData != null && settings.autoSaveEnabled) {
-          autoSyncWithCloud().catchError((e) {
-            debugPrint("Failed auto sync with cloud on auth change: $e");
-          });
-        }
-        initSync();
-        setAuthLoading(false); 
-      }
 
-      // Background Validation and Maintenance
+          if (loadedFromCloud) unawaited(forceLocalBackup());
+          if (localData != null && settings.autoSaveEnabled) {
+            autoSyncWithCloud().catchError((e) {
+              debugPrint("Failed auto sync with cloud on auth change: $e");
+            });
+          }
+          initSync();
+        }
+
+        // Release loading screen immediately so there is zero UI startup lag
+        setAuthLoading(false);
+
+        // Run background validation and maintenance asynchronously without blocking UI
+        unawaited(_runPostAuthMaintenance());
+      } else {
+        stopRealtimeSyncListener();
+        if (currentUser != null || authLoading) {
+          setCurrentUser(null);
+          beginDataLoad();
+          try {
+            await _resetToInitialState();
+          } catch (e) {
+            debugPrint("Error resetting state on sign out: $e");
+          } finally {
+            endDataLoad();
+          }
+        }
+        setAuthLoading(false);
+      }
+    } catch (e, stack) {
+      debugPrint("Fatal error in _onAuthStateChanged: $e\n$stack");
+    } finally {
+      // Ironclad guarantee: authLoading MUST be false once auth change resolution completes
+      setAuthLoading(false);
+    }
+  }
+
+  Future<void> _runPostAuthMaintenance() async {
+    try {
       _cleanOverlappingSessions();
       _fixTimerAnomalies();
       await _taskActions.recalibrateTimeLogs(silent: true);
       _handleDailyReset();
-      
       try {
         await fetchDailyReportsFromCloud();
       } catch (_) {}
-
       rescheduleReminders();
-
-    } else {
-      stopRealtimeSyncListener();
-      if (currentUser == null && !authLoading) {
-        // Already logged out and loading screen is gone. Nothing to do.
-        return;
-      }
-      setCurrentUser(null);
-      // Signed out (or auth not restored yet at startup): clear memory without queueing saves.
-      beginDataLoad();
-      try {
-        await _resetToInitialState();
-      } finally {
-        endDataLoad();
-      }
-      setAuthLoading(false);
+    } catch (e) {
+      debugPrint("Error in post-auth background maintenance: $e");
     }
   }
 
@@ -981,39 +1009,58 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
   Map<String, dynamic> getAppStateAsMap() => getFullAppState();
   
-  void loadAppStateFromMap(Map<String, dynamic> data) => loadStateFromMap(data);
+  void loadAppStateFromMap(Map<String, dynamic> data) => loadStateFromMap(normalizeImportedData(data));
 
   @override
   void loadStateFromMap(Map<String, dynamic> data) {
-    final norm = normalizeImportedData(data);
-    loadTaskState(norm);
-    loadFinanceState(norm);
-    loadUserState(norm);
-    loadHealthState(norm);
-    if (norm['trading'] != null) {
-      final t = norm['trading'];
-      if (t is Map) {
-        _paperTrading.loadState(Map<String, dynamic>.from(t));
-      } else if (t is String) {
-        try {
+    try {
+      loadTaskState(data);
+    } catch (e) {
+      debugPrint("Error loading task state in loadStateFromMap: $e");
+    }
+    try {
+      loadFinanceState(data);
+    } catch (e) {
+      debugPrint("Error loading finance state in loadStateFromMap: $e");
+    }
+    try {
+      loadUserState(data);
+    } catch (e) {
+      debugPrint("Error loading user state in loadStateFromMap: $e");
+    }
+    try {
+      loadHealthState(data);
+    } catch (e) {
+      debugPrint("Error loading health state in loadStateFromMap: $e");
+    }
+    if (data['trading'] != null) {
+      try {
+        final t = data['trading'];
+        if (t is Map) {
+          _paperTrading.loadState(Map<String, dynamic>.from(t));
+        } else if (t is String) {
           final decoded = jsonDecode(t);
           if (decoded is Map) {
             _paperTrading.loadState(Map<String, dynamic>.from(decoded));
           }
-        } catch (_) {}
+        }
+      } catch (e) {
+        debugPrint("Error loading trading state in loadStateFromMap: $e");
       }
     }
-    if (norm['launcher'] != null) {
-      final l = norm['launcher'];
-      if (l is Map) {
-        unawaited(LauncherService.instance.loadFromMap(Map<String, dynamic>.from(l)));
-      } else if (l is String) {
-        try {
+    if (data['launcher'] != null) {
+      try {
+        final l = data['launcher'];
+        if (l is Map) {
+          unawaited(LauncherService.instance.loadFromMap(Map<String, dynamic>.from(l)));
+        } else if (l is String) {
           final decoded = jsonDecode(l);
           if (decoded is Map) {
             unawaited(LauncherService.instance.loadFromMap(Map<String, dynamic>.from(decoded)));
           }
-        } catch (_) {}
+        }
+      } catch (e) {
+        debugPrint("Error loading launcher state in loadStateFromMap: $e");
       }
     }
     

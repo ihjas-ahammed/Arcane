@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:missions/src/screens/launcher/launcher_models.dart';
 import 'package:missions/src/screens/launcher/launcher_native.dart';
+import 'package:missions/src/screens/launcher/views/launcher_items.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Where [LauncherService.iconFor] says an app's icon should come from.
@@ -904,6 +905,7 @@ class LauncherService {
   }
 
   void removeWidget(LauncherWidgetEntry entry) {
+    LauncherActions.activeWidget.value = null;
     unawaited(LauncherNative.removeWidget(entry.id));
     _saveWidgets(widgets.value.where((w) => w.id != entry.id).toList());
   }
@@ -934,6 +936,7 @@ class LauncherService {
 
   /// Moves or reorders a widget to [targetIndex] on [targetPage] (defaults to current page).
   void reorderWidget(LauncherWidgetEntry entry, int targetIndex, {int? targetPage}) {
+    LauncherActions.activeWidget.value = null;
     final destPage = targetPage ?? entry.page;
     if (destPage < 0) return;
     while (homePages.value.length <= destPage) {

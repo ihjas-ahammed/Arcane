@@ -17,7 +17,7 @@ class SopExecutionLog {
     return SopExecutionLog(
       id: json['id'] as String? ?? '',
       timestamp: json['timestamp'] != null
-          ? DateTime.parse(json['timestamp'] as String)
+          ? (DateTime.tryParse(json['timestamp'].toString()) ?? DateTime.now())
           : DateTime.now(),
       notes: json['notes'] as String? ?? '',
       successStatus: json['successStatus'] as String? ?? 'success',
@@ -89,10 +89,10 @@ class SopModel {
               .toList() ??
           [],
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
+          ? (DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now())
           : DateTime.now(),
       updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String)
+          ? (DateTime.tryParse(json['updatedAt'].toString()) ?? DateTime.now())
           : DateTime.now(),
     );
   }

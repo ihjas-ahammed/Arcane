@@ -1,3 +1,25 @@
+# ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100309)
+
+### 🚀 Zero-Lag Startup & Infinite Loading Eradication (Missions Activity)
+- **Eliminated Infinite Loading & Boot Freezes**:
+  - `_onAuthStateChanged` is now guarded by a top-level `try / finally` architecture ensuring `setAuthLoading(false)` is guaranteed to fire regardless of offline/online state, cached disk data anomalies, or network conditions.
+  - Added an automated 800ms startup watchdog in `_initialize` that proactively releases the loading screen if any initialization channel stalls, ensuring the app transitions directly from splash to home screen with 0 ms lag.
+  - Decoupled background maintenance tasks (`_cleanOverlappingSessions`, `_fixTimerAnomalies`, `recalibrateTimeLogs`, `_handleDailyReset`, `fetchDailyReportsFromCloud`, `rescheduleReminders`) from the critical startup path into asynchronous background execution (`unawaited(_runPostAuthMaintenance())`), completely eliminating cold-start stutter.
+- **Fast, Direct & Resilient State Loading**:
+  - `loadStateFromMap` now loads local cached state directly with modular, isolated `try / catch` barriers for tasks, finance, user profile, health, paper trading, and launcher modules. An anomaly in one sub-collection will never prevent other collections from loading or freeze the application.
+  - Reserved heavy `normalizeImportedData` strictly for foreign imports and cloud restores, preserving lightning-fast cold boot reads from internal local storage.
+  - Protected `ReflectionLog.fromJson`, `SopExecutionLog.fromJson`, and `SopModel.fromJson` with safe date parsers (`DateTime.tryParse`) to prevent null or malformed date fields from ever throwing unhandled type errors.
+
+### 🛠️ Widget Drag & Reorder Overlay Lock Fix
+- **Fixed Stuck Widget Drag & Remove Button**:
+  - Fixed an issue where replacing or reordering a widget on the home screen left the red `REMOVE` button and edge drop targets permanently stuck on screen, preventing subsequent clicks.
+  - `LauncherActions.activeWidget` is now reliably cleared across all drop targets (`_WidgetReorderSlot`, `_BottomWidgetDropTarget`, and the screen's top `REMOVE` zone).
+  - Added `onDragCompleted` alongside `onDragEnd` and `onDraggableCanceled` on `LongPressDraggable` in `LauncherAppWidget`, plus unmount cleanup in `dispose()`.
+  - Added an interactive background tap fallback in `_buildDragChrome` to automatically dismiss lingering drag states and restore touch interactions immediately.
+  - Guaranteed `activeWidget` clearance within `LauncherService.reorderWidget` and `LauncherService.removeWidget`.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100308)
 
 ### 🛡️ Bulletproof Data Restore & Merge Engine

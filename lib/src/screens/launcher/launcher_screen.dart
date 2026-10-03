@@ -340,59 +340,68 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
               ),
             );
 
-        return Stack(
-          children: [
-            edge(left: true),
-            edge(left: false),
-            if (drag?.from != null || widgetDrag != null)
-              Positioned(
-                top: top + 6,
-                left: 40,
-                right: 40,
-                child: DragTarget<Object>(
-                  onAcceptWithDetails: (d) {
-                    HapticFeedback.mediumImpact();
-                    if (d.data is LauncherDragData) {
-                      final ld = d.data as LauncherDragData;
-                      final from = ld.from;
-                      if (from != null) LauncherService.instance.removeFromArea(from, ld.key);
-                    } else if (d.data is LauncherWidgetDragData) {
-                      final wd = d.data as LauncherWidgetDragData;
-                      LauncherService.instance.removeWidget(wd.entry);
-                    }
-                  },
-                  builder: (context, candidates, _) {
-                    final hot = candidates.isNotEmpty;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 120),
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: hot ? LauncherTheme.red : LauncherTheme.panel.withValues(alpha: 0.92),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: LauncherTheme.red),
-                      ),
-                      alignment: Alignment.center,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(MdiIcons.closeCircleOutline, size: 18, color: hot ? Colors.white : LauncherTheme.red),
-                          const SizedBox(width: 8),
-                          Text(
-                            'REMOVE',
-                            style: LauncherTheme.rajdhani(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 2,
-                              color: hot ? Colors.white : LauncherTheme.red,
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () {
+            if (LauncherActions.active.value != null) LauncherActions.active.value = null;
+            if (LauncherActions.activeWidget.value != null) LauncherActions.activeWidget.value = null;
+          },
+          child: Stack(
+            children: [
+              edge(left: true),
+              edge(left: false),
+              if (drag?.from != null || widgetDrag != null)
+                Positioned(
+                  top: top + 6,
+                  left: 40,
+                  right: 40,
+                  child: DragTarget<Object>(
+                    onAcceptWithDetails: (d) {
+                      HapticFeedback.mediumImpact();
+                      if (d.data is LauncherDragData) {
+                        final ld = d.data as LauncherDragData;
+                        final from = ld.from;
+                        if (from != null) LauncherService.instance.removeFromArea(from, ld.key);
+                        LauncherActions.active.value = null;
+                      } else if (d.data is LauncherWidgetDragData) {
+                        final wd = d.data as LauncherWidgetDragData;
+                        LauncherActions.activeWidget.value = null;
+                        LauncherService.instance.removeWidget(wd.entry);
+                      }
+                    },
+                    builder: (context, candidates, _) {
+                      final hot = candidates.isNotEmpty;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 120),
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: hot ? LauncherTheme.red : LauncherTheme.panel.withValues(alpha: 0.92),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: LauncherTheme.red),
+                        ),
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(MdiIcons.closeCircleOutline, size: 18, color: hot ? Colors.white : LauncherTheme.red),
+                            const SizedBox(width: 8),
+                            Text(
+                              'REMOVE',
+                              style: LauncherTheme.rajdhani(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 2,
+                                color: hot ? Colors.white : LauncherTheme.red,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         );
       },
     );

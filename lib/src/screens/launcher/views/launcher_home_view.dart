@@ -327,6 +327,7 @@ class _WidgetReorderSlotState extends State<_WidgetReorderSlot> {
         if (_hoverPosition != 0) setState(() => _hoverPosition = 0);
       },
       onAcceptWithDetails: (details) {
+        LauncherActions.activeWidget.value = null;
         final pos = _hoverPosition;
         setState(() => _hoverPosition = 0);
         HapticFeedback.mediumImpact();
@@ -418,6 +419,7 @@ class _BottomWidgetDropTargetState extends State<_BottomWidgetDropTarget> {
         if (_isHovered) setState(() => _isHovered = false);
       },
       onAcceptWithDetails: (details) {
+        LauncherActions.activeWidget.value = null;
         setState(() => _isHovered = false);
         HapticFeedback.mediumImpact();
         LauncherService.instance.reorderWidget(
