@@ -20,19 +20,17 @@ import 'package:provider/provider.dart';
 /// Home page: clock + Arcane status, the user's Android widgets, search pill and dock.
 /// The real system status/navigation bars sit above/below it (edge-to-edge).
 class LauncherHomeView extends StatelessWidget {
+  final int pageIndex;
+  final bool isPrimary;
   final ValueChanged<LauncherApp> onLaunch;
-  final VoidCallback onOpenDrawer;
-  final VoidCallback onOpenSearch;
   final VoidCallback onOpenArcane;
-  final VoidCallback onOpenWidgetsPage;
 
   const LauncherHomeView({
     super.key,
+    this.pageIndex = 0,
+    this.isPrimary = true,
     required this.onLaunch,
-    required this.onOpenDrawer,
-    required this.onOpenSearch,
     required this.onOpenArcane,
-    required this.onOpenWidgetsPage,
   });
 
   @override
@@ -42,31 +40,26 @@ class LauncherHomeView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              24,
-              max(MediaQuery.viewPaddingOf(context).top, 28.0) + 6.0,
-              24,
-              12,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _HomeClock(),
-                const SizedBox(height: 10),
-                _ArcaneGlanceChip(onTap: onOpenArcane),
-              ],
-            ),
-          ),
-          const Expanded(child: _HomeSpace()),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 6, 18, 0),
-            child: _SearchPill(onTap: onOpenSearch, onDrawer: onOpenDrawer),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-            child: _Dock(onLaunch: onLaunch),
-          ),
+          if (isPrimary)
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                24,
+                max(MediaQuery.viewPaddingOf(context).top, 28.0) + 6.0,
+                24,
+                12,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _HomeClock(),
+                  const SizedBox(height: 10),
+                  _ArcaneGlanceChip(onTap: onOpenArcane),
+                ],
+              ),
+            )
+          else
+            SizedBox(height: max(MediaQuery.viewPaddingOf(context).top, 28.0) + 12.0),
+          Expanded(child: _HomeSpace(pageIndex: pageIndex)),
         ],
       ),
     );
@@ -232,23 +225,31 @@ class _ArcaneGlanceChip extends StatelessWidget {
 
 /// Home page body: the user's placed apps/folders (drag targets) above their Android widgets.
 class _HomeSpace extends StatelessWidget {
-  const _HomeSpace();
+  final int pageIndex;
+
+  const _HomeSpace({this.pageIndex = 0});
 
   @override
   Widget build(BuildContext context) {
     final service = LauncherService.instance;
     return LauncherAreaDropZone(
       area: LauncherArea.home,
+      pageIndex: pageIndex,
       child: ListenableBuilder(
-        listenable: Listenable.merge([service.widgets, service.home, LauncherActions.active]),
+        listenable: Listenable.merge([service.widgets, service.homePages, LauncherActions.active]),
         builder: (context, _) {
-          final entries = service.widgets.value;
-          final hasApps = service.home.value.isNotEmpty;
+          final entries = service.widgetsForPage(pageIndex);
+          final pageItems = service.getPageItems(pageIndex);
+          final hasApps = pageItems.isNotEmpty;
           final dragging = LauncherActions.active.value != null;
           if (entries.isEmpty && !hasApps) {
             return Center(
               child: Text(
-                dragging ? 'DROP HERE TO PLACE ON HOME' : 'LONG-PRESS TO ADD WIDGETS · DRAG APPS HERE',
+                dragging
+                    ? (pageIndex == 0 ? 'DROP HERE TO PLACE ON HOME' : 'DROP HERE TO PLACE ON PAGE ${pageIndex + 1}')
+                    : (pageIndex == 0
+                        ? 'LONG-PRESS TO ADD WIDGETS · DRAG APPS HERE'
+                        : 'PAGE ${pageIndex + 1} · DRAG APPS HERE'),
                 style: LauncherTheme.rajdhani(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w700,
@@ -259,14 +260,14 @@ class _HomeSpace extends StatelessWidget {
             );
           }
           return ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: EdgeInsets.fromLTRB(12, 4, 12, 170 + MediaQuery.viewPaddingOf(context).bottom),
             itemCount: entries.length + 1,
             itemBuilder: (context, i) {
               if (i == 0) {
                 return hasApps
-                    ? const Padding(
-                        padding: EdgeInsets.only(bottom: 10),
-                        child: LauncherAreaGrid(area: LauncherArea.home, iconSize: 52),
+                    ? Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: LauncherAreaGrid(area: LauncherArea.home, iconSize: 52, pageIndex: pageIndex),
                       )
                     : const SizedBox.shrink();
               }
@@ -283,11 +284,11 @@ class _HomeSpace extends StatelessWidget {
   }
 }
 
-class _SearchPill extends StatelessWidget {
+class LauncherSearchPill extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDrawer;
 
-  const _SearchPill({required this.onTap, required this.onDrawer});
+  const LauncherSearchPill({super.key, required this.onTap, required this.onDrawer});
 
   @override
   Widget build(BuildContext context) {
@@ -342,10 +343,10 @@ class _SearchPill extends StatelessWidget {
   }
 }
 
-class _Dock extends StatelessWidget {
+class LauncherDock extends StatelessWidget {
   final ValueChanged<LauncherApp> onLaunch;
 
-  const _Dock({required this.onLaunch});
+  const LauncherDock({super.key, required this.onLaunch});
 
   @override
   Widget build(BuildContext context) {
@@ -402,6 +403,66 @@ class _Dock extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class LauncherPageIndicator extends StatelessWidget {
+  final PageController controller;
+  final int pageCount;
+
+  const LauncherPageIndicator({
+    super.key,
+    required this.controller,
+    required this.pageCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (pageCount <= 1) return const SizedBox.shrink();
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final double rawPage = controller.hasClients ? (controller.page ?? 1.0) : 1.0;
+        final double homePagePos = (rawPage - 1.0).clamp(0.0, (pageCount - 1).toDouble());
+        final int activeIndex = homePagePos.round().clamp(0, pageCount - 1);
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(pageCount, (i) {
+            final isCurrent = i == activeIndex;
+            return GestureDetector(
+              onTap: () {
+                if (controller.hasClients) {
+                  controller.animateToPage(
+                    1 + i,
+                    duration: const Duration(milliseconds: 280),
+                    curve: Curves.easeOutCubic,
+                  );
+                }
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  width: isCurrent ? 18 : 6,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: isCurrent
+                        ? LauncherTheme.red
+                        : (LauncherTheme.isLight
+                            ? Colors.black.withValues(alpha: 0.22)
+                            : Colors.white.withValues(alpha: 0.28)),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }

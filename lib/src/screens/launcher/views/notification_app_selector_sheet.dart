@@ -6,7 +6,6 @@ import 'package:missions/src/screens/launcher/launcher_service.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
 import 'package:missions/src/services/notification_journal_service.dart';
 import 'package:missions/src/utils/global_toast.dart';
-import 'package:missions/src/widgets/ui/hud_components.dart';
 
 /// Modal bottom sheet allowing the operator to select which installed apps should be
 /// monitored and journaled into daily briefings and notification history.

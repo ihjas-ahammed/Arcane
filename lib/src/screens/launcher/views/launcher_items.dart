@@ -204,8 +204,15 @@ class LauncherDropSlot extends StatefulWidget {
   final LauncherArea area;
   final String itemKey;
   final Widget child;
+  final int? pageIndex;
 
-  const LauncherDropSlot({super.key, required this.area, required this.itemKey, required this.child});
+  const LauncherDropSlot({
+    super.key,
+    required this.area,
+    required this.itemKey,
+    required this.child,
+    this.pageIndex,
+  });
 
   @override
   State<LauncherDropSlot> createState() => _LauncherDropSlotState();
@@ -240,10 +247,12 @@ class _LauncherDropSlotState extends State<LauncherDropSlot> {
         final from = d.data.from;
         final folderTarget = LauncherFolder.isFolderKey(widget.itemKey);
         if (zone == 0 && !LauncherFolder.isFolderKey(dragged) && (folderTarget || widget.area != LauncherArea.drawer)) {
-          service.dropOnto(widget.area, widget.itemKey, dragged, from: from);
+          service.dropOnto(widget.area, widget.itemKey, dragged, from: from, page: widget.pageIndex);
           return;
         }
-        final list = service.areaList(widget.area).value;
+        final list = widget.area == LauncherArea.home
+            ? service.getPageItems(widget.pageIndex ?? service.activeHomePage.value)
+            : service.areaList(widget.area).value;
         var index = list.indexOf(widget.itemKey);
         if (index < 0) return;
         if (zone == 1) index++;
@@ -251,7 +260,7 @@ class _LauncherDropSlotState extends State<LauncherDropSlot> {
         // Add to the target first (capacity-checked) before removing from the source, so a
         // drop that doesn't fit (e.g. a full dock) leaves the item where it was instead of
         // deleting it from its origin with nowhere to land.
-        if (!service.addToArea(widget.area, dragged, index: index)) {
+        if (!service.addToArea(widget.area, dragged, index: index, page: widget.pageIndex)) {
           _full(context);
           return;
         }
@@ -286,8 +295,14 @@ void _full(BuildContext context) {
 class LauncherAreaDropZone extends StatelessWidget {
   final LauncherArea area;
   final Widget child;
+  final int? pageIndex;
 
-  const LauncherAreaDropZone({super.key, required this.area, required this.child});
+  const LauncherAreaDropZone({
+    super.key,
+    required this.area,
+    required this.child,
+    this.pageIndex,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -296,11 +311,11 @@ class LauncherAreaDropZone extends StatelessWidget {
       onWillAcceptWithDetails: (d) => area != LauncherArea.drawer,
       onAcceptWithDetails: (d) {
         final from = d.data.from;
-        if (from == area) {
+        if (from == area && area != LauncherArea.home) {
           service.addToArea(area, d.data.key);
           return;
         }
-        if (!service.addToArea(area, d.data.key)) {
+        if (!service.addToArea(area, d.data.key, page: pageIndex)) {
           _full(context);
           return;
         }
@@ -324,16 +339,26 @@ class LauncherAreaDropZone extends StatelessWidget {
 class LauncherAreaGrid extends StatelessWidget {
   final LauncherArea area;
   final double iconSize;
+  final int? pageIndex;
 
-  const LauncherAreaGrid({super.key, required this.area, this.iconSize = 50});
+  const LauncherAreaGrid({
+    super.key,
+    required this.area,
+    this.iconSize = 50,
+    this.pageIndex,
+  });
 
   @override
   Widget build(BuildContext context) {
     final service = LauncherService.instance;
+    final listNotifier = area == LauncherArea.home ? service.homePages : service.areaList(area);
     return ListenableBuilder(
-      listenable: Listenable.merge([service.areaList(area), service.folders, service.apps]),
+      listenable: Listenable.merge([listNotifier, service.folders, service.apps]),
       builder: (context, _) {
-        final keys = service.areaList(area).value.where(service.isValidKey).toList();
+        final rawKeys = area == LauncherArea.home
+            ? service.getPageItems(pageIndex ?? service.activeHomePage.value)
+            : service.areaList(area).value;
+        final keys = rawKeys.where(service.isValidKey).toList();
         final columns = (MediaQuery.sizeOf(context).width / 86).floor().clamp(4, 6);
         return GridView.builder(
           shrinkWrap: true,
@@ -346,6 +371,7 @@ class LauncherAreaGrid extends StatelessWidget {
             return LauncherDropSlot(
               area: area,
               itemKey: key,
+              pageIndex: pageIndex,
               child: LauncherDraggableItem(
                 itemKey: key,
                 from: area,

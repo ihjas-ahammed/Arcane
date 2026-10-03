@@ -259,23 +259,33 @@ class LauncherWidgetEntry {
   final String label;
   final double height;
 
+  final int page;
+
   const LauncherWidgetEntry({
     required this.id,
     required this.provider,
     required this.label,
     required this.height,
+    this.page = 0,
   });
 
-  LauncherWidgetEntry copyWith({double? height}) =>
-      LauncherWidgetEntry(id: id, provider: provider, label: label, height: height ?? this.height);
+  LauncherWidgetEntry copyWith({double? height, int? page}) =>
+      LauncherWidgetEntry(
+        id: id,
+        provider: provider,
+        label: label,
+        height: height ?? this.height,
+        page: page ?? this.page,
+      );
 
-  Map<String, dynamic> toJson() => {'id': id, 'provider': provider, 'label': label, 'height': height};
+  Map<String, dynamic> toJson() => {'id': id, 'provider': provider, 'label': label, 'height': height, 'page': page};
 
   factory LauncherWidgetEntry.fromJson(Map<String, dynamic> json) => LauncherWidgetEntry(
         id: (json['id'] as num).toInt(),
         provider: json['provider'] as String? ?? '',
         label: json['label'] as String? ?? '',
         height: (json['height'] as num?)?.toDouble() ?? 160,
+        page: (json['page'] as num?)?.toInt() ?? 0,
       );
 }
 

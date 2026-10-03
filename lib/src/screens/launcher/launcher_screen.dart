@@ -70,6 +70,7 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
     LauncherActions.dragMoved = _onItemDragMoved;
     LauncherActions.dragEnded = _onItemDragEnded;
     LauncherService.instance.fullscreen.addListener(_applySystemUiMode);
+    _pages.addListener(_onPageScroll);
     _arcane.addStatusListener((_) => _applySystemUiMode());
     _applySystemUiMode();
 
@@ -86,6 +87,17 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
       _launchedAsApp = true;
       _openArcane(animate: false);
     });
+  }
+
+  void _onPageScroll() {
+    if (!_pages.hasClients) return;
+    final page = (_pages.page ?? _homePage.toDouble()).round();
+    if (page >= 1) {
+      final homeIdx = page - 1;
+      if (LauncherService.instance.activeHomePage.value != homeIdx) {
+        LauncherService.instance.activeHomePage.value = homeIdx;
+      }
+    }
   }
 
   Future<void> _checkUpdateOnLauncherStartup() async {
@@ -124,6 +136,7 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
       LauncherActions.dragEnded = null;
     }
     _edgeTimer?.cancel();
+    _pages.removeListener(_onPageScroll);
     _arcane.dispose();
     _drawer.dispose();
     _pages.dispose();
@@ -271,15 +284,34 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
       _resetDrawerAfterDrag = false;
       WidgetsBinding.instance.addPostFrameCallback((_) => _drawerKey.currentState?.reset());
     }
+    LauncherService.instance.pruneEmptyTrailingPages();
   }
 
-  /// Hovering a screen edge while dragging flips between the widgets page and home.
-  void _hoverEdge(int page) {
+  /// Hovering a screen edge while dragging flips between the widgets page and home pages.
+  void _hoverEdge({required bool left}) {
     if (_edgeTimer?.isActive ?? false) return;
     _edgeTimer = Timer(const Duration(milliseconds: 420), () {
-      if (!_pages.hasClients || (_pages.page ?? _homePage).round() == page) return;
+      if (!_pages.hasClients) return;
+      final current = (_pages.page ?? _homePage.toDouble()).round();
+      final service = LauncherService.instance;
+      final totalPages = 1 + service.homePageCount;
+
+      int target;
+      if (left) {
+        if (current <= 0) return;
+        target = current - 1;
+      } else {
+        target = current + 1;
+        if (target >= totalPages) {
+          // Dragged past the last home page: add a new page!
+          final newIdx = service.addHomePage();
+          target = 1 + newIdx;
+        }
+      }
+
+      if (target == current) return;
       HapticFeedback.selectionClick();
-      _pages.animateToPage(page, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
+      _pages.animateToPage(target, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
     });
   }
 
@@ -294,10 +326,10 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
               bottom: 120,
               left: left ? 0 : null,
               right: left ? null : 0,
-              width: 26,
+              width: 32,
               child: DragTarget<LauncherDragData>(
                 onWillAcceptWithDetails: (_) {
-                  _hoverEdge(left ? 0 : _homePage);
+                  _hoverEdge(left: left);
                   return false;
                 },
                 onLeave: (_) => _edgeTimer?.cancel(),
@@ -427,6 +459,7 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
                       child: CustomPaint(painter: LauncherWallpaperPainter(isLight: isLight)),
                     ),
                     _buildPages(),
+                    _buildBottomChrome(),
                     _buildDrawer(),
                     _buildDragChrome(),
                     const Positioned(
@@ -475,30 +508,102 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
           child: Opacity(opacity: (1 - t * 1.4).clamp(0.0, 1.0), child: child),
         );
       },
-      child: PageView(
-        controller: _pages,
-        physics: const ClampingScrollPhysics(),
-        children: [
-          LauncherWidgetView(onOpenArcane: _openArcane),
-          GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onVerticalDragStart: _onVerticalDragStart,
-            onVerticalDragUpdate: _onVerticalDragUpdate,
-            onVerticalDragEnd: _onVerticalDragEnd,
-            onLongPress: () => showLauncherHomeMenu(context, onOpenArcaneWidgets: () {
-              _pages.animateToPage(0, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
-            }),
-            child: LauncherHomeView(
-              onLaunch: _launch,
-              onOpenDrawer: () => _openDrawer(),
-              onOpenSearch: () => _openDrawer(focusSearch: true),
-              onOpenArcane: _openArcane,
-              onOpenWidgetsPage: () =>
-                  _pages.animateToPage(0, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic),
+      child: ValueListenableBuilder<List<List<String>>>(
+        valueListenable: LauncherService.instance.homePages,
+        builder: (context, homePages, _) {
+          final pageCount = homePages.length;
+          return PageView.builder(
+            controller: _pages,
+            physics: const ClampingScrollPhysics(),
+            itemCount: 1 + pageCount,
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return LauncherWidgetView(onOpenArcane: _openArcane);
+              }
+              final homeIndex = index - 1;
+              return GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onVerticalDragStart: _onVerticalDragStart,
+                onVerticalDragUpdate: _onVerticalDragUpdate,
+                onVerticalDragEnd: _onVerticalDragEnd,
+                onLongPress: () => showLauncherHomeMenu(
+                  context,
+                  activePage: homeIndex,
+                  onOpenArcaneWidgets: () {
+                    _pages.animateToPage(0, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+                  },
+                  onGoToPage: (targetPage) {
+                    if (_pages.hasClients) {
+                      _pages.animateToPage(targetPage, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+                    }
+                  },
+                ),
+                child: LauncherHomeView(
+                  pageIndex: homeIndex,
+                  isPrimary: homeIndex == 0,
+                  onLaunch: _launch,
+                  onOpenArcane: _openArcane,
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildBottomChrome() {
+    final service = LauncherService.instance;
+    return AnimatedBuilder(
+      animation: Listenable.merge([_drawer, _pages, service.homePages]),
+      builder: (context, _) {
+        final drawerProgress = _drawer.value;
+        final rawPage = _pages.hasClients ? (_pages.page ?? 1.0) : 1.0;
+        final pageFactor = rawPage.clamp(0.0, 1.0);
+        final drawerFactor = (1.0 - drawerProgress * 1.5).clamp(0.0, 1.0);
+        final opacity = (pageFactor * drawerFactor).clamp(0.0, 1.0);
+
+        if (opacity <= 0.0) return const SizedBox.shrink();
+
+        return Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: IgnorePointer(
+            ignoring: opacity < 0.5,
+            child: Opacity(
+              opacity: opacity,
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (service.homePageCount > 1)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: LauncherPageIndicator(
+                          controller: _pages,
+                          pageCount: service.homePageCount,
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      child: LauncherSearchPill(
+                        onTap: () => _openDrawer(focusSearch: true),
+                        onDrawer: () => _openDrawer(),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                      child: LauncherDock(onLaunch: _launch),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

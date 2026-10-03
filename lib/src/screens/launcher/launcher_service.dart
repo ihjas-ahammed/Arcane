@@ -48,11 +48,18 @@ class LauncherIconSpec {
 /// refreshed from the package manager in the background.
 class LauncherService {
   LauncherService._();
-  static final LauncherService instance = LauncherService._();
+  static LauncherService _instance = LauncherService._();
+  static LauncherService get instance => _instance;
+
+  @visibleForTesting
+  static void resetForTest() {
+    _instance = LauncherService._();
+  }
 
   static const _kApps = 'launcher_v4_apps';
   static const _kDock = 'launcher_v4_dock';
   static const _kHome = 'launcher_v4_home';
+  static const _kHomePages = 'launcher_v4_home_pages';
   static const _kShelf = 'launcher_v4_shelf';
   static const _kDrawerFolders = 'launcher_v4_drawer_folders';
   static const _kFolders = 'launcher_v4_folders';
@@ -80,6 +87,12 @@ class LauncherService {
 
   /// App/folder keys placed on the home page, in grid order.
   final ValueNotifier<List<String>> home = ValueNotifier<List<String>>(const []);
+
+  /// App/folder keys partitioned per home page: [page0_keys, page1_keys, ...].
+  final ValueNotifier<List<List<String>>> homePages = ValueNotifier<List<List<String>>>([const []]);
+
+  /// Active home page index (0-indexed, where 0 is the primary home screen).
+  final ValueNotifier<int> activeHomePage = ValueNotifier<int>(0);
 
   /// App/folder keys on the Arcane widgets page's quick-app shelf.
   final ValueNotifier<List<String>> shelf = ValueNotifier<List<String>>(const []);
@@ -155,7 +168,29 @@ class LauncherService {
     } else {
       dock.value = [LauncherApp.arcane.key];
     }
-    home.value = List.unmodifiable(prefs.getStringList(_kHome) ?? const <String>[]);
+
+    final rawHomePages = prefs.getString(_kHomePages);
+    List<List<String>> loadedPages = [];
+    if (rawHomePages != null && rawHomePages.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawHomePages);
+        if (decoded is List) {
+          loadedPages = decoded
+              .whereType<List>()
+              .map((p) => p.map((k) => '$k').toList())
+              .toList();
+        }
+      } catch (_) {}
+    }
+    if (loadedPages.isEmpty) {
+      final legacyHome = prefs.getStringList(_kHome) ?? const <String>[];
+      loadedPages = [legacyHome];
+    }
+    homePages.value = List<List<String>>.unmodifiable(
+      loadedPages.map((p) => List<String>.unmodifiable(p)),
+    );
+    home.value = List.unmodifiable(homePages.value.expand((p) => p).toSet().toList());
+
     shelf.value = List.unmodifiable(prefs.getStringList(_kShelf) ?? const <String>[]);
     drawerFolders.value = List.unmodifiable(prefs.getStringList(_kDrawerFolders) ?? const <String>[]);
     folders.value = Map.unmodifiable({
@@ -315,10 +350,16 @@ class LauncherService {
     }
     folders.value = Map.unmodifiable(nextFolders);
     for (final area in LauncherArea.values) {
+      if (area == LauncherArea.home) continue;
       final list = areaList(area).value;
       final kept = list.where(isValidKey).toList();
       if (kept.length != list.length) _saveArea(area, kept);
     }
+    final nextHomePages = <List<String>>[];
+    for (final page in homePages.value) {
+      nextHomePages.add(page.where(isValidKey).toList());
+    }
+    saveHomePages(nextHomePages);
     for (final key in dissolve) {
       _dissolveFolder(key);
     }
@@ -364,6 +405,137 @@ class LauncherService {
         LauncherArea.drawer => 30,
       };
 
+  int get homePageCount => homePages.value.length;
+
+  List<String> getPageItems(int page) =>
+      (page >= 0 && page < homePages.value.length) ? homePages.value[page] : const [];
+
+  List<LauncherWidgetEntry> widgetsForPage(int page) =>
+      widgets.value.where((w) => w.page == page).toList();
+
+  void saveHomePages(List<List<String>> pages) {
+    final cleanPages = pages.isEmpty ? [const <String>[]] : pages;
+    homePages.value = List<List<String>>.unmodifiable(
+      cleanPages.map((p) => List<String>.unmodifiable(p.take(maxHomeItems))),
+    );
+    home.value = List.unmodifiable(cleanPages.expand((p) => p).toSet().toList());
+    unawaited(_prefs?.setString(_kHomePages, jsonEncode(homePages.value)));
+    unawaited(_prefs?.setStringList(_kHome, home.value));
+    _notifyChanged();
+  }
+
+  int addHomePage() {
+    final current = homePages.value.map((p) => List<String>.from(p)).toList();
+    current.add(<String>[]);
+    saveHomePages(current);
+    return current.length - 1;
+  }
+
+  void removeHomePage(int page) {
+    if (page <= 0 || page >= homePages.value.length) return;
+    final current = homePages.value.map((p) => List<String>.from(p)).toList();
+    final removedItems = current.removeAt(page);
+    final targetPage = (page - 1).clamp(0, current.length - 1);
+    if (removedItems.isNotEmpty && current.isNotEmpty) {
+      for (final item in removedItems) {
+        if (!current[targetPage].contains(item) && current[targetPage].length < maxHomeItems) {
+          current[targetPage].add(item);
+        }
+      }
+    }
+    final nextWidgets = widgets.value.map((w) {
+      if (w.page == page) {
+        return w.copyWith(page: (page - 1).clamp(0, current.length - 1));
+      } else if (w.page > page) {
+        return w.copyWith(page: w.page - 1);
+      }
+      return w;
+    }).toList();
+    widgets.value = List.unmodifiable(nextWidgets);
+    unawaited(_prefs?.setString(_kWidgets, jsonEncode(nextWidgets.map((w) => w.toJson()).toList())));
+    saveHomePages(current);
+  }
+
+  void pruneEmptyTrailingPages() {
+    final current = homePages.value.map((p) => List<String>.from(p)).toList();
+    var changed = false;
+    while (current.length > 1) {
+      final lastIdx = current.length - 1;
+      final hasWidgets = widgets.value.any((w) => w.page == lastIdx);
+      if (current.last.isEmpty && !hasWidgets) {
+        current.removeLast();
+        changed = true;
+      } else {
+        break;
+      }
+    }
+    if (changed) {
+      saveHomePages(current);
+    }
+  }
+
+  bool addToPage(int page, String key, {int? index}) {
+    final current = homePages.value.map((p) => List<String>.from(p)).toList();
+    while (current.length <= page) {
+      current.add(<String>[]);
+    }
+    for (final p in current) {
+      p.remove(key);
+    }
+    if (current[page].length >= maxHomeItems) return false;
+    final at = (index ?? current[page].length).clamp(0, current[page].length);
+    current[page].insert(at, key);
+    saveHomePages(current);
+    return true;
+  }
+
+  void removeFromPage(int page, String key) {
+    if (page < 0 || page >= homePages.value.length) return;
+    final current = homePages.value.map((p) => List<String>.from(p)).toList();
+    if (current[page].remove(key)) {
+      saveHomePages(current);
+    }
+  }
+
+  void dropOntoPage(int page, String targetKey, String dragged, {LauncherArea? from}) {
+    if (targetKey == dragged) return;
+    final pageItems = getPageItems(page);
+    final idx = pageItems.indexOf(targetKey);
+    if (idx < 0) return;
+
+    if (LauncherFolder.isFolderKey(dragged)) {
+      if (from != null && from != LauncherArea.home) removeFromArea(from, dragged);
+      addToPage(page, dragged, index: idx);
+      return;
+    }
+    if (from != null && from != LauncherArea.home) removeFromArea(from, dragged);
+    if (LauncherFolder.isFolderKey(targetKey)) {
+      addToFolder(targetKey, dragged);
+      if (from == LauncherArea.home) removeFromArea(LauncherArea.home, dragged);
+      return;
+    }
+
+    final current = homePages.value.map((p) => List<String>.from(p)).toList();
+    while (current.length <= page) {
+      current.add(<String>[]);
+    }
+    current[page].remove(dragged);
+    final targetIdx = current[page].indexOf(targetKey);
+    if (targetIdx < 0) return;
+
+    final targetApp = appForKey(targetKey);
+    final draggedApp = appForKey(dragged);
+    final folder = _createFolder(
+      [targetKey, dragged],
+      name: _suggestFolderName(targetApp, draggedApp),
+    );
+    current[page][targetIdx] = folder.key;
+    for (var i = 0; i < current.length; i++) {
+      if (i != page) current[i].remove(dragged);
+    }
+    saveHomePages(current);
+  }
+
   void _saveArea(LauncherArea area, List<String> keys) {
     final notifier = areaList(area);
     notifier.value = List.unmodifiable(keys.take(_areaCapacity(area)));
@@ -374,6 +546,16 @@ class LauncherService {
       LauncherArea.drawer => _kDrawerFolders,
     };
     if (area == LauncherArea.dock) _dockConfigured = true;
+    if (area == LauncherArea.home) {
+      final current = homePages.value.map((p) => List<String>.from(p)).toList();
+      if (current.isEmpty) {
+        current.add(List<String>.from(notifier.value));
+      } else {
+        current[0] = List<String>.from(notifier.value);
+      }
+      saveHomePages(current);
+      return;
+    }
     unawaited(_prefs?.setStringList(prefKey, notifier.value));
     _notifyChanged();
   }
@@ -381,7 +563,10 @@ class LauncherService {
   bool isAreaFull(LauncherArea area) => areaList(area).value.length >= _areaCapacity(area);
 
   /// Adds [key] to [area] (at [index], default end). Already there → moved to [index].
-  bool addToArea(LauncherArea area, String key, {int? index}) {
+  bool addToArea(LauncherArea area, String key, {int? index, int? page}) {
+    if (area == LauncherArea.home) {
+      return addToPage(page ?? activeHomePage.value, key, index: index);
+    }
     final list = List<String>.from(areaList(area).value);
     final existing = list.indexOf(key);
     if (existing >= 0) list.removeAt(existing);
@@ -393,6 +578,17 @@ class LauncherService {
   }
 
   void removeFromArea(LauncherArea area, String key) {
+    if (area == LauncherArea.home) {
+      final current = homePages.value.map((p) => List<String>.from(p)).toList();
+      var removed = false;
+      for (final page in current) {
+        if (page.remove(key)) removed = true;
+      }
+      if (removed) {
+        saveHomePages(current);
+      }
+      return;
+    }
     final list = areaList(area).value;
     if (!list.contains(key)) return;
     _saveArea(area, list.where((k) => k != key).toList());
@@ -427,8 +623,12 @@ class LauncherService {
   /// Drag-and-drop: [dragged] dropped onto [targetKey] in [area].
   /// Folder target → added to it. App target → both become a new folder in the target's place.
   /// A move from another area (not the drawer, which copies) removes it from its origin.
-  void dropOnto(LauncherArea area, String targetKey, String dragged, {LauncherArea? from}) {
+  void dropOnto(LauncherArea area, String targetKey, String dragged, {LauncherArea? from, int? page}) {
     if (targetKey == dragged) return;
+    if (area == LauncherArea.home) {
+      dropOntoPage(page ?? activeHomePage.value, targetKey, dragged, from: from);
+      return;
+    }
     if (LauncherFolder.isFolderKey(dragged)) {
       // Folders don't nest: treat as a reorder next to the target.
       final idx = areaList(area).value.indexOf(targetKey);
@@ -719,6 +919,17 @@ class LauncherService {
     if (i < 0 || j < 0 || j >= list.length) return;
     list.insert(j, list.removeAt(i));
     _saveWidgets(list);
+  }
+
+  void moveWidgetToPage(LauncherWidgetEntry entry, int targetPage) {
+    if (targetPage < 0) return;
+    while (homePages.value.length <= targetPage) {
+      addHomePage();
+    }
+    _saveWidgets([
+      for (final w in widgets.value)
+        if (w.id == entry.id) w.copyWith(page: targetPage) else w,
+    ]);
   }
 
   void _saveWidgets(List<LauncherWidgetEntry> list) {

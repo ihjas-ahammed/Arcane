@@ -65,9 +65,6 @@ class InputReplyOverlay(private val service: AccessibilityService) {
     private var pillView: ControllerView? = null
     private var pillParams: WindowManager.LayoutParams? = null
 
-    private var sensorView: TouchSensorLayer? = null
-    private var sensorParams: WindowManager.LayoutParams? = null
-
     private var replayIndicatorView: ReplayIndicatorLayer? = null
     private var replayIndicatorParams: WindowManager.LayoutParams? = null
 
@@ -107,7 +104,6 @@ class InputReplyOverlay(private val service: AccessibilityService) {
         stepCount = 0
         activePackageLabel = macroName
         isKeyboardOpen = false
-        removeReplayIndicatorLayer()
         ensureShown()
     }
 
@@ -116,42 +112,34 @@ class InputReplyOverlay(private val service: AccessibilityService) {
         replayStep = current
         replayTotalSteps = total
         activePackageLabel = name
-        // Hide sensor during replay
-        removeSensorLayer()
         ensureShown()
     }
 
-    fun showReplayTapIndicator(x: Float, y: Float) {
+    fun showTapIndicator(x: Float, y: Float) {
         handler.post {
             replayIndicatorView?.showTap(x, y)
         }
     }
 
+    fun showReplayTapIndicator(x: Float, y: Float) {
+        showTapIndicator(x, y)
+    }
+
     fun setKeyboardOpen(open: Boolean) {
         if (isKeyboardOpen == open) return
         isKeyboardOpen = open
-        setSensorTouchable(!open)
         pillView?.postInvalidate()
     }
 
     fun hide() {
         currentMode = Mode.IDLE
         isKeyboardOpen = false
-        removeSensorLayer()
         removeReplayIndicatorLayer()
         pillView?.let {
             try { wm.removeView(it) } catch (_: Exception) {}
         }
         pillView = null
         pillParams = null
-    }
-
-    private fun removeSensorLayer() {
-        sensorView?.let {
-            try { wm.removeView(it) } catch (_: Exception) {}
-        }
-        sensorView = null
-        sensorParams = null
     }
 
     private fun removeReplayIndicatorLayer() {
@@ -184,26 +172,8 @@ class InputReplyOverlay(private val service: AccessibilityService) {
     }
 
     private fun ensureShown() {
-        // 1. In RECORDING mode, add full-screen touch sensor layer FIRST (below pill in z-order)
-        if (currentMode == Mode.RECORDING && sensorView == null) {
-            val sView = TouchSensorLayer(service)
-            val sParams = WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.MATCH_PARENT,
-                overlayType(),
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                PixelFormat.TRANSLUCENT
-            ).apply {
-                gravity = Gravity.TOP or Gravity.START
-            }
-            try {
-                wm.addView(sView, sParams)
-                sensorView = sView
-                sensorParams = sParams
-            } catch (_: Exception) {}
-        } else if (currentMode == Mode.REPLAYING && replayIndicatorView == null) {
+        // 1. Full-screen non-touchable visual indicator layer (FLAG_NOT_TOUCHABLE: never intercepts or lags touches)
+        if (replayIndicatorView == null) {
             val iView = ReplayIndicatorLayer(service)
             val iParams = WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
@@ -224,7 +194,7 @@ class InputReplyOverlay(private val service: AccessibilityService) {
             } catch (_: Exception) {}
         }
 
-        // 2. Add floating HUD controller pill ON TOP of sensor layer (compact tactile HUD)
+        // 2. Add floating HUD controller pill ON TOP (draggable, compact tactile HUD, FLAG_NOT_TOUCH_MODAL)
         if (pillView == null) {
             val view = ControllerView(service)
             val p = WindowManager.LayoutParams(
@@ -246,233 +216,6 @@ class InputReplyOverlay(private val service: AccessibilityService) {
             } catch (_: Exception) {}
         } else {
             pillView?.postInvalidate()
-        }
-    }
-
-    private fun setSensorTouchable(touchable: Boolean) {
-        val sv = sensorView ?: return
-        val p = sensorParams ?: return
-        val currentFlags = p.flags
-        val newFlags = if (touchable && !isKeyboardOpen) {
-            currentFlags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-        } else {
-            currentFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-        }
-        if (currentFlags != newFlags) {
-            p.flags = newFlags
-            try {
-                wm.updateViewLayout(sv, p)
-            } catch (_: Exception) {}
-        }
-    }
-
-    private fun passTapToApp(x: Float, y: Float) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
-
-        setSensorTouchable(false)
-        val path = Path().apply { moveTo(x, y) }
-        // Fast 20ms stroke duration to eliminate input lag during touch pass-through
-        val stroke = GestureDescription.StrokeDescription(path, 0, 20L)
-        val gesture = GestureDescription.Builder().addStroke(stroke).build()
-
-        var restored = false
-        val restoreTouch = {
-            if (!restored) {
-                restored = true
-                if (!isKeyboardOpen && currentMode == Mode.RECORDING) {
-                    setSensorTouchable(true)
-                }
-            }
-        }
-
-        // Safety fallback timer if system gesture callback drops
-        handler.postDelayed({ restoreTouch() }, 180L)
-
-        try {
-            service.dispatchGesture(
-                gesture,
-                object : AccessibilityService.GestureResultCallback() {
-                    override fun onCompleted(gestureDescription: GestureDescription?) {
-                        // Brief safety gap (70ms) to ensure physical finger lift-off before re-enabling touch sensor
-                        handler.postDelayed({ restoreTouch() }, 70L)
-                    }
-                    override fun onCancelled(gestureDescription: GestureDescription?) {
-                        handler.postDelayed({ restoreTouch() }, 70L)
-                    }
-                },
-                handler
-            )
-        } catch (_: Exception) {
-            restoreTouch()
-        }
-    }
-
-    private fun passSwipeToApp(startX: Float, startY: Float, endX: Float, endY: Float) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
-
-        setSensorTouchable(false)
-        val path = Path().apply {
-            moveTo(startX, startY)
-            lineTo(endX, endY)
-        }
-        val stroke = GestureDescription.StrokeDescription(path, 0, 200L)
-        val gesture = GestureDescription.Builder().addStroke(stroke).build()
-
-        var restored = false
-        val restoreTouch = {
-            if (!restored) {
-                restored = true
-                if (!isKeyboardOpen && currentMode == Mode.RECORDING) {
-                    setSensorTouchable(true)
-                }
-            }
-        }
-
-        handler.postDelayed({ restoreTouch() }, 320L)
-
-        try {
-            service.dispatchGesture(
-                gesture,
-                object : AccessibilityService.GestureResultCallback() {
-                    override fun onCompleted(gestureDescription: GestureDescription?) {
-                        restoreTouch()
-                    }
-                    override fun onCancelled(gestureDescription: GestureDescription?) {
-                        restoreTouch()
-                    }
-                },
-                handler
-            )
-        } catch (_: Exception) {
-            restoreTouch()
-        }
-    }
-
-    // ── Full-Screen Touch Sensor Layer ───────────────────────────────────────
-    @SuppressLint("ViewConstructor")
-    private inner class TouchSensorLayer(ctx: Context) : View(ctx) {
-        private var initialDownX = -1f
-        private var initialDownY = -1f
-        private var isDraggingOrSwiping = false
-        private var lastCapturedTime = 0L
-        private val touchSlop = ViewConfiguration.get(ctx).scaledTouchSlop
-
-        // Tactical ripple feedback
-        private var rippleX = -1f
-        private var rippleY = -1f
-        private var rippleRadius = 0f
-        private var rippleAlpha = 0
-        private var rippleAnimator: ValueAnimator? = null
-
-        private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.FILL
-            color = CYAN_ACCENT
-        }
-
-        private val ripplePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            strokeWidth = dp(2f).toFloat()
-            color = CYAN_ACCENT
-        }
-
-        private val reticlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            strokeWidth = dp(1.5f).toFloat()
-            color = CYAN_ACCENT
-        }
-
-        fun triggerTapFeedback(x: Float, y: Float) {
-            rippleX = x
-            rippleY = y
-            rippleAnimator?.cancel()
-            rippleAnimator = ValueAnimator.ofFloat(dp(4f).toFloat(), dp(26f).toFloat()).apply {
-                duration = 200L
-                addUpdateListener {
-                    rippleRadius = it.animatedValue as Float
-                    rippleAlpha = ((1f - it.animatedFraction) * 255).toInt().coerceIn(0, 255)
-                    invalidate()
-                }
-                start()
-            }
-        }
-
-        override fun onDraw(canvas: Canvas) {
-            super.onDraw(canvas)
-            if (rippleAlpha > 0 && rippleX > 0 && rippleY > 0) {
-                ripplePaint.alpha = rippleAlpha
-                reticlePaint.alpha = rippleAlpha
-                dotPaint.alpha = rippleAlpha
-
-                // Tactical center dot right at touch point
-                canvas.drawCircle(rippleX, rippleY, dp(2.5f).toFloat(), dotPaint)
-
-                // Expanding ripple
-                canvas.drawCircle(rippleX, rippleY, rippleRadius, ripplePaint)
-
-                val notch = dp(5f).toFloat()
-                canvas.drawLine(rippleX - rippleRadius - notch, rippleY, rippleX - rippleRadius, rippleY, reticlePaint)
-                canvas.drawLine(rippleX + rippleRadius, rippleY, rippleX + rippleRadius + notch, rippleY, reticlePaint)
-                canvas.drawLine(rippleX, rippleY - rippleRadius - notch, rippleX, rippleY - rippleRadius, reticlePaint)
-                canvas.drawLine(rippleX, rippleY + rippleRadius, rippleX, rippleY + rippleRadius + notch, reticlePaint)
-            }
-        }
-
-        @SuppressLint("ClickableViewAccessibility")
-        override fun onTouchEvent(event: MotionEvent): Boolean {
-            if (isKeyboardOpen || currentMode != Mode.RECORDING) {
-                return false
-            }
-
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    initialDownX = event.rawX
-                    initialDownY = event.rawY
-                    isDraggingOrSwiping = false
-                    return true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dx = abs(event.rawX - initialDownX)
-                    val dy = abs(event.rawY - initialDownY)
-                    if (dx > touchSlop || dy > touchSlop) {
-                        isDraggingOrSwiping = true
-                    }
-                    return true
-                }
-                MotionEvent.ACTION_UP -> {
-                    val finalX = event.rawX
-                    val finalY = event.rawY
-                    val dx = abs(finalX - initialDownX)
-                    val dy = abs(finalY - initialDownY)
-                    val now = SystemClock.elapsedRealtime()
-
-                    if (!isDraggingOrSwiping && dx <= touchSlop && dy <= touchSlop) {
-                        // Debounce physical double-bounce / multi-touch jitter (< 220ms)
-                        if (now - lastCapturedTime >= 220L) {
-                            lastCapturedTime = now
-                            // Direct physical tap captured via touch sensor!
-                            performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                            // Trigger visual feedback in local View coordinates so it's perfectly centered on touch
-                            triggerTapFeedback(event.x, event.y)
-                            onTapCaptured?.invoke(finalX, finalY)
-                            passTapToApp(finalX, finalY)
-                        }
-                    } else {
-                        // Swipe / scroll captured
-                        if (now - lastCapturedTime >= 220L) {
-                            lastCapturedTime = now
-                            onSwipeCaptured?.invoke(initialDownX, initialDownY, finalX, finalY)
-                            passSwipeToApp(initialDownX, initialDownY, finalX, finalY)
-                        }
-                    }
-                    isDraggingOrSwiping = false
-                    return true
-                }
-                MotionEvent.ACTION_CANCEL -> {
-                    isDraggingOrSwiping = false
-                    return true
-                }
-            }
-            return super.onTouchEvent(event)
         }
     }
 

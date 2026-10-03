@@ -40,7 +40,6 @@ class LauncherDrawerViewState extends State<LauncherDrawerView> {
 
   List<LauncherContact> _contacts = const [];
   bool _hasContactsPermission = true;
-  bool _isSearchingContacts = false;
   Timer? _contactsDebounce;
 
   @override
@@ -88,18 +87,14 @@ class LauncherDrawerViewState extends State<LauncherDrawerView> {
 
   Future<void> _performContactSearch(String q) async {
     if (!_hasContactsPermission) return;
-    setState(() => _isSearchingContacts = true);
     try {
       final results = await LauncherNative.searchContacts(q, limit: 12);
       if (mounted && _query.text.trim() == q) {
         setState(() {
           _contacts = results;
-          _isSearchingContacts = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _isSearchingContacts = false);
-    }
+    } catch (_) {}
   }
 
   Future<void> _requestContactsAccess() async {
@@ -768,6 +763,7 @@ class _ContactActionButtons extends StatelessWidget {
         const SizedBox(width: 6),
         // 3. Message on WhatsApp Button
         _ContactActionButton(
+          // ignore: deprecated_member_use
           icon: MdiIcons.whatsapp,
           tooltip: 'WhatsApp Message',
           bgColor: const Color(0xFF25D366).withValues(alpha: isLight ? 0.14 : 0.18),

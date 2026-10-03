@@ -68,15 +68,29 @@ InputDecoration _searchDecoration(String hint) => InputDecoration(
 
 // ── Home long-press menu ──────────────────────────────────────
 
-void showLauncherHomeMenu(BuildContext context, {required VoidCallback onOpenArcaneWidgets}) {
+void showLauncherHomeMenu(
+  BuildContext context, {
+  required VoidCallback onOpenArcaneWidgets,
+  int activePage = 0,
+  ValueChanged<int>? onGoToPage,
+}) {
   _sheet<void>(context, (ctx) {
+    final service = LauncherService.instance;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         _action(ctx, MdiIcons.appsBox, 'Add apps to home', () async {
           final picked = await pickApp(context, title: 'Add to home screen');
-          if (picked != null) LauncherService.instance.addToArea(LauncherArea.home, picked.key);
+          if (picked != null) service.addToArea(LauncherArea.home, picked.key, page: activePage);
         }),
+        _action(ctx, MdiIcons.viewCarouselOutline, 'Add home page', () {
+          final newIdx = service.addHomePage();
+          onGoToPage?.call(1 + newIdx);
+        }),
+        if (service.homePageCount > 1)
+          _action(ctx, MdiIcons.deleteOutline, 'Remove this home page', () {
+            service.removeHomePage(activePage);
+          }, color: LauncherTheme.red),
         _action(ctx, MdiIcons.webPlus, 'Add web app', () => showAddWebApp(context)),
         _action(ctx, MdiIcons.widgetsOutline, 'Add widget', () => showWidgetPicker(context)),
         _action(ctx, MdiIcons.dockBottom, 'Edit dock', () => showDockEditor(context)),
@@ -441,8 +455,45 @@ void showPlacedItemSheet(BuildContext context, {required LauncherArea area, requ
         ),
         if (app != null) _action(ctx, MdiIcons.dotsHorizontal, 'App options', () => showAppActionsSheet(context, app)),
         if (app == null) _action(ctx, MdiIcons.folderOpenOutline, 'Open folder', () => LauncherActions.open(context, itemKey)),
+        if (area == LauncherArea.home && service.homePageCount > 1)
+          _action(ctx, MdiIcons.pageNextOutline, 'Move to another page…', () => _showMoveItemToPageSheet(context, itemKey)),
         _action(ctx, MdiIcons.closeCircleOutline, 'Remove from $areaName', () => service.removeFromArea(area, itemKey),
             color: LauncherTheme.red),
+      ],
+    );
+  });
+}
+
+void _showMoveItemToPageSheet(BuildContext context, String itemKey) {
+  final service = LauncherService.instance;
+  _sheet<void>(context, (ctx) {
+    final count = service.homePageCount;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _title('Move to page'),
+        for (var i = 0; i < count; i++)
+          ListTile(
+            dense: true,
+            leading: Icon(i == 0 ? MdiIcons.homeOutline : MdiIcons.viewCarouselOutline, color: LauncherTheme.red),
+            title: Text(i == 0 ? 'Page 1 (Primary Home)' : 'Page ${i + 1}',
+                style: LauncherTheme.rajdhani(fontSize: 15, fontWeight: FontWeight.w600)),
+            onTap: () {
+              Navigator.pop(ctx);
+              service.addToPage(i, itemKey);
+            },
+          ),
+        ListTile(
+          dense: true,
+          leading: Icon(MdiIcons.plusBoxOutline, color: LauncherTheme.red),
+          title: Text('New Page',
+              style: LauncherTheme.rajdhani(fontSize: 15, fontWeight: FontWeight.w700, color: LauncherTheme.red)),
+          onTap: () {
+            Navigator.pop(ctx);
+            final newIdx = service.addHomePage();
+            service.addToPage(newIdx, itemKey);
+          },
+        ),
       ],
     );
   });

@@ -81,6 +81,9 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
     // ── Touch Sensor & Keyboard State ──────────────────────────────────────
     private var lastRecordedTapTime = 0L
     private var lastRecordedSwipeTime = 0L
+    private var lastRecordedViewId: String? = null
+    private var lastRecordedX: Int = -1
+    private var lastRecordedY: Int = -1
     private var isKeyboardActive = false
     private var activeImePackageVisible = false
 
@@ -99,12 +102,6 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             } else if (isReplaying) {
                 stopReplay()
             }
-        }
-        overlay.onTapCaptured = { rx, ry ->
-            commitDirectTap(rx, ry)
-        }
-        overlay.onSwipeCaptured = { sx, sy, ex, ey ->
-            commitDirectSwipe(sx, sy, ex, ey)
         }
     }
 
@@ -152,101 +149,6 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
             Log.i(TAG, "Soft keyboard state changed: isOpen=$showing (sensor touchable=${!showing})")
         }
-    }
-
-    private fun commitDirectTap(touchX: Float, touchY: Float) {
-        if (!isRecording || touchX <= 0f || touchY <= 0f) return
-
-        val now = SystemClock.elapsedRealtime()
-        if (now - lastRecordedTapTime < 250L) {
-            Log.d(TAG, "Debounced duplicate tap at ($touchX, $touchY)")
-            return
-        }
-
-        val dm = service.resources.displayMetrics
-        val finalX = touchX.roundToInt()
-        val finalY = touchY.roundToInt()
-        val xRatio = if (dm.widthPixels > 0) (touchX / dm.widthPixels).coerceIn(0.01f, 0.99f) else 0.5f
-        val yRatio = if (dm.heightPixels > 0) (touchY / dm.heightPixels).coerceIn(0.01f, 0.99f) else 0.85f
-
-        var viewId: String? = null
-        var desc: String? = null
-        var text: String? = null
-        var pkg: String = activePackageName
-
-        try {
-            val root = service.rootInActiveWindow
-            if (root != null) {
-                val node = findNodeAtPoint(root, finalX, finalY)
-                if (node != null) {
-                    viewId = node.viewIdResourceName
-                    desc = node.contentDescription?.toString()
-                    text = node.text?.toString()
-                    if (node.packageName != null) pkg = node.packageName.toString()
-                }
-            }
-        } catch (_: Exception) {}
-
-        val deltaSec = ((now - lastActionTime) / 1000f).coerceIn(0.2f, 4.0f)
-        addWaitStep(deltaSec)
-
-        val step = mutableMapOf<String, Any?>(
-            "type" to "click",
-            "x" to finalX,
-            "y" to finalY,
-            "xRatio" to xRatio,
-            "yRatio" to yRatio,
-            "count" to 1,
-            "viewId" to viewId,
-            "desc" to desc,
-            "text" to text,
-            "package" to pkg
-        )
-        recordedSteps.add(step)
-        lastActionTime = now
-        lastRecordedTapTime = now
-        lastTextEditNodeId = null
-        lastTextEditStepIndex = -1
-        updateOverlay()
-        Log.i(TAG, "Recorded touch sensor tap at ($finalX, $finalY) ratio=($xRatio, $yRatio) pkg=$pkg viewId=$viewId")
-
-        // Re-check keyboard state quickly in case this tap focused an input field
-        mainHandler.postDelayed({ checkKeyboardState() }, 150L)
-        mainHandler.postDelayed({ checkKeyboardState() }, 400L)
-    }
-
-    private fun commitDirectSwipe(startX: Float, startY: Float, endX: Float, endY: Float) {
-        if (!isRecording) return
-
-        val dx = endX - startX
-        val dy = endY - startY
-        val direction = when {
-            kotlin.math.abs(dy) >= kotlin.math.abs(dx) -> if (dy < 0) "up" else "down"
-            else -> if (dx < 0) "left" else "right"
-        }
-
-        val now = SystemClock.elapsedRealtime()
-        val deltaSec = ((now - lastActionTime) / 1000f).coerceIn(0.2f, 4.0f)
-        addWaitStep(deltaSec)
-
-        val step = mutableMapOf<String, Any?>(
-            "type" to "scroll",
-            "direction" to direction,
-            "dx" to dx.roundToInt(),
-            "dy" to dy.roundToInt(),
-            "startX" to startX.roundToInt(),
-            "startY" to startY.roundToInt(),
-            "endX" to endX.roundToInt(),
-            "endY" to endY.roundToInt(),
-            "package" to activePackageName
-        )
-        recordedSteps.add(step)
-        lastActionTime = now
-        lastRecordedSwipeTime = now
-        lastTextEditNodeId = null
-        lastTextEditStepIndex = -1
-        updateOverlay()
-        Log.i(TAG, "Recorded touch sensor swipe $direction (dx=$dx, dy=$dy) pkg=$activePackageName")
     }
 
     fun handleKeyEvent(event: KeyEvent): Boolean {
@@ -452,34 +354,10 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
 
             AccessibilityEvent.TYPE_VIEW_CLICKED -> {
-                // If this click event was generated within 800ms of our own touch sensor tap,
-                // it is an accessibility echo of the tap we just passed to the app.
-                // Enrich the existing click step and NEVER record a duplicate click step!
-                val timeSinceLastTap = now - lastRecordedTapTime
-                if (timeSinceLastTap < 800L) {
-                    val lastClick = recordedSteps.lastOrNull { it["type"] == "click" }
-                    if (lastClick != null) {
-                        val node = event.source
-                        var viewId = lastClick["viewId"] as? String
-                        var desc = lastClick["desc"] as? String
-                        var text = lastClick["text"] as? String
-                        if (node != null) {
-                            if (viewId.isNullOrEmpty()) viewId = node.viewIdResourceName
-                            if (desc.isNullOrEmpty()) desc = node.contentDescription?.toString()
-                            if (text.isNullOrEmpty()) text = node.text?.toString()
-                            if (viewId != null || desc != null || text != null) {
-                                val idx = recordedSteps.lastIndexOf(lastClick)
-                                if (idx >= 0) {
-                                    val updated = lastClick.toMutableMap()
-                                    if (viewId != null) updated["viewId"] = viewId
-                                    if (desc != null) updated["desc"] = desc
-                                    if (text != null) updated["text"] = text
-                                    recordedSteps[idx] = updated
-                                }
-                            }
-                        }
-                    }
-                    checkKeyboardState()
+                // Filter out immediate double-fire from Android view hierarchy (e.g. child & parent within 60ms)
+                val rawNode = event.source
+                val rawViewId = rawNode?.viewIdResourceName
+                if (now - lastRecordedTapTime < 60L && rawViewId != null && rawViewId == lastRecordedViewId) {
                     return
                 }
 
@@ -623,8 +501,12 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 recordedSteps.add(step)
                 lastActionTime = now
                 lastRecordedTapTime = now
+                lastRecordedViewId = viewId
+                lastRecordedX = finalCenterX
+                lastRecordedY = finalCenterY
                 lastTextEditNodeId = null
                 lastTextEditStepIndex = -1
+                overlay.showTapIndicator(finalCenterX.toFloat(), finalCenterY.toFloat())
                 updateOverlay()
                 checkKeyboardState()
             }
@@ -649,8 +531,13 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 )
                 recordedSteps.add(step)
                 lastActionTime = now
+                lastRecordedTapTime = now
+                lastRecordedViewId = node.viewIdResourceName
+                lastRecordedX = rect.centerX()
+                lastRecordedY = rect.centerY()
                 lastTextEditNodeId = null
                 lastTextEditStepIndex = -1
+                overlay.showTapIndicator(rect.centerX().toFloat(), rect.centerY().toFloat())
                 updateOverlay()
             }
 

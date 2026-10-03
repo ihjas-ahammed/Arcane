@@ -83,8 +83,58 @@ class _LauncherAppWidgetState extends State<LauncherAppWidget> {
               item(MdiIcons.arrowCollapseVertical, 'Shorter', () => service.resizeWidget(entry, entry.height - 48)),
               item(MdiIcons.arrowUp, 'Move up', () => service.moveWidget(entry, -1)),
               item(MdiIcons.arrowDown, 'Move down', () => service.moveWidget(entry, 1)),
+              if (service.homePageCount > 1)
+                item(MdiIcons.pageNextOutline, 'Move to another page…', () => _showMoveWidgetPageSheet(context, entry)),
               item(MdiIcons.cogOutline, 'Widget settings', () => LauncherNative.reconfigureWidget(entry.id)),
               item(MdiIcons.deleteOutline, 'Remove', () => service.removeWidget(entry), color: LauncherTheme.red),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showMoveWidgetPageSheet(BuildContext context, LauncherWidgetEntry entry) {
+    final service = LauncherService.instance;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: LauncherTheme.panel,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) {
+        final count = service.homePageCount;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Text('MOVE WIDGET TO PAGE',
+                    style: LauncherTheme.rajdhani(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+              ),
+              for (var i = 0; i < count; i++)
+                ListTile(
+                  dense: true,
+                  leading: Icon(i == 0 ? MdiIcons.homeOutline : MdiIcons.viewCarouselOutline, color: LauncherTheme.red),
+                  title: Text(i == 0 ? 'Page 1 (Primary Home)' : 'Page ${i + 1}',
+                      style: LauncherTheme.rajdhani(fontSize: 15, fontWeight: FontWeight.w600)),
+                  trailing: entry.page == i ? Icon(MdiIcons.check, color: LauncherTheme.red, size: 18) : null,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    service.moveWidgetToPage(entry, i);
+                  },
+                ),
+              ListTile(
+                dense: true,
+                leading: Icon(MdiIcons.plusBoxOutline, color: LauncherTheme.red),
+                title: Text('New Page',
+                    style: LauncherTheme.rajdhani(fontSize: 15, fontWeight: FontWeight.w700, color: LauncherTheme.red)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  final newIdx = service.addHomePage();
+                  service.moveWidgetToPage(entry, newIdx);
+                },
+              ),
             ],
           ),
         );
