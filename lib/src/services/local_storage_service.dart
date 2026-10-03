@@ -94,16 +94,23 @@ class LocalStorageService {
 
       final backupDir = await _backupDirectory();
       final backupFile = File('${backupDir.path}/daily_backup_${userId}_$todayStr.json');
-      if (await backupFile.exists() && (await backupFile.length()) > 0) {
-        // Today's daily backup snapshot is already saved
-        return;
+      final String jsonString = precomputedJson ?? await compute(_encodeJson, state);
+
+      if (await backupFile.exists()) {
+        final existingLength = await backupFile.length();
+        if (existingLength > 0) {
+          // Guard against replacing a healthy snapshot with an empty or drastically shrunken one (< 70%)
+          if (jsonString.length < (existingLength * 0.7)) {
+            debugPrint("[LocalStorageService] Preserving existing daily backup: incoming payload (${jsonString.length} bytes) is substantially smaller than current snapshot ($existingLength bytes)");
+            return;
+          }
+        }
       }
 
-      final String jsonString = precomputedJson ?? await compute(_encodeJson, state);
       final tempFile = File('${backupFile.path}.tmp');
       await tempFile.writeAsString(jsonString, flush: true);
       await tempFile.rename(backupFile.path);
-      debugPrint("[LocalStorageService] Auto daily backup created: ${backupFile.path}");
+      debugPrint("[LocalStorageService] Auto daily backup updated: ${backupFile.path}");
 
       // Prune backups beyond the 7 most recent days
       await _pruneDailyBackups(backupDir, userId);
@@ -148,9 +155,16 @@ class LocalStorageService {
   ) async {
     final prefs = await SharedPreferences.getInstance();
     final key = 'arcane_daily_backup_${userId}_$todayStr';
-    if (prefs.containsKey(key)) return;
-
     final String jsonString = precomputedJson ?? jsonEncode(state);
+
+    final existing = prefs.getString(key);
+    if (existing != null && existing.isNotEmpty) {
+      if (jsonString.length < (existing.length * 0.7)) {
+        debugPrint("[LocalStorageService/web] Preserving existing daily backup: incoming payload is smaller than current");
+        return;
+      }
+    }
+
     await prefs.setString(key, jsonString);
 
     final datesKey = 'arcane_daily_backup_dates_$userId';

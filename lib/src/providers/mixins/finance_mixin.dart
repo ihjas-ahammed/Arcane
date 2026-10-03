@@ -50,18 +50,38 @@ mixin FinanceMixin on ChangeNotifier {
 
   void loadFinanceState(Map<String, dynamic> data) {
     if (data['transactions'] != null) {
-      _transactions = (data['transactions'] as List).map((e) => FinanceTransaction.fromJson(e)).toList();
+      final incoming = (data['transactions'] as List).map((e) => FinanceTransaction.fromJson(e)).toList();
+      final txMap = <String, FinanceTransaction>{for (final tx in _transactions) tx.id: tx};
+      for (final tx in incoming) {
+        txMap[tx.id] = tx;
+      }
+      _transactions = txMap.values.toList();
     }
     if (data['categories'] != null) {
-      _categories = (data['categories'] as List).map((e) => FinanceCategory.fromJson(e)).toList();
+      final incoming = (data['categories'] as List).map((e) => FinanceCategory.fromJson(e)).toList();
+      final catMap = <String, FinanceCategory>{for (final c in _categories) c.id: c};
+      for (final c in incoming) {
+        catMap[c.id] = c;
+      }
+      _categories = catMap.values.toList();
     }
     if (_categories.isEmpty) initializeDefaultFinanceCategories();
 
     if (data['savingsGoals'] != null) {
-      _savingsGoals = (data['savingsGoals'] as List).map((e) => SavingsGoal.fromJson(e)).toList();
+      final incoming = (data['savingsGoals'] as List).map((e) => SavingsGoal.fromJson(e)).toList();
+      final sgMap = <String, SavingsGoal>{for (final sg in _savingsGoals) sg.id: sg};
+      for (final sg in incoming) {
+        sgMap[sg.id] = sg;
+      }
+      _savingsGoals = sgMap.values.toList();
     }
     if (data['accounts'] != null) {
-      _accounts = (data['accounts'] as List).map((e) => FinanceAccount.fromJson(e)).toList();
+      final incoming = (data['accounts'] as List).map((e) => FinanceAccount.fromJson(e)).toList();
+      final accMap = <String, FinanceAccount>{for (final a in _accounts) a.id: a};
+      for (final a in incoming) {
+        accMap[a.id] = a;
+      }
+      _accounts = accMap.values.toList();
     }
   }
 

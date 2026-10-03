@@ -73,24 +73,45 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
   }
 
   Future<void> _restoreBackup(File file) async {
-    final confirm = await showDialog<bool>(
+    final mode = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: JweTheme.panel,
-        title:  Text("Restore Backup?", style: TextStyle(color: JweTheme.textWhite)),
-        content:  Text("This will overwrite your current data with the data from this backup. Are you sure?", style: TextStyle(color: JweTheme.textMuted)),
-        actions:[
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child:  Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child:  Text("Restore", style: TextStyle(color: JweTheme.accentCyan))),
+        title: Text("RESTORE BACKUP", style: TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold)),
+        content: Text(
+          "How would you like to restore this backup?\n\n• MERGE: Combines all reflection logs, task history, and launcher settings with your current data (safe, zero data loss).\n• REPLACE: Completely replaces current data with the backup snapshot.",
+          style: TextStyle(color: JweTheme.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: Text("Cancel", style: TextStyle(color: JweTheme.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'replace'),
+            child: Text("Replace All", style: TextStyle(color: JweTheme.accentRed)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: JweTheme.accentCyan,
+              foregroundColor: JweTheme.onAccent,
+            ),
+            onPressed: () => Navigator.pop(ctx, 'merge'),
+            child: Text("MERGE (Recommended)", style: TextStyle(color: JweTheme.onAccent, fontWeight: FontWeight.bold)),
+          ),
         ],
       ),
     );
 
-    if (confirm == true && mounted) {
+    if (mode != null && mounted) {
       try {
-        await context.read<AppProvider>().restoreFromLocalSnapshot(file);
+        await context.read<AppProvider>().restoreFromLocalSnapshot(file, merge: mode == 'merge');
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Backup restored successfully.")));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(mode == 'merge'
+                ? "Backup merged successfully (all reflections & history preserved)."
+                : "Backup restored successfully."),
+          ));
           Navigator.pop(context);
         }
       } catch (e) {
@@ -140,23 +161,51 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     try {
       final importedData = await _exportService.importJson();
       if (importedData != null && mounted) {
-        final confirm = await showDialog<bool>(
+        final mode = await showDialog<String>(
           context: context,
           builder: (ctx) => AlertDialog(
             backgroundColor: JweTheme.panel,
-            title:  Text("Import Data?", style: TextStyle(color: JweTheme.textWhite)),
-            content:  Text("This will overwrite your current data with the imported file. Are you sure?", style: TextStyle(color: JweTheme.textMuted)),
-            actions:[
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child:  Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
-              TextButton(onPressed: () => Navigator.pop(ctx, true), child:  Text("Import", style: TextStyle(color: JweTheme.accentCyan))),
+            title: Text("IMPORT DATA", style: TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold)),
+            content: Text(
+              "How would you like to import this data file?\n\n• MERGE: Combines all reflection logs, task history, and launcher settings non-destructively.\n• REPLACE: Completely replaces current data with the imported file.",
+              style: TextStyle(color: JweTheme.textMuted),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, null),
+                child: Text("Cancel", style: TextStyle(color: JweTheme.textMuted)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, 'replace'),
+                child: Text("Replace All", style: TextStyle(color: JweTheme.accentRed)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: JweTheme.accentCyan,
+                  foregroundColor: JweTheme.onAccent,
+                ),
+                onPressed: () => Navigator.pop(ctx, 'merge'),
+                child: Text("MERGE (Recommended)", style: TextStyle(color: JweTheme.onAccent, fontWeight: FontWeight.bold)),
+              ),
             ],
           ),
         );
 
-        if (confirm == true && mounted) {
-          context.read<AppProvider>().loadAppStateFromMap(importedData);
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data imported successfully.")));
-          Navigator.pop(context);
+        if (mode != null && mounted) {
+          if (mode == 'merge') {
+            context.read<AppProvider>().mergeAppStateFromMap(importedData);
+          } else {
+            context.read<AppProvider>().loadAppStateFromMap(importedData);
+          }
+          await context.read<AppProvider>().forceLocalBackup();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(mode == 'merge'
+                  ? "Data merged successfully without losing any existing logs."
+                  : "Data imported successfully."),
+            ));
+            Navigator.pop(context);
+          }
         }
       }
     } catch (e) {

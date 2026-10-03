@@ -400,22 +400,62 @@ mixin UserMixin on ChangeNotifier {
     initializeSkills();
 
     if (data['trackedSkills'] != null) {
-      _trackedSkills = (data['trackedSkills'] as List)
+      final incoming = (data['trackedSkills'] as List)
           .map((e) => TrackedSkill.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
+      final skillMap = <String, TrackedSkill>{
+        for (final s in _trackedSkills) s.id: s,
+      };
+      for (final s in incoming) {
+        if (!skillMap.containsKey(s.id)) {
+          skillMap[s.id] = s;
+        } else {
+          final existing = skillMap[s.id]!;
+          final logMap = <String, SkillTrainingLog>{
+            for (final l in existing.logs) l.id: l,
+          };
+          for (final l in s.logs) {
+            logMap[l.id] = l;
+          }
+          final mergedLogs = logMap.values.toList()
+            ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          final latestVal = mergedLogs.isNotEmpty ? mergedLogs.first.value : existing.currentValue;
+          skillMap[s.id] = existing.copyWith(
+            currentValue: latestVal,
+            logs: mergedLogs,
+          );
+        }
+      }
+      _trackedSkills = skillMap.values.toList();
     }
     if (_trackedSkills.isEmpty) {
       _trackedSkills = TrackedSkill.defaultSkills();
     }
 
     if (data['reflectionLogs'] != null) {
-      _reflectionLogs = (data['reflectionLogs'] as List).map((e) => ReflectionLog.fromJson(e)).toList();
+      final incoming = (data['reflectionLogs'] as List).map((e) => ReflectionLog.fromJson(e)).toList();
+      final logMap = <String, ReflectionLog>{
+        for (final l in _reflectionLogs) l.id: l,
+      };
+      for (final l in incoming) {
+        logMap[l.id] = l;
+      }
+      final merged = logMap.values.toList()
+        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      _reflectionLogs = merged;
     }
 
     if (data['sops'] != null) {
-      _sops = (data['sops'] as List)
+      final incoming = (data['sops'] as List)
           .map((e) => SopModel.fromJson(e as Map<String, dynamic>))
           .toList();
+      final sopMap = <String, SopModel>{
+        for (final s in _sops) s.id: s,
+      };
+      for (final s in incoming) {
+        sopMap[s.id] = s;
+      }
+      _sops = sopMap.values.toList();
     }
     
     // Auto-recalculate levels based purely on the 7-day window of logs.

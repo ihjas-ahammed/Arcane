@@ -54,6 +54,7 @@ import 'package:missions/src/providers/actions/schedule_actions.dart';
 import 'package:missions/src/providers/actions/finance_actions.dart';
 import 'package:missions/src/providers/actions/journaling_actions.dart';
 import 'package:missions/src/screens/launcher/launcher_icon.dart';
+import 'package:missions/src/screens/launcher/launcher_service.dart';
 
 class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserMixin, HealthMixin, WidgetsBindingObserver {
   
@@ -167,6 +168,10 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     _journalingActions = JournalingActions(this);
     _paperTrading = PaperTradingProvider.instance;
     _paperTrading.onStateChanged = () => markDirty('trading');
+    LauncherService.instance.onLauncherChanged = () {
+      markDirty('launcher');
+      markDirty('settings');
+    };
 
     // Real-time instant app update stream from Firebase Realtime Database
     _updateService.watchAppUpdates().listen((update) {
@@ -960,6 +965,9 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   Map<String, dynamic> getTradingStateMap() => _paperTrading.getStateMap();
 
   @override
+  Map<String, dynamic> getLauncherStateMap() => LauncherService.instance.getStateMap();
+
+  @override
   Map<String, dynamic> getFullAppState() {
     final map = <String, dynamic>{};
     map.addAll(getTaskStateMap());
@@ -967,6 +975,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     map.addAll(getUserStateMap());
     map.addAll(getHealthStateMap());
     map['trading'] = getTradingStateMap();
+    map['launcher'] = getLauncherStateMap();
     return map;
   }
 
@@ -993,11 +1002,51 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         } catch (_) {}
       }
     }
+    if (data['launcher'] != null) {
+      final l = data['launcher'];
+      if (l is Map) {
+        unawaited(LauncherService.instance.loadFromMap(Map<String, dynamic>.from(l)));
+      } else if (l is String) {
+        try {
+          final decoded = jsonDecode(l);
+          if (decoded is Map) {
+            unawaited(LauncherService.instance.loadFromMap(Map<String, dynamic>.from(decoded)));
+          }
+        } catch (_) {}
+      }
+    }
     
     if (settings.dataVersion < 1) {
       settings.dataVersion = 1;
       markDirty('settings');
     }
+  }
+
+  void mergeAppStateFromMap(Map<String, dynamic> data) {
+    loadTaskState(data);
+    loadUserState(data);
+    loadFinanceState(data);
+    loadHealthState(data);
+    if (data['launcher'] != null) {
+      final l = data['launcher'];
+      if (l is Map) {
+        unawaited(LauncherService.instance.loadFromMap(Map<String, dynamic>.from(l)));
+      } else if (l is String) {
+        try {
+          final decoded = jsonDecode(l);
+          if (decoded is Map) {
+            unawaited(LauncherService.instance.loadFromMap(Map<String, dynamic>.from(decoded)));
+          }
+        } catch (_) {}
+      }
+    }
+    if (data['trading'] != null) {
+      final t = data['trading'];
+      if (t is Map) {
+        _paperTrading.loadState(Map<String, dynamic>.from(t));
+      }
+    }
+    notifyListeners();
   }
 
   // --- UI Helpers ---
@@ -1147,24 +1196,36 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     }
   }
 
-  Future<void> clearAllData() async {
-    if (currentUser == null) return;
-    await _cloudStorage.deleteUserData(currentUser!.uid);
-    await _localStorage.clearState(currentUser!.uid);
-    await _resetToInitialState();
+  void markAllDirty() {
     markDirty('settings');
     markDirty('tasks');
     markDirty('history');
     markDirty('reflections');
     markDirty('finance');
     markDirty('health');
+    markDirty('trading');
+    markDirty('launcher');
   }
 
-  Future<void> restoreFromLocalSnapshot(File backupFile) async {
+  Future<void> clearAllData() async {
+    if (currentUser == null) return;
+    await _cloudStorage.deleteUserData(currentUser!.uid);
+    await _localStorage.clearState(currentUser!.uid);
+    await _resetToInitialState();
+    markAllDirty();
+  }
+
+  Future<void> restoreFromLocalSnapshot(File backupFile, {bool merge = true}) async {
     try {
       final contents = await backupFile.readAsString();
       final data = jsonDecode(contents) as Map<String, dynamic>;
-      loadStateFromMap(data);
+      if (merge) {
+        mergeAppStateFromMap(data);
+      } else {
+        loadStateFromMap(data);
+      }
+      markAllDirty();
+      await forceLocalBackup();
     } catch (e) {
       rethrow;
     }
@@ -2249,6 +2310,9 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     if (index != -1) {
       final newLogs = List<ReflectionLog>.from(reflectionLogs)..removeAt(index);
       setReflectionLogs(newLogs);
+      if (currentUser != null) {
+        unawaited(_cloudStorage.deleteReflection(currentUser!.uid, id));
+      }
     }
   }
 

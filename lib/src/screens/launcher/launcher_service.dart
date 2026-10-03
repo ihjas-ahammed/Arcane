@@ -63,6 +63,10 @@ class LauncherService {
   static const _kHidden = 'launcher_v4_hidden';
   static const _kStats = 'launcher_v4_stats';
   static const _kFullscreen = 'launcher_v4_fullscreen';
+  static const _kNotes = 'arcane_launcher_quick_notes';
+
+  VoidCallback? onLauncherChanged;
+  void _notifyChanged() => onLauncherChanged?.call();
 
   static const int maxDockSlots = 6;
   static const int maxHomeItems = 40;
@@ -108,6 +112,15 @@ class LauncherService {
   List<LauncherApp> _systemApps = const [];
   List<LauncherApp> _shortcuts = const [];
   List<LauncherApp> _webLinks = const [];
+  String _quickNotes = '';
+  String get quickNotes => _quickNotes;
+
+  void setQuickNotes(String notes) {
+    _quickNotes = notes;
+    unawaited(_prefs?.setString(_kNotes, notes));
+    _notifyChanged();
+  }
+
   SharedPreferences? _prefs;
   Future<void>? _initFuture;
   Timer? _statsSave;
@@ -122,6 +135,7 @@ class LauncherService {
     _systemApps = cached.where((a) => a.kind != LauncherAppKind.web).toList();
     _shortcuts = const [];
     _webLinks = _decodeList(prefs.getString(_kWeb)).map(LauncherApp.fromJson).toList();
+    _quickNotes = prefs.getString(_kNotes) ?? '';
     _rebuildApps();
 
     final savedDock = prefs.getStringList(_kDock);
@@ -347,6 +361,7 @@ class LauncherService {
     };
     if (area == LauncherArea.dock) _dockConfigured = true;
     unawaited(_prefs?.setStringList(prefKey, notifier.value));
+    _notifyChanged();
   }
 
   bool isAreaFull(LauncherArea area) => areaList(area).value.length >= _areaCapacity(area);
@@ -430,6 +445,7 @@ class LauncherService {
 
   void _saveFolders() {
     unawaited(_prefs?.setString(_kFolders, jsonEncode(folders.value.values.map((f) => f.toJson()).toList())));
+    _notifyChanged();
   }
 
   LauncherFolder _createFolder(List<String> items, {String name = 'Folder'}) {
@@ -541,6 +557,7 @@ class LauncherService {
     unawaited(_prefs?.setString(_kWeb, jsonEncode(_webLinks.map((w) => w.toJson()).toList())));
     _rebuildApps();
     addToArea(LauncherArea.home, link.key);
+    _notifyChanged();
   }
 
   void removeWebLink(String key) {
@@ -548,6 +565,7 @@ class LauncherService {
     unawaited(_prefs?.setString(_kWeb, jsonEncode(_webLinks.map((w) => w.toJson()).toList())));
     _rebuildApps();
     _pruneMissing();
+    _notifyChanged();
   }
 
   /// Unpins a pinned shortcut (Chrome web app) from Arcane.
@@ -565,6 +583,7 @@ class LauncherService {
     hide ? next.add(appKey) : next.remove(appKey);
     hidden.value = Set.unmodifiable(next);
     unawaited(_prefs?.setStringList(_kHidden, next.toList()));
+    _notifyChanged();
   }
 
   // ── Icons ───────────────────────────────────────────────────
@@ -603,11 +622,13 @@ class LauncherService {
       _kOverrides,
       jsonEncode({for (final e in _overrides.entries) e.key: e.value.toJson()}),
     ));
+    _notifyChanged();
   }
 
   Future<void> setFullscreen(bool value) async {
     fullscreen.value = value;
     await (_prefs ?? await SharedPreferences.getInstance()).setBool(_kFullscreen, value);
+    _notifyChanged();
   }
 
   Future<void> setIconPack(String? pack) async {
@@ -620,6 +641,7 @@ class LauncherService {
       await _prefs?.setString(_kIconPack, pack);
       await _loadPackMap(pack);
     }
+    _notifyChanged();
   }
 
   Future<void> _loadPackMap(String pack) async {
@@ -680,6 +702,7 @@ class LauncherService {
   void _saveWidgets(List<LauncherWidgetEntry> list) {
     widgets.value = List.unmodifiable(list);
     unawaited(_prefs?.setString(_kWidgets, jsonEncode(list.map((w) => w.toJson()).toList())));
+    _notifyChanged();
   }
 
   // ── Launching & usage ───────────────────────────────────────
@@ -739,5 +762,126 @@ class LauncherService {
     }
     hits.sort((x, y) => x.$1 != y.$1 ? x.$1.compareTo(y.$1) : x.$2.displayLabel.compareTo(y.$2.displayLabel));
     return hits.map((h) => h.$2).toList();
+  }
+
+  /// Full serializable map of launcher configuration and state for cloud sync and backups.
+  Map<String, dynamic> getStateMap() {
+    return {
+      'dock': dock.value,
+      'home': home.value,
+      'shelf': shelf.value,
+      'drawerFolders': drawerFolders.value,
+      'folders': folders.value.values.map((f) => f.toJson()).toList(),
+      'widgets': widgets.value.map((w) => w.toJson()).toList(),
+      'hidden': hidden.value.toList(),
+      'iconPack': iconPack.value,
+      'fullscreen': fullscreen.value,
+      'overrides': {for (final e in _overrides.entries) e.key: e.value.toJson()},
+      'webLinks': _webLinks.map((w) => w.toJson()).toList(),
+      'quickNotes': _quickNotes,
+      'stats': _stats,
+    };
+  }
+
+  /// Restores launcher configuration and state from a cloud or backup map.
+  Future<void> loadFromMap(Map<String, dynamic> map) async {
+    final prefs = _prefs ??= await SharedPreferences.getInstance();
+
+    if (map['dock'] is List) {
+      final list = (map['dock'] as List).whereType<String>().toList();
+      dock.value = List.unmodifiable(list);
+      await prefs.setStringList(_kDock, list);
+    }
+    if (map['home'] is List) {
+      final list = (map['home'] as List).whereType<String>().toList();
+      home.value = List.unmodifiable(list);
+      await prefs.setStringList(_kHome, list);
+    }
+    if (map['shelf'] is List) {
+      final list = (map['shelf'] as List).whereType<String>().toList();
+      shelf.value = List.unmodifiable(list);
+      await prefs.setStringList(_kShelf, list);
+    }
+    if (map['drawerFolders'] is List) {
+      final list = (map['drawerFolders'] as List).whereType<String>().toList();
+      drawerFolders.value = List.unmodifiable(list);
+      await prefs.setStringList(_kDrawerFolders, list);
+    }
+    if (map['folders'] is List) {
+      final rawFolders = (map['folders'] as List)
+          .whereType<Map>()
+          .map((m) => LauncherFolder.fromJson(Map<String, dynamic>.from(m)))
+          .toList();
+      folders.value = Map.unmodifiable({
+        for (final f in rawFolders)
+          if (f.id.isNotEmpty) f.key: f,
+      });
+      await prefs.setString(_kFolders, jsonEncode(rawFolders.map((f) => f.toJson()).toList()));
+    }
+    if (map['widgets'] is List) {
+      final rawWidgets = (map['widgets'] as List)
+          .whereType<Map>()
+          .map((m) => LauncherWidgetEntry.fromJson(Map<String, dynamic>.from(m)))
+          .toList();
+      widgets.value = List.unmodifiable(rawWidgets);
+      await prefs.setString(_kWidgets, jsonEncode(rawWidgets.map((w) => w.toJson()).toList()));
+    }
+    if (map['hidden'] is List) {
+      final list = (map['hidden'] as List).whereType<String>().toSet();
+      hidden.value = Set.unmodifiable(list);
+      await prefs.setStringList(_kHidden, list.toList());
+    }
+    if (map.containsKey('iconPack')) {
+      final pack = map['iconPack'] as String?;
+      iconPack.value = pack;
+      if (pack == null) {
+        await prefs.remove(_kIconPack);
+      } else {
+        await prefs.setString(_kIconPack, pack);
+        unawaited(_loadPackMap(pack));
+      }
+    }
+    if (map.containsKey('fullscreen') && map['fullscreen'] is bool) {
+      final val = map['fullscreen'] as bool;
+      fullscreen.value = val;
+      await prefs.setBool(_kFullscreen, val);
+    }
+    if (map['overrides'] is Map) {
+      final rawOverrides = map['overrides'] as Map;
+      _overrides = {};
+      for (final e in rawOverrides.entries) {
+        if (e.value is Map) {
+          final o = LauncherIconOverride.fromJson(Map<String, dynamic>.from(e.value as Map));
+          if (o != null) _overrides[e.key.toString()] = o;
+        }
+      }
+      await prefs.setString(
+        _kOverrides,
+        jsonEncode({for (final e in _overrides.entries) e.key: e.value.toJson()}),
+      );
+      iconsRevision.value++;
+    }
+    if (map['webLinks'] is List) {
+      final list = (map['webLinks'] as List)
+          .whereType<Map>()
+          .map((m) => LauncherApp.fromJson(Map<String, dynamic>.from(m)))
+          .toList();
+      _webLinks = list;
+      await prefs.setString(_kWeb, jsonEncode(list.map((w) => w.toJson()).toList()));
+      _rebuildApps();
+    }
+    if (map.containsKey('quickNotes') && map['quickNotes'] is String) {
+      _quickNotes = map['quickNotes'] as String;
+      await prefs.setString(_kNotes, _quickNotes);
+    }
+    if (map['stats'] is Map) {
+      final rawStats = map['stats'] as Map;
+      rawStats.forEach((k, v) {
+        if (v is List && v.length == 2) {
+          _stats[k.toString()] = [(v[0] as num).toInt(), (v[1] as num).toInt()];
+        }
+      });
+      await prefs.setString(_kStats, jsonEncode(_stats));
+    }
   }
 }

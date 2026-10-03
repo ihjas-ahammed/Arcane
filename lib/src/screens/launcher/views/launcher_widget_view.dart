@@ -6,10 +6,10 @@ import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/screens/launcher/launcher_native.dart';
+import 'package:missions/src/screens/launcher/launcher_service.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
 import 'package:missions/src/screens/launcher/views/launcher_command_deck.dart';
 import 'package:missions/src/screens/launcher/views/launcher_sheets.dart';
-import 'package:missions/src/screens/launcher/views/launcher_status_bar.dart';
 import 'package:missions/src/screens/settings/homescreen_widgets_preview_screen.dart';
 import 'package:missions/src/services/home_widget_service.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
@@ -86,10 +86,16 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
 
   Future<void> _loadNotes() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString(_notesPrefKey);
-      if (saved != null && mounted) {
+      final saved = LauncherService.instance.quickNotes;
+      if (saved.isNotEmpty && mounted) {
         _notesController.text = saved;
+        return;
+      }
+      final prefs = await SharedPreferences.getInstance();
+      final pSaved = prefs.getString(_notesPrefKey);
+      if (pSaved != null && mounted) {
+        _notesController.text = pSaved;
+        LauncherService.instance.setQuickNotes(pSaved);
       }
     } catch (_) {}
   }
@@ -97,11 +103,8 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
   void _saveNotes(String val) {
     // Debounced: one write after typing pauses instead of one per keystroke.
     _notesSave?.cancel();
-    _notesSave = Timer(const Duration(milliseconds: 600), () async {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(_notesPrefKey, val);
-      } catch (_) {}
+    _notesSave = Timer(const Duration(milliseconds: 600), () {
+      LauncherService.instance.setQuickNotes(val);
     });
   }
 

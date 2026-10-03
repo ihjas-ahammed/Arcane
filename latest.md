@@ -1,3 +1,31 @@
+# ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100301)
+
+### 🛡️ Zero Data Loss: Complete Reflection Log & History Protection
+- **Permanent End to Reflection Truncation**: Completely eliminated the 150-log limit and random UUID key ordering that previously caused older reflection logs to disappear during synchronization. All historical reflections are preserved indefinitely.
+- **Firebase OOM & Binder Buffer Overflow Prevention**: Refactored large reflection and history dataset synchronizations into batched updates of 100 items each. This eliminates Firebase Realtime Database Out-Of-Memory spikes and circumvents Android's 1MB Binder transaction buffer IPC limit.
+- **Non-Destructive Local & Cloud Merging**: Both cloud synchronization and backup restoration now perform intelligent non-destructive merging:
+  - Reflection logs merge by unique log ID and remain strictly sorted chronologically.
+  - Completed task history (`completedByDay`) merges across all days without overwriting existing notes or briefings.
+  - Skills, training logs, SOP executions, and finance records merge by ID so no historical entries are dropped.
+
+### 💾 Full Daily Recovery Backups & Anti-Shrink Safeguards
+- **100% Complete Snapshot Archival**: Daily recovery snapshots now capture the entire application state (`getFullAppState()`) rather than early morning partial states.
+- **Continuous Same-Day Refinement**: Daily backups update dynamically as new missions, notes, and reflections are logged throughout the day.
+- **Anti-Shrink Data Guard**: If incoming daily backup data is significantly smaller than the existing snapshot on disk (< 70%), the overwrite is safely rejected, ensuring a healthy snapshot is never replaced with an empty or partial fragment.
+- **Automated Merge on Restore**: Restoring local backups or importing data files now provides a **MERGE (Recommended)** option that non-destructively weaves backup data into the current database, eliminating the need to manually merge JSON files.
+
+### 📱 Full Launcher State Synchronization & Backup
+- **Complete Launcher Parity**: All Arcane launcher configurations are now included in local snapshots, cloud sync (`users/$uid/data/launcher`), and data exports:
+  - Dock slots, home screen grid layout, and quick-apps shelf.
+  - App folders, drawer folders, and folder names.
+  - Android AppWidget configurations and resized dimensions.
+  - Active icon pack selection and per-app custom icon overrides.
+  - Pinned web links and hidden apps list.
+  - Tactical launcher Quick Notes and fullscreen mode toggle.
+- **Reactive Launcher Syncing**: Mutating any launcher setting instantly marks the launcher collection dirty and schedules a cloud sync.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.2 (Build #2126100212)
 
 ### 🎙️ Watch Mic Priority & External Assistant Audio Conflict Fix

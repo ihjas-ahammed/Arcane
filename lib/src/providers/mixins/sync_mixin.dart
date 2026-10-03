@@ -274,6 +274,7 @@ mixin SyncMixin on ChangeNotifier {
   Map<String, dynamic> getUserStateMap() => {};
   Map<String, dynamic> getHealthStateMap() => {};
   Map<String, dynamic> getTradingStateMap() => {};
+  Map<String, dynamic> getLauncherStateMap() => {};
 
   Future<bool> _manuallyLoadFromCloudInternal() async {
     final cloudData = await _storageService.getUserData(currentUser!.uid);
@@ -354,6 +355,7 @@ mixin SyncMixin on ChangeNotifier {
       final financeData = Map<String, dynamic>.from(getFinanceStateMap());
       final healthData = Map<String, dynamic>.from(getHealthStateMap());
       final tradingData = Map<String, dynamic>.from(getTradingStateMap());
+      final launcherData = Map<String, dynamic>.from(getLauncherStateMap());
       final userState = Map<String, dynamic>.from(getUserStateMap());
 
       final appData = <String, dynamic>{
@@ -362,6 +364,7 @@ mixin SyncMixin on ChangeNotifier {
         ...userState,
         ...healthData,
         'trading': tradingData,
+        'launcher': launcherData,
       };
 
       final historyData = {'completedByDay': appData['completedByDay'] ?? {}};
@@ -377,7 +380,9 @@ mixin SyncMixin on ChangeNotifier {
         ...financeData.keys,
         ...healthData.keys,
         ...tradingData.keys,
+        ...launcherData.keys,
         'trading',
+        'launcher',
         'completedByDay',
         'reflectionLogs',
         ...userState.keys,
@@ -408,6 +413,9 @@ mixin SyncMixin on ChangeNotifier {
       }
       if (force || _dirtyCollections.contains('trading')) {
         if (!await _storageService.saveTrading(currentUser!.uid, tradingData)) success = false;
+      }
+      if (force || _dirtyCollections.contains('launcher')) {
+        if (!await _storageService.saveLauncher(currentUser!.uid, launcherData)) success = false;
       }
       if (force || _dirtyCollections.isNotEmpty || _dirtyCollections.contains('settings')) {
         if (!await _storageService.saveSettings(currentUser!.uid, settingsData)) success = false;

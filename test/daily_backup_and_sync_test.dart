@@ -115,5 +115,36 @@ void main() {
       expect(loaded!['recovered'], isTrue);
       expect(await primaryFile.exists(), isTrue);
     });
+
+    test('updates daily backup with richer state but protects against shrunken partial overwrite', () async {
+      // 1. Initial full state
+      final fullState = {
+        'tasks': List.generate(20, (i) => {'id': 't$i', 'title': 'Task $i'}),
+        'reflections': List.generate(15, (i) => {'id': 'r$i', 'content': 'Deep reflection entry $i'}),
+      };
+      await storageService.performDailyBackup(userId, fullState);
+
+      final backups = await storageService.getDailyBackupFiles(userId);
+      expect(backups.length, equals(1));
+      final initialLength = await backups.first.length();
+      expect(initialLength, greaterThan(500));
+
+      // 2. Richer state: adds 10 more tasks -> backup must update
+      final richerState = {
+        'tasks': List.generate(30, (i) => {'id': 't$i', 'title': 'Task $i'}),
+        'reflections': List.generate(20, (i) => {'id': 'r$i', 'content': 'Deep reflection entry $i'}),
+      };
+      await storageService.performDailyBackup(userId, richerState);
+      final updatedLength = await backups.first.length();
+      expect(updatedLength, greaterThan(initialLength));
+
+      // 3. Shrunken / empty state (< 70% size): should NOT overwrite the healthy backup
+      final tinyState = {
+        'tasks': [{'id': 't0'}],
+      };
+      await storageService.performDailyBackup(userId, tinyState);
+      final preservedLength = await backups.first.length();
+      expect(preservedLength, equals(updatedLength)); // Protected!
+    });
   });
 }

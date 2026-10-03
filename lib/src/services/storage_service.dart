@@ -17,6 +17,7 @@ const String _docSettings = 'settings';
 const String _docFinance = 'finance';
 const String _docHealth = 'health';
 const String _docTrading = 'trading';
+const String _docLauncher = 'launcher';
 
 /// Cross-platform cloud storage facade. The factory constructor selects the
 /// concrete impl: FlutterFire on Android/iOS/web/macOS/Windows, and a pair
@@ -36,9 +37,11 @@ abstract class StorageService {
   Future<bool> saveFinance(String userId, Map<String, dynamic> data);
   Future<bool> saveHealth(String userId, Map<String, dynamic> data);
   Future<bool> saveTrading(String userId, Map<String, dynamic> data);
+  Future<bool> saveLauncher(String userId, Map<String, dynamic> data);
   Future<Map<String, dynamic>?> getTrading(String userId);
   Future<bool> saveHistory(String userId, Map<String, dynamic> data);
   Future<bool> saveReflections(String userId, Map<String, dynamic> data);
+  Future<bool> deleteReflection(String userId, String reflectionId);
   Future<bool> deleteUserData(String userId);
   Future<bool> saveDailyData(
       String userId, String date, String type, Map<String, dynamic> data);
@@ -120,6 +123,12 @@ Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
           reflections.add(jsonStr);
         }
       });
+      // Sort reflections chronologically ascending by timestamp so order is deterministic
+      reflections.sort((a, b) {
+        final tA = a is Map ? (a['timestamp'] ?? '') : '';
+        final tB = b is Map ? (b['timestamp'] ?? '') : '';
+        return tA.toString().compareTo(tB.toString());
+      });
       fullData['reflectionLogs'] = reflections;
     }
   }
@@ -136,6 +145,18 @@ Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
     }
   }
 
+  if (raw[_docLauncher] != null) {
+    if (raw[_docLauncher] is String) {
+      try {
+        fullData['launcher'] = jsonDecode(raw[_docLauncher] as String);
+      } catch (_) {
+        fullData['launcher'] = raw[_docLauncher];
+      }
+    } else if (raw[_docLauncher] is Map) {
+      fullData['launcher'] = Map<String, dynamic>.from(raw[_docLauncher] as Map);
+    }
+  }
+
   // Catch-all for any additional raw nodes under data/
   raw.forEach((key, val) {
     final k = key.toString();
@@ -144,6 +165,7 @@ Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
         k != _docFinance &&
         k != _docHealth &&
         k != _docTrading &&
+        k != _docLauncher &&
         k != 'history' &&
         k != 'reflections') {
       if (val is String) {
@@ -194,8 +216,9 @@ class _FlutterFireStorageService implements StorageService {
         baseRef.child(_docFinance).get().timeout(_rtdbTimeout),
         baseRef.child(_docHealth).get().timeout(_rtdbTimeout),
         baseRef.child(_docTrading).get().timeout(_rtdbTimeout),
-        baseRef.child('history').orderByKey().limitToLast(365).get().timeout(_rtdbTimeout),
-        baseRef.child('reflections').orderByKey().limitToLast(150).get().timeout(_rtdbTimeout),
+        baseRef.child('history').get().timeout(_rtdbTimeout),
+        baseRef.child('reflections').get().timeout(_rtdbTimeout),
+        baseRef.child(_docLauncher).get().timeout(_rtdbTimeout),
       ]);
 
       final settingsSnap = results[0];
@@ -205,6 +228,7 @@ class _FlutterFireStorageService implements StorageService {
       final tradingSnap = results[4];
       final historySnap = results[5];
       final reflectionsSnap = results[6];
+      final launcherSnap = results[7];
 
       Map<dynamic, dynamic> rawData = {};
 
@@ -215,6 +239,7 @@ class _FlutterFireStorageService implements StorageService {
       if (tradingSnap.exists) rawData[_docTrading] = tradingSnap.value;
       if (historySnap.exists) rawData['history'] = historySnap.value;
       if (reflectionsSnap.exists) rawData['reflections'] = reflectionsSnap.value;
+      if (launcherSnap.exists) rawData[_docLauncher] = launcherSnap.value;
 
       if (rawData.isNotEmpty) {
         return _parseRtdbData(rawData);
@@ -272,6 +297,9 @@ class _FlutterFireStorageService implements StorageService {
   @override
   Future<bool> saveTrading(String userId, Map<String, dynamic> data) =>
       _saveChunkToRTDB(userId, _docTrading, data);
+  @override
+  Future<bool> saveLauncher(String userId, Map<String, dynamic> data) =>
+      _saveChunkToRTDB(userId, _docLauncher, data);
 
   @override
   Future<Map<String, dynamic>?> getTrading(String userId) async {
@@ -310,14 +338,19 @@ class _FlutterFireStorageService implements StorageService {
     try {
       final history = data['completedByDay'] as Map<String, dynamic>? ?? {};
       final Map<String, dynamic> updates = {};
-      final sortedKeys = history.keys.toList()..sort();
-      final keysToSave = sortedKeys.length > 365 ? sortedKeys.sublist(sortedKeys.length - 365) : sortedKeys;
-      for (final date in keysToSave) {
-        final cleanKey = date.toString().replaceAll(RegExp(r'[.#$\[\]/]'), '_');
-        updates[cleanKey] = jsonEncode(history[date]);
+      for (final entry in history.entries) {
+        final cleanKey = entry.key.toString().replaceAll(RegExp(r'[.#$\[\]/]'), '_');
+        updates[cleanKey] = jsonEncode(entry.value);
       }
       if (updates.isNotEmpty) {
-        await _rtdb.ref('users/$userId/data/history').update(updates).timeout(_rtdbTimeout);
+        // Batch in groups of 100 to avoid Android Binder IPC buffer limits (>1MB) and prevent RTDB OOM
+        final entries = updates.entries.toList();
+        const batchSize = 100;
+        for (int i = 0; i < entries.length; i += batchSize) {
+          final end = (i + batchSize < entries.length) ? i + batchSize : entries.length;
+          final batch = Map<String, dynamic>.fromEntries(entries.sublist(i, end));
+          await _rtdb.ref('users/$userId/data/history').update(batch).timeout(_rtdbTimeout);
+        }
       }
       return true;
     } catch (e, stack) {
@@ -331,20 +364,39 @@ class _FlutterFireStorageService implements StorageService {
     if (userId.isEmpty) return false;
     try {
       final logs = data['reflectionLogs'] as List<dynamic>? ?? [];
-      final logsToSave = logs.length > 150 ? logs.sublist(logs.length - 150) : logs;
       final Map<String, dynamic> updates = {};
-      for (var log in logsToSave) {
+      for (var log in logs) {
         if (log is Map && log['id'] != null) {
           final cleanId = log['id'].toString().replaceAll(RegExp(r'[.#$\[\]/]'), '_');
           updates[cleanId] = jsonEncode(log);
         }
       }
       if (updates.isNotEmpty) {
-        await _rtdb.ref('users/$userId/data/reflections').set(updates).timeout(_rtdbTimeout);
+        // Batch in groups of 100 to avoid Android Binder IPC buffer limits (>1MB) and prevent RTDB OOM
+        final entries = updates.entries.toList();
+        const batchSize = 100;
+        for (int i = 0; i < entries.length; i += batchSize) {
+          final end = (i + batchSize < entries.length) ? i + batchSize : entries.length;
+          final batch = Map<String, dynamic>.fromEntries(entries.sublist(i, end));
+          await _rtdb.ref('users/$userId/data/reflections').update(batch).timeout(_rtdbTimeout);
+        }
       }
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService.saveReflections] $e\n$stack');
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> deleteReflection(String userId, String reflectionId) async {
+    if (userId.isEmpty || reflectionId.isEmpty) return false;
+    try {
+      final cleanId = reflectionId.replaceAll(RegExp(r'[.#$\[\]/]'), '_');
+      await _rtdb.ref('users/$userId/data/reflections/$cleanId').remove().timeout(_rtdbTimeout);
+      return true;
+    } catch (e, stack) {
+      debugPrint('[StorageService.deleteReflection] $e\n$stack');
       return false;
     }
   }
@@ -537,8 +589,9 @@ class _LinuxStorageService implements StorageService {
         baseRef.child(_docFinance).once().timeout(_rtdbTimeout),
         baseRef.child(_docHealth).once().timeout(_rtdbTimeout),
         baseRef.child(_docTrading).once().timeout(_rtdbTimeout),
-        baseRef.child('history').orderByKey().limitToLast(365).once().timeout(_rtdbTimeout),
-        baseRef.child('reflections').orderByKey().limitToLast(150).once().timeout(_rtdbTimeout),
+        baseRef.child('history').once().timeout(_rtdbTimeout),
+        baseRef.child('reflections').once().timeout(_rtdbTimeout),
+        baseRef.child(_docLauncher).once().timeout(_rtdbTimeout),
       ]);
 
       final settingsSnap = results[0];
@@ -548,6 +601,7 @@ class _LinuxStorageService implements StorageService {
       final tradingSnap = results[4];
       final historySnap = results[5];
       final reflectionsSnap = results[6];
+      final launcherSnap = results[7];
 
       Map<dynamic, dynamic> rawData = {};
       if (settingsSnap.value != null) rawData[_docSettings] = settingsSnap.value;
@@ -559,6 +613,7 @@ class _LinuxStorageService implements StorageService {
       if (reflectionsSnap.value != null) {
         rawData['reflections'] = reflectionsSnap.value;
       }
+      if (launcherSnap.value != null) rawData[_docLauncher] = launcherSnap.value;
 
       if (rawData.isNotEmpty) return _parseRtdbData(rawData);
       return null;
@@ -616,6 +671,9 @@ class _LinuxStorageService implements StorageService {
   @override
   Future<bool> saveTrading(String userId, Map<String, dynamic> data) =>
       _saveChunkToRTDB(userId, _docTrading, data);
+  @override
+  Future<bool> saveLauncher(String userId, Map<String, dynamic> data) =>
+      _saveChunkToRTDB(userId, _docLauncher, data);
 
   @override
   Future<Map<String, dynamic>?> getTrading(String userId) async {
@@ -654,18 +712,22 @@ class _LinuxStorageService implements StorageService {
     try {
       final history = data['completedByDay'] as Map<String, dynamic>? ?? {};
       final Map<String, dynamic> updates = {};
-      final sortedKeys = history.keys.toList()..sort();
-      final keysToSave = sortedKeys.length > 365 ? sortedKeys.sublist(sortedKeys.length - 365) : sortedKeys;
-      for (final date in keysToSave) {
-        final cleanKey = date.toString().replaceAll(RegExp(r'[.#$\[\]/]'), '_');
-        updates[cleanKey] = jsonEncode(history[date]);
+      for (final entry in history.entries) {
+        final cleanKey = entry.key.toString().replaceAll(RegExp(r'[.#$\[\]/]'), '_');
+        updates[cleanKey] = jsonEncode(entry.value);
       }
       if (updates.isNotEmpty) {
-        await _rtdb
-            .reference()
-            .child('users/$userId/data/history')
-            .update(updates)
-            .timeout(_rtdbTimeout);
+        final entries = updates.entries.toList();
+        const batchSize = 100;
+        for (int i = 0; i < entries.length; i += batchSize) {
+          final end = (i + batchSize < entries.length) ? i + batchSize : entries.length;
+          final batch = Map<String, dynamic>.fromEntries(entries.sublist(i, end));
+          await _rtdb
+              .reference()
+              .child('users/$userId/data/history')
+              .update(batch)
+              .timeout(_rtdbTimeout);
+        }
       }
       return true;
     } catch (e, stack) {
@@ -679,24 +741,46 @@ class _LinuxStorageService implements StorageService {
     if (userId.isEmpty) return false;
     try {
       final logs = data['reflectionLogs'] as List<dynamic>? ?? [];
-      final logsToSave = logs.length > 150 ? logs.sublist(logs.length - 150) : logs;
       final Map<String, dynamic> updates = {};
-      for (var log in logsToSave) {
+      for (var log in logs) {
         if (log is Map && log['id'] != null) {
           final cleanId = log['id'].toString().replaceAll(RegExp(r'[.#$\[\]/]'), '_');
           updates[cleanId] = jsonEncode(log);
         }
       }
       if (updates.isNotEmpty) {
-        await _rtdb
-            .reference()
-            .child('users/$userId/data/reflections')
-            .set(updates)
-            .timeout(_rtdbTimeout);
+        final entries = updates.entries.toList();
+        const batchSize = 100;
+        for (int i = 0; i < entries.length; i += batchSize) {
+          final end = (i + batchSize < entries.length) ? i + batchSize : entries.length;
+          final batch = Map<String, dynamic>.fromEntries(entries.sublist(i, end));
+          await _rtdb
+              .reference()
+              .child('users/$userId/data/reflections')
+              .update(batch)
+              .timeout(_rtdbTimeout);
+        }
       }
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService.saveReflections/linux] $e\n$stack');
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> deleteReflection(String userId, String reflectionId) async {
+    if (userId.isEmpty || reflectionId.isEmpty) return false;
+    try {
+      final cleanId = reflectionId.replaceAll(RegExp(r'[.#$\[\]/]'), '_');
+      await _rtdb
+          .reference()
+          .child('users/$userId/data/reflections/$cleanId')
+          .remove()
+          .timeout(_rtdbTimeout);
+      return true;
+    } catch (e, stack) {
+      debugPrint('[StorageService.deleteReflection/linux] $e\n$stack');
       return false;
     }
   }

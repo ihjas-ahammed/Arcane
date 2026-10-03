@@ -392,14 +392,27 @@ mixin TaskMixin on ChangeNotifier {
   // --- Data Loading Helper ---
   void loadTaskState(Map<String, dynamic> data) {
     if (data['mainTasks'] != null) {
-      _mainTasks = (data['mainTasks'] as List).map((e) => MainTask.fromJson(e)).toList();
-    } else {
+      final incoming = (data['mainTasks'] as List).map((e) => MainTask.fromJson(e)).toList();
+      if (_mainTasks.isEmpty) {
+        _mainTasks = incoming;
+      } else {
+        final tMap = <String, MainTask>{for (final t in _mainTasks) t.id: t};
+        for (final t in incoming) {
+          tMap[t.id] ??= t;
+        }
+        _mainTasks = tMap.values.toList();
+      }
+    } else if (_mainTasks.isEmpty) {
       _mainTasks = initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
     }
 
-    _completedByDay = data['completedByDay'] != null 
-        ? Map<String, dynamic>.from(data['completedByDay']) 
-        : {};
+    if (data['completedByDay'] != null) {
+      final incoming = Map<String, dynamic>.from(data['completedByDay']);
+      _completedByDay = {
+        ..._completedByDay,
+        ...incoming,
+      };
+    }
         
     _selectedTaskId = data['selectedTaskId'] as String? ?? (_mainTasks.isNotEmpty ? _mainTasks.first.id : null);
     
@@ -411,26 +424,35 @@ mixin TaskMixin on ChangeNotifier {
     }
 
     if (data['projects'] != null) {
-      _projects = (data['projects'] as List).map((e) => Project.fromJson(e as Map<String, dynamic>)).toList();
-    } else {
-      _projects = [];
+      final incoming = (data['projects'] as List).map((e) => Project.fromJson(e as Map<String, dynamic>)).toList();
+      final pMap = <String, Project>{for (final p in _projects) p.id: p};
+      for (final p in incoming) {
+        pMap[p.id] = p;
+      }
+      _projects = pMap.values.toList();
     }
 
     if (data['routineLists'] != null) {
-      _routineLists = (data['routineLists'] as List)
+      final incoming = (data['routineLists'] as List)
           .map((e) => RoutineList.fromJson(Map<String, dynamic>.from(e)))
           .toList();
-    } else {
-      _routineLists = [];
+      final rMap = <String, RoutineList>{for (final r in _routineLists) r.id: r};
+      for (final r in incoming) {
+        rMap[r.id] = r;
+      }
+      _routineLists = rMap.values.toList();
     }
 
     if (data['goals'] != null) {
-      _goals = (data['goals'] as List)
+      final incoming = (data['goals'] as List)
           .map((e) => GoalModel.fromJson(Map<String, dynamic>.from(e)))
           .toList();
+      final gMap = <String, GoalModel>{for (final g in _goals) g.id: g};
+      for (final g in incoming) {
+        gMap[g.id] = g;
+      }
+      _goals = gMap.values.toList();
       NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
-    } else {
-      _goals = [];
     }
 
     if (data['goalPlaces'] != null) {
