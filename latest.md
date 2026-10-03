@@ -1,3 +1,22 @@
+# ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100302)
+
+### 📱 Launcher State Preservation & Anti-Reset Safeguards
+- **Eliminated Launcher Reset on Startup**: Resolved the root cause where opening Arcane via `MainActivity` initialized `LauncherService` lazily. When background sync ran, empty default arrays (`dock: []`, `home: []`) were serialized to Firebase RTDB and SharedPreferences, wiping icons, dock items, and widgets on the home screen.
+- **Eager Service Initialization**: Eagerly initializes `LauncherService.instance.init()` in `main()` at boot time, ensuring all home icons, dock items, app folders, widgets, and overrides are immediately loaded into memory.
+- **Anti-Wipe Guards**: Added an `_isInitialized` guard to prevent serialization of uninitialized state, and updated `loadFromMap` so that incoming empty lists will never overwrite non-empty local configurations.
+- **Intelligent Launcher Merging**: Implemented `mergeFromMap` to non-destructively merge home icons, dock slots, folders, and notes, automatically restoring layouts if the current launcher was wiped empty.
+- **Sync Dirty Gate**: `SyncMixin.saveLauncher()` only pushes to Firebase RTDB if real launcher state exists or was explicitly marked dirty.
+
+### 📥 Non-Destructive Merge Import in Data Recovery
+- **Dedicated "MERGE IMPORT (PRESERVE RECENT)" Action**: Added a prominent, dedicated merge import button in Settings → Data Recovery (`EXTERNAL EXPORT / IMPORT`).
+- **Strict Recent Data Preservation**: When importing older JSON exports or Firebase RTDB dumps to recover lost historical reflection logs, entries added in the last few days are strictly preserved and never overwritten.
+- **Universal Data Normalization**: Automatically normalizes raw Firebase RTDB dumps (`users/<uid>/data`), chunked format, list or map reflections, and date-keyed task histories.
+- **Deep Historical Weaving**: Seamlessly weaves historical reflection logs by ID, deep-merges `completedByDay` task history without altering existing notes or briefings, and merges projects, goals, and finance transactions.
+- **Live Merge Report HUD**: Displays an alert modal with an itemized summary (`MergeReport.summary`) detailing restored reflections, merged days, added tasks, projects, goals, and launcher icons.
+- **Atomic Recovery Snapshot**: Automatically saves an atomic local backup snapshot immediately following the merge.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100301)
 
 ### 🛡️ Zero Data Loss: Complete Reflection Log & History Protection

@@ -415,7 +415,14 @@ mixin SyncMixin on ChangeNotifier {
         if (!await _storageService.saveTrading(currentUser!.uid, tradingData)) success = false;
       }
       if (force || _dirtyCollections.contains('launcher')) {
-        if (!await _storageService.saveLauncher(currentUser!.uid, launcherData)) success = false;
+        final hasLauncherItems = launcherData.isNotEmpty &&
+            ((launcherData['dock'] as List?)?.isNotEmpty == true ||
+             (launcherData['home'] as List?)?.isNotEmpty == true ||
+             (launcherData['widgets'] as List?)?.isNotEmpty == true ||
+             (launcherData['folders'] as List?)?.isNotEmpty == true);
+        if ((hasLauncherItems || _dirtyCollections.contains('launcher')) && launcherData.isNotEmpty) {
+          if (!await _storageService.saveLauncher(currentUser!.uid, launcherData)) success = false;
+        }
       }
       if (force || _dirtyCollections.isNotEmpty || _dirtyCollections.contains('settings')) {
         if (!await _storageService.saveSettings(currentUser!.uid, settingsData)) success = false;

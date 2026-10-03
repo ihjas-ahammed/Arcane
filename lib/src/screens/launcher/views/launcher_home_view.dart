@@ -11,7 +11,6 @@ import 'package:missions/src/screens/launcher/launcher_theme.dart';
 import 'package:missions/src/screens/launcher/views/launcher_app_widget.dart';
 import 'package:missions/src/screens/launcher/views/launcher_items.dart';
 import 'package:missions/src/screens/launcher/views/launcher_sheets.dart';
-import 'package:missions/src/screens/launcher/views/launcher_status_bar.dart';
 import 'package:missions/src/screens/settings/widgets_studio/widgets_studio.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;

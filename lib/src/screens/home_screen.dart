@@ -26,7 +26,6 @@ import 'package:missions/src/widgets/ui/desktop_floating_timer.dart';
 import 'package:missions/src/widgets/drawers/goals_bottom_drawer.dart';
 import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/widgets/dialogs/whats_new_update_dialog.dart';
-import 'package:missions/src/services/update_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {

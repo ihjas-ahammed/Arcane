@@ -438,7 +438,7 @@ mixin UserMixin on ChangeNotifier {
         for (final l in _reflectionLogs) l.id: l,
       };
       for (final l in incoming) {
-        logMap[l.id] = l;
+        logMap.putIfAbsent(l.id, () => l);
       }
       final merged = logMap.values.toList()
         ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
@@ -453,7 +453,7 @@ mixin UserMixin on ChangeNotifier {
         for (final s in _sops) s.id: s,
       };
       for (final s in incoming) {
-        sopMap[s.id] = s;
+        sopMap.putIfAbsent(s.id, () => s);
       }
       _sops = sopMap.values.toList();
     }
@@ -466,6 +466,94 @@ mixin UserMixin on ChangeNotifier {
     }
     
     _apiKeyIndex = data['apiKeyIndex'] as int? ?? 0;
+  }
+
+  /// Merges user state non-destructively: restores past reflections, skills, and SOPs
+  /// without replacing what the user logged in the last few days.
+  int mergeUserState(Map<String, dynamic> data) {
+    int restoredReflections = 0;
+    if (data['reflectionLogs'] != null) {
+      final incoming = (data['reflectionLogs'] as List)
+          .whereType<Map>()
+          .map((e) => ReflectionLog.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final logMap = <String, ReflectionLog>{
+        for (final l in _reflectionLogs) l.id: l,
+      };
+      for (final l in incoming) {
+        if (!logMap.containsKey(l.id)) {
+          logMap[l.id] = l;
+          restoredReflections++;
+        }
+      }
+      final merged = logMap.values.toList()
+        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      _reflectionLogs = merged;
+      recalculateAllSkills();
+      sync.markDirty('reflections');
+    }
+
+    if (data['trackedSkills'] != null) {
+      final incoming = (data['trackedSkills'] as List)
+          .whereType<Map>()
+          .map((e) => TrackedSkill.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final skillMap = <String, TrackedSkill>{
+        for (final s in _trackedSkills) s.id: s,
+      };
+      for (final s in incoming) {
+        if (!skillMap.containsKey(s.id)) {
+          skillMap[s.id] = s;
+        } else {
+          final existing = skillMap[s.id]!;
+          final logMap = <String, SkillTrainingLog>{
+            for (final l in existing.logs) l.id: l,
+          };
+          for (final l in s.logs) {
+            logMap.putIfAbsent(l.id, () => l);
+          }
+          final mergedLogs = logMap.values.toList()
+            ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          final latestVal = mergedLogs.isNotEmpty ? mergedLogs.first.value : existing.currentValue;
+          skillMap[s.id] = existing.copyWith(
+            currentValue: latestVal,
+            logs: mergedLogs,
+          );
+        }
+      }
+      _trackedSkills = skillMap.values.toList();
+    }
+
+    if (data['sops'] != null) {
+      final incoming = (data['sops'] as List)
+          .whereType<Map>()
+          .map((e) => SopModel.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final sopMap = <String, SopModel>{
+        for (final s in _sops) s.id: s,
+      };
+      for (final s in incoming) {
+        sopMap.putIfAbsent(s.id, () => s);
+      }
+      _sops = sopMap.values.toList();
+    }
+
+    if (data['settings'] is Map && (data['settings'] as Map)['habitRules'] is List) {
+      final incomingRules = ((data['settings'] as Map)['habitRules'] as List)
+          .whereType<Map>()
+          .map((e) => HabitRule.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final ruleMap = <String, HabitRule>{
+        for (final r in _settings.habitRules) r.id: r,
+      };
+      for (final r in incomingRules) {
+        ruleMap.putIfAbsent(r.id, () => r);
+      }
+      _settings = _settings..habitRules = ruleMap.values.toList();
+      sync.markDirty('settings');
+    }
+
+    return restoredReflections;
   }
 
   Map<String, dynamic> getUserStateMap() {

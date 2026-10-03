@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart' show Color;
 import 'package:collection/collection.dart';
-import 'package:intl/intl.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/app_state_models.dart';
 

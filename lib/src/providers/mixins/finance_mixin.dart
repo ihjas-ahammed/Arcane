@@ -53,7 +53,7 @@ mixin FinanceMixin on ChangeNotifier {
       final incoming = (data['transactions'] as List).map((e) => FinanceTransaction.fromJson(e)).toList();
       final txMap = <String, FinanceTransaction>{for (final tx in _transactions) tx.id: tx};
       for (final tx in incoming) {
-        txMap[tx.id] = tx;
+        txMap.putIfAbsent(tx.id, () => tx);
       }
       _transactions = txMap.values.toList();
     }
@@ -61,7 +61,7 @@ mixin FinanceMixin on ChangeNotifier {
       final incoming = (data['categories'] as List).map((e) => FinanceCategory.fromJson(e)).toList();
       final catMap = <String, FinanceCategory>{for (final c in _categories) c.id: c};
       for (final c in incoming) {
-        catMap[c.id] = c;
+        catMap.putIfAbsent(c.id, () => c);
       }
       _categories = catMap.values.toList();
     }
@@ -71,7 +71,7 @@ mixin FinanceMixin on ChangeNotifier {
       final incoming = (data['savingsGoals'] as List).map((e) => SavingsGoal.fromJson(e)).toList();
       final sgMap = <String, SavingsGoal>{for (final sg in _savingsGoals) sg.id: sg};
       for (final sg in incoming) {
-        sgMap[sg.id] = sg;
+        sgMap.putIfAbsent(sg.id, () => sg);
       }
       _savingsGoals = sgMap.values.toList();
     }
@@ -79,10 +79,69 @@ mixin FinanceMixin on ChangeNotifier {
       final incoming = (data['accounts'] as List).map((e) => FinanceAccount.fromJson(e)).toList();
       final accMap = <String, FinanceAccount>{for (final a in _accounts) a.id: a};
       for (final a in incoming) {
-        accMap[a.id] = a;
+        accMap.putIfAbsent(a.id, () => a);
       }
       _accounts = accMap.values.toList();
     }
+  }
+
+  /// Non-destructively merges financial transactions, categories, goals, and accounts.
+  int mergeFinanceState(Map<String, dynamic> data) {
+    int addedTransactions = 0;
+    if (data['transactions'] != null) {
+      final incoming = (data['transactions'] as List)
+          .whereType<Map>()
+          .map((e) => FinanceTransaction.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final txMap = <String, FinanceTransaction>{for (final tx in _transactions) tx.id: tx};
+      for (final tx in incoming) {
+        if (!txMap.containsKey(tx.id)) {
+          txMap[tx.id] = tx;
+          addedTransactions++;
+        }
+      }
+      _transactions = txMap.values.toList();
+      sync.markDirty('finance');
+    }
+    if (data['categories'] != null) {
+      final incoming = (data['categories'] as List)
+          .whereType<Map>()
+          .map((e) => FinanceCategory.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final catMap = <String, FinanceCategory>{for (final c in _categories) c.id: c};
+      for (final c in incoming) {
+        catMap.putIfAbsent(c.id, () => c);
+      }
+      _categories = catMap.values.toList();
+      sync.markDirty('finance');
+    }
+    if (_categories.isEmpty) initializeDefaultFinanceCategories();
+
+    if (data['savingsGoals'] != null) {
+      final incoming = (data['savingsGoals'] as List)
+          .whereType<Map>()
+          .map((e) => SavingsGoal.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final sgMap = <String, SavingsGoal>{for (final sg in _savingsGoals) sg.id: sg};
+      for (final sg in incoming) {
+        sgMap.putIfAbsent(sg.id, () => sg);
+      }
+      _savingsGoals = sgMap.values.toList();
+      sync.markDirty('finance');
+    }
+    if (data['accounts'] != null) {
+      final incoming = (data['accounts'] as List)
+          .whereType<Map>()
+          .map((e) => FinanceAccount.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final accMap = <String, FinanceAccount>{for (final a in _accounts) a.id: a};
+      for (final a in incoming) {
+        accMap.putIfAbsent(a.id, () => a);
+      }
+      _accounts = accMap.values.toList();
+      sync.markDirty('finance');
+    }
+    return addedTransactions;
   }
 
   Map<String, dynamic> getFinanceStateMap() {

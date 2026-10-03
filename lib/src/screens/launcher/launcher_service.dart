@@ -125,8 +125,14 @@ class LauncherService {
   Future<void>? _initFuture;
   Timer? _statsSave;
   bool _dockConfigured = false;
+  bool _isInitialized = false;
+  bool get isInitialized => _isInitialized;
 
-  Future<void> init() => _initFuture ??= _init();
+  Future<void> init() async {
+    if (_isInitialized) return;
+    await (_initFuture ??= _init());
+    _isInitialized = true;
+  }
 
   Future<void> _init() async {
     final prefs = _prefs = await SharedPreferences.getInstance();
@@ -139,7 +145,7 @@ class LauncherService {
     _rebuildApps();
 
     final savedDock = prefs.getStringList(_kDock);
-    if (savedDock != null) {
+    if (savedDock != null && savedDock.isNotEmpty) {
       _dockConfigured = true;
       dock.value = List.unmodifiable(savedDock);
     } else {
@@ -766,6 +772,10 @@ class LauncherService {
 
   /// Full serializable map of launcher configuration and state for cloud sync and backups.
   Map<String, dynamic> getStateMap() {
+    if (!_isInitialized) {
+      // Uninitialized: return empty map so sync_mixin never wipes cloud state with blank arrays!
+      return const {};
+    }
     return {
       'dock': dock.value,
       'home': home.value,
@@ -784,61 +794,78 @@ class LauncherService {
   }
 
   /// Restores launcher configuration and state from a cloud or backup map.
-  Future<void> loadFromMap(Map<String, dynamic> map) async {
+  /// If [forceReplace] is false, empty arrays in [map] will NEVER overwrite non-empty local preferences.
+  Future<void> loadFromMap(Map<String, dynamic> map, {bool forceReplace = false}) async {
     final prefs = _prefs ??= await SharedPreferences.getInstance();
 
     if (map['dock'] is List) {
       final list = (map['dock'] as List).whereType<String>().toList();
-      dock.value = List.unmodifiable(list);
-      await prefs.setStringList(_kDock, list);
+      if (list.isNotEmpty || forceReplace) {
+        dock.value = List.unmodifiable(list.isNotEmpty ? list : [LauncherApp.arcane.key]);
+        await prefs.setStringList(_kDock, dock.value);
+      }
     }
     if (map['home'] is List) {
       final list = (map['home'] as List).whereType<String>().toList();
-      home.value = List.unmodifiable(list);
-      await prefs.setStringList(_kHome, list);
+      if (list.isNotEmpty || forceReplace) {
+        home.value = List.unmodifiable(list);
+        await prefs.setStringList(_kHome, list);
+      }
     }
     if (map['shelf'] is List) {
       final list = (map['shelf'] as List).whereType<String>().toList();
-      shelf.value = List.unmodifiable(list);
-      await prefs.setStringList(_kShelf, list);
+      if (list.isNotEmpty || forceReplace) {
+        shelf.value = List.unmodifiable(list);
+        await prefs.setStringList(_kShelf, list);
+      }
     }
     if (map['drawerFolders'] is List) {
       final list = (map['drawerFolders'] as List).whereType<String>().toList();
-      drawerFolders.value = List.unmodifiable(list);
-      await prefs.setStringList(_kDrawerFolders, list);
+      if (list.isNotEmpty || forceReplace) {
+        drawerFolders.value = List.unmodifiable(list);
+        await prefs.setStringList(_kDrawerFolders, list);
+      }
     }
     if (map['folders'] is List) {
       final rawFolders = (map['folders'] as List)
           .whereType<Map>()
           .map((m) => LauncherFolder.fromJson(Map<String, dynamic>.from(m)))
+          .where((f) => f.id.isNotEmpty)
           .toList();
-      folders.value = Map.unmodifiable({
-        for (final f in rawFolders)
-          if (f.id.isNotEmpty) f.key: f,
-      });
-      await prefs.setString(_kFolders, jsonEncode(rawFolders.map((f) => f.toJson()).toList()));
+      if (rawFolders.isNotEmpty || forceReplace) {
+        folders.value = Map.unmodifiable({
+          for (final f in rawFolders) f.key: f,
+        });
+        await prefs.setString(_kFolders, jsonEncode(rawFolders.map((f) => f.toJson()).toList()));
+      }
     }
     if (map['widgets'] is List) {
       final rawWidgets = (map['widgets'] as List)
           .whereType<Map>()
           .map((m) => LauncherWidgetEntry.fromJson(Map<String, dynamic>.from(m)))
           .toList();
-      widgets.value = List.unmodifiable(rawWidgets);
-      await prefs.setString(_kWidgets, jsonEncode(rawWidgets.map((w) => w.toJson()).toList()));
+      if (rawWidgets.isNotEmpty || forceReplace) {
+        widgets.value = List.unmodifiable(rawWidgets);
+        await prefs.setString(_kWidgets, jsonEncode(rawWidgets.map((w) => w.toJson()).toList()));
+      }
     }
     if (map['hidden'] is List) {
       final list = (map['hidden'] as List).whereType<String>().toSet();
-      hidden.value = Set.unmodifiable(list);
-      await prefs.setStringList(_kHidden, list.toList());
+      if (list.isNotEmpty || forceReplace) {
+        hidden.value = Set.unmodifiable(list);
+        await prefs.setStringList(_kHidden, list.toList());
+      }
     }
     if (map.containsKey('iconPack')) {
       final pack = map['iconPack'] as String?;
-      iconPack.value = pack;
-      if (pack == null) {
-        await prefs.remove(_kIconPack);
-      } else {
-        await prefs.setString(_kIconPack, pack);
-        unawaited(_loadPackMap(pack));
+      if (pack != null || forceReplace) {
+        iconPack.value = pack;
+        if (pack == null) {
+          await prefs.remove(_kIconPack);
+        } else {
+          await prefs.setString(_kIconPack, pack);
+          unawaited(_loadPackMap(pack));
+        }
       }
     }
     if (map.containsKey('fullscreen') && map['fullscreen'] is bool) {
@@ -848,40 +875,229 @@ class LauncherService {
     }
     if (map['overrides'] is Map) {
       final rawOverrides = map['overrides'] as Map;
-      _overrides = {};
-      for (final e in rawOverrides.entries) {
-        if (e.value is Map) {
-          final o = LauncherIconOverride.fromJson(Map<String, dynamic>.from(e.value as Map));
-          if (o != null) _overrides[e.key.toString()] = o;
+      if (rawOverrides.isNotEmpty || forceReplace) {
+        _overrides = {};
+        for (final e in rawOverrides.entries) {
+          if (e.value is Map) {
+            final o = LauncherIconOverride.fromJson(Map<String, dynamic>.from(e.value as Map));
+            if (o != null) _overrides[e.key.toString()] = o;
+          }
         }
+        await prefs.setString(
+          _kOverrides,
+          jsonEncode({for (final e in _overrides.entries) e.key: e.value.toJson()}),
+        );
+        iconsRevision.value++;
       }
-      await prefs.setString(
-        _kOverrides,
-        jsonEncode({for (final e in _overrides.entries) e.key: e.value.toJson()}),
-      );
-      iconsRevision.value++;
     }
     if (map['webLinks'] is List) {
       final list = (map['webLinks'] as List)
           .whereType<Map>()
           .map((m) => LauncherApp.fromJson(Map<String, dynamic>.from(m)))
           .toList();
-      _webLinks = list;
-      await prefs.setString(_kWeb, jsonEncode(list.map((w) => w.toJson()).toList()));
-      _rebuildApps();
+      if (list.isNotEmpty || forceReplace) {
+        _webLinks = list;
+        await prefs.setString(_kWeb, jsonEncode(list.map((w) => w.toJson()).toList()));
+        _rebuildApps();
+      }
     }
     if (map.containsKey('quickNotes') && map['quickNotes'] is String) {
-      _quickNotes = map['quickNotes'] as String;
-      await prefs.setString(_kNotes, _quickNotes);
+      final notes = map['quickNotes'] as String;
+      if (notes.isNotEmpty || forceReplace) {
+        _quickNotes = notes;
+        await prefs.setString(_kNotes, _quickNotes);
+      }
     }
     if (map['stats'] is Map) {
       final rawStats = map['stats'] as Map;
-      rawStats.forEach((k, v) {
-        if (v is List && v.length == 2) {
-          _stats[k.toString()] = [(v[0] as num).toInt(), (v[1] as num).toInt()];
+      if (rawStats.isNotEmpty || forceReplace) {
+        rawStats.forEach((k, v) {
+          if (v is List && v.length == 2) {
+            _stats[k.toString()] = [(v[0] as num).toInt(), (v[1] as num).toInt()];
+          }
+        });
+        await prefs.setString(_kStats, jsonEncode(_stats));
+      }
+    }
+  }
+
+  /// Non-destructively merges launcher settings from an older backup or JSON file.
+  /// Preserves all current icons, dock items, and widgets, adding any missing ones.
+  Future<void> mergeFromMap(Map<String, dynamic> map) async {
+    final prefs = _prefs ??= await SharedPreferences.getInstance();
+
+    if (map['dock'] is List) {
+      final incoming = (map['dock'] as List).whereType<String>().toList();
+      if ((dock.value.isEmpty || (dock.value.length == 1 && dock.value.first == LauncherApp.arcane.key)) && incoming.isNotEmpty) {
+        dock.value = List.unmodifiable(incoming);
+        await prefs.setStringList(_kDock, incoming);
+      } else if (incoming.isNotEmpty) {
+        final merged = List<String>.from(dock.value);
+        for (final k in incoming) {
+          if (!merged.contains(k)) merged.add(k);
         }
-      });
-      await prefs.setString(_kStats, jsonEncode(_stats));
+        dock.value = List.unmodifiable(merged);
+        await prefs.setStringList(_kDock, merged);
+      }
+    }
+
+    if (map['home'] is List) {
+      final incoming = (map['home'] as List).whereType<String>().toList();
+      if (home.value.isEmpty && incoming.isNotEmpty) {
+        home.value = List.unmodifiable(incoming);
+        await prefs.setStringList(_kHome, incoming);
+      } else if (incoming.isNotEmpty) {
+        final merged = List<String>.from(home.value);
+        for (final k in incoming) {
+          if (!merged.contains(k)) merged.add(k);
+        }
+        home.value = List.unmodifiable(merged);
+        await prefs.setStringList(_kHome, merged);
+      }
+    }
+
+    if (map['shelf'] is List) {
+      final incoming = (map['shelf'] as List).whereType<String>().toList();
+      if (shelf.value.isEmpty && incoming.isNotEmpty) {
+        shelf.value = List.unmodifiable(incoming);
+        await prefs.setStringList(_kShelf, incoming);
+      } else if (incoming.isNotEmpty) {
+        final merged = List<String>.from(shelf.value);
+        for (final k in incoming) {
+          if (!merged.contains(k)) merged.add(k);
+        }
+        shelf.value = List.unmodifiable(merged);
+        await prefs.setStringList(_kShelf, merged);
+      }
+    }
+
+    if (map['drawerFolders'] is List) {
+      final incoming = (map['drawerFolders'] as List).whereType<String>().toList();
+      if (drawerFolders.value.isEmpty && incoming.isNotEmpty) {
+        drawerFolders.value = List.unmodifiable(incoming);
+        await prefs.setStringList(_kDrawerFolders, incoming);
+      } else if (incoming.isNotEmpty) {
+        final merged = List<String>.from(drawerFolders.value);
+        for (final k in incoming) {
+          if (!merged.contains(k)) merged.add(k);
+        }
+        drawerFolders.value = List.unmodifiable(merged);
+        await prefs.setStringList(_kDrawerFolders, merged);
+      }
+    }
+
+    if (map['folders'] is List) {
+      final incoming = (map['folders'] as List)
+          .whereType<Map>()
+          .map((m) => LauncherFolder.fromJson(Map<String, dynamic>.from(m)))
+          .where((f) => f.id.isNotEmpty)
+          .toList();
+      if (incoming.isNotEmpty) {
+        final mergedMap = Map<String, LauncherFolder>.from(folders.value);
+        for (final f in incoming) {
+          if (!mergedMap.containsKey(f.key)) {
+            mergedMap[f.key] = f;
+          } else {
+            final existing = mergedMap[f.key]!;
+            final combinedItems = List<String>.from(existing.items);
+            for (final it in f.items) {
+              if (!combinedItems.contains(it)) combinedItems.add(it);
+            }
+            mergedMap[f.key] = existing.copyWith(items: combinedItems);
+          }
+        }
+        folders.value = Map.unmodifiable(mergedMap);
+        await prefs.setString(_kFolders, jsonEncode(mergedMap.values.map((f) => f.toJson()).toList()));
+      }
+    }
+
+    if (map['widgets'] is List) {
+      final incoming = (map['widgets'] as List)
+          .whereType<Map>()
+          .map((m) => LauncherWidgetEntry.fromJson(Map<String, dynamic>.from(m)))
+          .toList();
+      if (incoming.isNotEmpty) {
+        if (widgets.value.isEmpty) {
+          widgets.value = List.unmodifiable(incoming);
+          await prefs.setString(_kWidgets, jsonEncode(incoming.map((w) => w.toJson()).toList()));
+        } else {
+          final existingIds = widgets.value.map((w) => w.id).toSet();
+          final combined = List<LauncherWidgetEntry>.from(widgets.value);
+          for (final w in incoming) {
+            if (!existingIds.contains(w.id)) {
+              combined.add(w);
+              existingIds.add(w.id);
+            }
+          }
+          widgets.value = List.unmodifiable(combined);
+          await prefs.setString(_kWidgets, jsonEncode(combined.map((w) => w.toJson()).toList()));
+        }
+      }
+    }
+
+    if (map['hidden'] is List) {
+      final incoming = (map['hidden'] as List).whereType<String>().toSet();
+      if (incoming.isNotEmpty) {
+        final combined = {...hidden.value, ...incoming};
+        hidden.value = Set.unmodifiable(combined);
+        await prefs.setStringList(_kHidden, combined.toList());
+      }
+    }
+
+    if (map['iconPack'] is String && iconPack.value == null) {
+      final pack = map['iconPack'] as String;
+      iconPack.value = pack;
+      await prefs.setString(_kIconPack, pack);
+      unawaited(_loadPackMap(pack));
+    }
+
+    if (map['overrides'] is Map) {
+      final rawOverrides = map['overrides'] as Map;
+      bool changed = false;
+      for (final e in rawOverrides.entries) {
+        if (e.value is Map && !_overrides.containsKey(e.key.toString())) {
+          final o = LauncherIconOverride.fromJson(Map<String, dynamic>.from(e.value as Map));
+          if (o != null) {
+            _overrides[e.key.toString()] = o;
+            changed = true;
+          }
+        }
+      }
+      if (changed) {
+        await prefs.setString(
+          _kOverrides,
+          jsonEncode({for (final e in _overrides.entries) e.key: e.value.toJson()}),
+        );
+        iconsRevision.value++;
+      }
+    }
+
+    if (map['webLinks'] is List) {
+      final incoming = (map['webLinks'] as List)
+          .whereType<Map>()
+          .map((m) => LauncherApp.fromJson(Map<String, dynamic>.from(m)))
+          .toList();
+      if (incoming.isNotEmpty) {
+        final existingUrls = _webLinks.map((w) => w.url).toSet();
+        final combined = List<LauncherApp>.from(_webLinks);
+        for (final w in incoming) {
+          if (!existingUrls.contains(w.url)) {
+            combined.add(w);
+            existingUrls.add(w.url);
+          }
+        }
+        _webLinks = combined;
+        await prefs.setString(_kWeb, jsonEncode(combined.map((w) => w.toJson()).toList()));
+        _rebuildApps();
+      }
+    }
+
+    if (map['quickNotes'] is String) {
+      final incomingNotes = map['quickNotes'] as String;
+      if (_quickNotes.trim().isEmpty && incomingNotes.trim().isNotEmpty) {
+        _quickNotes = incomingNotes;
+        await prefs.setString(_kNotes, incomingNotes);
+      }
     }
   }
 }

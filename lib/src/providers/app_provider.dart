@@ -1022,31 +1022,147 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     }
   }
 
-  void mergeAppStateFromMap(Map<String, dynamic> data) {
-    loadTaskState(data);
-    loadUserState(data);
-    loadFinanceState(data);
-    loadHealthState(data);
+  MergeReport mergeAppStateFromMap(Map<String, dynamic> rawData) {
+    final data = normalizeImportedData(rawData);
+
+    final taskResult = mergeTaskState(data);
+    final addedReflections = mergeUserState(data);
+    final addedTransactions = mergeFinanceState(data);
+
+    if (data['foodItems'] != null || data['healthLogs'] != null) {
+      loadHealthState(data);
+    }
+
+    bool launcherMerged = false;
     if (data['launcher'] != null) {
       final l = data['launcher'];
+      Map<String, dynamic>? lMap;
       if (l is Map) {
-        unawaited(LauncherService.instance.loadFromMap(Map<String, dynamic>.from(l)));
+        lMap = Map<String, dynamic>.from(l);
       } else if (l is String) {
         try {
           final decoded = jsonDecode(l);
-          if (decoded is Map) {
-            unawaited(LauncherService.instance.loadFromMap(Map<String, dynamic>.from(decoded)));
-          }
+          if (decoded is Map) lMap = Map<String, dynamic>.from(decoded);
         } catch (_) {}
       }
+      if (lMap != null && lMap.isNotEmpty) {
+        unawaited(LauncherService.instance.mergeFromMap(lMap));
+        launcherMerged = true;
+      }
     }
+
     if (data['trading'] != null) {
       final t = data['trading'];
       if (t is Map) {
         _paperTrading.loadState(Map<String, dynamic>.from(t));
+      } else if (t is String) {
+        try {
+          final decoded = jsonDecode(t);
+          if (decoded is Map) _paperTrading.loadState(Map<String, dynamic>.from(decoded));
+        } catch (_) {}
       }
     }
+
+    markAllDirty();
     notifyListeners();
+
+    return MergeReport(
+      addedReflections: addedReflections,
+      totalReflections: reflectionLogs.length,
+      mergedDays: taskResult.mergedDays,
+      totalHistoryDays: completedByDay.length,
+      addedTasks: taskResult.addedTasks,
+      addedProjects: taskResult.addedProjects,
+      addedGoals: taskResult.addedGoals,
+      addedTransactions: addedTransactions,
+      launcherMerged: launcherMerged,
+    );
+  }
+
+  /// Normalizes imported JSON across multiple schema versions, full backups,
+  /// and raw Firebase Realtime Database exports.
+  static Map<String, dynamic> normalizeImportedData(Map<String, dynamic> input) {
+    var raw = Map<String, dynamic>.from(input);
+
+    // 1. Unwrap Firebase RTDB root: { "users": { "<uid>": { "data": { ... } } } } or { "data": { ... } }
+    if (raw['users'] is Map) {
+      final usersMap = raw['users'] as Map;
+      if (usersMap.isNotEmpty) {
+        final firstVal = usersMap.values.first;
+        if (firstVal is Map && firstVal['data'] is Map) {
+          raw = Map<String, dynamic>.from(firstVal['data'] as Map);
+        }
+      }
+    } else if (raw['data'] is Map) {
+      raw = Map<String, dynamic>.from(raw['data'] as Map);
+    }
+
+    // 2. Normalize reflections: can be under 'reflections' (Map or List) or 'reflectionLogs' (List)
+    if (raw['reflectionLogs'] == null && raw['reflections'] != null) {
+      final r = raw['reflections'];
+      if (r is Map) {
+        raw['reflectionLogs'] = r.entries.map((e) {
+          if (e.value is Map) {
+            final m = Map<String, dynamic>.from(e.value as Map);
+            m['id'] = e.key.toString();
+            return m;
+          }
+          return {'id': e.key.toString()};
+        }).toList();
+      } else if (r is List) {
+        raw['reflectionLogs'] = r;
+      }
+    }
+
+    // 3. Normalize history: can be under 'history' (Map with 'completedByDay' or date keys)
+    if (raw['completedByDay'] == null && raw['history'] != null) {
+      final h = raw['history'];
+      if (h is Map) {
+        if (h['completedByDay'] is Map) {
+          raw['completedByDay'] = h['completedByDay'];
+        } else {
+          final isDateMap = h.keys.any((k) => RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(k.toString()));
+          if (isDateMap) {
+            raw['completedByDay'] = h;
+          }
+        }
+      }
+    }
+
+    // 4. Normalize tasks chunk: if { "tasks": { "mainTasks": [...], "goals": [...] } }
+    if (raw['tasks'] is Map) {
+      final t = Map<String, dynamic>.from(raw['tasks'] as Map);
+      if (t['mainTasks'] != null) raw['mainTasks'] ??= t['mainTasks'];
+      if (t['projects'] != null) raw['projects'] ??= t['projects'];
+      if (t['goals'] != null) raw['goals'] ??= t['goals'];
+      if (t['routineLists'] != null) raw['routineLists'] ??= t['routineLists'];
+      if (t['goalPlaces'] != null) raw['goalPlaces'] ??= t['goalPlaces'];
+    }
+
+    // 5. Normalize finance chunk: if { "finance": { "transactions": [...], ... } }
+    if (raw['finance'] is Map) {
+      final f = Map<String, dynamic>.from(raw['finance'] as Map);
+      if (f['transactions'] != null) raw['transactions'] ??= f['transactions'];
+      if (f['categories'] != null) raw['categories'] ??= f['categories'];
+      if (f['savingsGoals'] != null) raw['savingsGoals'] ??= f['savingsGoals'];
+      if (f['accounts'] != null) raw['accounts'] ??= f['accounts'];
+    }
+
+    // 6. Normalize health chunk
+    if (raw['health'] is Map) {
+      final h = Map<String, dynamic>.from(raw['health'] as Map);
+      if (h['foodItems'] != null) raw['foodItems'] ??= h['foodItems'];
+      if (h['healthLogs'] != null) raw['healthLogs'] ??= h['healthLogs'];
+    }
+
+    // 7. Normalize launcher chunk: string or map
+    if (raw['launcher'] is String) {
+      try {
+        raw['launcher'] = jsonDecode(raw['launcher'] as String);
+      } catch (_) {}
+    }
+
+    return raw;
   }
 
   // --- UI Helpers ---
@@ -1215,17 +1331,19 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     markAllDirty();
   }
 
-  Future<void> restoreFromLocalSnapshot(File backupFile, {bool merge = true}) async {
+  Future<MergeReport?> restoreFromLocalSnapshot(File backupFile, {bool merge = true}) async {
     try {
       final contents = await backupFile.readAsString();
       final data = jsonDecode(contents) as Map<String, dynamic>;
+      MergeReport? report;
       if (merge) {
-        mergeAppStateFromMap(data);
+        report = mergeAppStateFromMap(data);
       } else {
         loadStateFromMap(data);
       }
       markAllDirty();
       await forceLocalBackup();
+      return report;
     } catch (e) {
       rethrow;
     }
@@ -3410,4 +3528,49 @@ class InsightReadyEvent {
     required this.xpGained,
     required this.timestamp,
   });
+}
+
+class MergeReport {
+  final int addedReflections;
+  final int totalReflections;
+  final int mergedDays;
+  final int totalHistoryDays;
+  final int addedTasks;
+  final int addedProjects;
+  final int addedGoals;
+  final int addedTransactions;
+  final bool launcherMerged;
+
+  const MergeReport({
+    this.addedReflections = 0,
+    this.totalReflections = 0,
+    this.mergedDays = 0,
+    this.totalHistoryDays = 0,
+    this.addedTasks = 0,
+    this.addedProjects = 0,
+    this.addedGoals = 0,
+    this.addedTransactions = 0,
+    this.launcherMerged = false,
+  });
+
+  String get summary {
+    final lines = <String>[];
+    if (addedReflections > 0) {
+      lines.add('+$addedReflections past reflection log${addedReflections == 1 ? '' : 's'} restored (Total: $totalReflections)');
+    } else {
+      lines.add('All reflection logs retained intact ($totalReflections total)');
+    }
+    if (mergedDays > 0) {
+      lines.add('+$mergedDays historical day${mergedDays == 1 ? '' : 's'} merged into timeline (Total: $totalHistoryDays days)');
+    } else {
+      lines.add('All recent timeline history preserved ($totalHistoryDays days total)');
+    }
+    if (addedTasks > 0) lines.add('+$addedTasks missing task${addedTasks == 1 ? '' : 's'} restored');
+    if (addedProjects > 0) lines.add('+$addedProjects project${addedProjects == 1 ? '' : 's'} restored');
+    if (addedGoals > 0) lines.add('+$addedGoals goal${addedGoals == 1 ? '' : 's'} restored');
+    if (addedTransactions > 0) lines.add('+$addedTransactions transaction${addedTransactions == 1 ? '' : 's'} merged');
+    if (launcherMerged) lines.add('Launcher layout, dock, and widgets merged non-destructively');
+    lines.add('Recent entries from the last few days were strictly preserved.');
+    return lines.join('\n• ');
+  }
 }

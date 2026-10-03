@@ -15,6 +15,7 @@ import 'package:missions/src/services/debug_user.dart';
 import 'package:missions/src/services/home_widget_service.dart';
 import 'package:missions/src/services/notification_service.dart';
 import 'package:missions/src/services/widget_action_router.dart';
+import 'package:missions/src/screens/launcher/launcher_service.dart';
 import 'package:provider/provider.dart';
 
 Future<void> _initFirebase() async {
@@ -85,6 +86,15 @@ void main() async {
   HomeWidgetService.instance.init().catchError((e) {
     debugPrint("HomeWidget init error: $e");
   });
+  // Eagerly initialize launcher state so dock/home preferences are loaded
+  // into memory before AppProvider or cloud sync runs, preventing blank overwrites.
+  if (!kIsWeb && Platform.isAndroid) {
+    try {
+      await LauncherService.instance.init();
+    } catch (e) {
+      debugPrint("LauncherService init error: $e");
+    }
+  }
 
   runApp(
     MultiProvider(

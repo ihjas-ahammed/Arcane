@@ -105,14 +105,38 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
 
     if (mode != null && mounted) {
       try {
-        await context.read<AppProvider>().restoreFromLocalSnapshot(file, merge: mode == 'merge');
+        final report = await context.read<AppProvider>().restoreFromLocalSnapshot(file, merge: mode == 'merge');
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(mode == 'merge'
-                ? "Backup merged successfully (all reflections & history preserved)."
-                : "Backup restored successfully."),
-          ));
-          Navigator.pop(context);
+          if (mode == 'merge' && report != null) {
+            await showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                backgroundColor: JweTheme.panel,
+                title: Row(
+                  children: [
+                    Icon(MdiIcons.checkDecagram, color: JweTheme.accentCyan, size: 22),
+                    const SizedBox(width: 8),
+                    Text("BACKUP MERGED", style: TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                content: SingleChildScrollView(
+                  child: Text("• ${report.summary}", style: TextStyle(color: JweTheme.textWhite, height: 1.4, fontSize: 13)),
+                ),
+                actions: [
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: JweTheme.onAccent),
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text("DISMISS", style: TextStyle(color: JweTheme.onAccent, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text("Backup restored successfully."),
+            ));
+          }
+          if (mounted) Navigator.pop(context);
         }
       } catch (e) {
         if (mounted) {
@@ -157,6 +181,61 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     }
   }
 
+  /// 1-Tap Merge Import: Non-destructively merges an older JSON export/backup
+  /// with current data, restoring historical reflections and missing tasks without replacing recent logs.
+  Future<void> _mergeImportData() async {
+    try {
+      final importedData = await _exportService.importJson();
+      if (importedData != null && mounted) {
+        final report = context.read<AppProvider>().mergeAppStateFromMap(importedData);
+        await context.read<AppProvider>().forceLocalBackup();
+
+        if (mounted) {
+          await showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: JweTheme.panel,
+              title: Row(
+                children: [
+                  Icon(MdiIcons.checkDecagram, color: JweTheme.accentCyan, size: 22),
+                  const SizedBox(width: 8),
+                  Text("MERGE COMPLETE", style: TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "• ${report.summary}",
+                      style: TextStyle(color: JweTheme.textWhite, height: 1.4, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: JweTheme.accentCyan,
+                    foregroundColor: JweTheme.onAccent,
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text("DISMISS", style: TextStyle(color: JweTheme.onAccent, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          );
+          if (mounted) Navigator.pop(context);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Merge import failed: $e")));
+      }
+    }
+  }
+
   Future<void> _importData() async {
     try {
       final importedData = await _exportService.importJson();
@@ -167,7 +246,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
             backgroundColor: JweTheme.panel,
             title: Text("IMPORT DATA", style: TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold)),
             content: Text(
-              "How would you like to import this data file?\n\n• MERGE: Combines all reflection logs, task history, and launcher settings non-destructively.\n• REPLACE: Completely replaces current data with the imported file.",
+              "How would you like to import this data file?\n\n• MERGE: Combines all older reflection logs, task history, and launcher settings non-destructively without overwriting recent entries.\n• REPLACE: Completely replaces current database with the imported file.",
               style: TextStyle(color: JweTheme.textMuted),
             ),
             actions: [
@@ -193,19 +272,46 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
 
         if (mode != null && mounted) {
           if (mode == 'merge') {
-            context.read<AppProvider>().mergeAppStateFromMap(importedData);
+            final report = context.read<AppProvider>().mergeAppStateFromMap(importedData);
+            await context.read<AppProvider>().forceLocalBackup();
+            if (mounted) {
+              await showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: JweTheme.panel,
+                  title: Row(
+                    children: [
+                      Icon(MdiIcons.checkDecagram, color: JweTheme.accentCyan, size: 22),
+                      const SizedBox(width: 8),
+                      Text("MERGE COMPLETE", style: TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  content: SingleChildScrollView(
+                    child: Text("• ${report.summary}", style: TextStyle(color: JweTheme.textWhite, height: 1.4, fontSize: 13)),
+                  ),
+                  actions: [
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: JweTheme.accentCyan,
+                        foregroundColor: JweTheme.onAccent,
+                      ),
+                      onPressed: () => Navigator.pop(ctx),
+                      child: Text("DISMISS", style: TextStyle(color: JweTheme.onAccent, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              );
+            }
           } else {
             context.read<AppProvider>().loadAppStateFromMap(importedData);
+            await context.read<AppProvider>().forceLocalBackup();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text("Data imported successfully."),
+              ));
+            }
           }
-          await context.read<AppProvider>().forceLocalBackup();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(mode == 'merge'
-                  ? "Data merged successfully without losing any existing logs."
-                  : "Data imported successfully."),
-            ));
-            Navigator.pop(context);
-          }
+          if (mounted) Navigator.pop(context);
         }
       }
     } catch (e) {
@@ -236,35 +342,57 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                   JwePanel(
                     title: "EXTERNAL EXPORT / IMPORT",
                     accentColor: JweTheme.accentCyan,
-                    child: Row(
-                      children:[
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _exportData,
-                            icon: Icon(MdiIcons.fileExportOutline, size: 18),
-                            label: Text("EXPORT JSON", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: JweTheme.accentCyan,
-                              side:  BorderSide(color: JweTheme.accentCyan),
-                              shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
-                            ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _mergeImportData,
+                          icon: Icon(MdiIcons.sourceMerge, size: 20, color: JweTheme.onAccent),
+                          label: Text("MERGE IMPORT (PRESERVE RECENT)", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, color: JweTheme.onAccent, letterSpacing: 1.2)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: JweTheme.accentCyan,
+                            foregroundColor: JweTheme.onAccent,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _importData,
-                            icon: Icon(MdiIcons.fileImportOutline, size: 18),
-                            label: Text("IMPORT JSON", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: JweTheme.accentCyan,
-                              side:  BorderSide(color: JweTheme.accentCyan),
-                              shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
-                            ),
-                          ),
+                        const SizedBox(height: 6),
+                        Text(
+                          "Non-destructively merges an older JSON export or backup into current data. Restores older reflection logs, missing days, and launcher settings without touching what you added in the last few days.",
+                          style: TextStyle(color: JweTheme.textMuted, fontSize: 11),
                         ),
-                      ]
-                    )
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _exportData,
+                                icon: Icon(MdiIcons.fileExportOutline, size: 18),
+                                label: Text("EXPORT JSON", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: JweTheme.textWhite,
+                                  side: BorderSide(color: JweTheme.border),
+                                  shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _importData,
+                                icon: Icon(MdiIcons.fileImportOutline, size: 18),
+                                label: Text("RESTORE ALL", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: JweTheme.accentRed,
+                                  side: BorderSide(color: JweTheme.accentRed.withValues(alpha: 0.5)),
+                                  shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                   
                   JwePanel(

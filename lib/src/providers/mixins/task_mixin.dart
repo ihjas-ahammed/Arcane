@@ -408,10 +408,36 @@ mixin TaskMixin on ChangeNotifier {
 
     if (data['completedByDay'] != null) {
       final incoming = Map<String, dynamic>.from(data['completedByDay']);
-      _completedByDay = {
-        ..._completedByDay,
-        ...incoming,
-      };
+      final merged = Map<String, dynamic>.from(_completedByDay);
+      for (final entry in incoming.entries) {
+        final dateKey = entry.key.toString();
+        if (!merged.containsKey(dateKey)) {
+          merged[dateKey] = entry.value;
+        } else {
+          final currentDay = Map<String, dynamic>.from(merged[dateKey] as Map? ?? {});
+          final oldDay = Map<String, dynamic>.from(entry.value as Map? ?? {});
+          for (final field in ['briefing', 'aiBriefing', 'startDayReport', 'morningDirectives', 'notes']) {
+            if ((currentDay[field] == null || currentDay[field].toString().isEmpty) &&
+                oldDay[field] != null &&
+                oldDay[field].toString().isNotEmpty) {
+              currentDay[field] = oldDay[field];
+            }
+          }
+          if (oldDay['tasks'] is List) {
+            final curTasks = (currentDay['tasks'] as List? ?? []).whereType<Map>().toList();
+            final curTitles = curTasks.map((t) => t['title']?.toString().toLowerCase()).toSet();
+            for (final ot in (oldDay['tasks'] as List).whereType<Map>()) {
+              final otTitle = ot['title']?.toString().toLowerCase();
+              if (otTitle != null && !curTitles.contains(otTitle)) {
+                curTasks.add(Map<String, dynamic>.from(ot));
+              }
+            }
+            currentDay['tasks'] = curTasks;
+          }
+          merged[dateKey] = currentDay;
+        }
+      }
+      _completedByDay = merged;
     }
         
     _selectedTaskId = data['selectedTaskId'] as String? ?? (_mainTasks.isNotEmpty ? _mainTasks.first.id : null);
@@ -427,7 +453,7 @@ mixin TaskMixin on ChangeNotifier {
       final incoming = (data['projects'] as List).map((e) => Project.fromJson(e as Map<String, dynamic>)).toList();
       final pMap = <String, Project>{for (final p in _projects) p.id: p};
       for (final p in incoming) {
-        pMap[p.id] = p;
+        pMap.putIfAbsent(p.id, () => p);
       }
       _projects = pMap.values.toList();
     }
@@ -438,7 +464,7 @@ mixin TaskMixin on ChangeNotifier {
           .toList();
       final rMap = <String, RoutineList>{for (final r in _routineLists) r.id: r};
       for (final r in incoming) {
-        rMap[r.id] = r;
+        rMap.putIfAbsent(r.id, () => r);
       }
       _routineLists = rMap.values.toList();
     }
@@ -449,7 +475,7 @@ mixin TaskMixin on ChangeNotifier {
           .toList();
       final gMap = <String, GoalModel>{for (final g in _goals) g.id: g};
       for (final g in incoming) {
-        gMap[g.id] = g;
+        gMap.putIfAbsent(g.id, () => g);
       }
       _goals = gMap.values.toList();
       NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
@@ -462,6 +488,126 @@ mixin TaskMixin on ChangeNotifier {
     } else {
       _goalPlaces = List.from(GoalPlace.defaultPlaces);
     }
+  }
+
+  /// Non-destructively merges tasks, historical days, projects, routines, and goals.
+  /// Returns a record with counts of restored items.
+  ({int mergedDays, int addedTasks, int addedProjects, int addedGoals}) mergeTaskState(Map<String, dynamic> data) {
+    int mergedDays = 0;
+    int addedTasks = 0;
+    int addedProjects = 0;
+    int addedGoals = 0;
+
+    if (data['mainTasks'] != null) {
+      final incoming = (data['mainTasks'] as List)
+          .whereType<Map>()
+          .map((e) => MainTask.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final tMap = <String, MainTask>{for (final t in _mainTasks) t.id: t};
+      for (final t in incoming) {
+        if (!tMap.containsKey(t.id)) {
+          tMap[t.id] = t;
+          addedTasks++;
+        }
+      }
+      _mainTasks = tMap.values.toList();
+      sync.markDirty('tasks');
+    }
+
+    if (data['completedByDay'] != null) {
+      final incoming = Map<String, dynamic>.from(data['completedByDay']);
+      final merged = Map<String, dynamic>.from(_completedByDay);
+      for (final entry in incoming.entries) {
+        final dateKey = entry.key.toString();
+        if (!merged.containsKey(dateKey)) {
+          merged[dateKey] = entry.value;
+          mergedDays++;
+        } else {
+          final currentDay = Map<String, dynamic>.from(merged[dateKey] as Map? ?? {});
+          final oldDay = Map<String, dynamic>.from(entry.value as Map? ?? {});
+          bool dayEnriched = false;
+          for (final field in ['briefing', 'aiBriefing', 'startDayReport', 'morningDirectives', 'notes']) {
+            if ((currentDay[field] == null || currentDay[field].toString().isEmpty) &&
+                oldDay[field] != null &&
+                oldDay[field].toString().isNotEmpty) {
+              currentDay[field] = oldDay[field];
+              dayEnriched = true;
+            }
+          }
+          if (oldDay['tasks'] is List) {
+            final curTasks = (currentDay['tasks'] as List? ?? []).whereType<Map>().toList();
+            final curTitles = curTasks.map((t) => t['title']?.toString().toLowerCase()).toSet();
+            for (final ot in (oldDay['tasks'] as List).whereType<Map>()) {
+              final otTitle = ot['title']?.toString().toLowerCase();
+              if (otTitle != null && !curTitles.contains(otTitle)) {
+                curTasks.add(Map<String, dynamic>.from(ot));
+                dayEnriched = true;
+              }
+            }
+            currentDay['tasks'] = curTasks;
+          }
+          if (dayEnriched) {
+            merged[dateKey] = currentDay;
+            mergedDays++;
+          }
+        }
+      }
+      _completedByDay = merged;
+      sync.markDirty('tasks');
+    }
+
+    if (data['projects'] != null) {
+      final incoming = (data['projects'] as List)
+          .whereType<Map>()
+          .map((e) => Project.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final pMap = <String, Project>{for (final p in _projects) p.id: p};
+      for (final p in incoming) {
+        if (!pMap.containsKey(p.id)) {
+          pMap[p.id] = p;
+          addedProjects++;
+        }
+      }
+      _projects = pMap.values.toList();
+      sync.markDirty('tasks');
+    }
+
+    if (data['routineLists'] != null) {
+      final incoming = (data['routineLists'] as List)
+          .whereType<Map>()
+          .map((e) => RoutineList.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final rMap = <String, RoutineList>{for (final r in _routineLists) r.id: r};
+      for (final r in incoming) {
+        rMap.putIfAbsent(r.id, () => r);
+      }
+      _routineLists = rMap.values.toList();
+      sync.markDirty('tasks');
+    }
+
+    if (data['goals'] != null) {
+      final incoming = (data['goals'] as List)
+          .whereType<Map>()
+          .map((e) => GoalModel.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final gMap = <String, GoalModel>{for (final g in _goals) g.id: g};
+      for (final g in incoming) {
+        if (!gMap.containsKey(g.id)) {
+          gMap[g.id] = g;
+          addedGoals++;
+        }
+      }
+      _goals = gMap.values.toList();
+      NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
+      sync.markDirty('tasks');
+    }
+
+    return (
+      mergedDays: mergedDays,
+      addedTasks: addedTasks,
+      addedProjects: addedProjects,
+      addedGoals: addedGoals,
+    );
   }
 
   Map<String, dynamic> getTaskStateMap() {
