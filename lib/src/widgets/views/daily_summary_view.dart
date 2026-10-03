@@ -25,6 +25,8 @@ import 'package:missions/src/widgets/ui/tactical_briefing_indicator.dart';
 import 'package:missions/src/widgets/analytics/jwe_date_selector.dart';
 import 'package:missions/src/widgets/analytics/jwe_reflection_progress.dart';
 import 'package:missions/src/widgets/analytics/jwe_quick_access_grid.dart';
+import 'package:missions/src/widgets/dialogs/create_time_log_start_dialog.dart';
+import 'package:missions/src/utils/helpers.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -920,6 +922,58 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 child: TaskProgressSnapshotView(
                   taskSnapshot: startDayReport['task_snapshot'],
                   liveTasks: appProvider.mainTasks,
+                ),
+              )
+            else if (_selectedDate == getTodayDateString())
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: JweTheme.panel,
+                    border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.4)),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(MdiIcons.clockStart, color: JweTheme.accentAmber, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "TIME LOG START NOT INITIALIZED",
+                              style: GoogleFonts.rajdhani(
+                                color: JweTheme.accentAmber,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        "Today's startup baseline is missing. Calibrate your time log start now by selecting tasks you checked today to enable today's task progress tracking.",
+                        style: TextStyle(color: JweTheme.textMuted, fontSize: 12, height: 1.3),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: JweTheme.accentAmber,
+                          foregroundColor: Colors.black,
+                        ),
+                        onPressed: () => CreateTimeLogStartDialog.show(context),
+                        icon: const Icon(MdiIcons.clockFast, size: 16),
+                        label: Text(
+                          "CREATE TIME LOG START",
+                          style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
 

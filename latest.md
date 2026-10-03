@@ -1,3 +1,25 @@
+# ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100303)
+
+### 📬 Launcher Left Screen Notifications Tab & Daily Journal
+- **Dedicated Notifications Tab on Arcane Deck**: Added a high-visibility `NOTIFICATIONS` tab chip to the launcher's left screen (`LauncherWidgetView`), featuring a live unread/logged notification badge.
+- **Native Android Notification Listener**: Powered by `ArcaneNotificationListenerService`, capturing incoming notifications directly from the Android OS with automated deduplication and smart filtering of persistent/ongoing media and system notifications.
+- **Interactive App Selector (`NotificationAppSelectorSheet`)**: Allows operators to customize exactly which applications are monitored for the journal. Includes instant search, installed app list with native launcher icons, and a one-tap **MESSAGING PRESET** button for instant configuration of popular communication platforms (WhatsApp, Telegram, Discord, Signal, Slack, Google Messages, Gmail, Instagram, Teams).
+- **Persistent Daily History & Cloud Parity**: Notifications are archived per day directly into local database history and synced to Firebase Cloud Storage under `completedByDay[date]['notifications']`.
+- **Live Feed HUD**: Real-time telemetry feed updating dynamically as notifications arrive, with one-tap app launching, copy notification text, individual deletion, and purge actions.
+- **Permission Access Card**: Prominent tactical alert card displayed if Notification Listener permission is disabled, offering one-tap redirection to Android system permission settings.
+
+### 🧠 AI Daily Briefing Ingestion of Communications
+- **Context-Aware Briefing Generation**: Both in-app Gemini tactical briefings (`AppProvider.generateTacticalBriefing` & `AIService.generateDailySummary`) and external AI briefing prompts (`ExternalAiBriefingHelper`) now ingest today's communications telemetry.
+- **Deep Situational Awareness**: The AI analyzes message subjects, senders, and critical communication points alongside task schedules, financial transactions, and habits to formulate high-fidelity directives.
+
+### ⏱️ Newday Task Progress Calculator Fix & Time Log Start Calibration
+- **Advance Report Task Snapshot Baseline**: Resolved an issue where overnight startup report generation (`tomorrow_startup_report`) failed to initialize a task baseline, causing next-day task progress tracking to show zero or incorrect deltas. `saveStartDayReport` now guarantees an automatic `task_snapshot` and weekly/monthly goals baseline.
+- **"TIME LOG START NOT INITIALIZED" Alert Card**: If a day's baseline was missed, `DailySummaryView` presents a prominent amber tactical banner with a one-tap action to calibrate the day.
+- **Interactive Calibration Dialog (`CreateTimeLogStartDialog`)**: Automatically scans subtasks, timer sessions, and checkpoint completions from today, allowing the operator to verify checked tasks and establish an accurate progress baseline.
+- **Dynamic Task Progress Metrics**: Enhanced `TaskProgressSnapshotView` to track tasks created today, tasks worked on with active timer deltas, and completed checkpoints.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100302)
 
 ### 📱 Launcher State Preservation & Anti-Reset Safeguards

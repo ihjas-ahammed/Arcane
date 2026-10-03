@@ -1720,16 +1720,139 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     }
   }
 
+  Map<String, dynamic> buildTaskSnapshot() {
+    final taskSnapshot = <String, dynamic>{};
+    for (var task in mainTasks) {
+      if (task.isDeleted || !task.isActive) continue;
+      final subtaskData = <String, dynamic>{};
+      for (var sub in task.subTasks) {
+        if (sub.isDeleted || !sub.isActive) continue;
+        if (sub.completed && !sub.isRecurring) continue;
+        subtaskData[sub.id] = {
+          'name': sub.name,
+          'progress': sub.calculateProgress(),
+          'time_spent': sub.currentTimeSpent,
+          'completed': sub.completed,
+        };
+      }
+      taskSnapshot[task.id] = {
+        'name': task.name,
+        'color_hex': task.colorHex,
+        'subtasks': subtaskData,
+      };
+    }
+    return taskSnapshot;
+  }
+
   void saveStartDayReport(String date, Map<String, dynamic> data) { 
+    final reportData = Map<String, dynamic>.from(data);
+    if (reportData['task_snapshot'] == null) {
+      reportData['task_snapshot'] = buildTaskSnapshot();
+    }
+    if (reportData['weekly_monthly_goals_snapshot'] == null) {
+      reportData['weekly_monthly_goals_snapshot'] = GoalBriefingHelper.buildWeeklyMonthlyGoalsSnapshot(this, DateTime.now());
+    }
     final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
     final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
-    dayData['startDayReport'] = data;
+    dayData['startDayReport'] = reportData;
     newCompletedByDay[date] = dayData;
     setCompletedByDay(newCompletedByDay);
 
     if (currentUser != null) {
-      _cloudStorage.saveDailyData(currentUser!.uid, date, 'report', data);
+      _cloudStorage.saveDailyData(currentUser!.uid, date, 'report', reportData);
     }
+  }
+
+  /// Calibrates today's startup baseline for tasks, allowing progress calculation
+  /// to accurately track tasks worked on or checked today.
+  void createTimeLogStartForToday({required Set<String> checkedSubtaskIds}) {
+    final today = helper.getTodayDateString();
+    final taskSnapshot = <String, dynamic>{};
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+
+    for (var task in mainTasks) {
+      if (task.isDeleted || !task.isActive) continue;
+      final subtaskData = <String, dynamic>{};
+      for (var sub in task.subTasks) {
+        if (sub.isDeleted || !sub.isActive) continue;
+        
+        final isCheckedToday = checkedSubtaskIds.contains(sub.id);
+        
+        double baselineProgress;
+        int baselineTime;
+
+        if (isCheckedToday) {
+          int todaySessionsSec = 0;
+          for (var s in sub.sessions) {
+            if (s.startTime.isAfter(startOfToday)) {
+              todaySessionsSec += s.durationSeconds;
+            }
+          }
+          baselineProgress = 0.0;
+          baselineTime = (sub.currentTimeSpent - todaySessionsSec).clamp(0, sub.currentTimeSpent);
+        } else {
+          baselineProgress = sub.calculateProgress();
+          baselineTime = sub.currentTimeSpent;
+        }
+
+        subtaskData[sub.id] = {
+          'name': sub.name,
+          'progress': baselineProgress,
+          'time_spent': baselineTime,
+          'completed': !isCheckedToday && sub.completed,
+        };
+      }
+      taskSnapshot[task.id] = {
+        'name': task.name,
+        'color_hex': task.colorHex,
+        'subtasks': subtaskData,
+      };
+    }
+
+    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[today] ?? {});
+    final startDayReport = Map<String, dynamic>.from(dayData['startDayReport'] as Map? ?? {});
+    startDayReport['task_snapshot'] = taskSnapshot;
+    startDayReport['snapshot_time'] = now.toIso8601String();
+    startDayReport['weekly_monthly_goals_snapshot'] ??= GoalBriefingHelper.buildWeeklyMonthlyGoalsSnapshot(this, now);
+    dayData['startDayReport'] = startDayReport;
+    newCompletedByDay[today] = dayData;
+    setCompletedByDay(newCompletedByDay);
+
+    if (currentUser != null) {
+      _cloudStorage.saveDailyData(currentUser!.uid, today, 'report', startDayReport);
+    }
+    notifyListeners();
+  }
+
+  List<Map<String, dynamic>> getNotificationsForDate(String dateStr) {
+    if (completedByDay[dateStr] != null) {
+      final notifsRaw = completedByDay[dateStr]['notifications'];
+      if (notifsRaw is List) {
+        return notifsRaw
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      } else if (notifsRaw is Map && notifsRaw['items'] is List) {
+        return (notifsRaw['items'] as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      }
+    }
+    return [];
+  }
+
+  void saveNotificationsForDate(String dateStr, List<Map<String, dynamic>> notifs) {
+    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[dateStr] ?? {});
+    dayData['notifications'] = notifs;
+    newCompletedByDay[dateStr] = dayData;
+    setCompletedByDay(newCompletedByDay);
+
+    if (currentUser != null) {
+      _cloudStorage.saveDailyData(currentUser!.uid, dateStr, 'notifications', {'items': notifs});
+    }
+    notifyListeners();
   }
 
   Map<String, dynamic>? getTacticalBriefing(String date) {
@@ -1923,6 +2046,15 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
     final goalsStr = GoalBriefingHelper.buildTacticalBriefingGoalsAIContext(this, targetDate);
 
+    final dayNotifs = getNotificationsForDate(date);
+    final notifsText = dayNotifs.take(50).map((n) {
+      final t = n['timeStr'] ?? '';
+      final app = n['appName'] ?? n['packageName'] ?? '';
+      final title = n['title'] ?? '';
+      final text = n['text'] ?? '';
+      return '[$t $app] $title: $text';
+    }).join('\n');
+
     final result = await _aiService.generateDailySummary(
       reflections: logsFormatted, 
       previousBriefings: recentBriefings, 
@@ -1930,6 +2062,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       previousQuotesContext: pastQuotesStr,
       financeText: financeStr,
       goalsText: goalsStr,
+      notificationsText: notifsText.isNotEmpty ? notifsText : null,
       modelCandidates: settings.heavyModels, 
       liteModelCandidates: settings.liteModels,
       proTimeout: const Duration(seconds: 60),

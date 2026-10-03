@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import me.ihjas.missions.notifications.NotificationBridge
 
 /**
  * Dedicated activity for the Home Launcher (android.intent.category.HOME).
@@ -19,6 +20,7 @@ import io.flutter.embedding.engine.FlutterEngine
 class LauncherActivity : FlutterActivity() {
     private var launcherBridge: LauncherBridge? = null
     private var updateBridge: UpdateBridge? = null
+    private var notificationBridge: NotificationBridge? = null
 
     override fun getInitialRoute(): String = "/launcher"
 
@@ -57,6 +59,7 @@ class LauncherActivity : FlutterActivity() {
                 .registerViewFactory(LauncherBridge.VIEW_TYPE, bridge.WidgetViewFactory())
         }
         updateBridge = UpdateBridge(this, flutterEngine.dartExecutor.binaryMessenger)
+        notificationBridge = NotificationBridge(this, flutterEngine.dartExecutor.binaryMessenger)
     }
 
     override fun onStart() {
@@ -72,6 +75,10 @@ class LauncherActivity : FlutterActivity() {
     override fun onDestroy() {
         launcherBridge?.dispose()
         launcherBridge = null
+        updateBridge?.dispose()
+        updateBridge = null
+        notificationBridge?.dispose()
+        notificationBridge = null
         super.onDestroy()
     }
 

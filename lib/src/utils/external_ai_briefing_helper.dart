@@ -203,6 +203,17 @@ class ExternalAiBriefingHelper {
       if (p.details != null && p.details!.isNotEmpty) 'details': p.details,
     }).toList();
 
+    // Notifications / Communications Journal for target date
+    final dayNotifications = provider.getNotificationsForDate(targetDateStr);
+    final notificationsList = dayNotifications.map((n) => {
+      'time': n['timeStr'] ?? '',
+      'app': n['appName'] ?? n['packageName'] ?? '',
+      'title': n['title'] ?? '',
+      'text': n['text'] ?? '',
+      if (n['subText'] != null && (n['subText'] as String).isNotEmpty)
+        'subText': n['subText'],
+    }).toList();
+
     return {
       'meta': {
         'target_date': targetDateStr,
@@ -237,6 +248,8 @@ class ExternalAiBriefingHelper {
         },
         'wellbeing_xp': wellbeingTotals,
         'known_people': people,
+        'notifications_journal_count': notificationsList.length,
+        'notifications_journal': notificationsList,
       },
     };
   }
@@ -259,6 +272,7 @@ class ExternalAiBriefingHelper {
         return """
 You are an expert executive coach and tactical psychological analyst for Arcane.
 You are provided with a complete JSON dataset containing the user's historical briefings and activity telemetry for today ($dateStr).
+The dataset also includes "notifications_journal" containing communications, alerts, and messages logged throughout the day — use them to identify meaningful interactions, updates, and context for grateful_people, savor_moment, summary, small_win, and tomorrow's directives.
 
 MISSION:
 1. Analyze the attached JSON dataset.

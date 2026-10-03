@@ -9,6 +9,7 @@ import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/launcher_service.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
 import 'package:missions/src/screens/launcher/views/launcher_command_deck.dart';
+import 'package:missions/src/screens/launcher/views/launcher_notification_journal.dart';
 import 'package:missions/src/screens/launcher/views/launcher_sheets.dart';
 import 'package:missions/src/screens/settings/homescreen_widgets_preview_screen.dart';
 import 'package:missions/src/services/home_widget_service.dart';
@@ -21,7 +22,7 @@ import 'package:missions/theme/valorant_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum _WidgetTab { all, protocols, hud }
+enum _WidgetTab { all, protocols, hud, notifications }
 
 /// Arcane widgets page (left of the launcher home): live Arcane cards, tactical HUD with
 /// real system controls, persistent notes, and the entry point for Android home widgets.
@@ -231,6 +232,12 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
                   _buildTabChip('PROTOCOLS', _WidgetTab.protocols),
                   const SizedBox(width: 8),
                   _buildTabChip('TACTICAL HUD', _WidgetTab.hud),
+                  const SizedBox(width: 8),
+                  _buildTabChip(
+                    'NOTIFICATIONS',
+                    _WidgetTab.notifications,
+                    badgeCount: provider.getNotificationsForDate(helper.getTodayDateString()).length,
+                  ),
                 ],
               ),
             ),
@@ -275,7 +282,25 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
                   const SizedBox(height: 20),
                 ],
 
-                // 3. Android home-screen widgets (hosted on the launcher home page)
+                // 3. Communications Deck (Summary under ALL)
+                if (_activeTab == _WidgetTab.all) ...[
+                  _buildSectionHeader('COMMUNICATIONS JOURNAL', 'TELEMETRY & LOGGED NOTIFICATIONS'),
+                  const SizedBox(height: 10),
+                  LauncherNotificationDeckCard(
+                    onOpenNotificationsTab: () => setState(() => _activeTab = _WidgetTab.notifications),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
+                // 4. Notifications Journal Tab View
+                if (_activeTab == _WidgetTab.notifications) ...[
+                  _buildSectionHeader('NOTIFICATIONS JOURNAL', 'MISSION COMMUNICATIONS TELEMETRY'),
+                  const SizedBox(height: 10),
+                  LauncherNotificationJournal(onOpenArcane: widget.onOpenArcane),
+                  const SizedBox(height: 20),
+                ],
+
+                // 5. Android home-screen widgets (hosted on the launcher home page)
                 if (_activeTab == _WidgetTab.all) ...[
                   _buildSectionHeader('ANDROID WIDGETS', 'ANY INSTALLED APP WIDGET, ON YOUR HOME PAGE'),
                   const SizedBox(height: 10),
@@ -325,8 +350,9 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
     );
   }
 
-  Widget _buildTabChip(String label, _WidgetTab tab) {
+  Widget _buildTabChip(String label, _WidgetTab tab, {int? badgeCount}) {
     final isSelected = _activeTab == tab;
+    final isLight = LauncherTheme.isLight;
     return InkWell(
       onTap: () => setState(() => _activeTab = tab),
       child: ClipPath(
@@ -343,15 +369,45 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             color: isSelected
                 ? LauncherTheme.red
-                : (LauncherTheme.isLight ? const Color(0xFFE8E2D6) : const Color(0xFF13161C)),
-            child: Text(
-              label,
-              style: LauncherTheme.rajdhani(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.4,
-                color: isSelected ? Colors.white : LauncherTheme.text,
-              ),
+                : (isLight ? const Color(0xFFE8E2D6) : const Color(0xFF13161C)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: LauncherTheme.rajdhani(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.4,
+                    color: isSelected
+                        ? (isLight ? Colors.black : Colors.white)
+                        : LauncherTheme.text,
+                  ),
+                ),
+                if (badgeCount != null && badgeCount > 0) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? (isLight ? Colors.black : Colors.white)
+                          : LauncherTheme.red,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      badgeCount > 99 ? '99+' : '$badgeCount',
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected
+                            ? (isLight ? Colors.white : Colors.black)
+                            : (isLight ? Colors.black : Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ),

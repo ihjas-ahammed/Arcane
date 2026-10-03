@@ -33,6 +33,7 @@ import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.Locale
+import me.ihjas.missions.notifications.NotificationBridge
 
 class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
 
@@ -44,6 +45,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
     private val PERMISSION_REQUEST_CODE = 2001
     private var launcherBridge: LauncherBridge? = null
     private var updateBridge: UpdateBridge? = null
+    private var notificationBridge: NotificationBridge? = null
 
     companion object {
         const val CHANNEL = "arcane/widget"
@@ -626,6 +628,8 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         assistantMethodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ASSISTANT_CHANNEL)
         updateBridge?.dispose()
         updateBridge = UpdateBridge(this, flutterEngine.dartExecutor.binaryMessenger)
+        notificationBridge?.dispose()
+        notificationBridge = NotificationBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         launcherBridge?.dispose()
         launcherBridge = LauncherBridge(this, flutterEngine.dartExecutor.binaryMessenger).also { bridge ->
             flutterEngine.platformViewsController.registry
@@ -1284,6 +1288,8 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         launcherBridge = null
         updateBridge?.dispose()
         updateBridge = null
+        notificationBridge?.dispose()
+        notificationBridge = null
         channel = null
         ttsMethodChannel = null
         sttMethodChannel = null

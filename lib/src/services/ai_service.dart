@@ -1323,6 +1323,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     String? financeText,
     String? goalsText,
     String? previousQuotesContext,
+    String? notificationsText,
   }) async {
     String systemStyle = "";
     if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
@@ -1333,6 +1334,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     $systemStyle
 
     Current Logs (TODAY'S LOGS — FOR QUOTING AND TODAY'S ANALYSIS): ${jsonEncode(reflections)}
+    ${notificationsText != null && notificationsText.isNotEmpty ? 'Today Notifications / Communications Journal (MESSAGES, ALERTS & INTERACTIONS LOGGED TODAY):\n$notificationsText\n(Note: Use these communication events, messages, and updates to add rich context into grateful_people, savor_moment, summary, small_win, suggested_activities, and obstacle_plan)' : ''}
     Reflection History (BROADER WEEKLY CONTEXT — FOR CONTEXT ONLY, DO NOT QUOTE FROM THIS): $fullContext
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
     ${previousQuotesContext != null && previousQuotesContext.isNotEmpty ? 'Previously Used Quotes & Reflections (STRICT EXCLUSION LIST - DO NOT REPEAT ANY OF THESE):\n$previousQuotesContext' : ''}

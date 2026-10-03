@@ -259,6 +259,16 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Task timer and floating AssistiveTouch control overlay" />
         </service>
+        <!-- Arcane Notification Journal: captures notifications from selected apps for daily briefing & intel -->
+        <service
+            android:name=".notifications.ArcaneNotificationListenerService"
+            android:label="Arcane Notification Journal"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

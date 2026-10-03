@@ -22,16 +22,19 @@ class TaskProgressSnapshotView extends StatelessWidget {
 
     // Build delta rows sorted by subtask
     final rows = <_SubTaskDeltaRow>[];
+    final todayStr = getTodayDateString();
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+
     for (final task in liveTasks) {
       if (task.isDeleted || !task.isActive) continue;
       final snap = taskSnapshot[task.id] as Map<String, dynamic>?;
-      if (snap == null) continue;
-      final snapSubs = snap['subtasks'] as Map<String, dynamic>? ?? {};
+      final snapSubs = snap != null ? (snap['subtasks'] as Map<String, dynamic>? ?? {}) : <String, dynamic>{};
 
       for (final sub in task.subTasks) {
         if (sub.isDeleted || !sub.isActive) continue;
         if (!sub.isRecurring) {
-          if (sub.completed && sub.completedDate != getTodayDateString()) {
+          if (sub.completed && sub.completedDate != todayStr) {
             continue;
           }
         }
@@ -42,6 +45,14 @@ class TaskProgressSnapshotView extends StatelessWidget {
         if (snapSub != null) {
           snapProgress = (snapSub['progress'] as num? ?? 0.0).toDouble();
           snapTime = (snapSub['time_spent'] as int? ?? 0);
+        } else {
+          // If subtask was not in the snapshot, check if it had activity today
+          final hadActivityToday = sub.completedDate == todayStr ||
+              sub.sessions.any((s) => s.startTime.isAfter(startOfToday)) ||
+              sub.subSubTasks.any((sst) => sst.completionTimestamp != null && sst.completionTimestamp!.startsWith(todayStr));
+          if (!hadActivityToday && snap != null) {
+            continue; // Created on past days and untouched today
+          }
         }
 
         double liveProgress = sub.calculateProgress();
@@ -60,7 +71,7 @@ class TaskProgressSnapshotView extends StatelessWidget {
         final timeDeltaSec = liveTime - snapTime;
         final color = Color(int.parse('0xFF${task.colorHex}'));
 
-        if (delta == 0.0) continue; // Hide subtasks with 0% delta
+        if (delta == 0.0 && timeDeltaSec <= 0) continue; // Hide subtasks with no progress or time today
 
         rows.add(_SubTaskDeltaRow(
           name: sub.name,
