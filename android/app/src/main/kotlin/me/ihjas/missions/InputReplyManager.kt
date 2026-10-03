@@ -157,6 +157,12 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
     private fun commitDirectTap(touchX: Float, touchY: Float) {
         if (!isRecording || touchX <= 0f || touchY <= 0f) return
 
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastRecordedTapTime < 250L) {
+            Log.d(TAG, "Debounced duplicate tap at ($touchX, $touchY)")
+            return
+        }
+
         val dm = service.resources.displayMetrics
         val finalX = touchX.roundToInt()
         val finalY = touchY.roundToInt()
@@ -181,7 +187,6 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
         } catch (_: Exception) {}
 
-        val now = SystemClock.elapsedRealtime()
         val deltaSec = ((now - lastActionTime) / 1000f).coerceIn(0.2f, 4.0f)
         addWaitStep(deltaSec)
 
@@ -447,25 +452,30 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
 
             AccessibilityEvent.TYPE_VIEW_CLICKED -> {
-                // Check if this click event was generated right after our own touch sensor tap
+                // If this click event was generated within 800ms of our own touch sensor tap,
+                // it is an accessibility echo of the tap we just passed to the app.
+                // Enrich the existing click step and NEVER record a duplicate click step!
                 val timeSinceLastTap = now - lastRecordedTapTime
-                if (timeSinceLastTap < 800L && recordedSteps.isNotEmpty()) {
-                    val lastStep = recordedSteps.last()
-                    if (lastStep["type"] == "click") {
-                        var viewId = lastStep["viewId"] as? String
-                        var desc = lastStep["desc"] as? String
-                        var text = lastStep["text"] as? String
+                if (timeSinceLastTap < 800L) {
+                    val lastClick = recordedSteps.lastOrNull { it["type"] == "click" }
+                    if (lastClick != null) {
                         val node = event.source
+                        var viewId = lastClick["viewId"] as? String
+                        var desc = lastClick["desc"] as? String
+                        var text = lastClick["text"] as? String
                         if (node != null) {
                             if (viewId.isNullOrEmpty()) viewId = node.viewIdResourceName
                             if (desc.isNullOrEmpty()) desc = node.contentDescription?.toString()
                             if (text.isNullOrEmpty()) text = node.text?.toString()
                             if (viewId != null || desc != null || text != null) {
-                                val updated = lastStep.toMutableMap()
-                                if (viewId != null) updated["viewId"] = viewId
-                                if (desc != null) updated["desc"] = desc
-                                if (text != null) updated["text"] = text
-                                recordedSteps[recordedSteps.size - 1] = updated
+                                val idx = recordedSteps.lastIndexOf(lastClick)
+                                if (idx >= 0) {
+                                    val updated = lastClick.toMutableMap()
+                                    if (viewId != null) updated["viewId"] = viewId
+                                    if (desc != null) updated["desc"] = desc
+                                    if (text != null) updated["text"] = text
+                                    recordedSteps[idx] = updated
+                                }
                             }
                         }
                     }
@@ -888,7 +898,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                         clickSmartSendButton()
                     }
                 }
-                SystemClock.sleep((300 / speed).toLong().coerceAtLeast(100L))
+                SystemClock.sleep((100 / speed).toLong().coerceAtLeast(30L))
             }
 
             "long_click" -> {
@@ -1074,30 +1084,29 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         val hasValidBounds = rect.width() > 0 && rect.height() > 0
 
         // 1. Dispatch real touch gesture at current screen position (for WhatsApp/Telegram ImageButtons and Compose)
-        var gestureSuccess = false
         if (hasValidBounds && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            dispatchTapGesture(rect.centerX().toFloat(), rect.centerY().toFloat(), 50L)
-            gestureSuccess = true
+            val gestureSuccess = dispatchTapGesture(rect.centerX().toFloat(), rect.centerY().toFloat(), 40L)
+            if (gestureSuccess) {
+                // Real touch gesture dispatched directly: return true immediately so we NEVER double-tap!
+                return true
+            }
         }
 
-        // 2. Perform accessibility click action
-        var actionSuccess = false
+        // 2. Perform accessibility click action ONLY if gesture was unavailable or failed
         try {
             if (node.isClickable) {
-                actionSuccess = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-            } else {
-                var p = node.parent
-                while (p != null) {
-                    if (p.isClickable) {
-                        actionSuccess = p.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                        break
-                    }
-                    p = p.parent
+                return node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            }
+            var p = node.parent
+            while (p != null) {
+                if (p.isClickable) {
+                    return p.performAction(AccessibilityNodeInfo.ACTION_CLICK)
                 }
+                p = p.parent
             }
         } catch (_: Exception) {}
 
-        return gestureSuccess || actionSuccess
+        return false
     }
 
     private fun findSmartSendNode(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {

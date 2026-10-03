@@ -389,9 +389,9 @@ class UpdateService {
 
       if (isNewer) {
         final apkUrl = await resolveApkUrl(updateModel);
-        if (!await _isDownloadable(client, apkUrl, updateModel.versionCode)) {
-          debugPrint('[UpdateService] APK for #$remoteVersionCode not published yet: $apkUrl');
-          return null;
+        final reachable = await _isDownloadable(client, apkUrl, updateModel.versionCode);
+        if (!reachable) {
+          debugPrint('[UpdateService] APK for #$remoteVersionCode preflight warning: $apkUrl');
         }
         // Proactively clean older versions from cache
         await clearOldApks(updateModel.versionedApkFilename);
@@ -401,6 +401,46 @@ class UpdateService {
     } finally {
       client.close();
     }
+  }
+
+  /// Builds candidate URLs for an APK download, trying cache-busted timestamps,
+  /// alternative git branches (revive2 / main), and GitHub raw redirect mirrors.
+  static List<Uri> buildCandidateUrls(String baseDownloadUrl, [String? filename]) {
+    final candidates = <Uri>[];
+    final ts = DateTime.now().millisecondsSinceEpoch;
+
+    final parsed = Uri.tryParse(baseDownloadUrl);
+    if (parsed != null) {
+      // 1. Primary URL with dynamic timestamp cache-buster (bypasses Fastly 404 cache)
+      candidates.add(parsed.replace(queryParameters: {...parsed.queryParameters, 't': '$ts'}));
+      // 2. Direct clean primary URL
+      candidates.add(parsed);
+    }
+
+    // 3. Fallbacks for alternate branches (revive2 <-> main)
+    if (baseDownloadUrl.contains('/revive2/')) {
+      final mainRaw = baseDownloadUrl.replaceAll('/revive2/', '/main/');
+      final parsedMain = Uri.tryParse(mainRaw);
+      if (parsedMain != null) {
+        candidates.add(parsedMain.replace(queryParameters: {...parsedMain.queryParameters, 't': '$ts'}));
+        candidates.add(parsedMain);
+      }
+      final ghRaw = baseDownloadUrl.replaceFirst('raw.githubusercontent.com', 'github.com');
+      final parsedGh = Uri.tryParse(ghRaw);
+      if (parsedGh != null) candidates.add(parsedGh);
+    } else if (baseDownloadUrl.contains('/main/')) {
+      final reviveRaw = baseDownloadUrl.replaceAll('/main/', '/revive2/');
+      final parsedRevive = Uri.tryParse(reviveRaw);
+      if (parsedRevive != null) {
+        candidates.add(parsedRevive.replace(queryParameters: {...parsedRevive.queryParameters, 't': '$ts'}));
+        candidates.add(parsedRevive);
+      }
+      final ghRaw = baseDownloadUrl.replaceFirst('raw.githubusercontent.com', 'github.com');
+      final parsedGh = Uri.tryParse(ghRaw);
+      if (parsedGh != null) candidates.add(parsedGh);
+    }
+
+    return candidates;
   }
 
   /// Picks the split APK matching this device's ABI (falls back to `apk_url`).
@@ -417,31 +457,29 @@ class UpdateService {
     return update.apkUrl;
   }
 
-  /// Cache-busting query so the raw.githubusercontent CDN never serves a previous file.
-  static Uri _bust(String url, int versionCode) {
-    final uri = Uri.parse(url);
-    return uri.replace(queryParameters: {...uri.queryParameters, 'v': '$versionCode'});
-  }
-
+  /// Checks reachability of an APK across multiple mirrors without suppressing valid updates
   Future<bool> _isDownloadable(http.Client client, String url, int versionCode) async {
     if (url.isEmpty) return false;
-    try {
-      final res = await client.head(_bust(url, versionCode)).timeout(const Duration(seconds: 5));
-      if (res.statusCode >= 200 && res.statusCode < 400) return true;
-      if (res.statusCode == 404) {
-        // Fastly CDN on GitHub raw can briefly cache 404 for newly pushed releases.
-        // Test with range request before concluding it's unavailable.
-        final getRes = await client.get(
-          _bust(url, versionCode),
-          headers: {'Range': 'bytes=0-10'},
-        ).timeout(const Duration(seconds: 5));
-        return (getRes.statusCode >= 200 && getRes.statusCode < 400) || getRes.statusCode == 206;
-      }
-      return true;
-    } catch (_) {
-      // Network hiccup on HEAD only: don't hide a real update, the download reports errors itself.
-      return true;
+    final filename = url.split('/').last.split('?').first;
+    final candidates = buildCandidateUrls(url, filename);
+    for (final candidate in candidates) {
+      try {
+        final res = await client.head(candidate).timeout(const Duration(seconds: 4));
+        if (res.statusCode >= 200 && res.statusCode < 400) return true;
+        if (res.statusCode == 404) {
+          // Range check fallback to handle CDNs that reject HEAD
+          final getRes = await client.get(
+            candidate,
+            headers: {'Range': 'bytes=0-10'},
+          ).timeout(const Duration(seconds: 4));
+          if ((getRes.statusCode >= 200 && getRes.statusCode < 400) || getRes.statusCode == 206) {
+            return true;
+          }
+        }
+      } catch (_) {}
     }
+    // Network hiccup: don't hide a genuine update
+    return true;
   }
 
   /// Resolves the local directory for APK downloads
@@ -549,17 +587,28 @@ class UpdateService {
       throw Exception('Update download URL is empty in update metadata');
     }
 
+    final candidateUrls = buildCandidateUrls(downloadUrl, filename);
     final client = http.Client();
     try {
-      final request = http.Request('GET', _bust(downloadUrl, update.versionCode));
-      request.headers['Cache-Control'] = 'no-cache';
-      final response = await client.send(request);
-
-      if (response.statusCode == 404) {
-        throw Exception('Build #${update.versionCode} is still being published by CI. Try again in a few minutes.');
+      http.StreamedResponse? response;
+      for (final candidate in candidateUrls) {
+        try {
+          final request = http.Request('GET', candidate);
+          request.headers['Cache-Control'] = 'no-cache';
+          request.headers['Pragma'] = 'no-cache';
+          final resp = await client.send(request);
+          if (resp.statusCode == 200) {
+            response = resp;
+            break;
+          }
+        } catch (_) {}
       }
-      if (response.statusCode != 200) {
-        throw Exception('Download failed with HTTP status ${response.statusCode}');
+
+      if (response == null || response.statusCode != 200) {
+        throw Exception(
+          'Build #${update.versionCode} is still propagating across CDN mirrors. '
+          'Please tap Download again in a moment.',
+        );
       }
 
       final totalBytes = response.contentLength ?? 0;

@@ -1,3 +1,29 @@
+# ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100306)
+
+### 🔄 Multi-Mirror APK Engine & Instant Update Reachability
+- **Eliminated False-Negative Update Checks**: Fixed the issue where in-app update checks intermittently reported "already on latest build" even when GitHub had a new release. `checkForUpdate` no longer suppresses or discards valid updates if Fastly/GitHub raw CDN has a momentary propagation delay or cached 404.
+- **Multi-Mirror Candidate Engine (`buildCandidateUrls`)**: Seamlessly resolves APK downloads through prioritized candidate endpoints:
+  - Dynamic timestamp-busted URLs (`?t=...`) to immediately bypass CDN 404 caching.
+  - Direct clean branch URLs.
+  - Automatic cross-branch mirrors (`revive2` <-> `main`).
+  - GitHub raw redirect fallback (`github.com/.../raw/...`).
+- **Resilient Sequential Downloader**: `downloadApk` attempts each candidate mirror in sequence, automatically recovering from transient CDN network delays and providing precise operator feedback if a newly published build is still propagating.
+
+### 🎛️ Ultra-Compact Input-Reply Floating HUD Pill
+- **60% Smaller Footprint**: Redesigned the floating HUD controller pill (`ControllerView`) from 295dp × 52dp down to a tactical 185dp × 34dp pill.
+- **Unobstructed Interaction**: The compact top-mounted placement leaves headers, search inputs, and action buttons completely visible and unobstructed during recording and replay.
+- **Dual-Theme Parity**: Native Android canvas overlay now adapts to system dark and light modes, seamlessly matching `JweTheme` palettes with high-contrast text and tactile accents.
+- **Integrated HUD Controls**: Features a compact 48dp × 24dp tactile [■ STOP] button, animated status dot, and step/progress indicators in a crisp, single-line layout.
+
+### ⚡ Input Lag Elimination & Double-Tap Resolution
+- **Resolved Replay Double-Tap Bug**: Fixed `clickNodeRobustly` which previously dispatched both a touch gesture AND an accessibility `ACTION_CLICK` on the same node, causing buttons to receive two clicks instead of one. It now returns immediately upon successful gesture dispatch, preventing duplicate actuation.
+- **Snappy Touch Injection**: Reduced pass-through gesture stroke duration from 40ms to 20ms in `passTapToApp`, eliminating tactile input lag when tapping through the full-screen touch sensor layer.
+- **Hardware & Multi-Touch Debouncing**: Added a 220ms debounce in `TouchSensorLayer` and a 250ms debounce in `commitDirectTap` to eliminate accidental double-taps caused by physical finger bouncing or rapid multi-touch jitter.
+- **Echo Filter**: Accessibility click echoes arriving within 800ms of direct touch injection are captured to enrich existing click metadata (view IDs, descriptions) without ever recording duplicate click steps.
+- **Fluid Replay Timing**: Reduced artificial post-click sleep delays from 300ms to 100ms, making macro playback responsive and fluid.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100305)
 
 ### 🚀 Search Hierarchy: Apps Prioritized Way Above Contacts
