@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:missions/src/screens/launcher/launcher_models.dart';
 
 /// Thin wrapper around the `arcane/launcher` platform channel (see LauncherBridge.kt).
 /// Every call degrades to a harmless default off-Android so web/desktop builds still run.
@@ -9,7 +10,10 @@ class LauncherNative {
 
   static const MethodChannel _channel = MethodChannel('arcane/launcher');
 
-  static bool get isSupported => !kIsWeb && Platform.isAndroid;
+  @visibleForTesting
+  static bool forceSupportedForTesting = false;
+
+  static bool get isSupported => forceSupportedForTesting || (!kIsWeb && Platform.isAndroid);
 
   /// Fired when the user presses HOME while Arcane is the default launcher.
   static final ValueNotifier<int> homePressed = ValueNotifier<int>(0);
@@ -240,4 +244,29 @@ class LauncherNative {
 
   static Future<bool> reconfigureWidget(int id) async =>
       await _invoke<bool>('reconfigureWidget', {'id': id}) ?? false;
+
+  // ── Contacts Search & Actions ────────────────────────────────
+  static Future<bool> hasContactsPermission() async =>
+      await _invoke<bool>('hasContactsPermission') ?? false;
+
+  static Future<bool> requestContactsPermission() async =>
+      await _invoke<bool>('requestContactsPermission') ?? false;
+
+  static Future<List<LauncherContact>> searchContacts(String query, {int limit = 15}) async {
+    final raw = await _invoke<List<dynamic>>('searchContacts', {'query': query, 'limit': limit});
+    if (raw == null) return const [];
+    return raw.whereType<Map>().map((m) => LauncherContact.fromMap(m)).toList();
+  }
+
+  static Future<bool> callNumber(String number) async =>
+      await _invoke<bool>('callNumber', {'number': number}) ?? false;
+
+  static Future<bool> messageNumber(String number) async =>
+      await _invoke<bool>('messageNumber', {'number': number}) ?? false;
+
+  static Future<bool> openWhatsApp(String number) async =>
+      await _invoke<bool>('openWhatsApp', {'number': number}) ?? false;
+
+  static Future<bool> openContact(String id) async =>
+      await _invoke<bool>('openContact', {'id': id}) ?? false;
 }

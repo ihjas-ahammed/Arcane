@@ -278,3 +278,78 @@ class LauncherWidgetEntry {
         height: (json['height'] as num?)?.toDouble() ?? 160,
       );
 }
+
+/// A phone number belonging to a contact.
+class LauncherContactPhone {
+  final String number;
+  final String cleanNumber;
+  final String type;
+
+  const LauncherContactPhone({
+    required this.number,
+    required this.cleanNumber,
+    required this.type,
+  });
+
+  factory LauncherContactPhone.fromMap(Map<dynamic, dynamic> map) {
+    return LauncherContactPhone(
+      number: map['number']?.toString() ?? '',
+      cleanNumber: map['cleanNumber']?.toString() ?? '',
+      type: map['type']?.toString() ?? 'Mobile',
+    );
+  }
+}
+
+/// A device contact matched by launcher search.
+class LauncherContact {
+  final String id;
+  final String name;
+  final String number;
+  final String cleanNumber;
+  final String type;
+  final String? photoUri;
+  final List<LauncherContactPhone> phones;
+
+  const LauncherContact({
+    required this.id,
+    required this.name,
+    required this.number,
+    required this.cleanNumber,
+    required this.type,
+    this.photoUri,
+    this.phones = const [],
+  });
+
+  String get primaryPhone => number.isNotEmpty ? number : (phones.isNotEmpty ? phones.first.number : '');
+
+  String get initials {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '?';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      final first = parts[0].isNotEmpty ? parts[0][0] : '';
+      final second = parts[1].isNotEmpty ? parts[1][0] : '';
+      return '$first$second'.toUpperCase();
+    }
+    return trimmed.substring(0, trimmed.length >= 2 ? 2 : 1).toUpperCase();
+  }
+
+  factory LauncherContact.fromMap(Map<dynamic, dynamic> map) {
+    final rawPhones = map['phones'] as List<dynamic>? ?? const [];
+    final phonesList = rawPhones
+        .whereType<Map>()
+        .map((p) => LauncherContactPhone.fromMap(p))
+        .toList();
+
+    return LauncherContact(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      number: map['number']?.toString() ?? '',
+      cleanNumber: map['cleanNumber']?.toString() ?? '',
+      type: map['type']?.toString() ?? 'Mobile',
+      photoUri: map['photoUri']?.toString(),
+      phones: phonesList,
+    );
+  }
+}
+

@@ -1,5 +1,6 @@
 package me.ihjas.missions
 
+import android.Manifest
 import android.app.Activity
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
@@ -8,9 +9,13 @@ import android.appwidget.AppWidgetProviderInfo
 import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
 import android.content.ComponentName
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.provider.ContactsContract
+import androidx.core.content.ContextCompat
+import androidx.core.app.ActivityCompat
 import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherActivityInfo
 import android.content.pm.LauncherApps
@@ -403,6 +408,32 @@ class LauncherBridge(
                 val id = call.argument<Int>("id") ?: AppWidgetManager.INVALID_APPWIDGET_ID
                 result.success(reconfigureWidget(id))
             }
+
+            // Contacts Search & Actions
+            "hasContactsPermission" -> result.success(hasContactsPermission())
+            "requestContactsPermission" -> requestContactsPermission(result)
+            "searchContacts" -> {
+                val q = call.argument<String>("query") ?: ""
+                val limit = call.argument<Int>("limit") ?: 20
+                background(result) { searchContacts(q, limit) }
+            }
+            "callNumber" -> {
+                val num = call.argument<String>("number") ?: ""
+                result.success(callNumber(num))
+            }
+            "messageNumber" -> {
+                val num = call.argument<String>("number") ?: ""
+                result.success(messageNumber(num))
+            }
+            "openWhatsApp" -> {
+                val num = call.argument<String>("number") ?: ""
+                result.success(openWhatsApp(num))
+            }
+            "openContact" -> {
+                val id = call.argument<String>("id") ?: ""
+                result.success(openContact(id))
+            }
+
             else -> result.notImplemented()
         }
     }
@@ -1149,6 +1180,185 @@ class LauncherBridge(
 
         override fun dispose() {
             container.removeAllViews()
+        }
+    }
+
+    // ── Contacts Search & Actions ─────────────────────────────────────────────
+
+    private var pendingContactsResult: MethodChannel.Result? = null
+    val CONTACTS_PERMISSION_REQUEST_CODE = 3001
+
+    fun hasContactsPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
+    }
+
+    fun requestContactsPermission(result: MethodChannel.Result) {
+        if (hasContactsPermission()) {
+            result.success(true)
+            return
+        }
+        pendingContactsResult = result
+        ActivityCompat.requestPermissions(
+            activity,
+            arrayOf(Manifest.permission.READ_CONTACTS),
+            CONTACTS_PERMISSION_REQUEST_CODE
+        )
+    }
+
+    fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray): Boolean {
+        if (requestCode == CONTACTS_PERMISSION_REQUEST_CODE) {
+            val idx = permissions.indexOf(Manifest.permission.READ_CONTACTS)
+            val granted = idx != -1 && grantResults.isNotEmpty() && grantResults[idx] == PackageManager.PERMISSION_GRANTED
+            pendingContactsResult?.success(granted)
+            pendingContactsResult = null
+            return true
+        }
+        return false
+    }
+
+    private fun searchContacts(query: String, limit: Int = 20): List<Map<String, Any?>> {
+        if (!hasContactsPermission()) return emptyList()
+        val cleanQuery = query.trim()
+        if (cleanQuery.isEmpty()) return emptyList()
+
+        val results = mutableListOf<Map<String, Any?>>()
+        val contactsMap = linkedMapOf<String, MutableMap<String, Any?>>()
+
+        val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+            ContactsContract.CommonDataKinds.Phone.NUMBER,
+            ContactsContract.CommonDataKinds.Phone.TYPE,
+            ContactsContract.CommonDataKinds.Phone.LABEL,
+            ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI
+        )
+
+        val sortOrder = "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} ASC"
+
+        var cursor: android.database.Cursor? = null
+        try {
+            val filterUri = Uri.withAppendedPath(
+                ContactsContract.CommonDataKinds.Phone.CONTENT_FILTER_URI,
+                Uri.encode(cleanQuery)
+            )
+            cursor = activity.contentResolver.query(filterUri, projection, null, null, sortOrder)
+        } catch (_: Exception) {
+            cursor = null
+        }
+
+        if (cursor == null || cursor.count == 0) {
+            cursor?.close()
+            try {
+                val selection = "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} LIKE ? OR ${ContactsContract.CommonDataKinds.Phone.NUMBER} LIKE ?"
+                val selectionArgs = arrayOf("%$cleanQuery%", "%$cleanQuery%")
+                cursor = activity.contentResolver.query(
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    projection,
+                    selection,
+                    selectionArgs,
+                    sortOrder
+                )
+            } catch (_: Exception) {
+                cursor = null
+            }
+        }
+
+        cursor?.use { c ->
+            val idIdx = c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID)
+            val nameIdx = c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+            val numIdx = c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+            val typeIdx = c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.TYPE)
+            val labelIdx = c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.LABEL)
+            val photoIdx = c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI)
+
+            while (c.moveToNext() && contactsMap.size < limit) {
+                val id = if (idIdx >= 0) c.getString(idIdx) ?: "" else ""
+                val name = if (nameIdx >= 0) c.getString(nameIdx) ?: "" else ""
+                val rawNumber = if (numIdx >= 0) c.getString(numIdx) ?: "" else ""
+                val cleanNumber = rawNumber.replace(Regex("[^0-9+]"), "")
+                val type = if (typeIdx >= 0) c.getInt(typeIdx) else 0
+                val label = if (labelIdx >= 0) c.getString(labelIdx) ?: "" else ""
+                val photo = if (photoIdx >= 0) c.getString(photoIdx) else null
+
+                val phoneTypeLabel = when (type) {
+                    ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE -> "Mobile"
+                    ContactsContract.CommonDataKinds.Phone.TYPE_HOME -> "Home"
+                    ContactsContract.CommonDataKinds.Phone.TYPE_WORK -> "Work"
+                    ContactsContract.CommonDataKinds.Phone.TYPE_MAIN -> "Main"
+                    else -> if (label.isNotEmpty()) label else "Other"
+                }
+
+                if (name.isNotEmpty() && rawNumber.isNotEmpty()) {
+                    val key = if (id.isNotEmpty()) id else name
+                    if (!contactsMap.containsKey(key)) {
+                        contactsMap[key] = mutableMapOf(
+                            "id" to id,
+                            "name" to name,
+                            "number" to rawNumber,
+                            "cleanNumber" to cleanNumber,
+                            "type" to phoneTypeLabel,
+                            "photoUri" to photo,
+                            "phones" to mutableListOf<Map<String, String>>(
+                                mapOf("number" to rawNumber, "cleanNumber" to cleanNumber, "type" to phoneTypeLabel)
+                            )
+                        )
+                    } else {
+                        @Suppress("UNCHECKED_CAST")
+                        val phonesList = contactsMap[key]!!["phones"] as? MutableList<Map<String, String>>
+                        if (phonesList != null && phonesList.none { it["cleanNumber"] == cleanNumber }) {
+                            phonesList.add(mapOf("number" to rawNumber, "cleanNumber" to cleanNumber, "type" to phoneTypeLabel))
+                        }
+                    }
+                }
+            }
+            results.addAll(contactsMap.values)
+        }
+
+        return results
+    }
+
+    private fun callNumber(number: String): Boolean {
+        val clean = number.trim()
+        if (clean.isEmpty()) return false
+        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(clean)}"))
+        return startSafely(intent)
+    }
+
+    private fun messageNumber(number: String): Boolean {
+        val clean = number.trim()
+        if (clean.isEmpty()) return false
+        val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${Uri.encode(clean)}"))
+        return startSafely(intent)
+    }
+
+    private fun openWhatsApp(number: String): Boolean {
+        var digits = number.replace(Regex("[^0-9]"), "")
+        if (digits.isEmpty()) return false
+        digits = digits.replaceFirst(Regex("^0+"), "")
+
+        val url = "https://wa.me/$digits"
+        val uri = Uri.parse(url)
+
+        val waIntent = Intent(Intent.ACTION_VIEW, uri).apply {
+            setPackage("com.whatsapp")
+        }
+        if (startSafely(waIntent)) return true
+
+        val waBizIntent = Intent(Intent.ACTION_VIEW, uri).apply {
+            setPackage("com.whatsapp.w4b")
+        }
+        if (startSafely(waBizIntent)) return true
+
+        return startSafely(Intent(Intent.ACTION_VIEW, uri))
+    }
+
+    private fun openContact(contactId: String): Boolean {
+        if (contactId.isEmpty()) return false
+        return try {
+            val uri = ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, contactId.toLong())
+            startSafely(Intent(Intent.ACTION_VIEW, uri))
+        } catch (_: Exception) {
+            false
         }
     }
 }

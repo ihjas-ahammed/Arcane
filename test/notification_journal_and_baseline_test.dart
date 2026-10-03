@@ -85,7 +85,7 @@ void main() {
       });
 
       // Calibrate today's baseline with this subtask
-      provider.createTimeLogStartForToday(checkedSubtaskIds: {subId!});
+      provider.createTimeLogStartForToday(checkedSubtaskIds: {subId});
 
       final todayStr = DateTime.now().toIso8601String().split('T').first;
       final startDayReport = provider.getStartDayReport(todayStr);

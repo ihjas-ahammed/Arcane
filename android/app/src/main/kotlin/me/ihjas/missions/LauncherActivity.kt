@@ -86,4 +86,13 @@ class LauncherActivity : FlutterActivity() {
         if (launcherBridge?.onActivityResult(requestCode, resultCode, data) == true) return
         super.onActivityResult(requestCode, resultCode, data)
     }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        if (launcherBridge?.onRequestPermissionsResult(requestCode, permissions, grantResults) == true) return
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    }
 }

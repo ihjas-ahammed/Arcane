@@ -229,6 +229,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (launcherBridge?.onRequestPermissionsResult(requestCode, permissions, grantResults) == true) return
         if (requestCode == PERMISSION_REQUEST_CODE) {
             val audioIdx = permissions.indexOf(android.Manifest.permission.RECORD_AUDIO)
             val audioGranted = audioIdx != -1 && grantResults.isNotEmpty() && grantResults[audioIdx] == PackageManager.PERMISSION_GRANTED

@@ -1,3 +1,18 @@
+# ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100304)
+
+### 📞 Tactical Contact Search & Direct Communications in Launcher
+- **Integrated Contact Search**: Launcher drawer search now queries on-device contacts with sub-180ms debouncing, displaying matching contacts with tactical dual-theme monogram avatars, display names, phone numbers, and phone type badges.
+- **Trio of Tactical Action Buttons**: Each contact card features 3 dedicated, color-coded action buttons with tactile ink ripples:
+  - 🟢 **Call**: Direct dialer launch via `Intent.ACTION_DIAL`.
+  - 🔵 **SMS Message**: Direct message composer launch via `Intent.ACTION_SENDTO`.
+  - 🟢 **WhatsApp**: Direct chat initiation with the recipient via WhatsApp (`com.whatsapp` / `com.whatsapp.w4b` with deep link fallback).
+- **Multiple Phone Numbers Sheet**: Tapping a contact with multiple numbers opens a tactical bottom sheet displaying all associated lines with individual Call, SMS, and WhatsApp action buttons, plus a direct button to view full native contact details.
+- **Direct Dial & Unsaved Number Actions**: Typing a phone number directly into the launcher search bar instantly presents a "Direct Dial" card with the same 3 action buttons (Call, SMS, WhatsApp), allowing instant communication without saving the number to contacts first.
+- **Tactical Permission Gate**: If contacts permission is not yet granted, typing in the search bar presents a non-intrusive permission card with a one-tap "ENABLE" button to request `READ_CONTACTS` and refresh results on the fly.
+- **Dual-Theme Parity**: Fully compliant with `LauncherTheme` and `JweTheme`, supporting both tactical dark/midnight mode and light stone/paper palette.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100303)
 
 ### 📬 Launcher Left Screen Notifications Tab & Daily Journal

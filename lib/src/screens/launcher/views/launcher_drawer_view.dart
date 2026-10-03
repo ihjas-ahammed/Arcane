@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/screens/launcher/launcher_icon.dart';
@@ -37,14 +38,26 @@ class LauncherDrawerViewState extends State<LauncherDrawerView> {
   final ScrollController _scroll = ScrollController();
   bool _dragClosing = false;
 
+  List<LauncherContact> _contacts = const [];
+  bool _hasContactsPermission = true;
+  bool _isSearchingContacts = false;
+  Timer? _contactsDebounce;
+
   @override
   void initState() {
     super.initState();
     _query.addListener(_onQuery);
+    _checkContactsPermission();
+  }
+
+  Future<void> _checkContactsPermission() async {
+    final hasPerm = await LauncherNative.hasContactsPermission();
+    if (mounted) setState(() => _hasContactsPermission = hasPerm);
   }
 
   @override
   void dispose() {
+    _contactsDebounce?.cancel();
     _query.dispose();
     _focus.dispose();
     _scroll.dispose();
@@ -53,10 +66,56 @@ class LauncherDrawerViewState extends State<LauncherDrawerView> {
 
   String _lastQuery = '';
   void _onQuery() {
-    if (_query.text == _lastQuery) return;
-    _lastQuery = _query.text;
+    final text = _query.text;
+    if (text == _lastQuery) return;
+    _lastQuery = text;
     setState(() {});
     if (_scroll.hasClients) _scroll.jumpTo(0);
+
+    _contactsDebounce?.cancel();
+    final q = text.trim();
+    if (q.isEmpty) {
+      if (_contacts.isNotEmpty) {
+        setState(() => _contacts = const []);
+      }
+      return;
+    }
+
+    _contactsDebounce = Timer(const Duration(milliseconds: 180), () {
+      _performContactSearch(q);
+    });
+  }
+
+  Future<void> _performContactSearch(String q) async {
+    if (!_hasContactsPermission) return;
+    setState(() => _isSearchingContacts = true);
+    try {
+      final results = await LauncherNative.searchContacts(q, limit: 12);
+      if (mounted && _query.text.trim() == q) {
+        setState(() {
+          _contacts = results;
+          _isSearchingContacts = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isSearchingContacts = false);
+    }
+  }
+
+  Future<void> _requestContactsAccess() async {
+    final granted = await LauncherNative.requestContactsPermission();
+    if (mounted) {
+      setState(() => _hasContactsPermission = granted);
+      final q = _query.text.trim();
+      if (granted && q.isNotEmpty) {
+        _performContactSearch(q);
+      }
+    }
+  }
+
+  bool _looksLikePhoneNumber(String q) {
+    final digitsOnly = q.replaceAll(RegExp(r'[^\d]'), '');
+    return digitsOnly.length >= 3 && RegExp(r'^[\d\s\+\-\(\)]+$').hasMatch(q);
   }
 
   void focusSearch() {
@@ -76,6 +135,10 @@ class LauncherDrawerViewState extends State<LauncherDrawerView> {
     if (q.isEmpty) return;
     if (results.isNotEmpty) {
       widget.onLaunch(results.first);
+    } else if (_contacts.isNotEmpty) {
+      LauncherNative.callNumber(_contacts.first.primaryPhone);
+    } else if (_looksLikePhoneNumber(q)) {
+      LauncherNative.callNumber(q);
     } else {
       LauncherNative.openWebSearch(q);
     }
@@ -151,6 +214,11 @@ class LauncherDrawerViewState extends State<LauncherDrawerView> {
                       : service.search(q);
                   final suggestions = q.isEmpty ? service.suggestions(limit: columns) : const <LauncherApp>[];
 
+                  final isPhone = _looksLikePhoneNumber(q);
+                  final digitsOnly = q.replaceAll(RegExp(r'[^\d]'), '');
+                  final directMatchInContacts = digitsOnly.isNotEmpty &&
+                      _contacts.any((c) => c.cleanNumber.endsWith(digitsOnly) || digitsOnly.endsWith(c.cleanNumber));
+
                   return NotificationListener<ScrollNotification>(
                     onNotification: _onScroll,
                     child: CustomScrollView(
@@ -166,7 +234,18 @@ class LauncherDrawerViewState extends State<LauncherDrawerView> {
                           ),
                         ],
                         if (folderKeys.isNotEmpty) _folderGrid(folderKeys, columns),
-                        if (q.isNotEmpty) _sectionLabel(apps.isEmpty ? 'NO APPS FOUND' : 'APPS'),
+                        if (q.isNotEmpty) ...[
+                          if (_contacts.isNotEmpty) ...[
+                            _sectionLabel('CONTACTS (${_contacts.length})'),
+                            _contactsList(_contacts),
+                          ] else if (!_hasContactsPermission && q.length >= 2) ...[
+                            SliverToBoxAdapter(child: _contactsPermissionTile()),
+                          ],
+                          if (isPhone && !directMatchInContacts) ...[
+                            SliverToBoxAdapter(child: _directNumberTile(q)),
+                          ],
+                          _sectionLabel(apps.isEmpty ? (_contacts.isNotEmpty ? 'APPS (0)' : 'NO APPS FOUND') : 'APPS'),
+                        ],
                         _grid(apps, columns),
                         if (q.isNotEmpty) SliverToBoxAdapter(child: _webSearchTile(q)),
                         SliverPadding(padding: EdgeInsets.only(bottom: media.padding.bottom + 16)),
@@ -194,7 +273,7 @@ class LauncherDrawerViewState extends State<LauncherDrawerView> {
         isDense: true,
         filled: true,
         fillColor: LauncherTheme.panel2,
-        hintText: 'Search apps',
+        hintText: 'Search apps & contacts',
         hintStyle: LauncherTheme.rajdhani(fontSize: 15, fontWeight: FontWeight.w600, color: LauncherTheme.muted),
         prefixIcon: Icon(MdiIcons.magnify, color: LauncherTheme.muted, size: 20),
         suffixIcon: _query.text.isEmpty
@@ -220,6 +299,214 @@ class LauncherDrawerViewState extends State<LauncherDrawerView> {
               style: LauncherTheme.rajdhani(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 2, color: LauncherTheme.muted)),
         ),
       );
+
+  Widget _contactsList(List<LauncherContact> contacts) {
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, i) => _ContactCard(
+            contact: contacts[i],
+            onTap: () => _handleContactTap(context, contacts[i]),
+          ),
+          childCount: contacts.length,
+        ),
+      ),
+    );
+  }
+
+  void _handleContactTap(BuildContext context, LauncherContact contact) {
+    if (contact.phones.length > 1) {
+      _showContactNumbersSheet(context, contact);
+    } else {
+      LauncherNative.openContact(contact.id);
+    }
+  }
+
+  void _showContactNumbersSheet(BuildContext context, LauncherContact contact) {
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      showDragHandle: true,
+      backgroundColor: LauncherTheme.panel,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          contact.name,
+                          style: LauncherTheme.rajdhani(fontSize: 18, fontWeight: FontWeight.w700),
+                        ),
+                        Text(
+                          '${contact.phones.length} phone numbers',
+                          style: LauncherTheme.rajdhani(fontSize: 13, color: LauncherTheme.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      LauncherNative.openContact(contact.id);
+                    },
+                    icon: Icon(MdiIcons.accountDetailsOutline, size: 16, color: LauncherTheme.red),
+                    label: Text(
+                      'DETAILS',
+                      style: LauncherTheme.rajdhani(fontSize: 12, fontWeight: FontWeight.w700, color: LauncherTheme.red),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...contact.phones.map((phone) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: LauncherTheme.panel2,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: LauncherTheme.line),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              phone.number,
+                              style: LauncherTheme.rajdhani(fontSize: 15, fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              phone.type,
+                              style: LauncherTheme.rajdhani(fontSize: 12, color: LauncherTheme.muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      _ContactActionButtons(number: phone.number),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _contactsPermissionTile() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: LauncherTheme.panel,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: LauncherTheme.redSoft.withValues(alpha: 0.4)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Icon(MdiIcons.accountSearchOutline, color: LauncherTheme.red, size: 26),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'CONTACT SEARCH ACCESS',
+                    style: LauncherTheme.rajdhani(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                  ),
+                  Text(
+                    'Search contacts and message directly from launcher',
+                    style: LauncherTheme.rajdhani(fontSize: 12, color: LauncherTheme.muted),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: LauncherTheme.red,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                elevation: 0,
+              ),
+              onPressed: _requestContactsAccess,
+              child: Text(
+                'ENABLE',
+                style: LauncherTheme.rajdhani(fontSize: 12.5, fontWeight: FontWeight.w700, letterSpacing: 1),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _directNumberTile(String number) {
+    final isLight = LauncherTheme.isLight;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: LauncherTheme.panel,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: LauncherTheme.line),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isLight ? const Color(0xFFE5DFC9) : const Color(0xFF161A22),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: LauncherTheme.line),
+              ),
+              alignment: Alignment.center,
+              child: Icon(MdiIcons.dialpad, size: 20, color: LauncherTheme.red),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'DIRECT DIAL: $number',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: LauncherTheme.rajdhani(fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    'Call, SMS or WhatsApp number directly',
+                    style: LauncherTheme.rajdhani(fontSize: 12, color: LauncherTheme.muted),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            _ContactActionButtons(number: number),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _grid(List<LauncherApp> apps, int columns) {
     return SliverPadding(
@@ -315,3 +602,219 @@ class _AppTile extends StatelessWidget {
     );
   }
 }
+
+/// Tactical Contact Card displaying contact initials, name, phone, and 3 actions: Call, SMS, WhatsApp.
+class _ContactCard extends StatelessWidget {
+  final LauncherContact contact;
+  final VoidCallback onTap;
+
+  const _ContactCard({
+    required this.contact,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isLight = LauncherTheme.isLight;
+    final primaryNumber = contact.primaryPhone;
+    final hasMultiple = contact.phones.length > 1;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: LauncherTheme.panel,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: LauncherTheme.line.withValues(alpha: isLight ? 0.7 : 0.5),
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                _buildAvatar(isLight),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        contact.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: LauncherTheme.rajdhani(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                          color: LauncherTheme.text,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              primaryNumber.isNotEmpty ? primaryNumber : 'No number',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: LauncherTheme.rajdhani(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: LauncherTheme.muted,
+                              ),
+                            ),
+                          ),
+                          if (contact.type.isNotEmpty) ...[
+                            Text(
+                              ' • ${contact.type}',
+                              style: LauncherTheme.rajdhani(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: LauncherTheme.redSoft,
+                              ),
+                            ),
+                          ],
+                          if (hasMultiple) ...[
+                            Text(
+                              ' (+${contact.phones.length - 1})',
+                              style: LauncherTheme.rajdhani(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: LauncherTheme.muted,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _ContactActionButtons(number: primaryNumber),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar(bool isLight) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: isLight ? const Color(0xFFE5DFC9) : const Color(0xFF161A22),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: LauncherTheme.line),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        contact.initials,
+        style: LauncherTheme.rajdhani(
+          fontSize: 14.5,
+          fontWeight: FontWeight.w700,
+          color: LauncherTheme.red,
+        ),
+      ),
+    );
+  }
+}
+
+/// Three tactical action buttons: Call, SMS, WhatsApp.
+class _ContactActionButtons extends StatelessWidget {
+  final String number;
+
+  const _ContactActionButtons({required this.number});
+
+  @override
+  Widget build(BuildContext context) {
+    final isLight = LauncherTheme.isLight;
+    final enabled = number.isNotEmpty;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 1. Call Button
+        _ContactActionButton(
+          icon: MdiIcons.phone,
+          tooltip: 'Call',
+          bgColor: const Color(0xFF10B981).withValues(alpha: isLight ? 0.12 : 0.16),
+          borderColor: const Color(0xFF10B981).withValues(alpha: isLight ? 0.35 : 0.40),
+          iconColor: isLight ? const Color(0xFF047857) : const Color(0xFF34D399),
+          onTap: enabled ? () => LauncherNative.callNumber(number) : null,
+        ),
+        const SizedBox(width: 6),
+        // 2. Message (SMS) Button
+        _ContactActionButton(
+          icon: MdiIcons.messageTextOutline,
+          tooltip: 'SMS Message',
+          bgColor: const Color(0xFF0EA5E9).withValues(alpha: isLight ? 0.12 : 0.16),
+          borderColor: const Color(0xFF0EA5E9).withValues(alpha: isLight ? 0.35 : 0.40),
+          iconColor: isLight ? const Color(0xFF0369A1) : const Color(0xFF38BDF8),
+          onTap: enabled ? () => LauncherNative.messageNumber(number) : null,
+        ),
+        const SizedBox(width: 6),
+        // 3. Message on WhatsApp Button
+        _ContactActionButton(
+          icon: MdiIcons.whatsapp,
+          tooltip: 'WhatsApp Message',
+          bgColor: const Color(0xFF25D366).withValues(alpha: isLight ? 0.14 : 0.18),
+          borderColor: const Color(0xFF25D366).withValues(alpha: isLight ? 0.40 : 0.45),
+          iconColor: isLight ? const Color(0xFF128C7E) : const Color(0xFF25D366),
+          onTap: enabled ? () => LauncherNative.openWhatsApp(number) : null,
+        ),
+      ],
+    );
+  }
+}
+
+/// Tactical circular-chamfer icon button for contact actions.
+class _ContactActionButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final Color bgColor;
+  final Color borderColor;
+  final Color iconColor;
+  final VoidCallback? onTap;
+
+  const _ContactActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.bgColor,
+    required this.borderColor,
+    required this.iconColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: 35,
+            height: 35,
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: borderColor, width: 1),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, size: 18, color: iconColor),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
