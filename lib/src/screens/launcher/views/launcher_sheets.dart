@@ -179,8 +179,94 @@ class _LauncherSettingsState extends State<_LauncherSettings> {
               subtitle: hidden.isEmpty ? 'None' : '${hidden.length} hidden',
             ),
           ),
+          ValueListenableBuilder<String>(
+            valueListenable: service.defaultCountryCode,
+            builder: (_, code, __) => _action(
+              context,
+              MdiIcons.phoneOutline,
+              'Default country code (WhatsApp & Dialer)',
+              () => _showCountryCodeDialog(host, service),
+              subtitle: '+$code (Used when contact numbers lack international +code)',
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  void _showCountryCodeDialog(BuildContext context, LauncherService service) {
+    final controller = TextEditingController(text: service.defaultCountryCode.value);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: LauncherTheme.panel,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: LauncherTheme.line)),
+        title: Text('DEFAULT COUNTRY CODE', style: LauncherTheme.rajdhani(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Enter your international calling code without "+". When opening WhatsApp or messaging contacts that lack an international prefix, this code is automatically applied.',
+              style: LauncherTheme.rajdhani(fontSize: 13, color: LauncherTheme.muted),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              style: LauncherTheme.rajdhani(fontSize: 18, fontWeight: FontWeight.w700),
+              decoration: InputDecoration(
+                prefixText: '+ ',
+                prefixStyle: LauncherTheme.rajdhani(fontSize: 18, fontWeight: FontWeight.w700, color: LauncherTheme.red),
+                hintText: '91',
+                isDense: true,
+                filled: true,
+                fillColor: LauncherTheme.panel2,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: LauncherTheme.line)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _countryPresetChip('+91 IN', '91', controller),
+                _countryPresetChip('+1 US/CA', '1', controller),
+                _countryPresetChip('+44 UK', '44', controller),
+                _countryPresetChip('+971 UAE', '971', controller),
+                _countryPresetChip('+65 SG', '65', controller),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('CANCEL', style: LauncherTheme.rajdhani(fontWeight: FontWeight.w600, color: LauncherTheme.muted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: LauncherTheme.red, foregroundColor: Colors.white),
+            onPressed: () {
+              final text = controller.text.replaceAll(RegExp(r'\D'), '');
+              if (text.isNotEmpty) {
+                service.setDefaultCountryCode(text);
+              }
+              Navigator.pop(ctx);
+            },
+            child: Text('SAVE', style: LauncherTheme.rajdhani(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _countryPresetChip(String label, String code, TextEditingController controller) {
+    return ActionChip(
+      label: Text(label, style: LauncherTheme.rajdhani(fontSize: 12, fontWeight: FontWeight.w600)),
+      backgroundColor: LauncherTheme.panel2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: LauncherTheme.line)),
+      onPressed: () => controller.text = code,
     );
   }
 }

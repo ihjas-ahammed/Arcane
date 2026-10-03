@@ -351,5 +351,46 @@ class LauncherContact {
       phones: phonesList,
     );
   }
+
+  /// Normalizes a contact phone number for WhatsApp URL/intent (`https://wa.me/<digits>`),
+  /// ensuring a valid international country code prefix is present without leading zeroes or '+'.
+  static String formatWhatsAppNumber(String rawNumber, {String defaultCode = '91'}) {
+    final trimmed = rawNumber.trim();
+    if (trimmed.isEmpty) return '';
+
+    final cleanDefault = defaultCode.replaceAll(RegExp(r'\D'), '');
+    final code = cleanDefault.isNotEmpty ? cleanDefault : '91';
+
+    if (trimmed.startsWith('+')) {
+      return trimmed.replaceAll(RegExp(r'\D'), '');
+    }
+
+    if (trimmed.startsWith('00')) {
+      final digits = trimmed.replaceAll(RegExp(r'\D'), '');
+      return digits.replaceFirst(RegExp(r'^00+'), '');
+    }
+
+    var digits = trimmed.replaceAll(RegExp(r'\D'), '');
+    digits = digits.replaceFirst(RegExp(r'^0+'), '');
+    if (digits.isEmpty) return '';
+
+    if (digits.length == 10 || (digits.length >= 7 && digits.length <= 9)) {
+      return '$code$digits';
+    }
+
+    if (digits.startsWith(code) && digits.length == 10 + code.length) {
+      return digits;
+    }
+
+    if (digits.length == 11 && digits.startsWith('1')) {
+      return digits;
+    }
+
+    if (digits.length == 12 && digits.startsWith('91')) {
+      return digits;
+    }
+
+    return digits.length <= 10 ? '$code$digits' : digits;
+  }
 }
 

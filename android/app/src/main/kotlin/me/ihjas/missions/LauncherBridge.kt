@@ -1,5 +1,6 @@
 package me.ihjas.missions
 
+import java.util.Locale
 import android.Manifest
 import android.app.Activity
 import android.appwidget.AppWidgetHost
@@ -82,6 +83,18 @@ class LauncherBridge(
             "com.gau.go.launcherex.theme",
             "com.fede.launcher.THEME_ICONPACK",
             "com.anddoes.launcher.THEME",
+        )
+
+        private val COUNTRY_CALLING_CODES = mapOf(
+            "IN" to "91", "US" to "1", "CA" to "1", "GB" to "44", "AE" to "971", "SA" to "966",
+            "QA" to "974", "KW" to "965", "OM" to "968", "BH" to "973", "SG" to "65", "MY" to "60",
+            "AU" to "61", "NZ" to "64", "DE" to "49", "FR" to "33", "IT" to "39", "ES" to "34",
+            "NL" to "31", "CH" to "41", "SE" to "46", "NO" to "47", "DK" to "45", "IE" to "353",
+            "ZA" to "27", "NG" to "234", "KE" to "254", "EG" to "20", "BR" to "55", "MX" to "52",
+            "AR" to "54", "CO" to "57", "CL" to "56", "PE" to "51", "JP" to "81", "KR" to "82",
+            "CN" to "86", "HK" to "852", "TW" to "886", "PK" to "92", "BD" to "880", "LK" to "94",
+            "NP" to "977", "ID" to "62", "TH" to "66", "VN" to "84", "PH" to "63", "TR" to "90",
+            "RU" to "7", "UA" to "380", "PL" to "48", "AT" to "43", "BE" to "32", "PT" to "351"
         )
     }
 
@@ -427,7 +440,8 @@ class LauncherBridge(
             }
             "openWhatsApp" -> {
                 val num = call.argument<String>("number") ?: ""
-                result.success(openWhatsApp(num))
+                val code = call.argument<String>("countryCode")
+                result.success(openWhatsApp(num, code))
             }
             "openContact" -> {
                 val id = call.argument<String>("id") ?: ""
@@ -1331,10 +1345,64 @@ class LauncherBridge(
         return startSafely(intent)
     }
 
-    private fun openWhatsApp(number: String): Boolean {
-        var digits = number.replace(Regex("[^0-9]"), "")
+
+
+    private fun getDeviceCountryCallingCode(): String {
+        try {
+            val tm = appContext.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+            val simIso = tm?.simCountryIso?.trim()?.uppercase(Locale.ROOT)
+            val networkIso = tm?.networkCountryIso?.trim()?.uppercase(Locale.ROOT)
+            val localeIso = Locale.getDefault().country?.trim()?.uppercase(Locale.ROOT)
+            val iso = if (!simIso.isNullOrEmpty()) simIso else if (!networkIso.isNullOrEmpty()) networkIso else localeIso
+            if (!iso.isNullOrEmpty()) {
+                val code = COUNTRY_CALLING_CODES[iso]
+                if (!code.isNullOrEmpty()) return code
+            }
+        } catch (_: Exception) {}
+        return "91"
+    }
+
+    private fun openWhatsApp(number: String, customCountryCode: String? = null): Boolean {
+        val trimmed = number.trim()
+        if (trimmed.isEmpty()) return false
+
+        val defaultCode = if (!customCountryCode.isNullOrBlank()) {
+            customCountryCode.replace(Regex("[^0-9]"), "")
+        } else {
+            getDeviceCountryCallingCode()
+        }.ifEmpty { "91" }
+
+        var digits = trimmed.replace(Regex("[^0-9]"), "")
         if (digits.isEmpty()) return false
-        digits = digits.replaceFirst(Regex("^0+"), "")
+
+        val hasExplicitPlus = trimmed.startsWith("+")
+        val hasDoubleZero = trimmed.startsWith("00")
+
+        if (hasDoubleZero) {
+            digits = digits.replaceFirst(Regex("^00+"), "")
+        } else if (!hasExplicitPlus) {
+            // Strip leading domestic trunk zeros (e.g. 09876543210 -> 9876543210)
+            val withoutLeadingZeros = digits.replaceFirst(Regex("^0+"), "")
+
+            if (withoutLeadingZeros.length == 10) {
+                // Standard 10-digit mobile number: prepend country code
+                digits = defaultCode + withoutLeadingZeros
+            } else if (withoutLeadingZeros.length in 7..9) {
+                digits = defaultCode + withoutLeadingZeros
+            } else if (withoutLeadingZeros.length > 10) {
+                if (withoutLeadingZeros.startsWith(defaultCode) && withoutLeadingZeros.length == 10 + defaultCode.length) {
+                    digits = withoutLeadingZeros
+                } else if (withoutLeadingZeros.length == 11 && withoutLeadingZeros.startsWith("1")) {
+                    digits = withoutLeadingZeros
+                } else if (withoutLeadingZeros.length == 12 && withoutLeadingZeros.startsWith("91")) {
+                    digits = withoutLeadingZeros
+                } else {
+                    digits = withoutLeadingZeros
+                }
+            } else {
+                digits = withoutLeadingZeros
+            }
+        }
 
         val url = "https://wa.me/$digits"
         val uri = Uri.parse(url)

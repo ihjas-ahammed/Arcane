@@ -64,6 +64,7 @@ class LauncherService {
   static const _kStats = 'launcher_v4_stats';
   static const _kFullscreen = 'launcher_v4_fullscreen';
   static const _kNotes = 'arcane_launcher_quick_notes';
+  static const _kCountryCode = 'launcher_v4_country_code';
 
   VoidCallback? onLauncherChanged;
   void _notifyChanged() => onLauncherChanged?.call();
@@ -101,6 +102,9 @@ class LauncherService {
 
   /// Hide the status and navigation bars while the launcher surface is showing (on by default).
   final ValueNotifier<bool> fullscreen = ValueNotifier<bool>(true);
+
+  /// Default international country code without '+' (defaults to '91' for India, user configurable).
+  final ValueNotifier<String> defaultCountryCode = ValueNotifier<String>('91');
 
   /// Whether Android lets Arcane read pinned shortcuts (only as the default home app).
   final ValueNotifier<bool> shortcutsAvailable = ValueNotifier<bool>(false);
@@ -163,6 +167,10 @@ class LauncherService {
     hidden.value = Set.unmodifiable(prefs.getStringList(_kHidden) ?? const <String>[]);
     iconPack.value = prefs.getString(_kIconPack);
     fullscreen.value = prefs.getBool(_kFullscreen) ?? true;
+    final savedCode = prefs.getString(_kCountryCode);
+    if (savedCode != null && savedCode.trim().isNotEmpty) {
+      defaultCountryCode.value = savedCode.replaceAll(RegExp(r'\D'), '');
+    }
 
     final rawOverrides = _decodeMap(prefs.getString(_kOverrides));
     _overrides = {};
@@ -634,6 +642,14 @@ class LauncherService {
   Future<void> setFullscreen(bool value) async {
     fullscreen.value = value;
     await (_prefs ?? await SharedPreferences.getInstance()).setBool(_kFullscreen, value);
+    _notifyChanged();
+  }
+
+  Future<void> setDefaultCountryCode(String code) async {
+    final clean = code.replaceAll(RegExp(r'\D'), '');
+    if (clean.isEmpty) return;
+    defaultCountryCode.value = clean;
+    await (_prefs ?? await SharedPreferences.getInstance()).setString(_kCountryCode, clean);
     _notifyChanged();
   }
 

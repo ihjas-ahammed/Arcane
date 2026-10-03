@@ -264,8 +264,11 @@ class LauncherNative {
   static Future<bool> messageNumber(String number) async =>
       await _invoke<bool>('messageNumber', {'number': number}) ?? false;
 
-  static Future<bool> openWhatsApp(String number) async =>
-      await _invoke<bool>('openWhatsApp', {'number': number}) ?? false;
+  static Future<bool> openWhatsApp(String number, {String? countryCode}) async =>
+      await _invoke<bool>('openWhatsApp', {
+        'number': number,
+        if (countryCode != null) 'countryCode': countryCode,
+      }) ?? false;
 
   static Future<bool> openContact(String id) async =>
       await _invoke<bool>('openContact', {'id': id}) ?? false;

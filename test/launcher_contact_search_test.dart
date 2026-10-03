@@ -89,6 +89,48 @@ void main() {
       final empty = LauncherContact.fromMap({'name': '   '});
       expect(empty.initials, equals('?'));
     });
+
+    test('LauncherContact formatWhatsAppNumber handles missing and explicit country codes', () {
+      // 10-digit national number without country code
+      expect(
+        LauncherContact.formatWhatsAppNumber('9876543210', defaultCode: '91'),
+        equals('919876543210'),
+      );
+
+      // 11-digit domestic number starting with trunk 0
+      expect(
+        LauncherContact.formatWhatsAppNumber('09876543210', defaultCode: '91'),
+        equals('919876543210'),
+      );
+
+      // Formatted with spaces and brackets
+      expect(
+        LauncherContact.formatWhatsAppNumber('(987) 654-3210', defaultCode: '91'),
+        equals('919876543210'),
+      );
+
+      // Explicit + country code
+      expect(
+        LauncherContact.formatWhatsAppNumber('+91 98765 43210', defaultCode: '91'),
+        equals('919876543210'),
+      );
+      expect(
+        LauncherContact.formatWhatsAppNumber('+1 (555) 0199', defaultCode: '91'),
+        equals('15550199'),
+      );
+
+      // 00 international prefix
+      expect(
+        LauncherContact.formatWhatsAppNumber('00919876543210', defaultCode: '91'),
+        equals('919876543210'),
+      );
+
+      // Custom country code (e.g. US)
+      expect(
+        LauncherContact.formatWhatsAppNumber('5550199', defaultCode: '1'),
+        equals('15550199'),
+      );
+    });
   });
 
   group('LauncherNative Contacts Bridge Tests', () {

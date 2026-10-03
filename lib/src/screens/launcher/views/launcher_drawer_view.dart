@@ -235,7 +235,12 @@ class LauncherDrawerViewState extends State<LauncherDrawerView> {
                         ],
                         if (folderKeys.isNotEmpty) _folderGrid(folderKeys, columns),
                         if (q.isNotEmpty) ...[
+                          _sectionLabel(apps.isEmpty ? 'NO APPS FOUND' : 'APPS (${apps.length})'),
+                          _grid(apps, columns),
                           if (_contacts.isNotEmpty) ...[
+                            SliverToBoxAdapter(
+                              child: Divider(color: LauncherTheme.line, height: 24, indent: 16, endIndent: 16),
+                            ),
                             _sectionLabel('CONTACTS (${_contacts.length})'),
                             _contactsList(_contacts),
                           ] else if (!_hasContactsPermission && q.length >= 2) ...[
@@ -244,10 +249,11 @@ class LauncherDrawerViewState extends State<LauncherDrawerView> {
                           if (isPhone && !directMatchInContacts) ...[
                             SliverToBoxAdapter(child: _directNumberTile(q)),
                           ],
-                          _sectionLabel(apps.isEmpty ? (_contacts.isNotEmpty ? 'APPS (0)' : 'NO APPS FOUND') : 'APPS'),
+                          SliverToBoxAdapter(child: _webSearchTile(q)),
                         ],
-                        _grid(apps, columns),
-                        if (q.isNotEmpty) SliverToBoxAdapter(child: _webSearchTile(q)),
+                        if (q.isEmpty) ...[
+                          _grid(apps, columns),
+                        ],
                         SliverPadding(padding: EdgeInsets.only(bottom: media.padding.bottom + 16)),
                       ],
                     ),
@@ -767,7 +773,13 @@ class _ContactActionButtons extends StatelessWidget {
           bgColor: const Color(0xFF25D366).withValues(alpha: isLight ? 0.14 : 0.18),
           borderColor: const Color(0xFF25D366).withValues(alpha: isLight ? 0.40 : 0.45),
           iconColor: isLight ? const Color(0xFF128C7E) : const Color(0xFF25D366),
-          onTap: enabled ? () => LauncherNative.openWhatsApp(number) : null,
+          onTap: enabled
+              ? () {
+                  final code = LauncherService.instance.defaultCountryCode.value;
+                  final formatted = LauncherContact.formatWhatsAppNumber(number, defaultCode: code);
+                  LauncherNative.openWhatsApp(formatted, countryCode: code);
+                }
+              : null,
         ),
       ],
     );

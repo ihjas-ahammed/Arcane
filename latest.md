@@ -1,3 +1,18 @@
+# ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100305)
+
+### 🚀 Search Hierarchy: Apps Prioritized Way Above Contacts
+- **Apps-First Search Layout**: In the launcher search drawer (`LauncherDrawerView`), matching apps are now positioned at the top of search results immediately beneath the search bar.
+- **Dedicated Contacts Section**: Matched contacts and direct dial actions are cleanly rendered below the apps grid, separated by a tactical theme-adaptive divider.
+
+### 🌐 Smart Country Code Resolution & WhatsApp Link Normalization
+- **Resolved "Missing Country Code" WhatsApp Errors**: Fixed an issue where tapping the WhatsApp button on contacts saved without international prefixes (e.g., local 10-digit numbers like `9876543210` or domestic trunk numbers starting with `0`) resulted in an invalid number or missing country code error from WhatsApp.
+- **Dual-Layer Normalization**:
+  - **Dart Client Engine (`LauncherContact.formatWhatsAppNumber`)**: Normalizes phone numbers before firing intents, stripping trunk zeroes and automatically prepending the configured default calling code.
+  - **Native Android Bridge (`LauncherBridge.openWhatsApp`)**: Automatically detects the device's SIM/network country ISO and system locale fallback (with a map of over 50 global country codes, defaulting to `+91`) to format `https://wa.me/<digits>`.
+- **Configurable Default Country Code**: Added a `Default country code (WhatsApp & Dialer)` setting in Launcher Settings (`_LauncherSettings`) with pre-configured quick-selection chips (`+91 IN`, `+1 US/CA`, `+44 UK`, `+971 UAE`, `+65 SG`) and custom numeric input.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100304)
 
 ### 📞 Tactical Contact Search & Direct Communications in Launcher
