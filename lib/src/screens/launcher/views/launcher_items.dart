@@ -29,6 +29,9 @@ class LauncherActions {
   /// The drag in progress, for drop-zone chrome.
   static final ValueNotifier<LauncherDragData?> active = ValueNotifier<LauncherDragData?>(null);
 
+  /// Active widget drag in progress.
+  static final ValueNotifier<LauncherWidgetDragData?> activeWidget = ValueNotifier<LauncherWidgetDragData?>(null);
+
   static void open(BuildContext context, String key) {
     if (LauncherFolder.isFolderKey(key)) {
       showLauncherFolder(context, key);

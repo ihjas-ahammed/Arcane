@@ -139,5 +139,32 @@ void main() {
       expect(service.widgetsForPage(2).length, equals(1));
       expect(service.widgetsForPage(2).first.id, equals(100));
     });
+
+    test('reorderWidget reorders within same page and between pages', () async {
+      SharedPreferences.setMockInitialValues({
+        'launcher_v4_widgets': jsonEncode([
+          {'id': 101, 'provider': 'p1', 'label': 'W1', 'height': 100, 'page': 0},
+          {'id': 102, 'provider': 'p2', 'label': 'W2', 'height': 100, 'page': 0},
+          {'id': 103, 'provider': 'p3', 'label': 'W3', 'height': 100, 'page': 0},
+        ]),
+      });
+      final service = LauncherService.instance;
+      await service.init();
+
+      expect(service.widgetsForPage(0).map((w) => w.id).toList(), equals([101, 102, 103]));
+
+      // Move W3 to top of page 0
+      final w3 = service.widgets.value.firstWhere((w) => w.id == 103);
+      service.reorderWidget(w3, 0);
+      expect(service.widgetsForPage(0).map((w) => w.id).toList(), equals([103, 101, 102]));
+
+      // Move W1 to page 1 at index 0
+      final w1 = service.widgets.value.firstWhere((w) => w.id == 101);
+      service.reorderWidget(w1, 0, targetPage: 1);
+      expect(service.widgetsForPage(0).map((w) => w.id).toList(), equals([103, 102]));
+      expect(service.widgetsForPage(1).map((w) => w.id).toList(), equals([101]));
+      expect(service.widgets.value.firstWhere((w) => w.id == 101).page, equals(1));
+    });
   });
 }
+

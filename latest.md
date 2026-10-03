@@ -1,3 +1,27 @@
+# ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100308)
+
+### 🛡️ Bulletproof Data Restore & Merge Engine
+- **Non-Destructive Older Backup Merge**: Older JSON backups can now be imported and merged with existing database state without overwriting recent progress or losing new reflections and task logs.
+- **Deep String & RTDB Chunk Normalization**: Completely overhauled `normalizeImportedData` to recursively decode JSON-encoded strings and subcollections from Firebase Realtime Database dumps and raw backups (`tasks`, `finance`, `health`, `history`, `reflections`, `completedByDay`).
+- **Comprehensive Completed Task & Subtask Preservation**:
+  - Full restoration of completed states across main tasks, subtasks, and checklist items (`SubSubTask`), retaining completion timestamps, active states, and countable progress.
+  - Bidirectional cross-synchronization ensures that any completed subtask on a `MainTask` is mapped into `completedByDay` history and vice versa.
+  - Automatically merges standalone `completedTasks` / `completed_tasks` lists.
+- **Deep Historical Logs Reconciliation**: Normalizes historical date formats (`YYYY_MM_DD` to `YYYY-MM-DD`), deep-merging daily tasks, completed subtasks, checkpoints, task times (taking maximum elapsed duration), daily plans, morning directives, and AI briefings.
+- **Disabled Automatic Data Overwrites**: Disabled the automated background daily backup overwrite mechanism to ensure user-initiated snapshots and database states remain undisturbed.
+
+### 📊 Real-Time Foreground Async Progress Alerts (`DataRestoreProgressDialog`)
+- **Live Foreground Progress HUD**: Integrated high-visibility progress dialog with animated percentage indicators, pulsing tactical icons, and real-time step descriptions during restore and merge operations.
+- **Unified Across Cloud & Local Backups**: Available in both `DataRecoveryScreen` (local snapshot restore/merge & JSON import) and `CloudSyncSettingsSection` (RESTORE / MERGE FROM CLOUD).
+- **Explicit Merge vs. Replace Control**: Prompts users to choose between **MERGE (Recommended)** for non-destructive data fusion or **REPLACE ALL** for clean restores, followed by a detailed reconciliation summary dialog.
+
+### 🎯 Adaptive Today's Goals Widget & Studio
+- **Adaptive Dual-Theme Widget**: New today's goals widget for the home screen adapting to light and dark themes via `JweTheme`.
+- **Live Progress & Sub-Checklist Tracking**: Displays current goal progress, completion status, XP rewards, and actionable tap navigation.
+- **Multi-Page Widget Reordering**: Full drag-and-drop support for home screen widgets within pages and across pagination boundaries.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100307)
 
 ### 📄 Multiple Home Screen Pages & Fluid Launcher Pagination

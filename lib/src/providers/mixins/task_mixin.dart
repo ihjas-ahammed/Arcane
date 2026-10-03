@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/app_state_models.dart';
@@ -5,6 +6,7 @@ import 'package:missions/src/models/project_models.dart';
 import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/services/notification_service.dart';
 import 'package:missions/src/utils/constants.dart';
+import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/providers/mixins/sync_mixin.dart';
 import 'package:collection/collection.dart';
 import 'package:missions/src/utils/global_toast.dart';
@@ -392,53 +394,66 @@ mixin TaskMixin on ChangeNotifier {
   // --- Data Loading Helper ---
   void loadTaskState(Map<String, dynamic> data) {
     if (data['mainTasks'] != null) {
-      final incoming = (data['mainTasks'] as List).map((e) => MainTask.fromJson(e)).toList();
-      if (_mainTasks.isEmpty) {
-        _mainTasks = incoming;
-      } else {
-        final tMap = <String, MainTask>{for (final t in _mainTasks) t.id: t};
-        for (final t in incoming) {
-          tMap[t.id] ??= t;
-        }
-        _mainTasks = tMap.values.toList();
-      }
+      final incoming = (data['mainTasks'] as List)
+          .whereType<Map>()
+          .map((e) => MainTask.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      _mainTasks = incoming;
     } else if (_mainTasks.isEmpty) {
       _mainTasks = initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
     }
 
     if (data['completedByDay'] != null) {
       final incoming = Map<String, dynamic>.from(data['completedByDay']);
-      final merged = Map<String, dynamic>.from(_completedByDay);
-      for (final entry in incoming.entries) {
-        final dateKey = entry.key.toString();
-        if (!merged.containsKey(dateKey)) {
-          merged[dateKey] = entry.value;
-        } else {
-          final currentDay = Map<String, dynamic>.from(merged[dateKey] as Map? ?? {});
-          final oldDay = Map<String, dynamic>.from(entry.value as Map? ?? {});
-          for (final field in ['briefing', 'aiBriefing', 'startDayReport', 'morningDirectives', 'notes']) {
-            if ((currentDay[field] == null || currentDay[field].toString().isEmpty) &&
-                oldDay[field] != null &&
-                oldDay[field].toString().isNotEmpty) {
-              currentDay[field] = oldDay[field];
-            }
+      _completedByDay = incoming;
+    }
+
+    if (data['completedTasks'] != null || data['completed_tasks'] != null) {
+      final rawCt = data['completedTasks'] ?? data['completed_tasks'];
+      final ids = <String>{};
+      if (rawCt is List) {
+        for (final item in rawCt) {
+          if (item is String) {
+            ids.add(item);
+          } else if (item is Map && item['id'] != null) {
+            ids.add(item['id'].toString());
           }
-          if (oldDay['tasks'] is List) {
-            final curTasks = (currentDay['tasks'] as List? ?? []).whereType<Map>().toList();
-            final curTitles = curTasks.map((t) => t['title']?.toString().toLowerCase()).toSet();
-            for (final ot in (oldDay['tasks'] as List).whereType<Map>()) {
-              final otTitle = ot['title']?.toString().toLowerCase();
-              if (otTitle != null && !curTitles.contains(otTitle)) {
-                curTasks.add(Map<String, dynamic>.from(ot));
-              }
-            }
-            currentDay['tasks'] = curTasks;
-          }
-          merged[dateKey] = currentDay;
         }
       }
-      _completedByDay = merged;
+      if (ids.isNotEmpty) {
+        for (final t in _mainTasks) {
+          for (final st in t.subTasks) {
+            if (ids.contains(st.id)) {
+              st.completed = true;
+            }
+          }
+        }
+      }
     }
+
+    // Cross-synchronize: ensure any completed subtasks on _mainTasks with completedDate are in _completedByDay
+    final currentCompleted = Map<String, dynamic>.from(_completedByDay);
+    for (final task in _mainTasks) {
+      for (final st in task.subTasks) {
+        if (st.completed && st.completedDate != null && st.completedDate!.isNotEmpty) {
+          final dateKey = st.completedDate!;
+          final dayData = Map<String, dynamic>.from(currentCompleted[dateKey] as Map? ?? {});
+          final curSts = (dayData['subtasksCompleted'] as List? ?? []).whereType<Map>().toList();
+          final exists = curSts.any((s) => s['subtaskId'] == st.id || (s['taskId'] == task.id && s['subtaskName'] == st.name));
+          if (!exists) {
+            curSts.add({
+              'taskId': task.id,
+              'subtaskId': st.id,
+              'subtaskName': st.name,
+              'completionTimestamp': st.lastCompletedDate?.toIso8601String() ?? st.completedDate,
+            });
+            dayData['subtasksCompleted'] = curSts;
+            currentCompleted[dateKey] = dayData;
+          }
+        }
+      }
+    }
+    _completedByDay = currentCompleted;
         
     _selectedTaskId = data['selectedTaskId'] as String? ?? (_mainTasks.isNotEmpty ? _mainTasks.first.id : null);
     
@@ -450,39 +465,30 @@ mixin TaskMixin on ChangeNotifier {
     }
 
     if (data['projects'] != null) {
-      final incoming = (data['projects'] as List).map((e) => Project.fromJson(e as Map<String, dynamic>)).toList();
-      final pMap = <String, Project>{for (final p in _projects) p.id: p};
-      for (final p in incoming) {
-        pMap.putIfAbsent(p.id, () => p);
-      }
-      _projects = pMap.values.toList();
+      _projects = (data['projects'] as List)
+          .whereType<Map>()
+          .map((e) => Project.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
     }
 
     if (data['routineLists'] != null) {
-      final incoming = (data['routineLists'] as List)
+      _routineLists = (data['routineLists'] as List)
+          .whereType<Map>()
           .map((e) => RoutineList.fromJson(Map<String, dynamic>.from(e)))
           .toList();
-      final rMap = <String, RoutineList>{for (final r in _routineLists) r.id: r};
-      for (final r in incoming) {
-        rMap.putIfAbsent(r.id, () => r);
-      }
-      _routineLists = rMap.values.toList();
     }
 
     if (data['goals'] != null) {
-      final incoming = (data['goals'] as List)
+      _goals = (data['goals'] as List)
+          .whereType<Map>()
           .map((e) => GoalModel.fromJson(Map<String, dynamic>.from(e)))
           .toList();
-      final gMap = <String, GoalModel>{for (final g in _goals) g.id: g};
-      for (final g in incoming) {
-        gMap.putIfAbsent(g.id, () => g);
-      }
-      _goals = gMap.values.toList();
       NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
     }
 
     if (data['goalPlaces'] != null) {
       _goalPlaces = (data['goalPlaces'] as List)
+          .whereType<Map>()
           .map((e) => GoalPlace.fromJson(Map<String, dynamic>.from(e)))
           .toList();
     } else {
@@ -490,7 +496,7 @@ mixin TaskMixin on ChangeNotifier {
     }
   }
 
-  /// Non-destructively merges tasks, historical days, projects, routines, and goals.
+  /// Non-destructively merges tasks, completed items, historical days, projects, routines, and goals.
   /// Returns a record with counts of restored items.
   ({int mergedDays, int addedTasks, int addedProjects, int addedGoals}) mergeTaskState(Map<String, dynamic> data) {
     int mergedDays = 0;
@@ -504,29 +510,315 @@ mixin TaskMixin on ChangeNotifier {
           .map((e) => MainTask.fromJson(Map<String, dynamic>.from(e)))
           .toList();
       final tMap = <String, MainTask>{for (final t in _mainTasks) t.id: t};
-      for (final t in incoming) {
-        if (!tMap.containsKey(t.id)) {
-          tMap[t.id] = t;
+      for (final incTask in incoming) {
+        if (!tMap.containsKey(incTask.id)) {
+          tMap[incTask.id] = incTask;
           addedTasks++;
+        } else {
+          final curTask = tMap[incTask.id]!;
+          bool taskModified = false;
+
+          bool curIsDeleted = curTask.isDeleted;
+          if (curIsDeleted && !incTask.isDeleted) {
+            curIsDeleted = false;
+            taskModified = true;
+          }
+
+          // 1. Deep merge subtasks
+          final stMap = <String, SubTask>{for (final st in curTask.subTasks) st.id: st};
+          final stNameMap = <String, SubTask>{
+            for (final st in curTask.subTasks)
+              if (st.name.trim().isNotEmpty) st.name.trim().toLowerCase(): st
+          };
+
+          final mergedSubtasks = List<SubTask>.from(curTask.subTasks);
+
+          for (final incSt in incTask.subTasks) {
+            SubTask? match = stMap[incSt.id];
+            if (match == null && incSt.name.trim().isNotEmpty) {
+              match = stNameMap[incSt.name.trim().toLowerCase()];
+            }
+
+            if (match == null) {
+              mergedSubtasks.add(incSt);
+              stMap[incSt.id] = incSt;
+              if (incSt.name.trim().isNotEmpty) {
+                stNameMap[incSt.name.trim().toLowerCase()] = incSt;
+              }
+              taskModified = true;
+            } else {
+              bool stModified = false;
+              bool newCompleted = match.completed || incSt.completed;
+              if (newCompleted != match.completed) stModified = true;
+
+              String? newCompletedDate = match.completedDate ?? incSt.completedDate;
+              if (newCompletedDate != match.completedDate) stModified = true;
+
+              DateTime? newLastCompletedDate = match.lastCompletedDate;
+              if (incSt.lastCompletedDate != null) {
+                if (newLastCompletedDate == null || incSt.lastCompletedDate!.isAfter(newLastCompletedDate)) {
+                  newLastCompletedDate = incSt.lastCompletedDate;
+                  stModified = true;
+                }
+              }
+
+              bool newIsDeleted = match.isDeleted;
+              if (newIsDeleted && !incSt.isDeleted) {
+                newIsDeleted = false;
+                stModified = true;
+              }
+
+              bool newIsActive = match.isActive || incSt.isActive;
+              if (newIsActive != match.isActive) stModified = true;
+
+              final newManualProgress = (incSt.manualProgress > match.manualProgress)
+                  ? incSt.manualProgress
+                  : match.manualProgress;
+              if (newManualProgress != match.manualProgress) stModified = true;
+
+              final newCurrentCount = (incSt.currentCount > match.currentCount)
+                  ? incSt.currentCount
+                  : match.currentCount;
+              if (newCurrentCount != match.currentCount) stModified = true;
+
+              final newTargetCount = (incSt.targetCount > match.targetCount)
+                  ? incSt.targetCount
+                  : match.targetCount;
+              if (newTargetCount != match.targetCount) stModified = true;
+
+              // Merge checkpoints (subSubTasks)
+              final cpMap = <String, SubSubTask>{for (final cp in match.subSubTasks) cp.id: cp};
+              final cpTitleMap = <String, SubSubTask>{
+                for (final cp in match.subSubTasks)
+                  if (cp.name.trim().isNotEmpty) cp.name.trim().toLowerCase(): cp
+              };
+              final mergedCheckpoints = List<SubSubTask>.from(match.subSubTasks);
+
+              for (final incCp in incSt.subSubTasks) {
+                SubSubTask? cpMatch = cpMap[incCp.id];
+                if (cpMatch == null && incCp.name.trim().isNotEmpty) {
+                  cpMatch = cpTitleMap[incCp.name.trim().toLowerCase()];
+                }
+
+                if (cpMatch == null) {
+                  mergedCheckpoints.add(incCp);
+                  cpMap[incCp.id] = incCp;
+                  if (incCp.name.trim().isNotEmpty) {
+                    cpTitleMap[incCp.name.trim().toLowerCase()] = incCp;
+                  }
+                  stModified = true;
+                } else {
+                  bool cpModified = false;
+                  bool cpCompleted = cpMatch.completed || incCp.completed;
+                  if (cpCompleted != cpMatch.completed) cpModified = true;
+
+                  String? cpTime = cpMatch.completionTimestamp ?? incCp.completionTimestamp;
+                  if (cpTime != cpMatch.completionTimestamp) cpModified = true;
+
+                  bool cpActive = cpMatch.isActive;
+                  if (!cpActive && incCp.isActive) {
+                    cpActive = true;
+                    cpModified = true;
+                  }
+
+                  int cpCount = cpMatch.currentCount;
+                  if (incCp.currentCount > cpCount) {
+                    cpCount = incCp.currentCount;
+                    cpModified = true;
+                  }
+
+                  if (cpModified) {
+                    final idx = mergedCheckpoints.indexWhere((c) => c.id == cpMatch!.id);
+                    if (idx >= 0) {
+                      mergedCheckpoints[idx] = cpMatch.copyWith(
+                        completed: cpCompleted,
+                        completionTimestamp: cpTime,
+                        isActive: cpActive,
+                        currentCount: cpCount,
+                      );
+                      stModified = true;
+                    }
+                  }
+                }
+              }
+
+              // Merge sessions
+              final sMap = <String, TaskSession>{for (final s in match.sessions) s.id: s};
+              final sKeySet = match.sessions.map((s) => '${s.startTime.millisecondsSinceEpoch}_${s.endTime.millisecondsSinceEpoch}').toSet();
+              final mergedSessions = List<TaskSession>.from(match.sessions);
+              for (final incS in incSt.sessions) {
+                final sKey = '${incS.startTime.millisecondsSinceEpoch}_${incS.endTime.millisecondsSinceEpoch}';
+                if (!sMap.containsKey(incS.id) && !sKeySet.contains(sKey)) {
+                  mergedSessions.add(incS);
+                  sMap[incS.id] = incS;
+                  sKeySet.add(sKey);
+                  stModified = true;
+                }
+              }
+
+              // Merge progressDataPoints
+              final dpSet = match.progressDataPoints.map((p) => p.timestamp.millisecondsSinceEpoch).toSet();
+              final mergedDataPoints = List<ProgressDataPoint>.from(match.progressDataPoints);
+              for (final incP in incSt.progressDataPoints) {
+                if (!dpSet.contains(incP.timestamp.millisecondsSinceEpoch)) {
+                  mergedDataPoints.add(incP);
+                  dpSet.add(incP.timestamp.millisecondsSinceEpoch);
+                  stModified = true;
+                }
+              }
+
+              final newTimeSpent = match.currentTimeSpent > incSt.currentTimeSpent
+                  ? match.currentTimeSpent
+                  : incSt.currentTimeSpent;
+              if (newTimeSpent != match.currentTimeSpent) stModified = true;
+
+              if (stModified) {
+                final stIdx = mergedSubtasks.indexWhere((s) => s.id == match!.id);
+                if (stIdx >= 0) {
+                  mergedSubtasks[stIdx] = match.copyWith(
+                    completed: newCompleted,
+                    completedDate: newCompletedDate,
+                    lastCompletedDate: newLastCompletedDate,
+                    isDeleted: newIsDeleted,
+                    isActive: newIsActive,
+                    manualProgress: newManualProgress,
+                    currentCount: newCurrentCount,
+                    targetCount: newTargetCount,
+                    subSubTasks: mergedCheckpoints,
+                    sessions: mergedSessions,
+                    progressDataPoints: mergedDataPoints,
+                    currentTimeSpent: newTimeSpent,
+                  );
+                  taskModified = true;
+                }
+              }
+            }
+          }
+
+          // 2. Merge weeklyCompletionStatus
+          final mergedWeekly = Map<String, List<bool>>.from(curTask.weeklyCompletionStatus);
+          for (final wEntry in incTask.weeklyCompletionStatus.entries) {
+            if (!mergedWeekly.containsKey(wEntry.key)) {
+              mergedWeekly[wEntry.key] = wEntry.value;
+              taskModified = true;
+            } else {
+              final curList = List<bool>.from(mergedWeekly[wEntry.key]!);
+              final incList = wEntry.value;
+              bool listChanged = false;
+              for (int d = 0; d < curList.length && d < incList.length; d++) {
+                if (!curList[d] && incList[d]) {
+                  curList[d] = true;
+                  listChanged = true;
+                }
+              }
+              if (listChanged) {
+                mergedWeekly[wEntry.key] = curList;
+                taskModified = true;
+              }
+            }
+          }
+
+          final newDailyTimeSpent = curTask.dailyTimeSpent > incTask.dailyTimeSpent
+              ? curTask.dailyTimeSpent
+              : incTask.dailyTimeSpent;
+          if (newDailyTimeSpent != curTask.dailyTimeSpent) taskModified = true;
+
+          if (taskModified) {
+            tMap[incTask.id] = curTask.copyWith(
+              isDeleted: curIsDeleted,
+              subTasks: mergedSubtasks,
+              weeklyCompletionStatus: mergedWeekly,
+              dailyTimeSpent: newDailyTimeSpent,
+            );
+          }
         }
       }
       _mainTasks = tMap.values.toList();
       sync.markDirty('tasks');
     }
 
+    // Merge standalone completedTasks or completed_tasks list if present
+    final rawComp = (data['completedTasks'] ?? data['completed_tasks']);
+    if (rawComp is List) {
+      for (final item in rawComp.whereType<Map>()) {
+        final taskId = item['taskId']?.toString();
+        final subtaskId = (item['subtaskId'] ?? item['id'])?.toString();
+        final subtaskName = (item['subtaskName'] ?? item['name'] ?? item['title'])?.toString().trim().toLowerCase();
+        final compDate = item['completedDate']?.toString() ?? item['date']?.toString();
+
+        for (int i = 0; i < _mainTasks.length; i++) {
+          final task = _mainTasks[i];
+          if (taskId != null && task.id != taskId) continue;
+
+          bool taskChanged = false;
+          final updatedSubtasks = task.subTasks.map((st) {
+            bool match = false;
+            if (subtaskId != null && st.id == subtaskId) match = true;
+            if (!match && subtaskName != null && st.name.trim().toLowerCase() == subtaskName) match = true;
+
+            if (match && !st.completed) {
+              taskChanged = true;
+              return st.copyWith(
+                completed: true,
+                completedDate: compDate ?? st.completedDate,
+                lastCompletedDate: DateTime.tryParse(compDate ?? '') ?? st.lastCompletedDate,
+              );
+            }
+            return st;
+          }).toList();
+
+          if (taskChanged) {
+            _mainTasks[i] = task.copyWith(subTasks: updatedSubtasks);
+            sync.markDirty('tasks');
+          }
+        }
+      }
+    }
+
     if (data['completedByDay'] != null) {
       final incoming = Map<String, dynamic>.from(data['completedByDay']);
       final merged = Map<String, dynamic>.from(_completedByDay);
       for (final entry in incoming.entries) {
-        final dateKey = entry.key.toString();
+        var dateKey = entry.key.toString();
+        if (RegExp(r'^\d{4}_\d{2}_\d{2}$').hasMatch(dateKey)) {
+          dateKey = dateKey.replaceAll('_', '-');
+        }
+
+        dynamic dayRaw = entry.value;
+        if (dayRaw is String) {
+          try {
+            dayRaw = jsonDecode(dayRaw);
+          } catch (_) {}
+        }
+        if (dayRaw is! Map) continue;
+        final oldDay = Map<String, dynamic>.from(dayRaw);
+
         if (!merged.containsKey(dateKey)) {
-          merged[dateKey] = entry.value;
+          merged[dateKey] = oldDay;
           mergedDays++;
         } else {
-          final currentDay = Map<String, dynamic>.from(merged[dateKey] as Map? ?? {});
-          final oldDay = Map<String, dynamic>.from(entry.value as Map? ?? {});
+          dynamic curRaw = merged[dateKey];
+          if (curRaw is String) {
+            try {
+              curRaw = jsonDecode(curRaw);
+            } catch (_) {}
+          }
+          final currentDay = Map<String, dynamic>.from(curRaw is Map ? curRaw : {});
           bool dayEnriched = false;
-          for (final field in ['briefing', 'aiBriefing', 'startDayReport', 'morningDirectives', 'notes']) {
+
+          // 1. Metadata & text fields
+          for (final field in [
+            'briefing',
+            'aiBriefing',
+            'startDayReport',
+            'morningDirectives',
+            'notes',
+            'rating',
+            'mood',
+            'reflection',
+            'wakeTime',
+            'sleepTime',
+          ]) {
             if ((currentDay[field] == null || currentDay[field].toString().isEmpty) &&
                 oldDay[field] != null &&
                 oldDay[field].toString().isNotEmpty) {
@@ -534,24 +826,135 @@ mixin TaskMixin on ChangeNotifier {
               dayEnriched = true;
             }
           }
+
+          // 2. tasks completed list
           if (oldDay['tasks'] is List) {
             final curTasks = (currentDay['tasks'] as List? ?? []).whereType<Map>().toList();
             final curTitles = curTasks.map((t) => t['title']?.toString().toLowerCase()).toSet();
+            final curIds = curTasks.map((t) => t['id']?.toString()).toSet();
             for (final ot in (oldDay['tasks'] as List).whereType<Map>()) {
               final otTitle = ot['title']?.toString().toLowerCase();
-              if (otTitle != null && !curTitles.contains(otTitle)) {
+              final otId = ot['id']?.toString();
+              if ((otId != null && !curIds.contains(otId)) ||
+                  (otTitle != null && !curTitles.contains(otTitle))) {
                 curTasks.add(Map<String, dynamic>.from(ot));
                 dayEnriched = true;
               }
             }
             currentDay['tasks'] = curTasks;
           }
+
+          // 3. subtasksCompleted list
+          if (oldDay['subtasksCompleted'] is List) {
+            final curSts = (currentDay['subtasksCompleted'] as List? ?? []).whereType<Map>().toList();
+            final curStKeys = curSts.map((s) => '${s['taskId']}_${s['subtaskId']}_${s['subtaskName']}').toSet();
+            for (final ost in (oldDay['subtasksCompleted'] as List).whereType<Map>()) {
+              final ostKey = '${ost['taskId']}_${ost['subtaskId']}_${ost['subtaskName']}';
+              if (!curStKeys.contains(ostKey)) {
+                curSts.add(Map<String, dynamic>.from(ost));
+                curStKeys.add(ostKey);
+                dayEnriched = true;
+              }
+            }
+            currentDay['subtasksCompleted'] = curSts;
+          }
+
+          // 4. checkpointsCompleted list
+          if (oldDay['checkpointsCompleted'] is List) {
+            final curCps = (currentDay['checkpointsCompleted'] as List? ?? []).whereType<Map>().toList();
+            final curCpKeys = curCps.map((c) => '${c['taskId']}_${c['subtaskId']}_${c['checkpointTitle'] ?? c['title']}').toSet();
+            for (final ocp in (oldDay['checkpointsCompleted'] as List).whereType<Map>()) {
+              final ocpKey = '${ocp['taskId']}_${ocp['subtaskId']}_${ocp['checkpointTitle'] ?? ocp['title']}';
+              if (!curCpKeys.contains(ocpKey)) {
+                curCps.add(Map<String, dynamic>.from(ocp));
+                curCpKeys.add(ocpKey);
+                dayEnriched = true;
+              }
+            }
+            currentDay['checkpointsCompleted'] = curCps;
+          }
+
+          // 5. taskTimes map
+          if (oldDay['taskTimes'] is Map) {
+            final curTimes = Map<String, dynamic>.from(currentDay['taskTimes'] as Map? ?? {});
+            final oldTimes = Map<String, dynamic>.from(oldDay['taskTimes'] as Map);
+            for (final tEntry in oldTimes.entries) {
+              final curVal = (curTimes[tEntry.key] as num?)?.toInt() ?? 0;
+              final oldVal = (tEntry.value as num?)?.toInt() ?? 0;
+              if (oldVal > curVal) {
+                curTimes[tEntry.key] = oldVal;
+                dayEnriched = true;
+              }
+            }
+            currentDay['taskTimes'] = curTimes;
+          }
+
+          // 6. dailyPlan list
+          if (oldDay['dailyPlan'] is List) {
+            final curPlan = (currentDay['dailyPlan'] as List? ?? []).map((e) => e.toString()).toList();
+            final curPlanSet = curPlan.toSet();
+            for (final p in (oldDay['dailyPlan'] as List)) {
+              final pStr = p.toString();
+              if (!curPlanSet.contains(pStr)) {
+                curPlan.add(pStr);
+                curPlanSet.add(pStr);
+                dayEnriched = true;
+              }
+            }
+            currentDay['dailyPlan'] = curPlan;
+          }
+
+          // 7. task_snapshot
+          if (currentDay['task_snapshot'] == null && oldDay['task_snapshot'] != null) {
+            currentDay['task_snapshot'] = oldDay['task_snapshot'];
+            dayEnriched = true;
+          }
+
+          // 8. notifications list
+          if (oldDay['notifications'] is List) {
+            final curN = (currentDay['notifications'] as List? ?? []).whereType<Map>().toList();
+            final curNKeys = curN.map((n) => '${n['id']}_${n['timestamp']}').toSet();
+            for (final on in (oldDay['notifications'] as List).whereType<Map>()) {
+              final onKey = '${on['id']}_${on['timestamp']}';
+              if (!curNKeys.contains(onKey)) {
+                curN.add(Map<String, dynamic>.from(on));
+                curNKeys.add(onKey);
+                dayEnriched = true;
+              }
+            }
+            currentDay['notifications'] = curN;
+          }
+
           if (dayEnriched) {
             merged[dateKey] = currentDay;
             mergedDays++;
           }
         }
       }
+
+      // Cross-synchronize: ensure any completed subtasks on _mainTasks with a completedDate are present in _completedByDay
+      for (final task in _mainTasks) {
+        for (final st in task.subTasks) {
+          if (st.completed && st.completedDate != null && st.completedDate!.isNotEmpty) {
+            final dateKey = st.completedDate!;
+            final dayData = Map<String, dynamic>.from(merged[dateKey] as Map? ?? {});
+            final curSts = (dayData['subtasksCompleted'] as List? ?? []).whereType<Map>().toList();
+            final exists = curSts.any((s) => s['subtaskId'] == st.id || (s['taskId'] == task.id && s['subtaskName'] == st.name));
+            if (!exists) {
+              curSts.add({
+                'taskId': task.id,
+                'subtaskId': st.id,
+                'subtaskName': st.name,
+                'completionTimestamp': st.lastCompletedDate?.toIso8601String() ?? st.completedDate,
+              });
+              dayData['subtasksCompleted'] = curSts;
+              merged[dateKey] = dayData;
+              mergedDays++;
+            }
+          }
+        }
+      }
+
       _completedByDay = merged;
       sync.markDirty('tasks');
     }
@@ -601,6 +1004,36 @@ mixin TaskMixin on ChangeNotifier {
       NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
       sync.markDirty('tasks');
     }
+
+    if (data['goalPlaces'] != null) {
+      final incoming = (data['goalPlaces'] as List)
+          .whereType<Map>()
+          .map((e) => GoalPlace.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final gpMap = <String, GoalPlace>{for (final gp in _goalPlaces) gp.id: gp};
+      for (final gp in incoming) {
+        gpMap.putIfAbsent(gp.id, () => gp);
+      }
+      _goalPlaces = gpMap.values.toList();
+      sync.markDirty('tasks');
+    }
+
+    // Recalibrate time logs across tasks and history for consistency
+    try {
+      final recalibrated = TaskCalculations.recalculateAllTimeLogs(_mainTasks);
+      final newCompleted = Map<String, dynamic>.from(_completedByDay);
+      recalibrated.dailyTaskTimes.forEach((date, taskMap) {
+        final dayData = Map<String, dynamic>.from(newCompleted[date] as Map? ?? {});
+        final curTimes = Map<String, dynamic>.from(dayData['taskTimes'] as Map? ?? {});
+        taskMap.forEach((tid, secs) {
+          final curSecs = (curTimes[tid] as num?)?.toInt() ?? 0;
+          if (secs > curSecs) curTimes[tid] = secs;
+        });
+        dayData['taskTimes'] = curTimes;
+        newCompleted[date] = dayData;
+      });
+      _completedByDay = newCompleted;
+    } catch (_) {}
 
     return (
       mergedDays: mergedDays,

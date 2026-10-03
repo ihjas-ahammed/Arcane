@@ -236,32 +236,23 @@ class _HomeSpace extends StatelessWidget {
       area: LauncherArea.home,
       pageIndex: pageIndex,
       child: ListenableBuilder(
-        listenable: Listenable.merge([service.widgets, service.homePages, LauncherActions.active]),
+        listenable: Listenable.merge([service.widgets, service.homePages, LauncherActions.active, LauncherActions.activeWidget]),
         builder: (context, _) {
           final entries = service.widgetsForPage(pageIndex);
           final pageItems = service.getPageItems(pageIndex);
           final hasApps = pageItems.isNotEmpty;
-          final dragging = LauncherActions.active.value != null;
           if (entries.isEmpty && !hasApps) {
             return Center(
-              child: Text(
-                dragging
-                    ? (pageIndex == 0 ? 'DROP HERE TO PLACE ON HOME' : 'DROP HERE TO PLACE ON PAGE ${pageIndex + 1}')
-                    : (pageIndex == 0
-                        ? 'LONG-PRESS TO ADD WIDGETS · DRAG APPS HERE'
-                        : 'PAGE ${pageIndex + 1} · DRAG APPS HERE'),
-                style: LauncherTheme.rajdhani(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 2,
-                  color: dragging ? LauncherTheme.red : LauncherTheme.muted.withValues(alpha: 0.6),
-                ),
+              child: _BottomWidgetDropTarget(
+                pageIndex: pageIndex,
+                targetIndex: 0,
+                isEmpty: true,
               ),
             );
           }
           return ListView.builder(
             padding: EdgeInsets.fromLTRB(12, 4, 12, 170 + MediaQuery.viewPaddingOf(context).bottom),
-            itemCount: entries.length + 1,
+            itemCount: entries.length + 2,
             itemBuilder: (context, i) {
               if (i == 0) {
                 return hasApps
@@ -271,15 +262,231 @@ class _HomeSpace extends StatelessWidget {
                       )
                     : const SizedBox.shrink();
               }
+              if (i == entries.length + 1) {
+                return _BottomWidgetDropTarget(
+                  pageIndex: pageIndex,
+                  targetIndex: entries.length,
+                  isEmpty: false,
+                );
+              }
               final entry = entries[i - 1];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: LauncherAppWidget(key: ValueKey(entry.id), entry: entry),
+              return _WidgetReorderSlot(
+                key: ValueKey(entry.id),
+                entry: entry,
+                index: i - 1,
+                pageIndex: pageIndex,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: LauncherAppWidget(key: ValueKey(entry.id), entry: entry),
+                ),
               );
             },
           );
         },
       ),
+    );
+  }
+}
+
+class _WidgetReorderSlot extends StatefulWidget {
+  final LauncherWidgetEntry entry;
+  final int index;
+  final int pageIndex;
+  final Widget child;
+
+  const _WidgetReorderSlot({
+    super.key,
+    required this.entry,
+    required this.index,
+    required this.pageIndex,
+    required this.child,
+  });
+
+  @override
+  State<_WidgetReorderSlot> createState() => _WidgetReorderSlotState();
+}
+
+class _WidgetReorderSlotState extends State<_WidgetReorderSlot> {
+  int _hoverPosition = 0; // -1: top, 1: bottom, 0: none
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<LauncherWidgetDragData>(
+      onWillAcceptWithDetails: (details) => true,
+      onMove: (details) {
+        final renderBox = context.findRenderObject() as RenderBox?;
+        if (renderBox == null) return;
+        final local = renderBox.globalToLocal(details.offset);
+        final isTop = local.dy < (renderBox.size.height / 2);
+        final pos = isTop ? -1 : 1;
+        if (pos != _hoverPosition) {
+          setState(() => _hoverPosition = pos);
+        }
+      },
+      onLeave: (_) {
+        if (_hoverPosition != 0) setState(() => _hoverPosition = 0);
+      },
+      onAcceptWithDetails: (details) {
+        final pos = _hoverPosition;
+        setState(() => _hoverPosition = 0);
+        HapticFeedback.mediumImpact();
+        final targetIdx = pos <= 0 ? widget.index : widget.index + 1;
+        LauncherService.instance.reorderWidget(
+          details.data.entry,
+          targetIdx,
+          targetPage: widget.pageIndex,
+        );
+      },
+      builder: (context, candidateData, rejectedData) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_hoverPosition == -1) _buildInsertionIndicator(isTop: true),
+            widget.child,
+            if (_hoverPosition == 1) _buildInsertionIndicator(isTop: false),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildInsertionIndicator({required bool isTop}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(width: 8, height: 4, color: LauncherTheme.red),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Container(
+              height: 2,
+              color: LauncherTheme.red,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            isTop ? 'INSERT ABOVE' : 'INSERT BELOW',
+            style: LauncherTheme.rajdhani(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: LauncherTheme.red,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Container(
+              height: 2,
+              color: LauncherTheme.red,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Container(width: 8, height: 4, color: LauncherTheme.red),
+        ],
+      ),
+    );
+  }
+}
+
+class _BottomWidgetDropTarget extends StatefulWidget {
+  final int pageIndex;
+  final int targetIndex;
+  final bool isEmpty;
+
+  const _BottomWidgetDropTarget({
+    required this.pageIndex,
+    required this.targetIndex,
+    this.isEmpty = false,
+  });
+
+  @override
+  State<_BottomWidgetDropTarget> createState() => _BottomWidgetDropTargetState();
+}
+
+class _BottomWidgetDropTargetState extends State<_BottomWidgetDropTarget> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<LauncherWidgetDragData>(
+      onWillAcceptWithDetails: (details) => true,
+      onMove: (_) {
+        if (!_isHovered) setState(() => _isHovered = true);
+      },
+      onLeave: (_) {
+        if (_isHovered) setState(() => _isHovered = false);
+      },
+      onAcceptWithDetails: (details) {
+        setState(() => _isHovered = false);
+        HapticFeedback.mediumImpact();
+        LauncherService.instance.reorderWidget(
+          details.data.entry,
+          widget.targetIndex,
+          targetPage: widget.pageIndex,
+        );
+      },
+      builder: (context, candidates, _) {
+        final isDragging = LauncherActions.activeWidget.value != null;
+        if (!isDragging && !widget.isEmpty) {
+          return const SizedBox(height: 24);
+        }
+        return Container(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          height: widget.isEmpty ? 120 : (_isHovered ? 56 : 40),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: _isHovered
+                  ? LauncherTheme.red
+                  : (isDragging ? LauncherTheme.red.withValues(alpha: 0.35) : Colors.transparent),
+              width: 1.5,
+              strokeAlign: BorderSide.strokeAlignCenter,
+            ),
+            borderRadius: BorderRadius.circular(6),
+            color: _isHovered
+                ? LauncherTheme.red.withValues(alpha: 0.12)
+                : (isDragging ? LauncherTheme.red.withValues(alpha: 0.04) : Colors.transparent),
+          ),
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isDragging) ...[
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(MdiIcons.arrowDownBoldBoxOutline, size: 16, color: _isHovered ? LauncherTheme.red : LauncherTheme.muted),
+                    const SizedBox(width: 8),
+                    Text(
+                      widget.isEmpty
+                          ? (widget.pageIndex == 0 ? 'DROP WIDGET HERE ON HOME' : 'DROP WIDGET ON PAGE ${widget.pageIndex + 1}')
+                          : 'DROP WIDGET AT BOTTOM OF PAGE',
+                      style: LauncherTheme.rajdhani(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.5,
+                        color: _isHovered ? LauncherTheme.red : LauncherTheme.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ] else if (widget.isEmpty) ...[
+                Text(
+                  widget.pageIndex == 0
+                      ? 'LONG-PRESS TO ADD WIDGETS · DRAG APPS HERE'
+                      : 'PAGE ${widget.pageIndex + 1} · DRAG APPS HERE',
+                  style: LauncherTheme.rajdhani(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                    color: LauncherTheme.muted.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

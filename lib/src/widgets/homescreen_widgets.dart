@@ -9,3 +9,4 @@ export 'homescreen/day_plan_home_widget.dart';
 export 'homescreen/finance_home_widget.dart';
 export 'homescreen/journal_home_widget.dart';
 export 'homescreen/bus_home_widget.dart';
+export 'homescreen/today_goals_home_widget.dart';

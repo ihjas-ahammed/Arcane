@@ -262,6 +262,8 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
                   const SizedBox(height: 14),
                   _buildDayPlanCard(provider),
                   const SizedBox(height: 14),
+                  _buildTodayGoalsCard(provider),
+                  const SizedBox(height: 14),
                   _buildFinanceCard(provider),
                   const SizedBox(height: 14),
                   _buildJournalCard(provider),
@@ -534,6 +536,27 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
         tasks: livePlanTasks,
         capacity: capacity,
         progress: liveTask.progress,
+      ),
+    );
+  }
+
+  // ── Today's Goals Widget ──────────────────────────────────────
+  Widget _buildTodayGoalsCard(AppProvider provider) {
+    final live = WidgetsStudioResolvers.resolveLiveGoals(provider);
+
+    return _buildResponsiveWidgetFrame(
+      title: 'TODAY\'S GOALS // 4x2 DAILY DIRECTIVES',
+      badge: '${live.completedCount}/${live.totalCount} DONE',
+      badgeColor: JweTheme.accentAmber,
+      onTap: widget.onOpenArcane,
+      onPin: () {}, // No Android widget pin for this yet
+      child: TodayGoalsHomeWidget(
+        goals: live.goals,
+        progress: live.progress,
+        earnedXp: live.earnedXp,
+        totalXp: live.totalXp,
+        onGoalTap: (g) => provider.toggleGoalCheck(g.id),
+        onOpenArcane: widget.onOpenArcane,
       ),
     );
   }

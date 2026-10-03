@@ -932,6 +932,39 @@ class LauncherService {
     ]);
   }
 
+  /// Moves or reorders a widget to [targetIndex] on [targetPage] (defaults to current page).
+  void reorderWidget(LauncherWidgetEntry entry, int targetIndex, {int? targetPage}) {
+    final destPage = targetPage ?? entry.page;
+    if (destPage < 0) return;
+    while (homePages.value.length <= destPage) {
+      addHomePage();
+    }
+
+    final all = List<LauncherWidgetEntry>.from(widgets.value);
+    final currentIdx = all.indexWhere((w) => w.id == entry.id);
+    if (currentIdx < 0) return;
+
+    final removed = all.removeAt(currentIdx);
+    final updatedEntry = removed.copyWith(page: destPage);
+
+    final pageWidgets = all.where((w) => w.page == destPage).toList();
+    final insertIdx = targetIndex.clamp(0, pageWidgets.length);
+
+    if (pageWidgets.isEmpty) {
+      all.add(updatedEntry);
+    } else if (insertIdx >= pageWidgets.length) {
+      final lastWidget = pageWidgets.last;
+      final globalIdx = all.lastIndexOf(lastWidget);
+      all.insert(globalIdx + 1, updatedEntry);
+    } else {
+      final targetWidget = pageWidgets[insertIdx];
+      final globalIdx = all.indexOf(targetWidget);
+      all.insert(globalIdx, updatedEntry);
+    }
+
+    _saveWidgets(all);
+  }
+
   void _saveWidgets(List<LauncherWidgetEntry> list) {
     widgets.value = List.unmodifiable(list);
     unawaited(_prefs?.setString(_kWidgets, jsonEncode(list.map((w) => w.toJson()).toList())));

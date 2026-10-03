@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/jwe_panel.dart';
 import 'package:missions/src/services/data_export_service.dart';
+import 'package:missions/src/widgets/dialogs/data_restore_progress_dialog.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -105,7 +106,15 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
 
     if (mode != null && mounted) {
       try {
-        final report = await context.read<AppProvider>().restoreFromLocalSnapshot(file, merge: mode == 'merge');
+        final report = await DataRestoreProgressDialog.run<MergeReport?>(
+          context: context,
+          title: mode == 'merge' ? "MERGING SNAPSHOT" : "RESTORING SNAPSHOT",
+          action: (reportProgress) => context.read<AppProvider>().restoreFromLocalSnapshotWithProgress(
+            file,
+            merge: mode == 'merge',
+            onProgress: reportProgress,
+          ),
+        );
         if (mounted) {
           if (mode == 'merge' && report != null) {
             await showDialog(
@@ -187,10 +196,16 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     try {
       final importedData = await _exportService.importJson();
       if (importedData != null && mounted) {
-        final report = context.read<AppProvider>().mergeAppStateFromMap(importedData);
-        await context.read<AppProvider>().forceLocalBackup();
+        final report = await DataRestoreProgressDialog.run<MergeReport>(
+          context: context,
+          title: "MERGING IMPORT DATA",
+          action: (reportProgress) => context.read<AppProvider>().mergeAppStateFromMapWithProgress(
+            importedData,
+            onProgress: reportProgress,
+          ),
+        );
 
-        if (mounted) {
+        if (report != null && mounted) {
           await showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
@@ -272,9 +287,15 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
 
         if (mode != null && mounted) {
           if (mode == 'merge') {
-            final report = context.read<AppProvider>().mergeAppStateFromMap(importedData);
-            await context.read<AppProvider>().forceLocalBackup();
-            if (mounted) {
+            final report = await DataRestoreProgressDialog.run<MergeReport>(
+              context: context,
+              title: "MERGING IMPORT DATA",
+              action: (reportProgress) => context.read<AppProvider>().mergeAppStateFromMapWithProgress(
+                importedData,
+                onProgress: reportProgress,
+              ),
+            );
+            if (report != null && mounted) {
               await showDialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
@@ -303,8 +324,19 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
               );
             }
           } else {
-            context.read<AppProvider>().loadAppStateFromMap(importedData);
-            await context.read<AppProvider>().forceLocalBackup();
+            final provider = context.read<AppProvider>();
+            await DataRestoreProgressDialog.run<void>(
+              context: context,
+              title: "RESTORING DATABASE",
+              action: (reportProgress) async {
+                await reportProgress(0, "Reading & normalizing imported JSON");
+                final norm = AppProvider.normalizeImportedData(importedData);
+                await reportProgress(2, "Replacing full database state");
+                provider.loadAppStateFromMap(norm);
+                await reportProgress(4, "Writing atomic disk cache");
+                await provider.forceLocalBackup();
+              },
+            );
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 content: Text("Data imported successfully."),

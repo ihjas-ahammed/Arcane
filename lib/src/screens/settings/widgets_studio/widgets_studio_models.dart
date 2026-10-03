@@ -1,3 +1,4 @@
+import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/utils/task_calculations.dart';
 
 class BusWidgetData {
@@ -73,5 +74,23 @@ class JournalWidgetData {
     required this.aft,
     required this.eve,
     required this.night,
+  });
+}
+
+class GoalsWidgetData {
+  final int totalCount;
+  final int completedCount;
+  final double progress;
+  final int totalXp;
+  final int earnedXp;
+  final List<GoalModel> goals;
+
+  const GoalsWidgetData({
+    required this.totalCount,
+    required this.completedCount,
+    required this.progress,
+    required this.totalXp,
+    required this.earnedXp,
+    required this.goals,
   });
 }

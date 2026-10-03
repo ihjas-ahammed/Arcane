@@ -289,6 +289,17 @@ class LauncherWidgetEntry {
       );
 }
 
+/// Drag payload for moving/reordering Android and Arcane launcher widgets.
+class LauncherWidgetDragData {
+  final LauncherWidgetEntry entry;
+  final int fromPage;
+
+  const LauncherWidgetDragData({
+    required this.entry,
+    required this.fromPage,
+  });
+}
+
 /// A phone number belonging to a contact.
 class LauncherContactPhone {
   final String number;

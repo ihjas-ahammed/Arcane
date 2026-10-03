@@ -45,7 +45,6 @@ class LocalStorageService {
         final prefs = await SharedPreferences.getInstance();
         final jsonString = jsonEncode(state);
         await prefs.setString('arcane_local_cache_$userId', jsonString);
-        await performDailyBackup(userId, state, precomputedJson: jsonString);
         return;
       }
       final file = await _localFile(userId);
@@ -67,9 +66,6 @@ class LocalStorageService {
 
       // 3. Atomically replace the destination file
       await tempFile.rename(file.path);
-
-      // 4. Create auto local daily backup (keeps up to 7 days recovery data)
-      await performDailyBackup(userId, state, precomputedJson: jsonString);
     } catch (e) {
       debugPrint("LocalStorage Save Error: $e");
     }

@@ -7,6 +7,7 @@ import 'package:missions/src/screens/launcher/launcher_models.dart';
 import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/launcher_service.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
+import 'package:missions/src/screens/launcher/views/launcher_items.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 
 /// A real Android AppWidget hosted through the `arcane/appwidget` platform view,
@@ -142,94 +143,183 @@ class _LauncherAppWidgetState extends State<LauncherAppWidget> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final entry = widget.entry;
-    final accent = LauncherTheme.red;
-
-    return GestureDetector(
-      onLongPress: _showMenu,
-      child: ClipPath(
-        clipper: const Chamfer4CornerClipper(chamfer: 10.0),
-        child: CustomPaint(
-          foregroundPainter: TacticalCardBorderPainter(
-            themeColor: accent,
-            chamfer: 10.0,
-            bracketSize: 12.0,
-            leftBarWidth: 3.0,
-            borderColor: LauncherTheme.line,
-          ),
+  Widget _buildDragFeedback(BuildContext context, LauncherWidgetEntry entry) {
+    final width = MediaQuery.sizeOf(context).width - 24;
+    return Material(
+      color: Colors.transparent,
+      child: SizedBox(
+        width: width,
+        height: 64,
+        child: ClipPath(
+          clipper: const Chamfer4CornerClipper(chamfer: 8),
           child: Container(
-            color: LauncherTheme.panel,
-            padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
+            decoration: BoxDecoration(
+              color: LauncherTheme.panel.withValues(alpha: 0.95),
+              border: Border.all(color: LauncherTheme.red, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: LauncherTheme.red.withValues(alpha: 0.4),
+                  blurRadius: 16,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
               children: [
-                // ── Tactical Title Bar ──
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 4, 4),
-                  child: Row(
+                Container(width: 4, height: 24, color: LauncherTheme.red),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(width: 4, height: 10, color: accent),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          '// APP_WIDGET: ${entry.label.toUpperCase()}',
-                          style: LauncherTheme.rajdhani(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.4,
-                            color: LauncherTheme.muted,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      Text(
+                        entry.label.toUpperCase(),
+                        style: LauncherTheme.rajdhani(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.4,
+                          color: LauncherTheme.text,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      InkWell(
-                        onTap: _showMenu,
-                        borderRadius: BorderRadius.circular(4),
-                        child: Padding(
-                          padding: const EdgeInsets.all(3),
-                          child: Icon(MdiIcons.dotsVertical, size: 14, color: LauncherTheme.muted),
+                      const SizedBox(height: 2),
+                      Text(
+                        '// DRAGGING WIDGET · DRAG TO EDGE TO FLIP PAGES',
+                        style: LauncherTheme.rajdhani(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.1,
+                          color: LauncherTheme.muted,
                         ),
                       ),
                     ],
                   ),
                 ),
-                // ── Hosted Widget Surface ──
-                SizedBox(
-                  height: entry.height,
-                  child: switch (_available) {
-                    null => const SizedBox.shrink(),
-                    false => _Unavailable(entry: entry),
-                    true => LayoutBuilder(
-                        builder: (context, constraints) {
-                          final width = constraints.maxWidth.round();
-                          return ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: AndroidView(
-                              // Recreate the host view when its size changes so the provider gets the new size.
-                              key: ValueKey('${entry.id}-$width-${entry.height.round()}'),
-                              viewType: 'arcane/appwidget',
-                              layoutDirection: Directionality.of(context),
-                              creationParams: {'id': entry.id, 'width': width, 'height': entry.height.round()},
-                              creationParamsCodec: const StandardMessageCodec(),
-                              // Horizontal swipes still page the launcher; taps and in-widget scrolls go to the widget.
-                              gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                                Factory<VerticalDragGestureRecognizer>(VerticalDragGestureRecognizer.new),
-                              },
-                            ),
-                          );
-                        },
-                      ),
-                  },
-                ),
+                Icon(MdiIcons.dragVertical, color: LauncherTheme.red, size: 22),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entry = widget.entry;
+    final accent = LauncherTheme.red;
+
+    return ValueListenableBuilder<LauncherWidgetDragData?>(
+      valueListenable: LauncherActions.activeWidget,
+      builder: (context, activeW, _) {
+        final isBeingDragged = activeW?.entry.id == entry.id;
+        return Opacity(
+          opacity: isBeingDragged ? 0.25 : 1.0,
+          child: GestureDetector(
+            onLongPress: _showMenu,
+            child: ClipPath(
+              clipper: const Chamfer4CornerClipper(chamfer: 10.0),
+              child: CustomPaint(
+                foregroundPainter: TacticalCardBorderPainter(
+                  themeColor: accent,
+                  chamfer: 10.0,
+                  bracketSize: 12.0,
+                  leftBarWidth: 3.0,
+                  borderColor: LauncherTheme.line,
+                ),
+                child: Container(
+                  color: LauncherTheme.panel,
+                  padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // ── Tactical Title Bar (Drag Handle) ──
+                      LongPressDraggable<LauncherWidgetDragData>(
+                        data: LauncherWidgetDragData(entry: entry, fromPage: entry.page),
+                        delay: const Duration(milliseconds: 180),
+                        feedback: _buildDragFeedback(context, entry),
+                        onDragStarted: () {
+                          HapticFeedback.heavyImpact();
+                          LauncherActions.activeWidget.value = LauncherWidgetDragData(entry: entry, fromPage: entry.page);
+                        },
+                        onDragEnd: (_) {
+                          LauncherActions.activeWidget.value = null;
+                        },
+                        onDraggableCanceled: (_, __) {
+                          LauncherActions.activeWidget.value = null;
+                        },
+                        child: Container(
+                          color: Colors.transparent,
+                          padding: const EdgeInsets.fromLTRB(8, 4, 4, 4),
+                          child: Row(
+                            children: [
+                              Icon(MdiIcons.dragHorizontal, size: 13, color: accent),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  '// APP_WIDGET: ${entry.label.toUpperCase()}',
+                                  style: LauncherTheme.rajdhani(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.4,
+                                    color: LauncherTheme.muted,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              InkWell(
+                                onTap: _showMenu,
+                                borderRadius: BorderRadius.circular(4),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(3),
+                                  child: Icon(MdiIcons.dotsVertical, size: 14, color: LauncherTheme.muted),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // ── Hosted Widget Surface ──
+                      SizedBox(
+                        height: entry.height,
+                        child: switch (_available) {
+                          null => const SizedBox.shrink(),
+                          false => _Unavailable(entry: entry),
+                          true => LayoutBuilder(
+                              builder: (context, constraints) {
+                                final width = constraints.maxWidth.round();
+                                return ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: AndroidView(
+                                    // Recreate the host view when its size changes so the provider gets the new size.
+                                    key: ValueKey('${entry.id}-$width-${entry.height.round()}'),
+                                    viewType: 'arcane/appwidget',
+                                    layoutDirection: Directionality.of(context),
+                                    creationParams: {'id': entry.id, 'width': width, 'height': entry.height.round()},
+                                    creationParamsCodec: const StandardMessageCodec(),
+                                    // Horizontal swipes still page the launcher; taps and in-widget scrolls go to the widget.
+                                    gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                                      Factory<VerticalDragGestureRecognizer>(VerticalDragGestureRecognizer.new),
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

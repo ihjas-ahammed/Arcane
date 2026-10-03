@@ -24,7 +24,7 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
   }
 
   @override
@@ -107,6 +107,7 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
               Tab(text: "BUS ROUTE"),
               Tab(text: "TASK HERO"),
               Tab(text: "DAY PLAN"),
+              Tab(text: "TODAY'S GOALS"),
               Tab(text: "FINANCE"),
               Tab(text: "JOURNAL"),
             ],
@@ -118,6 +119,7 @@ class _HomescreenWidgetsPreviewScreenState extends State<HomescreenWidgetsPrevie
             BusWidgetTab(provider: provider),
             TaskWidgetTab(provider: provider),
             DayPlanWidgetTab(provider: provider),
+            GoalsWidgetTab(provider: provider),
             FinanceWidgetTab(provider: provider),
             JournalWidgetTab(provider: provider),
           ],

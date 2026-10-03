@@ -985,12 +985,13 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
   @override
   void loadStateFromMap(Map<String, dynamic> data) {
-    loadTaskState(data);
-    loadFinanceState(data);
-    loadUserState(data);
-    loadHealthState(data);
-    if (data['trading'] != null) {
-      final t = data['trading'];
+    final norm = normalizeImportedData(data);
+    loadTaskState(norm);
+    loadFinanceState(norm);
+    loadUserState(norm);
+    loadHealthState(norm);
+    if (norm['trading'] != null) {
+      final t = norm['trading'];
       if (t is Map) {
         _paperTrading.loadState(Map<String, dynamic>.from(t));
       } else if (t is String) {
@@ -1002,8 +1003,8 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         } catch (_) {}
       }
     }
-    if (data['launcher'] != null) {
-      final l = data['launcher'];
+    if (norm['launcher'] != null) {
+      final l = norm['launcher'];
       if (l is Map) {
         unawaited(LauncherService.instance.loadFromMap(Map<String, dynamic>.from(l)));
       } else if (l is String) {
@@ -1079,87 +1080,282 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     );
   }
 
+  /// Async foreground merge with granular progress reporting across each subsystem.
+  Future<MergeReport> mergeAppStateFromMapWithProgress(
+    Map<String, dynamic> rawData, {
+    Future<void> Function(int stepIndex, String message)? onProgress,
+  }) async {
+    await onProgress?.call(0, "Reading & normalizing snapshot payload");
+    final data = normalizeImportedData(rawData);
+
+    await onProgress?.call(1, "Restoring & merging tasks, subtasks & checkpoints");
+    final taskResult = mergeTaskState(data);
+
+    await onProgress?.call(2, "Restoring daily history & completed day logs");
+    // Completed day logs already merged within mergeTaskState
+
+    await onProgress?.call(3, "Weaving reflection journals & memories");
+    final addedReflections = mergeUserState(data);
+
+    await onProgress?.call(4, "Restoring projects, goals & financial records");
+    final addedTransactions = mergeFinanceState(data);
+
+    if (data['foodItems'] != null || data['healthLogs'] != null) {
+      loadHealthState(data);
+    }
+
+    bool launcherMerged = false;
+    if (data['launcher'] != null) {
+      final l = data['launcher'];
+      Map<String, dynamic>? lMap;
+      if (l is Map) {
+        lMap = Map<String, dynamic>.from(l);
+      } else if (l is String) {
+        try {
+          final decoded = jsonDecode(l);
+          if (decoded is Map) lMap = Map<String, dynamic>.from(decoded);
+        } catch (_) {}
+      }
+      if (lMap != null && lMap.isNotEmpty) {
+        unawaited(LauncherService.instance.mergeFromMap(lMap));
+        launcherMerged = true;
+      }
+    }
+
+    if (data['trading'] != null) {
+      final t = data['trading'];
+      if (t is Map) {
+        _paperTrading.loadState(Map<String, dynamic>.from(t));
+      } else if (t is String) {
+        try {
+          final decoded = jsonDecode(t);
+          if (decoded is Map) _paperTrading.loadState(Map<String, dynamic>.from(decoded));
+        } catch (_) {}
+      }
+    }
+
+    await onProgress?.call(5, "Finalizing local storage & refreshing system state");
+    markAllDirty();
+    notifyListeners();
+    await forceLocalBackup();
+
+    return MergeReport(
+      addedReflections: addedReflections,
+      totalReflections: reflectionLogs.length,
+      mergedDays: taskResult.mergedDays,
+      totalHistoryDays: completedByDay.length,
+      addedTasks: taskResult.addedTasks,
+      addedProjects: taskResult.addedProjects,
+      addedGoals: taskResult.addedGoals,
+      addedTransactions: addedTransactions,
+      launcherMerged: launcherMerged,
+    );
+  }
+
   /// Normalizes imported JSON across multiple schema versions, full backups,
   /// and raw Firebase Realtime Database exports.
   static Map<String, dynamic> normalizeImportedData(Map<String, dynamic> input) {
     var raw = Map<String, dynamic>.from(input);
 
+    dynamic decodeIfString(dynamic val) {
+      if (val is String) {
+        final trimmed = val.trim();
+        if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+            (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+          try {
+            return jsonDecode(trimmed);
+          } catch (_) {
+            return val;
+          }
+        }
+      }
+      return val;
+    }
+
+    // Helper to safely normalize dynamic map/list into List<Map<String, dynamic>>
+    List<Map<String, dynamic>> toListOfMaps(dynamic value) {
+      value = decodeIfString(value);
+      if (value is List) {
+        return value.map((e) {
+          final decoded = decodeIfString(e);
+          return decoded is Map ? Map<String, dynamic>.from(decoded) : null;
+        }).whereType<Map<String, dynamic>>().toList();
+      } else if (value is Map) {
+        return value.entries.map((e) {
+          final decoded = decodeIfString(e.value);
+          if (decoded is Map) {
+            final m = Map<String, dynamic>.from(decoded);
+            m.putIfAbsent('id', () => e.key.toString());
+            return m;
+          }
+          return <String, dynamic>{'id': e.key.toString()};
+        }).toList();
+      }
+      return [];
+    }
+
     // 1. Unwrap Firebase RTDB root: { "users": { "<uid>": { "data": { ... } } } } or { "data": { ... } }
     if (raw['users'] is Map) {
       final usersMap = raw['users'] as Map;
       if (usersMap.isNotEmpty) {
-        final firstVal = usersMap.values.first;
-        if (firstVal is Map && firstVal['data'] is Map) {
-          raw = Map<String, dynamic>.from(firstVal['data'] as Map);
+        final firstVal = decodeIfString(usersMap.values.first);
+        if (firstVal is Map) {
+          if (firstVal['data'] != null) {
+            final d = decodeIfString(firstVal['data']);
+            if (d is Map) raw = Map<String, dynamic>.from(d);
+          } else {
+            raw = Map<String, dynamic>.from(firstVal);
+          }
         }
       }
-    } else if (raw['data'] is Map) {
-      raw = Map<String, dynamic>.from(raw['data'] as Map);
+    } else if (raw['data'] != null) {
+      final d = decodeIfString(raw['data']);
+      if (d is Map) raw = Map<String, dynamic>.from(d);
+    }
+
+    // Decode top-level string chunks if present
+    for (final key in [
+      'tasks', 'finance', 'health', 'history', 'reflections', 'reflectionLogs',
+      'completedByDay', 'mainTasks', 'projects', 'goals', 'routineLists',
+      'goalPlaces', 'transactions', 'categories', 'savingsGoals', 'accounts',
+      'foodItems', 'healthLogs', 'launcher', 'trading', 'completedTasks', 'completed_tasks'
+    ]) {
+      if (raw[key] != null) {
+        raw[key] = decodeIfString(raw[key]);
+      }
     }
 
     // 2. Normalize reflections: can be under 'reflections' (Map or List) or 'reflectionLogs' (List)
     if (raw['reflectionLogs'] == null && raw['reflections'] != null) {
-      final r = raw['reflections'];
-      if (r is Map) {
-        raw['reflectionLogs'] = r.entries.map((e) {
-          if (e.value is Map) {
-            final m = Map<String, dynamic>.from(e.value as Map);
-            m['id'] = e.key.toString();
-            return m;
-          }
-          return {'id': e.key.toString()};
-        }).toList();
-      } else if (r is List) {
-        raw['reflectionLogs'] = r;
-      }
+      raw['reflectionLogs'] = toListOfMaps(raw['reflections']);
+    } else if (raw['reflectionLogs'] != null) {
+      raw['reflectionLogs'] = toListOfMaps(raw['reflectionLogs']);
     }
 
     // 3. Normalize history: can be under 'history' (Map with 'completedByDay' or date keys)
     if (raw['completedByDay'] == null && raw['history'] != null) {
-      final h = raw['history'];
+      final h = decodeIfString(raw['history']);
       if (h is Map) {
-        if (h['completedByDay'] is Map) {
-          raw['completedByDay'] = h['completedByDay'];
+        if (h['completedByDay'] != null) {
+          raw['completedByDay'] = decodeIfString(h['completedByDay']);
         } else {
-          final isDateMap = h.keys.any((k) => RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(k.toString()));
+          final normHistory = <String, dynamic>{};
+          for (final entry in h.entries) {
+            final k = entry.key.toString().replaceAll('_', '-');
+            normHistory[k] = decodeIfString(entry.value);
+          }
+          final isDateMap = normHistory.keys.any((k) => RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(k));
           if (isDateMap) {
-            raw['completedByDay'] = h;
+            raw['completedByDay'] = normHistory;
           }
         }
       }
+    }
+
+    // Deeply normalize completedByDay map
+    if (raw['completedByDay'] is Map) {
+      final cMap = Map<String, dynamic>.from(raw['completedByDay'] as Map);
+      final normalizedCMap = <String, dynamic>{};
+      for (final dateKey in cMap.keys) {
+        final normDateKey = dateKey.toString().replaceAll('_', '-');
+        var day = decodeIfString(cMap[dateKey]);
+        if (day is Map) {
+          final dayMap = Map<String, dynamic>.from(day);
+          if (dayMap['tasks'] != null) dayMap['tasks'] = toListOfMaps(dayMap['tasks']);
+          if (dayMap['subtasksCompleted'] != null) dayMap['subtasksCompleted'] = toListOfMaps(dayMap['subtasksCompleted']);
+          if (dayMap['checkpointsCompleted'] != null) dayMap['checkpointsCompleted'] = toListOfMaps(dayMap['checkpointsCompleted']);
+          if (dayMap['notifications'] != null) dayMap['notifications'] = toListOfMaps(dayMap['notifications']);
+          if (dayMap['taskTimes'] != null) {
+            final tt = decodeIfString(dayMap['taskTimes']);
+            if (tt is Map) dayMap['taskTimes'] = Map<String, dynamic>.from(tt);
+          }
+          if (dayMap['dailyPlan'] != null) {
+            final dp = decodeIfString(dayMap['dailyPlan']);
+            if (dp is Map) {
+              dayMap['dailyPlan'] = dp.values.map((e) => e.toString()).toList();
+            } else if (dp is List) {
+              dayMap['dailyPlan'] = dp.map((e) => e.toString()).toList();
+            }
+          }
+          normalizedCMap[normDateKey] = dayMap;
+        }
+      }
+      raw['completedByDay'] = normalizedCMap;
     }
 
     // 4. Normalize tasks chunk: if { "tasks": { "mainTasks": [...], "goals": [...] } }
     if (raw['tasks'] is Map) {
       final t = Map<String, dynamic>.from(raw['tasks'] as Map);
-      if (t['mainTasks'] != null) raw['mainTasks'] ??= t['mainTasks'];
-      if (t['projects'] != null) raw['projects'] ??= t['projects'];
-      if (t['goals'] != null) raw['goals'] ??= t['goals'];
-      if (t['routineLists'] != null) raw['routineLists'] ??= t['routineLists'];
-      if (t['goalPlaces'] != null) raw['goalPlaces'] ??= t['goalPlaces'];
+      if (t['mainTasks'] != null) raw['mainTasks'] ??= decodeIfString(t['mainTasks']);
+      if (t['projects'] != null) raw['projects'] ??= decodeIfString(t['projects']);
+      if (t['goals'] != null) raw['goals'] ??= decodeIfString(t['goals']);
+      if (t['routineLists'] != null) raw['routineLists'] ??= decodeIfString(t['routineLists']);
+      if (t['goalPlaces'] != null) raw['goalPlaces'] ??= decodeIfString(t['goalPlaces']);
+      if (t['completedByDay'] != null) raw['completedByDay'] ??= decodeIfString(t['completedByDay']);
     }
+
+    // Deeply normalize mainTasks and its nested subtasks / subSubTasks / sessions
+    if (raw['mainTasks'] != null) {
+      final tasksList = toListOfMaps(raw['mainTasks']);
+      for (final t in tasksList) {
+        if (t['subTasks'] != null) {
+          final stList = toListOfMaps(t['subTasks']);
+          for (final st in stList) {
+            if (st['subSubTasks'] != null) st['subSubTasks'] = toListOfMaps(st['subSubTasks']);
+            if (st['sessions'] != null) st['sessions'] = toListOfMaps(st['sessions']);
+            if (st['progressDataPoints'] != null) st['progressDataPoints'] = toListOfMaps(st['progressDataPoints']);
+            if (st['templateSets'] != null) st['templateSets'] = toListOfMaps(st['templateSets']);
+          }
+          t['subTasks'] = stList;
+        }
+      }
+      raw['mainTasks'] = tasksList;
+    }
+
+    if (raw['projects'] != null) raw['projects'] = toListOfMaps(raw['projects']);
+    if (raw['goals'] != null) {
+      final gList = toListOfMaps(raw['goals']);
+      for (final g in gList) {
+        if (g['subChecklist'] != null) g['subChecklist'] = toListOfMaps(g['subChecklist']);
+      }
+      raw['goals'] = gList;
+    }
+    if (raw['routineLists'] != null) raw['routineLists'] = toListOfMaps(raw['routineLists']);
+    if (raw['goalPlaces'] != null) raw['goalPlaces'] = toListOfMaps(raw['goalPlaces']);
 
     // 5. Normalize finance chunk: if { "finance": { "transactions": [...], ... } }
     if (raw['finance'] is Map) {
       final f = Map<String, dynamic>.from(raw['finance'] as Map);
-      if (f['transactions'] != null) raw['transactions'] ??= f['transactions'];
-      if (f['categories'] != null) raw['categories'] ??= f['categories'];
-      if (f['savingsGoals'] != null) raw['savingsGoals'] ??= f['savingsGoals'];
-      if (f['accounts'] != null) raw['accounts'] ??= f['accounts'];
+      if (f['transactions'] != null) raw['transactions'] ??= decodeIfString(f['transactions']);
+      if (f['categories'] != null) raw['categories'] ??= decodeIfString(f['categories']);
+      if (f['savingsGoals'] != null) raw['savingsGoals'] ??= decodeIfString(f['savingsGoals']);
+      if (f['accounts'] != null) raw['accounts'] ??= decodeIfString(f['accounts']);
     }
+    if (raw['transactions'] != null) raw['transactions'] = toListOfMaps(raw['transactions']);
+    if (raw['categories'] != null) raw['categories'] = toListOfMaps(raw['categories']);
+    if (raw['savingsGoals'] != null) raw['savingsGoals'] = toListOfMaps(raw['savingsGoals']);
+    if (raw['accounts'] != null) raw['accounts'] = toListOfMaps(raw['accounts']);
 
     // 6. Normalize health chunk
     if (raw['health'] is Map) {
       final h = Map<String, dynamic>.from(raw['health'] as Map);
-      if (h['foodItems'] != null) raw['foodItems'] ??= h['foodItems'];
-      if (h['healthLogs'] != null) raw['healthLogs'] ??= h['healthLogs'];
+      if (h['foodItems'] != null) raw['foodItems'] ??= decodeIfString(h['foodItems']);
+      if (h['healthLogs'] != null) raw['healthLogs'] ??= decodeIfString(h['healthLogs']);
     }
+    if (raw['foodItems'] != null) raw['foodItems'] = toListOfMaps(raw['foodItems']);
+    if (raw['healthLogs'] != null) raw['healthLogs'] = toListOfMaps(raw['healthLogs']);
 
     // 7. Normalize launcher chunk: string or map
-    if (raw['launcher'] is String) {
-      try {
-        raw['launcher'] = jsonDecode(raw['launcher'] as String);
-      } catch (_) {}
+    if (raw['launcher'] != null) {
+      raw['launcher'] = decodeIfString(raw['launcher']);
+    }
+
+    // 8. Standalone completedTasks / completed_tasks
+    if (raw['completedTasks'] != null) {
+      raw['completedTasks'] = decodeIfString(raw['completedTasks']);
+    }
+    if (raw['completed_tasks'] != null) {
+      raw['completed_tasks'] = decodeIfString(raw['completed_tasks']);
     }
 
     return raw;
@@ -1343,6 +1539,78 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       }
       markAllDirty();
       await forceLocalBackup();
+      return report;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Foreground cloud recovery with granular progress updates.
+  Future<MergeReport?> restoreFromCloudWithProgress({
+    bool merge = true,
+    Future<void> Function(int stepIndex, String message)? onProgress,
+  }) async {
+    if (currentUser == null) return null;
+    setManuallyLoading(true);
+    try {
+      await onProgress?.call(0, "Connecting to cloud & fetching remote snapshot");
+      final cloudData = await storageService.getUserData(currentUser!.uid);
+      if (cloudData == null || cloudData.isEmpty) {
+        throw Exception("No cloud backup found for this account.");
+      }
+
+      MergeReport? report;
+      if (merge) {
+        report = await mergeAppStateFromMapWithProgress(cloudData, onProgress: onProgress);
+      } else {
+        await onProgress?.call(1, "Normalizing cloud snapshot payload");
+        final norm = normalizeImportedData(cloudData);
+        await onProgress?.call(2, "Replacing full database state");
+        beginDataLoad();
+        try {
+          loadStateFromMap(norm);
+        } finally {
+          endDataLoad();
+        }
+        await onProgress?.call(3, "Synchronizing local timestamps");
+        try {
+          final remoteTs = await storageService.getLastModified(currentUser!.uid);
+          if (remoteTs > settings.lastModified) {
+            settings.lastModified = remoteTs;
+          }
+        } catch (_) {}
+        await onProgress?.call(4, "Writing atomic local cache");
+        markAllDirty();
+        await forceLocalBackup();
+      }
+      return report;
+    } finally {
+      setManuallyLoading(false);
+    }
+  }
+
+  /// Foreground snapshot recovery with granular progress updates.
+  Future<MergeReport?> restoreFromLocalSnapshotWithProgress(
+    File backupFile, {
+    bool merge = true,
+    Future<void> Function(int stepIndex, String message)? onProgress,
+  }) async {
+    try {
+      await onProgress?.call(0, "Reading backup snapshot file from disk");
+      final contents = await backupFile.readAsString();
+      final data = jsonDecode(contents) as Map<String, dynamic>;
+      MergeReport? report;
+      if (merge) {
+        report = await mergeAppStateFromMapWithProgress(data, onProgress: onProgress);
+      } else {
+        await onProgress?.call(1, "Normalizing snapshot payload");
+        final norm = normalizeImportedData(data);
+        await onProgress?.call(2, "Replacing full database state");
+        loadStateFromMap(norm);
+        await onProgress?.call(4, "Writing atomic local cache");
+        markAllDirty();
+        await forceLocalBackup();
+      }
       return report;
     } catch (e) {
       rethrow;
@@ -2242,9 +2510,6 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
       setLastLoginDate(todayStr);
       if (changed) setMainTasks(newMainTasks);
-      if (currentUser != null) {
-        _localStorage.performDailyBackup(currentUser!.uid, getFullAppState());
-      }
     }
   }
 

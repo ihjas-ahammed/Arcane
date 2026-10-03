@@ -20,6 +20,13 @@ mixin SyncMixin on ChangeNotifier {
   bool _isManuallyLoading = false;
   bool get isManuallyLoading => _isManuallyLoading;
 
+  StorageService get storageService => _storageService;
+
+  void setManuallyLoading(bool value) {
+    _isManuallyLoading = value;
+    notifyListeners();
+  }
+
   Timer? _saveDebounce;
   Timer? _cloudDebounce;
   Timer? _periodicSyncTimer;

@@ -177,18 +177,19 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
   Widget _buildNetworkBadge(Color activeColor, Color alertColor) {
     final isOffline = !_isOnline || _networkType == 'OFFLINE';
     final isWifi = _networkType == 'WIFI';
-
-    final IconData icon = isOffline
-        ? MdiIcons.wifiOff
-        : (isWifi ? MdiIcons.wifi : MdiIcons.signalCellular3);
     final Color color = isOffline ? alertColor : activeColor;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(icon, size: 12, color: color),
-        const SizedBox(width: 3),
+        if (isOffline) ...[
+          Icon(MdiIcons.wifiOff, size: 12, color: color),
+          const SizedBox(width: 3),
+        ] else if (isWifi) ...[
+          Icon(MdiIcons.wifi, size: 12, color: color),
+          const SizedBox(width: 3),
+        ],
         Text(
           _networkType,
           style: LauncherTheme.rajdhani(

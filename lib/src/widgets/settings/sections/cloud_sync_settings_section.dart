@@ -4,6 +4,8 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/screens/settings/data_recovery_screen.dart';
 import 'package:missions/src/theme/app_theme.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
+import 'package:missions/src/widgets/dialogs/data_restore_progress_dialog.dart';
 
 class CloudSyncSettingsSection extends StatelessWidget {
   final AppProvider appProvider;
@@ -86,29 +88,113 @@ class CloudSyncSettingsSection extends StatelessWidget {
             const SizedBox(height: 12),
             ElevatedButton.icon(
               icon: Icon(MdiIcons.cloudDownloadOutline, size: 18),
-              label: const Text('RESTORE FROM CLOUD (OVERWRITE)'),
+              label: const Text('RESTORE / MERGE FROM CLOUD'),
               onPressed: appProvider.isSyncing || appProvider.isManuallyLoading
                   ? null
                   : () async {
-                      final confirm = await showDialog<bool>(
+                      final mode = await showDialog<String>(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          title: const Text('Confirm Restore'),
-                          content: const Text(
-                              'This will overwrite local data with cloud data. Continue?'),
+                          backgroundColor: JweTheme.panel,
+                          title: Text(
+                            'RESTORE FROM CLOUD',
+                            style: TextStyle(
+                              color: JweTheme.textWhite,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          content: Text(
+                            'Choose how you want to restore data from cloud:\n\n'
+                            '• MERGE (Recommended): Non-destructively merges tasks, subtasks, completed items, daily history, and reflections with your local data.\n'
+                            '• REPLACE ALL: Completely replaces local database with cloud snapshot.',
+                            style: TextStyle(color: JweTheme.textMuted, fontSize: 13, height: 1.4),
+                          ),
                           actions: [
                             TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('CANCEL'),
+                              onPressed: () => Navigator.pop(ctx, null),
+                              child: Text('Cancel', style: TextStyle(color: JweTheme.textMuted)),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, 'replace'),
+                              child: Text('Replace All', style: TextStyle(color: JweTheme.accentRed)),
                             ),
                             ElevatedButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text('RESTORE'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: JweTheme.accentCyan,
+                                foregroundColor: JweTheme.onAccent,
+                              ),
+                              onPressed: () => Navigator.pop(ctx, 'merge'),
+                              child: Text(
+                                'MERGE (Recommended)',
+                                style: TextStyle(color: JweTheme.onAccent, fontWeight: FontWeight.bold),
+                              ),
                             ),
                           ],
                         ),
                       );
-                      if (confirm == true) appProvider.manuallyLoadFromCloud();
+
+                      if (mode != null && context.mounted) {
+                        try {
+                          final report = await DataRestoreProgressDialog.run<MergeReport?>(
+                            context: context,
+                            title: mode == 'merge' ? "MERGING CLOUD DATA" : "RESTORING FROM CLOUD",
+                            action: (reportProgress) => appProvider.restoreFromCloudWithProgress(
+                              merge: mode == 'merge',
+                              onProgress: reportProgress,
+                            ),
+                          );
+
+                          if (context.mounted) {
+                            if (mode == 'merge' && report != null) {
+                              await showDialog(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  backgroundColor: JweTheme.panel,
+                                  title: Row(
+                                    children: [
+                                      Icon(MdiIcons.checkDecagram, color: JweTheme.accentCyan, size: 22),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        "CLOUD MERGE COMPLETE",
+                                        style: TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                  content: SingleChildScrollView(
+                                    child: Text(
+                                      "• ${report.summary}",
+                                      style: TextStyle(color: JweTheme.textWhite, height: 1.4, fontSize: 13),
+                                    ),
+                                  ),
+                                  actions: [
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: JweTheme.accentCyan,
+                                        foregroundColor: JweTheme.onAccent,
+                                      ),
+                                      onPressed: () => Navigator.pop(ctx),
+                                      child: Text(
+                                        "DISMISS",
+                                        style: TextStyle(color: JweTheme.onAccent, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Cloud data restored successfully.')),
+                              );
+                            }
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error restoring cloud data: $e')),
+                            );
+                          }
+                        }
+                      }
                     },
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 44),

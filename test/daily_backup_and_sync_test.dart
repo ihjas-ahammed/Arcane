@@ -36,7 +36,7 @@ void main() {
   });
 
   group('LocalStorageService Daily Backup & Recovery Tests', () {
-    test('creates daily backup file and saves state atomically', () async {
+    test('saves state atomically without auto daily backup, and supports explicit backup', () async {
       final sampleState = {
         'tasks': [{'id': 't1', 'title': 'Test Mission'}],
         'lastModified': 123456789,
@@ -48,10 +48,12 @@ void main() {
       final primaryFile = File('${testDocsDir.path}/arcane_local_cache_$userId.json');
       expect(await primaryFile.exists(), isTrue);
 
-      // Verify daily backup was created
-      final backupDir = Directory('${testDocsDir.path}/backups');
-      expect(await backupDir.exists(), isTrue);
+      // Verify auto daily backup is disabled (no backups dir created automatically)
+      final autoBackups = await storageService.getDailyBackupFiles(userId);
+      expect(autoBackups.isEmpty, isTrue);
 
+      // Explicit manual backup creates snapshot
+      await storageService.performDailyBackup(userId, sampleState);
       final backups = await storageService.getDailyBackupFiles(userId);
       expect(backups.isNotEmpty, isTrue);
       expect(backups.first.path.contains('daily_backup_$userId'), isTrue);

@@ -7,3 +7,4 @@ export 'tabs/task_widget_tab.dart';
 export 'tabs/day_plan_widget_tab.dart';
 export 'tabs/finance_widget_tab.dart';
 export 'tabs/journal_widget_tab.dart';
+export 'tabs/goals_widget_tab.dart';

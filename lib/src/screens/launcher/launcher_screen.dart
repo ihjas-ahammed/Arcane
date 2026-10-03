@@ -316,18 +316,21 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
   }
 
   Widget _buildDragChrome() {
-    return ValueListenableBuilder<LauncherDragData?>(
-      valueListenable: LauncherActions.active,
-      builder: (context, drag, _) {
-        if (drag == null) return const SizedBox.shrink();
+    return ListenableBuilder(
+      listenable: Listenable.merge([LauncherActions.active, LauncherActions.activeWidget]),
+      builder: (context, _) {
+        final drag = LauncherActions.active.value;
+        final widgetDrag = LauncherActions.activeWidget.value;
+        if (drag == null && widgetDrag == null) return const SizedBox.shrink();
+
         final top = MediaQuery.paddingOf(context).top;
         Widget edge({required bool left}) => Positioned(
               top: top + 70,
               bottom: 120,
               left: left ? 0 : null,
               right: left ? null : 0,
-              width: 32,
-              child: DragTarget<LauncherDragData>(
+              width: 36,
+              child: DragTarget<Object>(
                 onWillAcceptWithDetails: (_) {
                   _hoverEdge(left: left);
                   return false;
@@ -336,20 +339,27 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
                 builder: (_, __, ___) => const SizedBox.expand(),
               ),
             );
+
         return Stack(
           children: [
             edge(left: true),
             edge(left: false),
-            if (drag.from != null)
+            if (drag?.from != null || widgetDrag != null)
               Positioned(
                 top: top + 6,
                 left: 40,
                 right: 40,
-                child: DragTarget<LauncherDragData>(
+                child: DragTarget<Object>(
                   onAcceptWithDetails: (d) {
                     HapticFeedback.mediumImpact();
-                    final from = d.data.from;
-                    if (from != null) LauncherService.instance.removeFromArea(from, d.data.key);
+                    if (d.data is LauncherDragData) {
+                      final ld = d.data as LauncherDragData;
+                      final from = ld.from;
+                      if (from != null) LauncherService.instance.removeFromArea(from, ld.key);
+                    } else if (d.data is LauncherWidgetDragData) {
+                      final wd = d.data as LauncherWidgetDragData;
+                      LauncherService.instance.removeWidget(wd.entry);
+                    }
                   },
                   builder: (context, candidates, _) {
                     final hot = candidates.isNotEmpty;

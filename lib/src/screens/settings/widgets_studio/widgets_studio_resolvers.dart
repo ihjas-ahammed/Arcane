@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
 
 import 'package:missions/src/models/bus_models.dart';
+import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/services/bus_location_service.dart';
@@ -336,4 +337,38 @@ class WidgetsStudioResolvers {
       night: night,
     );
   }
+
+  static GoalsWidgetData resolveLiveGoals(AppProvider provider) {
+    final now = DateTime.now();
+    final goals = provider.getGoalsForDate(now, GoalScope.daily);
+    if (goals.isEmpty) {
+      return const GoalsWidgetData(
+        totalCount: 0,
+        completedCount: 0,
+        progress: 0.0,
+        totalXp: 0,
+        earnedXp: 0,
+        goals: [],
+      );
+    }
+    int completed = 0;
+    int totalXp = 0;
+    int earnedXp = 0;
+    for (final g in goals) {
+      final isDone = g.getIsEffectiveCompleted();
+      if (isDone) completed++;
+      totalXp += g.xpReward;
+      if (isDone) earnedXp += g.xpReward;
+    }
+    final progress = goals.isNotEmpty ? (completed / goals.length).clamp(0.0, 1.0) : 0.0;
+    return GoalsWidgetData(
+      totalCount: goals.length,
+      completedCount: completed,
+      progress: progress,
+      totalXp: totalXp,
+      earnedXp: earnedXp,
+      goals: goals,
+    );
+  }
 }
+
