@@ -580,6 +580,10 @@ class AppSettings {
       'forceBluetoothScoCall': forceBluetoothScoCall,
     };
   }
+
+  String get activeAiModel => heavyModels.isNotEmpty
+      ? heavyModels.first
+      : (liteModels.isNotEmpty ? liteModels.first : 'Default (gemini-2.5-pro)');
 }
 
 class ActiveTimerInfo {

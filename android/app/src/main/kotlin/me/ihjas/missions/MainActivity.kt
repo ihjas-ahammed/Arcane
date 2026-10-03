@@ -1140,9 +1140,10 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                 "startRecording" -> {
                     val name = call.argument<String>("name") ?: ""
                     val targetPackage = call.argument<String>("targetPackage")
+                    val mode = call.argument<String>("mode") ?: "hybrid"
                     val mgr = InputReplyManager.instance
                     if (mgr != null) {
-                        result.success(mgr.startRecording(name, targetPackage))
+                        result.success(mgr.startRecording(name, targetPackage, mode))
                     } else {
                         result.error("SERVICE_UNAVAILABLE", "Accessibility service is not active", null)
                     }
@@ -1175,13 +1176,14 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                     val params = call.argument<Map<String, Any?>>("params")
                     val speed = call.argument<Double>("speed") ?: 1.0
                     val repeatCount = call.argument<Int>("repeatCount") ?: 1
+                    val mode = call.argument<String>("mode")
                     if (macroData != null) {
-                        result.success(mgr.playMacro(macroData, params, speed, repeatCount))
+                        result.success(mgr.playMacro(macroData, params, speed, repeatCount, mode))
                     } else {
                         val name = call.argument<String>("name") ?: ""
                         val loaded = mgr.getMacro(name)
                         if (loaded != null) {
-                            result.success(mgr.playMacro(loaded, params, speed, repeatCount))
+                            result.success(mgr.playMacro(loaded, params, speed, repeatCount, mode))
                         } else {
                             result.error("NOT_FOUND", "Macro not found", null)
                         }

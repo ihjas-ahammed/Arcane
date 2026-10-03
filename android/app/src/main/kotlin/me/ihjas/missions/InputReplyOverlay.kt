@@ -99,19 +99,35 @@ class InputReplyOverlay(private val service: AccessibilityService) {
             pillView?.postInvalidate()
         }
 
-    fun showRecording(macroName: String) {
+    var activeModeLabel: String = "HYBRID"
+        set(value) {
+            field = value.uppercase()
+            pillView?.postInvalidate()
+        }
+
+    fun showRecording(macroName: String, mode: String = "hybrid") {
         currentMode = Mode.RECORDING
         stepCount = 0
         activePackageLabel = macroName
+        activeModeLabel = when (mode.lowercase()) {
+            "touch_sensor", "touch" -> "TOUCH"
+            "elements", "element" -> "ELEM"
+            else -> "SMART"
+        }
         isKeyboardOpen = false
         ensureShown()
     }
 
-    fun showReplaying(current: Int, total: Int, name: String) {
+    fun showReplaying(current: Int, total: Int, name: String, mode: String = "hybrid") {
         currentMode = Mode.REPLAYING
         replayStep = current
         replayTotalSteps = total
         activePackageLabel = name
+        activeModeLabel = when (mode.lowercase()) {
+            "touch_sensor", "touch" -> "TOUCH"
+            "elements", "element" -> "ELEM"
+            else -> "SMART"
+        }
         ensureShown()
     }
 

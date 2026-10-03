@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/providers/app_provider.dart';
-import 'package:missions/src/services/ai_service.dart';
+import 'package:missions/src/screens/settings/ai_models_screen.dart';
 import 'package:missions/src/theme/app_theme.dart';
-import 'package:missions/src/widgets/settings/model_configuration_widget.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/settings/sections/account_and_data_settings_section.dart';
-import 'package:missions/src/widgets/settings/sections/advanced_ai_settings_section.dart';
 import 'package:missions/src/widgets/settings/sections/cloud_sync_settings_section.dart';
 import 'package:missions/src/widgets/settings/sections/diagnostics_and_tools_section.dart';
 import 'package:missions/src/widgets/settings/sections/notifications_settings_section.dart';
 import 'package:missions/src/widgets/settings/sections/security_privacy_settings_section.dart';
 import 'package:missions/src/widgets/settings/sections/launcher_settings_section.dart';
+import 'package:missions/src/widgets/settings/sections/settings_section_card.dart';
 import 'package:missions/src/widgets/settings/sections/ui_and_progress_settings_section.dart';
 import 'package:missions/src/widgets/settings/sections/update_settings_section.dart';
+import 'package:provider/provider.dart';
 
 export 'package:missions/src/widgets/settings/sections/account_and_data_settings_section.dart';
 export 'package:missions/src/widgets/settings/sections/advanced_ai_settings_section.dart';
@@ -24,87 +26,14 @@ export 'package:missions/src/widgets/settings/sections/settings_section_card.dar
 export 'package:missions/src/widgets/settings/sections/ui_and_progress_settings_section.dart';
 export 'package:missions/src/widgets/settings/sections/update_settings_section.dart';
 
-class SettingsView extends StatefulWidget {
+class SettingsView extends StatelessWidget {
   const SettingsView({super.key});
-
-  @override
-  State<SettingsView> createState() => _SettingsViewState();
-}
-
-class _SettingsViewState extends State<SettingsView> {
-  final _customReflectionPromptController = TextEditingController();
-  final _customBriefingPromptController = TextEditingController();
-
-  List<String> _availableModels = [
-    'gemini-3.8-flash',
-    'gemini-3.8-flash-live-preview',
-    'gemini-3.1-flash-live-preview',
-    'gemini-2.0-flash',
-    'gemini-2.0-flash-lite',
-    'gemini-2.0-pro-exp-02-05',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro',
-    'gemini-pro',
-  ];
-  bool _fetchingModels = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final appProvider = Provider.of<AppProvider>(context, listen: false);
-    _customReflectionPromptController.text =
-        appProvider.settings.customReflectionPrompt ?? '';
-    _customBriefingPromptController.text =
-        appProvider.settings.customBriefingPrompt ?? '';
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchModels(appProvider);
-    });
-  }
-
-  @override
-  void dispose() {
-    _customReflectionPromptController.dispose();
-    _customBriefingPromptController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _fetchModels(AppProvider appProvider) async {
-    setState(() => _fetchingModels = true);
-    try {
-      final aiService = AIService();
-      final models = await aiService.fetchAvailableModels(
-        customApiKey: appProvider.settings.customApiKeys.isNotEmpty
-            ? appProvider.settings.customApiKeys.first
-            : null,
-      );
-      if (!mounted) return;
-      setState(() {
-        if (models.isNotEmpty) _availableModels = models;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Fetched ${_availableModels.length} models."),
-          backgroundColor: AppTheme.fhAccentGreen,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Error fetching models: $e"),
-          backgroundColor: AppTheme.fhAccentRed,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _fetchingModels = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
     final theme = Theme.of(context);
+    final isLight = JweTheme.isLight;
 
     return Align(
       alignment: Alignment.topCenter,
@@ -135,17 +64,88 @@ class _SettingsViewState extends State<SettingsView> {
               NotificationsSettingsSection(appProvider: appProvider, theme: theme),
 
               // 4. AI (models + advanced AI behavior)
-              ModelConfigurationWidget(
-                appProvider: appProvider,
-                availableModels: _availableModels,
-                isFetching: _fetchingModels,
-                onFetch: () => _fetchModels(appProvider),
-              ),
-              AdvancedAiSettingsSection(
-                appProvider: appProvider,
-                theme: theme,
-                reflectionPromptController: _customReflectionPromptController,
-                briefingPromptController: _customBriefingPromptController,
+              SettingsSectionCard(
+                icon: MdiIcons.robotOutline,
+                title: 'Neural & AI Engine',
+                iconColor: JweTheme.accentCyan,
+                children: [
+                  Text(
+                    'Configure multi-provider model selection (Gemini, OpenRouter, Groq, Ollama), API key rotation, reasoning prompts, and morning briefing directives in a dedicated subsystem.',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.textMuted,
+                      fontSize: 11.5,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isLight ? JweTheme.bgCanvas : AppTheme.fhBgDark,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: JweTheme.border),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'ACTIVE INFERENCE MODEL',
+                                style: GoogleFonts.rajdhani(
+                                  color: JweTheme.textMuted,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                appProvider.settings.activeAiModel,
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: JweTheme.accentCyan,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${appProvider.settings.customApiKeys.length} Custom API key(s) configured',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: JweTheme.textMid,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          icon: Icon(MdiIcons.cogOutline, size: 16),
+                          label: Text(
+                            'CONFIGURE',
+                            style: GoogleFonts.rajdhani(
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                              fontSize: 12,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: JweTheme.accentCyan,
+                            foregroundColor: JweTheme.onAccent,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                          ),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const AiModelsScreen()),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
 
               // 5. UI (theme, weekly progress, interface config)

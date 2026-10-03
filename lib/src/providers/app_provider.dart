@@ -1132,21 +1132,30 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     Map<String, dynamic> rawData, {
     Future<void> Function(int stepIndex, String message)? onProgress,
   }) async {
-    await onProgress?.call(0, "Reading & normalizing snapshot payload");
+    await onProgress?.call(0, "Analyzing & normalizing snapshot payload...");
     final data = normalizeImportedData(rawData);
+    final rawTasksCount = (data['mainTasks'] as List?)?.length ?? 0;
+    await Future.delayed(const Duration(milliseconds: 120));
 
-    await onProgress?.call(1, "Restoring & merging tasks, subtasks & checkpoints");
+    await onProgress?.call(1, "Restoring & merging tasks, subtasks & checkpoints ($rawTasksCount found)...");
     final taskResult = mergeTaskState(data);
+    await Future.delayed(const Duration(milliseconds: 140));
 
-    await onProgress?.call(2, "Restoring daily history & completed day logs");
-    // Completed day logs already merged within mergeTaskState
+    final totalDaysCount = completedByDay.length;
+    await onProgress?.call(2, "Restoring daily history (merged ${taskResult.mergedDays} days across $totalDaysCount days)...");
+    await Future.delayed(const Duration(milliseconds: 140));
 
-    await onProgress?.call(3, "Weaving reflection journals & memories");
+    final reflectionsCount = (data['reflectionLogs'] as List?)?.length ?? 0;
+    await onProgress?.call(3, "Weaving reflection journals & memories ($reflectionsCount found)...");
     final addedReflections = mergeUserState(data);
+    await Future.delayed(const Duration(milliseconds: 140));
 
-    await onProgress?.call(4, "Restoring projects, goals & financial records");
+    final txCount = (data['transactions'] as List?)?.length ?? 0;
+    await onProgress?.call(4, "Restoring projects, goals & financial records ($txCount transactions)...");
     final addedTransactions = mergeFinanceState(data);
+    await Future.delayed(const Duration(milliseconds: 140));
 
+    await onProgress?.call(5, "Synchronizing health data & home launcher configuration...");
     if (data['foodItems'] != null || data['healthLogs'] != null) {
       loadHealthState(data);
     }
@@ -1180,11 +1189,13 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         } catch (_) {}
       }
     }
+    await Future.delayed(const Duration(milliseconds: 140));
 
-    await onProgress?.call(5, "Finalizing local storage & refreshing system state");
+    await onProgress?.call(6, "Finalizing local storage & refreshing system state...");
     markAllDirty();
     notifyListeners();
     await forceLocalBackup();
+    await Future.delayed(const Duration(milliseconds: 120));
 
     return MergeReport(
       addedReflections: addedReflections,
@@ -1390,7 +1401,14 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       if (h['healthLogs'] != null) raw['healthLogs'] ??= decodeIfString(h['healthLogs']);
     }
     if (raw['foodItems'] != null) raw['foodItems'] = toListOfMaps(raw['foodItems']);
-    if (raw['healthLogs'] != null) raw['healthLogs'] = toListOfMaps(raw['healthLogs']);
+    if (raw['healthLogs'] != null) {
+      final hl = decodeIfString(raw['healthLogs']);
+      if (hl is Map) {
+        raw['healthLogs'] = hl;
+      } else if (hl is List) {
+        raw['healthLogs'] = toListOfMaps(hl);
+      }
+    }
 
     // 7. Normalize launcher chunk: string or map
     if (raw['launcher'] != null) {

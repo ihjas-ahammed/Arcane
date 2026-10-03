@@ -25,7 +25,9 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 
 /**
@@ -66,6 +68,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
     // ── Recording State ──────────────────────────────────────────────────────
     private var isRecording = false
     private var activeRecordingName = ""
+    private var activeRecordingMode = "hybrid"
     private var recordingStartTime = 0L
     private var lastActionTime = 0L
     private var activePackageName = ""
@@ -73,6 +76,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
     private val recordedParameters = mutableListOf<Map<String, Any?>>()
     private var lastTextEditNodeId: String? = null
     private var lastTextEditStepIndex = -1
+    private var lastActionWasType = false
 
     // ── Replay State ────────────────────────────────────────────────────────
     private var isReplaying = false
@@ -203,9 +207,14 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
     fun isRecordingActive(): Boolean = isRecording
     fun isReplayingActive(): Boolean = isReplaying
 
-    fun startRecording(name: String, targetPackage: String? = null): Boolean {
+    fun startRecording(name: String, targetPackage: String? = null, mode: String = "hybrid"): Boolean {
         if (isRecording) return true
         isRecording = true
+        activeRecordingMode = when (mode.lowercase()) {
+            "touch_sensor", "touch" -> "touch_sensor"
+            "elements", "element" -> "elements"
+            else -> "hybrid"
+        }
         activeRecordingName = if (name.isNotBlank()) name.trim() else "macro_${System.currentTimeMillis()}"
         recordingStartTime = SystemClock.elapsedRealtime()
         lastActionTime = recordingStartTime
@@ -214,6 +223,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         recordedParameters.clear()
         lastTextEditNodeId = null
         lastTextEditStepIndex = -1
+        lastActionWasType = false
 
         // If target package is supplied, record initial launch step
         if (!targetPackage.isNullOrBlank()) {
@@ -229,7 +239,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         isKeyboardActive = false
         activeImePackageVisible = false
         mainHandler.post {
-            overlay.showRecording(activeRecordingName)
+            overlay.showRecording(activeRecordingName, activeRecordingMode)
             service.updateEventFilter()
             mainHandler.postDelayed(keyboardCheckRunnable, 350L)
         }
@@ -243,7 +253,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
         }
 
-        Log.i(TAG, "Started recording whole-device macro: $activeRecordingName")
+        Log.i(TAG, "Started recording whole-device macro: $activeRecordingName (mode: $activeRecordingMode)")
         return true
     }
 
@@ -254,6 +264,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         isKeyboardActive = false
         activeImePackageVisible = false
         isRecording = false
+        lastActionWasType = false
 
         mainHandler.post {
             overlay.hide()
@@ -265,6 +276,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         val macro = mutableMapOf<String, Any?>(
             "format" to FORMAT_AGENT,
             "name" to activeRecordingName,
+            "mode" to activeRecordingMode,
             "created_at" to SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(Date()),
             "screen" to listOf(dm.widthPixels, dm.heightPixels),
             "target_package" to activePackageName,
@@ -274,7 +286,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
 
         // Save to storage
         saveMacroToFile(activeRecordingName, macro)
-        Log.i(TAG, "Finished recording macro: $activeRecordingName with ${recordedSteps.size} steps")
+        Log.i(TAG, "Finished recording macro: $activeRecordingName ($activeRecordingMode) with ${recordedSteps.size} steps")
         return macro
     }
 
@@ -284,6 +296,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         isKeyboardActive = false
         activeImePackageVisible = false
         isRecording = false
+        lastActionWasType = false
         recordedSteps.clear()
         recordedParameters.clear()
         mainHandler.post {
@@ -422,16 +435,22 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
 
                 val dm = service.resources.displayMetrics
                 val rect = Rect()
-                var viewId: String? = null
-                var desc: String? = event.contentDescription?.toString()
-                var text: String? = if (event.text.isNotEmpty()) event.text.joinToString("") else null
+                val wasAfterType = lastActionWasType
+                lastActionWasType = false
 
-                val isSendEvent = (desc?.contains("send", ignoreCase = true) == true) ||
-                                  (viewId?.contains("send", ignoreCase = true) == true) ||
-                                  (text?.contains("send", ignoreCase = true) == true)
+                var viewId: String? = node?.viewIdResourceName ?: event.source?.viewIdResourceName
+                var desc: String? = event.contentDescription?.toString() ?: node?.contentDescription?.toString()
+                var text: String? = if (event.text.isNotEmpty()) event.text.joinToString("") else node?.text?.toString()
 
-                // If node is not found and it's a send action, search other windows for send button
-                if (node == null && isSendEvent) {
+                val sKeywords = listOf("send", "submit", "post", "reply", "compose_send", "send_button", "send_message", "btn_send", "action_send")
+                val isSendEvent = sKeywords.any { k ->
+                    (desc?.contains(k, ignoreCase = true) == true) ||
+                    (viewId?.contains(k, ignoreCase = true) == true) ||
+                    (text?.contains(k, ignoreCase = true) == true)
+                }
+
+                // If node is not found and it's a send action or tap right after typing, search other windows for send button
+                if (node == null && (isSendEvent || wasAfterType)) {
                     try {
                         val windows = service.windows
                         if (!windows.isNullOrEmpty()) {
@@ -496,7 +515,9 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                     "viewId" to viewId,
                     "desc" to desc,
                     "text" to text,
-                    "package" to pkg
+                    "package" to pkg,
+                    "isSend" to isSendEvent,
+                    "isAfterType" to wasAfterType
                 )
                 recordedSteps.add(step)
                 lastActionTime = now
@@ -543,6 +564,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
 
             AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> {
                 activeImePackageVisible = true
+                lastActionWasType = true
                 checkKeyboardState()
 
                 val node = event.source
@@ -640,7 +662,8 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         macroData: Map<String, Any?>,
         runtimeParams: Map<String, Any?>? = null,
         speedMultiplier: Double = 1.0,
-        repeatCount: Int = 1
+        repeatCount: Int = 1,
+        modeOverride: String? = null
     ): Boolean {
         if (isReplaying) return false
         isReplaying = true
@@ -648,6 +671,11 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
 
         val steps = (macroData["steps"] as? List<*>)?.filterIsInstance<Map<String, Any?>>() ?: return false
         val macroName = macroData["name"] as? String ?: "Macro"
+        val effectiveMode = when ((modeOverride ?: macroData["mode"] as? String ?: "hybrid").lowercase()) {
+            "touch_sensor", "touch" -> "touch_sensor"
+            "elements", "element" -> "elements"
+            else -> "hybrid"
+        }
         val params = runtimeParams ?: emptyMap()
 
         executor.execute {
@@ -659,6 +687,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                     if (shouldAbortReplay) break
 
                     var currentStepIdx = 0
+                    var replayLastStepWasType = false
                     for (step in steps) {
                         if (shouldAbortReplay) break
 
@@ -666,11 +695,16 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                         if (type != "wait") {
                             currentStepIdx++
                             mainHandler.post {
-                                overlay.showReplaying(currentStepIdx, totalSteps, macroName)
+                                overlay.showReplaying(currentStepIdx, totalSteps, macroName, effectiveMode)
                             }
                         }
 
-                        executeSingleStep(step, params, speedMultiplier)
+                        executeSingleStep(step, params, speedMultiplier, effectiveMode, replayLastStepWasType)
+                        if (type == "type") {
+                            replayLastStepWasType = true
+                        } else if (type != "wait") {
+                            replayLastStepWasType = false
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -695,7 +729,13 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         Log.i(TAG, "Replay aborted by user")
     }
 
-    private fun executeSingleStep(step: Map<String, Any?>, params: Map<String, Any?>, speed: Double) {
+    private fun executeSingleStep(
+        step: Map<String, Any?>,
+        params: Map<String, Any?>,
+        speed: Double,
+        mode: String = "hybrid",
+        wasAfterType: Boolean = false
+    ) {
         val type = step["type"] as? String ?: return
 
         when (type) {
@@ -733,58 +773,80 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 val viewId = step["viewId"] as? String
                 val text = step["text"] as? String
                 val desc = step["desc"] as? String
-                val isSendAction = (desc?.contains("send", ignoreCase = true) == true) ||
-                                   (viewId?.contains("send", ignoreCase = true) == true) ||
-                                   (text?.contains("send", ignoreCase = true) == true)
+                val isSendExplicit = (step["isSend"] as? Boolean) == true
+                val isAfterTypeExplicit = (step["isAfterType"] as? Boolean) == true || wasAfterType
 
-                // If this is a send action and coordinates fall in the keyboard center / 'v' key zone,
-                // adjust coordinates away from the virtual keyboard center to the send button area
-                if (isSendAction) {
-                    val isCenterHorizontal = targetX > (dm.widthPixels * 0.30f) && targetX < (dm.widthPixels * 0.70f)
-                    val isKeyboardHeight = targetY > (dm.heightPixels * 0.65f)
-                    if (isCenterHorizontal && isKeyboardHeight) {
-                        Log.w(TAG, "Replay: correcting send action coordinates away from keyboard center ('v' key) to send area")
-                        targetX = dm.widthPixels * 0.92f
-                        targetY = if (isKeyboardActive) dm.heightPixels * 0.58f else dm.heightPixels * 0.94f
+                val sKeywords = listOf("send", "submit", "post", "reply", "compose_send", "send_button", "send_message", "btn_send", "action_send")
+                val isSendAction = isSendExplicit || sKeywords.any { k ->
+                    (desc?.contains(k, ignoreCase = true) == true) ||
+                    (viewId?.contains(k, ignoreCase = true) == true) ||
+                    (text?.contains(k, ignoreCase = true) == true)
+                }
+
+                // If this action occurs after typing, or is a send/submit action, wait for target app UI to update
+                if (isAfterTypeExplicit || isSendAction) {
+                    SystemClock.sleep((240 / speed.coerceAtLeast(0.5)).toLong().coerceIn(120L, 400L))
+                }
+
+                // If keyboard was closed during replay, adjust coordinates away from keyboard center ('v' key zone) to send area
+                if (isSendAction || isAfterTypeExplicit) {
+                    val keyboardOpenNow = isKeyboardShowing()
+                    if (!keyboardOpenNow) {
+                        val isCenterHorizontal = targetX > (dm.widthPixels * 0.30f) && targetX < (dm.widthPixels * 0.70f)
+                        val isKeyboardHeight = targetY > (dm.heightPixels * 0.50f) && targetY < (dm.heightPixels * 0.75f)
+                        if (isSendAction && (isCenterHorizontal || isKeyboardHeight)) {
+                            Log.w(TAG, "Replay: correcting send action coordinates away from keyboard center to send area")
+                            targetX = dm.widthPixels * 0.92f
+                            targetY = dm.heightPixels * 0.94f
+                        }
                     }
                 }
 
-                // Show real-time tactical reticle indicator at target
-                mainHandler.post {
-                    overlay.showReplayTapIndicator(targetX, targetY)
-                }
-
-                // 1. If it's a send action, prioritize finding and clicking the smart send node directly
                 var handled = false
-                if (isSendAction) {
-                    handled = clickSmartSendButton()
-                    if (handled) {
-                        Log.i(TAG, "Replayed send action via clickSmartSendButton successfully")
+
+                // 1. ELEMENTS or HYBRID MODE: Search live UI elements first to avoid layout/keyboard shift issues
+                if (mode == "elements" || mode == "hybrid") {
+                    if (isSendAction) {
+                        handled = clickSmartSendButton()
+                        if (handled) Log.i(TAG, "Replayed send action via clickSmartSendButton ($mode)")
+                    }
+                    if (!handled && !viewId.isNullOrEmpty()) {
+                        handled = clickNodeByViewId(viewId)
+                        if (handled) Log.i(TAG, "Replayed click via viewId '$viewId' ($mode)")
+                    }
+                    if (!handled && !text.isNullOrEmpty()) {
+                        handled = clickNodeByText(text)
+                        if (handled) Log.i(TAG, "Replayed click via text '$text' ($mode)")
+                    }
+                    if (!handled && !desc.isNullOrEmpty()) {
+                        handled = clickNodeByDesc(desc)
+                        if (handled) Log.i(TAG, "Replayed click via desc '$desc' ($mode)")
+                    }
+                    if (!handled && isAfterTypeExplicit) {
+                        handled = clickSmartSendButton()
+                        if (handled) Log.i(TAG, "Replayed after-type click via clickSmartSendButton fallback")
                     }
                 }
 
-                // 2. Primary execution: Accurate touch coordinate tap!
-                if (!handled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    handled = dispatchTapGesture(targetX, targetY, 50L)
-                    Log.i(TAG, "Replayed step 'click' via touch tap at ($targetX, $targetY) - result=$handled")
-                }
-
-                // 3. Secondary fallback: Look for button nodes if gesture tap was not handled
+                // 2. TOUCH_SENSOR or HYBRID fallback: Real physical touch coordinate injection
                 if (!handled) {
-                    var clicked = false
-                    if (!viewId.isNullOrEmpty()) {
-                        clicked = clickNodeByViewId(viewId)
+                    mainHandler.post {
+                        overlay.showReplayTapIndicator(targetX, targetY)
                     }
-                    if (!clicked && !text.isNullOrEmpty()) {
-                        clicked = clickNodeByText(text)
-                    }
-                    if (!clicked && !desc.isNullOrEmpty()) {
-                        clicked = clickNodeByDesc(desc)
-                    }
-                    if (!clicked && isSendAction) {
-                        clickSmartSendButton()
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        handled = dispatchTapGestureSync(targetX, targetY, 45L)
+                        Log.i(TAG, "Replayed step 'click' via touch tap at ($targetX, $targetY) - result=$handled ($mode)")
                     }
                 }
+
+                // 3. TOUCH_SENSOR fallback: If touch tap failed, try nodes as secondary fallback
+                if (!handled && mode == "touch_sensor") {
+                    if (isSendAction) handled = clickSmartSendButton()
+                    if (!handled && !viewId.isNullOrEmpty()) handled = clickNodeByViewId(viewId)
+                    if (!handled && !text.isNullOrEmpty()) handled = clickNodeByText(text)
+                    if (!handled && !desc.isNullOrEmpty()) handled = clickNodeByDesc(desc)
+                }
+
                 SystemClock.sleep((100 / speed).toLong().coerceAtLeast(30L))
             }
 
@@ -949,20 +1011,56 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
     }
 
     private fun dispatchTapGesture(x: Float, y: Float, durationMs: Long): Boolean {
+        return dispatchTapGestureSync(x, y, durationMs)
+    }
+
+    private fun dispatchTapGestureSync(x: Float, y: Float, durationMs: Long): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return false
         val path = Path().apply {
             moveTo(x, y)
         }
         val stroke = GestureDescription.StrokeDescription(path, 0, durationMs)
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
-        return service.dispatchGesture(gesture, null, null)
+        val latch = CountDownLatch(1)
+        var completed = false
+        val dispatched = service.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) {
+                completed = true
+                latch.countDown()
+            }
+            override fun onCancelled(gestureDescription: GestureDescription?) {
+                completed = false
+                latch.countDown()
+            }
+        }, null)
+
+        if (dispatched) {
+            try {
+                latch.await(durationMs + 250L, TimeUnit.MILLISECONDS)
+            } catch (_: InterruptedException) {}
+            return completed
+        }
+        return false
     }
 
     private fun dispatchSwipeGesture(path: Path, durationMs: Long) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
         val stroke = GestureDescription.StrokeDescription(path, 0, durationMs)
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
-        service.dispatchGesture(gesture, null, null)
+        val latch = CountDownLatch(1)
+        val dispatched = service.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) {
+                latch.countDown()
+            }
+            override fun onCancelled(gestureDescription: GestureDescription?) {
+                latch.countDown()
+            }
+        }, null)
+        if (dispatched) {
+            try {
+                latch.await(durationMs + 200L, TimeUnit.MILLISECONDS)
+            } catch (_: InterruptedException) {}
+        }
     }
 
     private fun clickNodeRobustly(node: AccessibilityNodeInfo): Boolean {
@@ -970,16 +1068,16 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         node.getBoundsInScreen(rect)
         val hasValidBounds = rect.width() > 0 && rect.height() > 0
 
-        // 1. Dispatch real touch gesture at current screen position (for WhatsApp/Telegram ImageButtons and Compose)
+        // 1. Dispatch real touch gesture at CURRENT screen position
         if (hasValidBounds && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            val gestureSuccess = dispatchTapGesture(rect.centerX().toFloat(), rect.centerY().toFloat(), 40L)
+            val gestureSuccess = dispatchTapGestureSync(rect.centerX().toFloat(), rect.centerY().toFloat(), 40L)
             if (gestureSuccess) {
-                // Real touch gesture dispatched directly: return true immediately so we NEVER double-tap!
+                // Real touch gesture dispatched directly to current element coordinates
                 return true
             }
         }
 
-        // 2. Perform accessibility click action ONLY if gesture was unavailable or failed
+        // 2. Perform accessibility click action ONLY if gesture was unavailable or cancelled
         try {
             if (node.isClickable) {
                 return node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
@@ -998,15 +1096,17 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
 
     private fun findSmartSendNode(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
         var bestNode: AccessibilityNodeInfo? = null
+        val sKeywords = listOf("send", "submit", "post", "reply", "compose_send", "send_button", "send_message", "btn_send", "action_send")
+
         fun scan(node: AccessibilityNodeInfo) {
             val d = node.contentDescription?.toString() ?: ""
             val id = node.viewIdResourceName ?: ""
             val t = node.text?.toString() ?: ""
-            val isSend = d.contains("send", ignoreCase = true) ||
-                         id.contains("send", ignoreCase = true) ||
-                         t.equals("send", ignoreCase = true) ||
-                         d.contains("submit", ignoreCase = true) ||
-                         id.contains("submit", ignoreCase = true)
+            val isSend = sKeywords.any { k ->
+                d.contains(k, ignoreCase = true) ||
+                id.contains(k, ignoreCase = true) ||
+                t.equals(k, ignoreCase = true)
+            }
             if (isSend) {
                 val isClickable = node.isClickable || node.actionList.any { it.id == AccessibilityNodeInfo.ACTION_CLICK }
                 if (bestNode == null || isClickable) {
@@ -1083,6 +1183,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
         for (node in nodes) {
             if (node.isEditable) {
+                node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
                 val args = Bundle().apply {
                     putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
                 }
@@ -1094,8 +1195,21 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
 
     private fun setFocusedNodeText(text: String): Boolean {
         val root = service.rootInActiveWindow ?: return false
-        val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return false
-        if (focused.isEditable) {
+        var focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        if (focused == null) {
+            fun findEditable(n: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+                if (n.isEditable) return n
+                for (i in 0 until n.childCount) {
+                    val c = n.getChild(i) ?: continue
+                    val res = findEditable(c)
+                    if (res != null) return res
+                }
+                return null
+            }
+            focused = findEditable(root)
+        }
+        if (focused != null && focused.isEditable) {
+            focused.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
             val args = Bundle().apply {
                 putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
             }

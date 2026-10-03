@@ -1,3 +1,31 @@
+# ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100310)
+
+### 🎯 Input Reply Engine: Synchronous Click Execution & Engine Modes
+- **Zero-Miss Clicks After Replying / Typing**:
+  - Implemented synchronized gesture dispatching (`dispatchTapGestureSync`) utilizing OS `CountDownLatch(1)` and `GestureResultCallback` to ensure physical touch gestures finish before advancing execution steps.
+  - Added live element bounds querying during replay (`clickNodeRobustly`): dynamic recalculation of live screen coordinates prevents clicking empty space caused by keyboard dismissal or layout reflow.
+  - Expanded send and submission button detection keywords (`send`, `submit`, `post`, `reply`, `btn_send`, `compose_send`, `action_send`).
+  - Added post-typing UI stabilization delays (120–400ms) to ensure target apps render send buttons in their final layout positions.
+- **Selectable Input Engine Modes**:
+  - Added selectable execution and recording engines: **Smart Hybrid** (`hybrid`), **Touch Sensor** (`touch_sensor`), and **UI Elements** (`elements`).
+  - Interactive mode selector bottom sheet during macro playback and dedicated "Change Mode" configuration dialog on macro cards.
+  - Real-time HUD badge display (`[HYBRID]`, `[TOUCH]`, `[ELEM]`) during recording and execution overlays.
+
+### 🧠 Dedicated AI Models & Inference Configuration Screen
+- **Clean Settings Architecture**:
+  - Moved AI model selection and custom model management from inline `SettingsView` into a dedicated high-performance `AiModelsScreen`.
+  - Added quick-access tactical overview card displaying the active model and configured custom API keys count.
+  - Reorganized AI providers, API keys, fallback candidates, and prompt configurations cleanly.
+
+### 🔄 Data Restore & Multi-Page Draggable Widgets
+- **Data Restore Typecast Fix & Paced Progress HUD**:
+  - Resolved `List<Map> is not a typecast of Map` error during database import and restore operations.
+  - Implemented granular, timed progress steps in `DataRestoreProgressDialog` showing live item counts across tasks, finance, health, and history sub-systems.
+- **Smooth Draggable Widgets on Home Screen**:
+  - Home screen app widgets are now seamlessly draggable, swappable, and reorderable across multiple pages with visual feedback, matching app tile drag ergonomics.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100309)
 
 ### 🚀 Zero-Lag Startup & Infinite Loading Eradication (Missions Activity)

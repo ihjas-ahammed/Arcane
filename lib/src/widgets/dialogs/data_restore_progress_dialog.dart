@@ -32,6 +32,7 @@ class DataRestoreProgressDialog extends StatefulWidget {
       "Merging daily history & completed day logs",
       "Weaving reflection journals & memories",
       "Restoring projects, goals & financial records",
+      "Synchronizing health data & launcher layout",
       "Finalizing local storage & refreshing system state",
     ];
 
@@ -64,8 +65,8 @@ class DataRestoreProgressDialog extends StatefulWidget {
       currentStepNotifier.value = stepIndex;
       stepMessageNotifier.value = message;
       progressNotifier.value = ((stepIndex + 1) / labels.length).clamp(0.05, 1.0);
-      // Brief pause to allow the foreground UI to render the progress update
-      await Future.delayed(const Duration(milliseconds: 60));
+      // Pacing to allow UI to breathe and user to observe real subsystem restoration
+      await Future.delayed(const Duration(milliseconds: 120));
     }
 
     try {
@@ -74,7 +75,7 @@ class DataRestoreProgressDialog extends StatefulWidget {
       progressNotifier.value = 1.0;
       currentStepNotifier.value = labels.length;
       stepMessageNotifier.value = "Restore & Merge Completed Successfully";
-      await Future.delayed(const Duration(milliseconds: 180));
+      await Future.delayed(const Duration(milliseconds: 280));
 
       if (dialogOpen && context.mounted) {
         Navigator.of(context, rootNavigator: true).pop(result);

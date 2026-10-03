@@ -170,6 +170,7 @@ class InputReplyMacro {
   final String createdAt;
   final List<int> screen;
   final String targetPackage;
+  final String mode; // 'touch_sensor', 'elements', 'hybrid'
   final List<InputReplyParam> parameters;
   final List<InputReplyStep> steps;
 
@@ -179,6 +180,7 @@ class InputReplyMacro {
     required this.createdAt,
     this.screen = const [1080, 2400],
     this.targetPackage = '',
+    this.mode = 'hybrid',
     this.parameters = const [],
     this.steps = const [],
   });
@@ -205,6 +207,7 @@ class InputReplyMacro {
       createdAt: json['created_at'] as String? ?? DateTime.now().toIso8601String(),
       screen: screen.length >= 2 ? screen : const [1080, 2400],
       targetPackage: json['target_package'] as String? ?? '',
+      mode: json['mode'] as String? ?? 'hybrid',
       parameters: params,
       steps: steps,
     );
@@ -215,6 +218,7 @@ class InputReplyMacro {
         'name': name,
         'created_at': createdAt,
         'screen': screen,
+        'mode': mode,
         if (targetPackage.isNotEmpty) 'target_package': targetPackage,
         'parameters': parameters.map((p) => p.toJson()).toList(),
         'steps': steps.map((s) => s.toJson()).toList(),
@@ -407,6 +411,7 @@ class InputReplyMacro {
   InputReplyMacro copyWith({
     String? name,
     String? targetPackage,
+    String? mode,
     List<InputReplyParam>? parameters,
     List<InputReplyStep>? steps,
   }) {
@@ -416,6 +421,7 @@ class InputReplyMacro {
       createdAt: createdAt,
       screen: screen,
       targetPackage: targetPackage ?? this.targetPackage,
+      mode: mode ?? this.mode,
       parameters: parameters ?? this.parameters,
       steps: steps ?? this.steps,
     );
@@ -452,12 +458,17 @@ class InputReplyService {
   }
 
   /// Start whole-device recording. The floating tactical HUD will appear over all apps.
-  Future<bool> startRecording({required String name, String? targetPackage}) async {
+  Future<bool> startRecording({
+    required String name,
+    String? targetPackage,
+    String mode = 'hybrid',
+  }) async {
     if (!Platform.isAndroid) return false;
     try {
       final res = await _channel.invokeMethod<bool>('startRecording', {
         'name': name,
         'targetPackage': targetPackage,
+        'mode': mode,
       });
       return res ?? false;
     } catch (e) {
@@ -541,12 +552,23 @@ class InputReplyService {
     return updated;
   }
 
-  /// Play a macro with runtime parameters, speed multiplier, and repeat count.
+  /// Updates execution mode ('touch_sensor', 'elements', 'hybrid') and persists it.
+  Future<InputReplyMacro> updateMacroMode({
+    required InputReplyMacro macro,
+    required String mode,
+  }) async {
+    final updated = macro.copyWith(mode: mode);
+    await saveRecording(updated);
+    return updated;
+  }
+
+  /// Play a macro with runtime parameters, speed multiplier, repeat count, and mode.
   Future<bool> playMacro(
     InputReplyMacro macro, {
     Map<String, dynamic>? params,
     double speed = 1.0,
     int repeatCount = 1,
+    String? mode,
   }) async {
     if (!Platform.isAndroid) {
       debugPrint('[InputReplyService] Replay requested on non-Android platform: ${macro.name}');
@@ -555,13 +577,17 @@ class InputReplyService {
     try {
       final runtime = params ?? {};
       final resolvedSteps = macro.resolve(runtime);
-      final resolvedMacro = macro.copyWith(steps: resolvedSteps);
+      final resolvedMacro = macro.copyWith(
+        steps: resolvedSteps,
+        mode: mode ?? macro.mode,
+      );
 
       final res = await _channel.invokeMethod<bool>('playMacro', {
         'macro': resolvedMacro.toJson(),
         'params': runtime,
         'speed': speed,
         'repeatCount': repeatCount,
+        'mode': mode ?? macro.mode,
       });
       return res ?? false;
     } catch (e) {

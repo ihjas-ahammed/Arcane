@@ -89,19 +89,22 @@ class _InputReplyScreenState extends State<InputReplyScreen> with WidgetsBinding
           ? rawName
           : 'Macro_${DateTime.now().millisecondsSinceEpoch % 100000}';
       final target = result['targetPackage'];
+      final mode = result['mode'] ?? 'hybrid';
       final ok = await _service.startRecording(
         name: name,
         targetPackage: target?.isNotEmpty == true ? target : null,
+        mode: mode,
       );
       if (ok) {
         setState(() => _isRecording = true);
         if (mounted) {
           final targetInfo = target?.isNotEmpty == true ? ' Target: $target' : '';
+          final modeLabel = mode == 'touch_sensor' ? 'TOUCH SENSOR' : (mode == 'elements' ? 'UI ELEMENTS' : 'SMART HYBRID');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: JweTheme.panel,
               content: Text(
-                'RECORDING STARTED: Floating HUD is live.$targetInfo Tap [■ STOP] on HUD when done.',
+                'RECORDING STARTED [$modeLabel]: Floating HUD is live.$targetInfo Tap [■ STOP] on HUD when done.',
                 style: GoogleFonts.jetBrainsMono(color: JweTheme.accentAmber, fontSize: 11),
               ),
             ),
@@ -196,6 +199,7 @@ class _InputReplyScreenState extends State<InputReplyScreen> with WidgetsBinding
 
     double speed = 1.0;
     int repeatCount = 1;
+    String executionMode = macro.mode;
 
     final shouldRun = await showModalBottomSheet<bool>(
       context: context,
@@ -241,6 +245,136 @@ class _InputReplyScreenState extends State<InputReplyScreen> with WidgetsBinding
                       style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 11),
                     ),
                     const Divider(height: 20),
+
+                    // Execution Mode Selector
+                    Text(
+                      'EXECUTION MODE',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.accentCyan,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setModalState(() => executionMode = 'hybrid'),
+                            borderRadius: BorderRadius.circular(4),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                              decoration: BoxDecoration(
+                                color: executionMode == 'hybrid'
+                                    ? JweTheme.accentCyan.withValues(alpha: 0.15)
+                                    : JweTheme.bgCanvas,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: executionMode == 'hybrid' ? JweTheme.accentCyan : JweTheme.border,
+                                  width: executionMode == 'hybrid' ? 1.5 : 1.0,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(MdiIcons.autoFix, size: 14, color: executionMode == 'hybrid' ? JweTheme.accentCyan : JweTheme.textMuted),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'HYBRID',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: executionMode == 'hybrid' ? JweTheme.accentCyan : JweTheme.textMid,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Smart Adaptive',
+                                    style: GoogleFonts.jetBrainsMono(fontSize: 8, color: JweTheme.textMuted),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setModalState(() => executionMode = 'touch_sensor'),
+                            borderRadius: BorderRadius.circular(4),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                              decoration: BoxDecoration(
+                                color: executionMode == 'touch_sensor'
+                                    ? JweTheme.accentAmber.withValues(alpha: 0.15)
+                                    : JweTheme.bgCanvas,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: executionMode == 'touch_sensor' ? JweTheme.accentAmber : JweTheme.border,
+                                  width: executionMode == 'touch_sensor' ? 1.5 : 1.0,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(MdiIcons.gestureTap, size: 14, color: executionMode == 'touch_sensor' ? JweTheme.accentAmber : JweTheme.textMuted),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'TOUCH',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: executionMode == 'touch_sensor' ? JweTheme.accentAmber : JweTheme.textMid,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Coordinates',
+                                    style: GoogleFonts.jetBrainsMono(fontSize: 8, color: JweTheme.textMuted),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setModalState(() => executionMode = 'elements'),
+                            borderRadius: BorderRadius.circular(4),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                              decoration: BoxDecoration(
+                                color: executionMode == 'elements'
+                                    ? const Color(0xFF64B5F6).withValues(alpha: 0.15)
+                                    : JweTheme.bgCanvas,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: executionMode == 'elements' ? const Color(0xFF64B5F6) : JweTheme.border,
+                                  width: executionMode == 'elements' ? 1.5 : 1.0,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(MdiIcons.xml, size: 14, color: executionMode == 'elements' ? const Color(0xFF64B5F6) : JweTheme.textMuted),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'ELEMENTS',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: executionMode == 'elements' ? const Color(0xFF64B5F6) : JweTheme.textMid,
+                                    ),
+                                  ),
+                                  Text(
+                                    'UI Nodes',
+                                    style: GoogleFonts.jetBrainsMono(fontSize: 8, color: JweTheme.textMuted),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
 
                     // Runtime parameters inputs
                     if (macro.parameters.isNotEmpty) ...[
@@ -363,6 +497,7 @@ class _InputReplyScreenState extends State<InputReplyScreen> with WidgetsBinding
         params: runtimeParams,
         speed: speed,
         repeatCount: repeatCount,
+        mode: executionMode,
       );
 
       if (mounted) {
@@ -1474,6 +1609,7 @@ class _InputReplyScreenState extends State<InputReplyScreen> with WidgetsBinding
                   onSelected: (val) {
                     if (val == 'inspect') _inspectMacroSteps(macro);
                     if (val == 'params') _parameterizeMacroDialog(macro);
+                    if (val == 'mode') _changeMacroModeDialog(macro);
                     if (val == 'delete') _deleteMacro(macro);
                   },
                   itemBuilder: (_) => [
@@ -1498,6 +1634,16 @@ class _InputReplyScreenState extends State<InputReplyScreen> with WidgetsBinding
                       ),
                     ),
                     PopupMenuItem(
+                      value: 'mode',
+                      child: Row(
+                        children: [
+                          Icon(MdiIcons.targetVariant, size: 16, color: JweTheme.accentCyan),
+                          const SizedBox(width: 8),
+                          Text('Change Mode', style: GoogleFonts.jetBrainsMono(fontSize: 12, color: JweTheme.textWhite)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
                       value: 'delete',
                       child: Row(
                         children: [
@@ -1515,7 +1661,25 @@ class _InputReplyScreenState extends State<InputReplyScreen> with WidgetsBinding
             Wrap(
               spacing: 8,
               runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
+                // Mode indicator badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: _modeColor(macro.mode).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(color: _modeColor(macro.mode).withValues(alpha: 0.5), width: 0.8),
+                  ),
+                  child: Text(
+                    macro.mode == 'touch_sensor' ? 'TOUCH' : (macro.mode == 'elements' ? 'ELEM' : 'HYBRID'),
+                    style: GoogleFonts.jetBrainsMono(
+                      color: _modeColor(macro.mode),
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
                 Text(
                   '${macro.actionStepCount} actions',
                   style: GoogleFonts.jetBrainsMono(color: JweTheme.textMid, fontSize: 11),
@@ -1593,6 +1757,177 @@ class _InputReplyScreenState extends State<InputReplyScreen> with WidgetsBinding
       ),
     );
   }
+
+  Future<void> _changeMacroModeDialog(InputReplyMacro macro) async {
+    String currentMode = macro.mode;
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: JweTheme.panel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(MdiIcons.cogRefreshOutline, size: 20, color: JweTheme.accentCyan),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'CHANGE ENGINE MODE: ${macro.name}',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.textWhite,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Select how Arcane executes clicks and gestures for this macro:',
+                    style: GoogleFonts.jetBrainsMono(color: JweTheme.textMid, fontSize: 11),
+                  ),
+                  const SizedBox(height: 14),
+                  _modeSelectionTile(
+                    title: 'Smart Hybrid (Recommended)',
+                    desc: 'Searches live UI elements first to compensate for keyboard/layout shifts, falling back to calibrated touch taps.',
+                    modeKey: 'hybrid',
+                    current: currentMode,
+                    icon: MdiIcons.autoFix,
+                    color: JweTheme.accentCyan,
+                    onTap: () => setSheetState(() => currentMode = 'hybrid'),
+                  ),
+                  const SizedBox(height: 8),
+                  _modeSelectionTile(
+                    title: 'Touch Sensor (Direct Coordinates)',
+                    desc: 'Direct physical screen coordinate taps. Ideal for canvas games and custom un-instrumented UIs.',
+                    modeKey: 'touch_sensor',
+                    current: currentMode,
+                    icon: MdiIcons.gestureTap,
+                    color: JweTheme.accentAmber,
+                    onTap: () => setSheetState(() => currentMode = 'touch_sensor'),
+                  ),
+                  const SizedBox(height: 8),
+                  _modeSelectionTile(
+                    title: 'UI Elements (Strict Accessibility)',
+                    desc: 'Strictly clicks accessibility node IDs, descriptions, and text. Never taps empty coordinates if element is missing.',
+                    modeKey: 'elements',
+                    current: currentMode,
+                    icon: MdiIcons.xml,
+                    color: const Color(0xFF64B5F6),
+                    onTap: () => setSheetState(() => currentMode = 'elements'),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: JweTheme.accentCyan,
+                        foregroundColor: JweTheme.onAccent,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      onPressed: () => Navigator.pop(ctx, currentMode),
+                      child: Text(
+                        'APPLY ENGINE MODE',
+                        style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (selected != null && selected != macro.mode && mounted) {
+      await _service.updateMacroMode(macro: macro, mode: selected);
+      _refreshState();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: JweTheme.panel,
+          content: Text(
+            'UPDATED MODE TO ${selected.toUpperCase()}',
+            style: GoogleFonts.jetBrainsMono(color: JweTheme.accentCyan, fontSize: 11),
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _modeSelectionTile({
+    required String title,
+    required String desc,
+    required String modeKey,
+    required String current,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    final isSelected = current == modeKey;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.12) : JweTheme.bgCanvas,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: isSelected ? color : JweTheme.border, width: isSelected ? 1.5 : 1.0),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: isSelected ? color : JweTheme.textMuted),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: isSelected ? color : JweTheme.textWhite,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    desc,
+                    style: GoogleFonts.jetBrainsMono(color: JweTheme.textMid, fontSize: 9.5, height: 1.3),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected) Icon(Icons.check_circle, size: 18, color: color),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _modeColor(String mode) {
+    switch (mode) {
+      case 'touch_sensor':
+        return JweTheme.accentAmber;
+      case 'elements':
+        return const Color(0xFF64B5F6);
+      default:
+        return JweTheme.accentCyan;
+    }
+  }
 }
 
 class _RecordingModeSheet extends StatefulWidget {
@@ -1613,6 +1948,7 @@ class _RecordingModeSheetState extends State<_RecordingModeSheet> {
   LauncherApp? _selectedApp;
   LauncherApp? _wholeDeviceSelectedApp;
   String _searchQuery = '';
+  String _selectedMode = 'hybrid';
 
   @override
   void initState() {
@@ -1924,6 +2260,10 @@ class _RecordingModeSheetState extends State<_RecordingModeSheet> {
           ),
           const SizedBox(height: 12),
 
+          // Engine Mode Selector (Hybrid, Touch, Elements)
+          _buildEngineModeSelector(),
+          const SizedBox(height: 12),
+
           // Mode Selector Tabs
           Container(
             padding: const EdgeInsets.all(3),
@@ -2216,6 +2556,7 @@ class _RecordingModeSheetState extends State<_RecordingModeSheet> {
                   'targetPackage': _wholeDeviceAppCtrl.text.trim().isEmpty
                       ? null
                       : _wholeDeviceAppCtrl.text.trim(),
+                  'mode': _selectedMode,
                 });
               },
             ),
@@ -2459,6 +2800,7 @@ class _RecordingModeSheetState extends State<_RecordingModeSheet> {
                 Navigator.pop(context, {
                   'name': _appModeNameCtrl.text.trim(),
                   'targetPackage': _selectedApp!.package,
+                  'mode': _selectedMode,
                 });
               },
             ),
@@ -2479,6 +2821,107 @@ class _RecordingModeSheetState extends State<_RecordingModeSheet> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildEngineModeSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(MdiIcons.targetVariant, size: 13, color: JweTheme.accentCyan),
+            const SizedBox(width: 6),
+            Text(
+              'ENGINE MODE',
+              style: GoogleFonts.jetBrainsMono(
+                color: JweTheme.accentCyan,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.0,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            _buildEngineModeOption(
+              modeKey: 'hybrid',
+              title: 'HYBRID',
+              subtitle: 'Smart Adaptive',
+              icon: MdiIcons.autoFix,
+              accentColor: JweTheme.accentCyan,
+            ),
+            const SizedBox(width: 6),
+            _buildEngineModeOption(
+              modeKey: 'touch_sensor',
+              title: 'TOUCH',
+              subtitle: 'Coordinates',
+              icon: MdiIcons.gestureTap,
+              accentColor: JweTheme.accentAmber,
+            ),
+            const SizedBox(width: 6),
+            _buildEngineModeOption(
+              modeKey: 'elements',
+              title: 'ELEMENTS',
+              subtitle: 'UI Hierarchy',
+              icon: MdiIcons.xml,
+              accentColor: const Color(0xFF64B5F6),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEngineModeOption({
+    required String modeKey,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color accentColor,
+  }) {
+    final isSelected = _selectedMode == modeKey;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _selectedMode = modeKey),
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+          decoration: BoxDecoration(
+            color: isSelected ? accentColor.withValues(alpha: 0.15) : JweTheme.bgCanvas,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: isSelected ? accentColor : JweTheme.border,
+              width: isSelected ? 1.5 : 1.0,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, size: 14, color: isSelected ? accentColor : JweTheme.textMuted),
+              const SizedBox(height: 2),
+              Text(
+                title,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? accentColor : JweTheme.textMid,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 8,
+                  color: isSelected ? JweTheme.textWhite : JweTheme.textMuted,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

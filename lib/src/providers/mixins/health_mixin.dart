@@ -14,11 +14,41 @@ mixin HealthMixin on ChangeNotifier {
 
   void loadHealthState(Map<String, dynamic> data) {
     if (data['foodItems'] != null) {
-      _foodItems = (data['foodItems'] as List).map((e) => FoodItem.fromJson(e)).toList();
+      try {
+        final rawFood = data['foodItems'];
+        if (rawFood is List) {
+          _foodItems = rawFood
+              .whereType<Map>()
+              .map((e) => FoodItem.fromJson(Map<String, dynamic>.from(e)))
+              .toList();
+        }
+      } catch (e) {
+        debugPrint("Error loading foodItems in loadHealthState: $e");
+      }
     }
     if (data['healthLogs'] != null) {
-      final rawLogs = data['healthLogs'] as Map;
-      _healthLogs = rawLogs.map((k, v) => MapEntry(k.toString(), DailyHealthLog.fromJson(Map<String, dynamic>.from(v))));
+      try {
+        final rawLogs = data['healthLogs'];
+        if (rawLogs is Map) {
+          _healthLogs = rawLogs.map((k, v) => MapEntry(
+                k.toString(),
+                DailyHealthLog.fromJson(Map<String, dynamic>.from(v as Map)),
+              ));
+        } else if (rawLogs is List) {
+          final map = <String, DailyHealthLog>{};
+          for (final item in rawLogs) {
+            if (item is Map) {
+              final log = DailyHealthLog.fromJson(Map<String, dynamic>.from(item));
+              if (log.dateStr.isNotEmpty) {
+                map[log.dateStr] = log;
+              }
+            }
+          }
+          _healthLogs = map;
+        }
+      } catch (e) {
+        debugPrint("Error loading healthLogs in loadHealthState: $e");
+      }
     }
   }
 

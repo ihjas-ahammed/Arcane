@@ -24,6 +24,8 @@ class LauncherAppWidget extends StatefulWidget {
 
 class _LauncherAppWidgetState extends State<LauncherAppWidget> {
   bool? _available;
+  double _travel = 0;
+  bool _moved = false;
 
   @override
   void initState() {
@@ -39,6 +41,32 @@ class _LauncherAppWidgetState extends State<LauncherAppWidget> {
       LauncherActions.activeWidget.value = null;
     }
     super.dispose();
+  }
+
+  void _onDragStarted() {
+    _travel = 0;
+    _moved = false;
+    HapticFeedback.heavyImpact();
+    LauncherActions.activeWidget.value = LauncherWidgetDragData(
+      entry: widget.entry,
+      fromPage: widget.entry.page,
+    );
+  }
+
+  void _onDragUpdate(DragUpdateDetails d) {
+    if (_moved) return;
+    _travel += d.delta.distance;
+    if (_travel > 14) {
+      _moved = true;
+    }
+  }
+
+  void _onDragEnd() {
+    LauncherActions.activeWidget.value = null;
+    LauncherActions.dragEnded?.call();
+    if (!_moved && mounted) {
+      _showMenu();
+    }
   }
 
   void _showMenu() {
@@ -219,118 +247,103 @@ class _LauncherAppWidgetState extends State<LauncherAppWidget> {
   Widget build(BuildContext context) {
     final entry = widget.entry;
     final accent = LauncherTheme.red;
+    final feedbackWidth = (MediaQuery.sizeOf(context).width - 24).clamp(240.0, 600.0);
 
-    return ValueListenableBuilder<LauncherWidgetDragData?>(
-      valueListenable: LauncherActions.activeWidget,
-      builder: (context, activeW, _) {
-        final isBeingDragged = activeW?.entry.id == entry.id;
-        return Opacity(
-          opacity: isBeingDragged ? 0.25 : 1.0,
-          child: GestureDetector(
-            onLongPress: _showMenu,
-            child: ClipPath(
-              clipper: const Chamfer4CornerClipper(chamfer: 10.0),
-              child: CustomPaint(
-                foregroundPainter: TacticalCardBorderPainter(
-                  themeColor: accent,
-                  chamfer: 10.0,
-                  bracketSize: 12.0,
-                  leftBarWidth: 3.0,
-                  borderColor: LauncherTheme.line,
-                ),
-                child: Container(
-                  color: LauncherTheme.panel,
-                  padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // ── Tactical Title Bar (Drag Handle) ──
-                      LongPressDraggable<LauncherWidgetDragData>(
-                        data: LauncherWidgetDragData(entry: entry, fromPage: entry.page),
-                        delay: const Duration(milliseconds: 180),
-                        feedback: _buildDragFeedback(context, entry),
-                        onDragStarted: () {
-                          HapticFeedback.heavyImpact();
-                          LauncherActions.activeWidget.value = LauncherWidgetDragData(entry: entry, fromPage: entry.page);
-                        },
-                        onDragCompleted: () {
-                          LauncherActions.activeWidget.value = null;
-                        },
-                        onDragEnd: (_) {
-                          LauncherActions.activeWidget.value = null;
-                        },
-                        onDraggableCanceled: (_, __) {
-                          LauncherActions.activeWidget.value = null;
-                        },
-                        child: Container(
-                          color: Colors.transparent,
-                          padding: const EdgeInsets.fromLTRB(8, 4, 4, 4),
-                          child: Row(
-                            children: [
-                              Icon(MdiIcons.dragHorizontal, size: 13, color: accent),
-                              const SizedBox(width: 5),
-                              Expanded(
-                                child: Text(
-                                  '// APP_WIDGET: ${entry.label.toUpperCase()}',
-                                  style: LauncherTheme.rajdhani(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.4,
-                                    color: LauncherTheme.muted,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              InkWell(
-                                onTap: _showMenu,
-                                borderRadius: BorderRadius.circular(4),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(3),
-                                  child: Icon(MdiIcons.dotsVertical, size: 14, color: LauncherTheme.muted),
-                                ),
-                              ),
-                            ],
-                          ),
+    final cardContent = ClipPath(
+      clipper: const Chamfer4CornerClipper(chamfer: 10.0),
+      child: CustomPaint(
+        foregroundPainter: TacticalCardBorderPainter(
+          themeColor: accent,
+          chamfer: 10.0,
+          bracketSize: 12.0,
+          leftBarWidth: 3.0,
+          borderColor: LauncherTheme.line,
+        ),
+        child: Container(
+          color: LauncherTheme.panel,
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── Tactical Title Bar ──
+              Container(
+                color: Colors.transparent,
+                padding: const EdgeInsets.fromLTRB(8, 4, 4, 4),
+                child: Row(
+                  children: [
+                    Icon(MdiIcons.dragHorizontal, size: 13, color: accent),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        '// APP_WIDGET: ${entry.label.toUpperCase()}',
+                        style: LauncherTheme.rajdhani(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.4,
+                          color: LauncherTheme.muted,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      // ── Hosted Widget Surface ──
-                      SizedBox(
-                        height: entry.height,
-                        child: switch (_available) {
-                          null => const SizedBox.shrink(),
-                          false => _Unavailable(entry: entry),
-                          true => LayoutBuilder(
-                              builder: (context, constraints) {
-                                final width = constraints.maxWidth.round();
-                                return ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: AndroidView(
-                                    // Recreate the host view when its size changes so the provider gets the new size.
-                                    key: ValueKey('${entry.id}-$width-${entry.height.round()}'),
-                                    viewType: 'arcane/appwidget',
-                                    layoutDirection: Directionality.of(context),
-                                    creationParams: {'id': entry.id, 'width': width, 'height': entry.height.round()},
-                                    creationParamsCodec: const StandardMessageCodec(),
-                                    // Horizontal swipes still page the launcher; taps and in-widget scrolls go to the widget.
-                                    gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                                      Factory<VerticalDragGestureRecognizer>(VerticalDragGestureRecognizer.new),
-                                    },
-                                  ),
-                                );
-                              },
-                            ),
-                        },
+                    ),
+                    InkWell(
+                      onTap: _showMenu,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.all(3),
+                        child: Icon(MdiIcons.dotsVertical, size: 14, color: LauncherTheme.muted),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ),
+              // ── Hosted Widget Surface ──
+              SizedBox(
+                height: entry.height,
+                child: switch (_available) {
+                  null => const SizedBox.shrink(),
+                  false => _Unavailable(entry: entry),
+                  true => LayoutBuilder(
+                      builder: (context, constraints) {
+                        final width = constraints.maxWidth.round();
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: AndroidView(
+                            // Recreate the host view when its size changes so the provider gets the new size.
+                            key: ValueKey('${entry.id}-$width-${entry.height.round()}'),
+                            viewType: 'arcane/appwidget',
+                            layoutDirection: Directionality.of(context),
+                            creationParams: {'id': entry.id, 'width': width, 'height': entry.height.round()},
+                            creationParamsCodec: const StandardMessageCodec(),
+                            // Horizontal swipes still page the launcher; taps and in-widget scrolls go to the widget.
+                            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                              Factory<VerticalDragGestureRecognizer>(VerticalDragGestureRecognizer.new),
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                },
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
+    );
+
+    return LongPressDraggable<LauncherWidgetDragData>(
+      data: LauncherWidgetDragData(entry: entry, fromPage: entry.page),
+      delay: const Duration(milliseconds: 350),
+      hapticFeedbackOnStart: true,
+      dragAnchorStrategy: (draggable, context, point) => Offset(feedbackWidth / 2, 32),
+      feedback: _buildDragFeedback(context, entry),
+      childWhenDragging: Opacity(opacity: 0.25, child: cardContent),
+      onDragStarted: _onDragStarted,
+      onDragUpdate: _onDragUpdate,
+      onDragEnd: (_) => _onDragEnd(),
+      onDraggableCanceled: (_, __) => _onDragEnd(),
+      child: cardContent,
     );
   }
 }

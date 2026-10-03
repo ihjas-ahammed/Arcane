@@ -221,6 +221,24 @@ void main() {
       expect(roundTrip.parameters.first.defaultValue, 'arcane launcher');
       expect(roundTrip.steps.length, 3);
       expect(roundTrip.steps[1].param, 'q');
+      expect(roundTrip.mode, 'hybrid');
+    });
+
+    test('InputReplyMacro handles engine mode configuration and copyWith', () {
+      const touchMacro = InputReplyMacro(
+        name: 'Touch Macro',
+        createdAt: '2026-10-01T10:00:00Z',
+        mode: 'touch_sensor',
+      );
+      expect(touchMacro.mode, 'touch_sensor');
+
+      final jsonMap = touchMacro.toJson();
+      expect(jsonMap['mode'], 'touch_sensor');
+      final restored = InputReplyMacro.fromJson(jsonMap);
+      expect(restored.mode, 'touch_sensor');
+
+      final updated = restored.copyWith(mode: 'elements');
+      expect(updated.mode, 'elements');
     });
   });
 }
