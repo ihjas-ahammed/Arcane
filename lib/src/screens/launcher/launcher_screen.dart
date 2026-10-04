@@ -17,6 +17,7 @@ import 'package:missions/src/screens/launcher/views/launcher_status_bar.dart';
 import 'package:missions/src/screens/launcher/views/launcher_widget_view.dart';
 import 'package:missions/src/services/widget_action_router.dart';
 import 'package:missions/src/widgets/dialogs/whats_new_update_dialog.dart';
+import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:provider/provider.dart';
 
 /// Arcane home-screen launcher.
@@ -439,6 +440,12 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
   @override
   Widget build(BuildContext context) {
     if (!LauncherNative.isSupported) return widget.arcaneChild;
+
+    final appProvider = Provider.of<AppProvider>(context);
+    final isSystemDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final bool isLightTheme = appProvider.settings.themeMode == 'light' ||
+        (appProvider.settings.themeMode == 'system' && !isSystemDark);
+    JweTheme.isLight = isLightTheme;
 
     return ListenableBuilder(
       listenable: Listenable.merge([

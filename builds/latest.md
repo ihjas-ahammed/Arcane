@@ -1,3 +1,22 @@
+# ⚡ Arcane System Upgrade // v2026.10.4 (Build #2126100404)
+
+### 🔄 Drag & Reorder Arcane Protocols Widgets (0th Page)
+- **Interactive Drag & Drop**:
+  - Implemented `LongPressDraggable` and `DragTarget` with real-time slot highlight for all 6 Arcane Protocols widgets (Task Hero, Day Plan, Today's Goals, Finance, Journal, Bus Transit) on the 0th launcher page.
+- **Instant Directional Chevrons**:
+  - Added Move Up and Move Down chevrons in each widget card title bar for instantaneous 1-tap reordering.
+- **Persistent Order & Reset**:
+  - Automatically saves custom protocol order to `SharedPreferences` across app restarts.
+  - Added a reset button in the "ARCANE PROTOCOLS" section header to restore default ordering anytime.
+
+### 🎨 Reactive Dual-Theme Switching & Launcher Palette Parity
+- **Reactive Theme Mode & Launcher Integration**:
+  - Subscribed `LauncherScreen` to `AppProvider` with live `JweTheme.isLight` synchronization.
+  - Used `Consumer<AppProvider>` and `GestureDetector` in `_LauncherPaletteSheet` ensuring immediate visual updates across all theme modes (System, Dark, Light) and custom palettes.
+  - Verified 1-tap System Matrix theme toggle in Tactical HUD.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.4 (Build #2126100403)
 
 ### 🛡️ Widget Pinning Crash Elimination & Host Protection

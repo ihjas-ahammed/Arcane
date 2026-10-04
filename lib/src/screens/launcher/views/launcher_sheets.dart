@@ -1234,9 +1234,8 @@ class _LauncherPaletteSheet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _title('LAUNCHER PALETTE', subtitle: 'Tactical color schemes & custom accents'),
-          Builder(
-            builder: (context) {
-              final provider = Provider.of<AppProvider>(context);
+          Consumer<AppProvider>(
+            builder: (context, provider, _) {
               final currentMode = provider.settings.themeMode;
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -1424,9 +1423,9 @@ class _LauncherPaletteSheet extends StatelessWidget {
 
   Widget _themeModeBtn(AppProvider provider, String label, String mode, bool active) {
     return Expanded(
-      child: InkWell(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () => provider.setThemeMode(mode),
-        borderRadius: BorderRadius.circular(8),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(

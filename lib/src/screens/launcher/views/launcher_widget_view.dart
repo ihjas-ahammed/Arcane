@@ -53,13 +53,62 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
   static const String _notesPrefKey = 'arcane_launcher_quick_notes';
   Timer? _notesSave;
 
+  // Pinnable Protocol Widgets Order Persistence
+  static const List<String> _kDefaultProtocolOrder = [
+    'task_hero',
+    'day_plan',
+    'goals',
+    'finance',
+    'journal',
+    'bus_route',
+  ];
+  static const String _kProtocolOrderPrefKey = 'arcane_launcher_protocol_widgets_order_v1';
+  List<String> _protocolOrder = List.from(_kDefaultProtocolOrder);
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _startClockTimer();
     _loadNotes();
+    _loadProtocolOrder();
     _refreshSystem();
+  }
+
+  Future<void> _loadProtocolOrder() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList(_kProtocolOrderPrefKey);
+      if (saved != null && saved.isNotEmpty && mounted) {
+        final valid = saved.where((k) => _kDefaultProtocolOrder.contains(k)).toList();
+        for (final def in _kDefaultProtocolOrder) {
+          if (!valid.contains(def)) valid.add(def);
+        }
+        setState(() => _protocolOrder = valid);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveProtocolOrder() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_kProtocolOrderPrefKey, _protocolOrder);
+    } catch (_) {}
+  }
+
+  void _reorderProtocols(int oldIndex, int newIndex) {
+    if (oldIndex == newIndex ||
+        oldIndex < 0 ||
+        newIndex < 0 ||
+        oldIndex >= _protocolOrder.length ||
+        newIndex >= _protocolOrder.length) {
+      return;
+    }
+    setState(() {
+      final item = _protocolOrder.removeAt(oldIndex);
+      _protocolOrder.insert(newIndex, item);
+    });
+    _saveProtocolOrder();
   }
 
   void _startClockTimer() {
@@ -257,19 +306,16 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
 
                 // 1. Arcane Protocols (Original Widgets)
                 if (_activeTab == _WidgetTab.all || _activeTab == _WidgetTab.protocols) ...[
-                  _buildSectionHeader('ARCANE PROTOCOLS', 'OPERATIONAL AGENTS & DASHBOARDS'),
+                  _buildSectionHeader(
+                    'ARCANE PROTOCOLS',
+                    'DRAG & REORDER WIDGETS',
+                    onReset: () {
+                      setState(() => _protocolOrder = List.from(_kDefaultProtocolOrder));
+                      _saveProtocolOrder();
+                    },
+                  ),
                   const SizedBox(height: 10),
-                  _buildTaskHeroCard(provider),
-                  const SizedBox(height: 14),
-                  _buildDayPlanCard(provider),
-                  const SizedBox(height: 14),
-                  _buildTodayGoalsCard(provider),
-                  const SizedBox(height: 14),
-                  _buildFinanceCard(provider),
-                  const SizedBox(height: 14),
-                  _buildJournalCard(provider),
-                  const SizedBox(height: 14),
-                  _buildBusRouteCard(provider),
+                  _buildReorderableProtocolList(provider),
                   const SizedBox(height: 20),
                 ],
 
@@ -418,7 +464,7 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
     );
   }
 
-  Widget _buildSectionHeader(String title, String subtitle) {
+  Widget _buildSectionHeader(String title, String subtitle, {VoidCallback? onReset}) {
     return Row(
       children: [
         Container(
@@ -437,21 +483,119 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          '// $subtitle',
-          style: LauncherTheme.rajdhani(
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 1.0,
-            color: LauncherTheme.muted,
+        Expanded(
+          child: Text(
+            '// $subtitle',
+            style: LauncherTheme.rajdhani(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 1.0,
+              color: LauncherTheme.muted,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
+        if (onReset != null) ...[
+          IconButton(
+            icon: Icon(MdiIcons.restore, size: 14, color: LauncherTheme.muted),
+            tooltip: 'Reset Order',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: onReset,
+          ),
+        ],
       ],
     );
   }
 
+  Widget _buildReorderableProtocolList(AppProvider provider) {
+    return Column(
+      children: [
+        for (int i = 0; i < _protocolOrder.length; i++) ...[
+          _buildReorderableProtocolItem(i, _protocolOrder[i], provider),
+          if (i < _protocolOrder.length - 1) const SizedBox(height: 14),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildReorderableProtocolItem(int index, String key, AppProvider provider) {
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (details) => details.data != index,
+      onAcceptWithDetails: (details) {
+        _reorderProtocols(details.data, index);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isHovered = candidateData.isNotEmpty;
+        final widgetCard = _buildProtocolWidgetByKey(
+          key,
+          provider,
+          onMoveUp: index > 0 ? () => _reorderProtocols(index, index - 1) : null,
+          onMoveDown: index < _protocolOrder.length - 1 ? () => _reorderProtocols(index, index + 1) : null,
+        );
+
+        return LongPressDraggable<int>(
+          data: index,
+          delay: const Duration(milliseconds: 200),
+          feedback: Material(
+            color: Colors.transparent,
+            child: SizedBox(
+              width: MediaQuery.sizeOf(context).width - 32,
+              child: Opacity(
+                opacity: 0.85,
+                child: widgetCard,
+              ),
+            ),
+          ),
+          childWhenDragging: Opacity(
+            opacity: 0.3,
+            child: widgetCard,
+          ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: isHovered
+                  ? Border.all(color: LauncherTheme.red, width: 2)
+                  : null,
+            ),
+            child: widgetCard,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProtocolWidgetByKey(
+    String key,
+    AppProvider provider, {
+    VoidCallback? onMoveUp,
+    VoidCallback? onMoveDown,
+  }) {
+    switch (key) {
+      case 'task_hero':
+        return _buildTaskHeroCard(provider, onMoveUp: onMoveUp, onMoveDown: onMoveDown);
+      case 'day_plan':
+        return _buildDayPlanCard(provider, onMoveUp: onMoveUp, onMoveDown: onMoveDown);
+      case 'goals':
+        return _buildTodayGoalsCard(provider, onMoveUp: onMoveUp, onMoveDown: onMoveDown);
+      case 'finance':
+        return _buildFinanceCard(provider, onMoveUp: onMoveUp, onMoveDown: onMoveDown);
+      case 'journal':
+        return _buildJournalCard(provider, onMoveUp: onMoveUp, onMoveDown: onMoveDown);
+      case 'bus_route':
+        return _buildBusRouteCard(provider, onMoveUp: onMoveUp, onMoveDown: onMoveDown);
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
   // ── Original Widget 1: Task Hero ──────────────────────────────
-  Widget _buildTaskHeroCard(AppProvider provider) {
+  Widget _buildTaskHeroCard(
+    AppProvider provider, {
+    VoidCallback? onMoveUp,
+    VoidCallback? onMoveDown,
+  }) {
     final live = WidgetsStudioResolvers.resolveLiveTask(provider);
 
     return _buildResponsiveWidgetFrame(
@@ -464,6 +608,8 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
         HomeWidgetService.instance.requestPinTask,
         'Active Task Widget',
       ),
+      onMoveUp: onMoveUp,
+      onMoveDown: onMoveDown,
       child: RunningTaskHomeWidget(
         hasTask: live.hasTask,
         title: live.title,
@@ -556,7 +702,11 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
   }
 
   // ── Original Widget 2: Day Plan ───────────────────────────────
-  Widget _buildDayPlanCard(AppProvider provider) {
+  Widget _buildDayPlanCard(
+    AppProvider provider, {
+    VoidCallback? onMoveUp,
+    VoidCallback? onMoveDown,
+  }) {
     final today = helper.getTodayDateString();
     final livePlanTasks = TaskCalculations.resolveTopFiveDayPlanTasks(
       mainTasks: provider.mainTasks,
@@ -577,6 +727,8 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
         HomeWidgetService.instance.requestPinDayPlan,
         'Day Plan Widget',
       ),
+      onMoveUp: onMoveUp,
+      onMoveDown: onMoveDown,
       child: DayPlanHomeWidget(
         tasks: livePlanTasks,
         capacity: capacity,
@@ -586,7 +738,11 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
   }
 
   // ── Today's Goals Widget ──────────────────────────────────────
-  Widget _buildTodayGoalsCard(AppProvider provider) {
+  Widget _buildTodayGoalsCard(
+    AppProvider provider, {
+    VoidCallback? onMoveUp,
+    VoidCallback? onMoveDown,
+  }) {
     final live = WidgetsStudioResolvers.resolveLiveGoals(provider);
     final isWeekly = live.scope == GoalScope.weekly;
 
@@ -602,6 +758,8 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
         HomeWidgetService.instance.requestPinGoals,
         'Goals Widget',
       ),
+      onMoveUp: onMoveUp,
+      onMoveDown: onMoveDown,
       child: TodayGoalsHomeWidget(
         goals: live.goals,
         progress: live.progress,
@@ -615,7 +773,11 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
   }
 
   // ── Original Widget 3: Finance ────────────────────────────────
-  Widget _buildFinanceCard(AppProvider provider) {
+  Widget _buildFinanceCard(
+    AppProvider provider, {
+    VoidCallback? onMoveUp,
+    VoidCallback? onMoveDown,
+  }) {
     final live = WidgetsStudioResolvers.resolveLiveFinance(provider);
 
     return _buildResponsiveWidgetFrame(
@@ -628,6 +790,8 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
         HomeWidgetService.instance.requestPinFinance,
         'Finance Widget',
       ),
+      onMoveUp: onMoveUp,
+      onMoveDown: onMoveDown,
       child: FinanceHomeWidget(
         balance: live.balance,
         todaySpend: live.todaySpend,
@@ -638,7 +802,11 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
   }
 
   // ── Original Widget 4: Journal ────────────────────────────────
-  Widget _buildJournalCard(AppProvider provider) {
+  Widget _buildJournalCard(
+    AppProvider provider, {
+    VoidCallback? onMoveUp,
+    VoidCallback? onMoveDown,
+  }) {
     final live = WidgetsStudioResolvers.resolveLiveJournal(provider);
 
     return _buildResponsiveWidgetFrame(
@@ -651,6 +819,8 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
         HomeWidgetService.instance.requestPinJournal,
         'Journal Widget',
       ),
+      onMoveUp: onMoveUp,
+      onMoveDown: onMoveDown,
       child: JournalHomeWidget(
         count: live.count,
         wake: live.wake,
@@ -663,7 +833,11 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
   }
 
   // ── Original Widget 5: Bus Route ──────────────────────────────
-  Widget _buildBusRouteCard(AppProvider provider) {
+  Widget _buildBusRouteCard(
+    AppProvider provider, {
+    VoidCallback? onMoveUp,
+    VoidCallback? onMoveDown,
+  }) {
     final live = WidgetsStudioResolvers.resolveLiveBus(provider);
 
     return _buildResponsiveWidgetFrame(
@@ -676,6 +850,8 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
         HomeWidgetService.instance.requestPinBus,
         'Bus Transit Widget',
       ),
+      onMoveUp: onMoveUp,
+      onMoveDown: onMoveDown,
       child: BusHomeWidget(
         origin: live.origin,
         destination: live.destination,
@@ -1057,6 +1233,8 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
     required VoidCallback onTap,
     required VoidCallback onPin,
     required Widget child,
+    VoidCallback? onMoveUp,
+    VoidCallback? onMoveDown,
   }) {
     return ClipPath(
       clipper: const Chamfer4CornerClipper(chamfer: 10),
@@ -1075,11 +1253,16 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
             children: [
               // Widget Card Titlebar
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 10, 10, 8),
+                padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(width: 4, height: 10, color: badgeColor),
+                    Icon(
+                      MdiIcons.dragVertical,
+                      size: 18,
+                      color: LauncherTheme.muted.withValues(alpha: 0.75),
+                    ),
+                    const SizedBox(width: 4),
+                    Container(width: 3.5, height: 10, color: badgeColor),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -1108,12 +1291,31 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
                         ),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    if (onMoveUp != null) ...[
+                      const SizedBox(width: 2),
+                      IconButton(
+                        icon: Icon(MdiIcons.chevronUp, size: 18, color: LauncherTheme.muted),
+                        tooltip: 'Move Up',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                        onPressed: onMoveUp,
+                      ),
+                    ],
+                    if (onMoveDown != null) ...[
+                      IconButton(
+                        icon: Icon(MdiIcons.chevronDown, size: 18, color: LauncherTheme.muted),
+                        tooltip: 'Move Down',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                        onPressed: onMoveDown,
+                      ),
+                    ],
+                    const SizedBox(width: 2),
                     IconButton(
                       icon: Icon(MdiIcons.pinOutline, size: 16, color: LauncherTheme.muted),
                       tooltip: 'Pin to Android Home',
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
+                      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                       onPressed: onPin,
                     ),
                   ],
