@@ -12,6 +12,7 @@ class TodayGoalsHomeWidget extends StatelessWidget {
   final double progress;
   final int earnedXp;
   final int totalXp;
+  final GoalScope scope;
   final ValueChanged<GoalModel>? onGoalTap;
   final VoidCallback? onOpenArcane;
 
@@ -21,6 +22,7 @@ class TodayGoalsHomeWidget extends StatelessWidget {
     this.progress = 0.0,
     this.earnedXp = 0,
     this.totalXp = 0,
+    this.scope = GoalScope.daily,
     this.onGoalTap,
     this.onOpenArcane,
   });
@@ -38,6 +40,8 @@ class TodayGoalsHomeWidget extends StatelessWidget {
     final completedCount = goals.where((g) => g.getIsEffectiveCompleted()).length;
     final totalCount = goals.length;
     final clampedProgress = totalCount > 0 ? (completedCount / totalCount).clamp(0.0, 1.0) : progress.clamp(0.0, 1.0);
+    final isWeekly = scope == GoalScope.weekly;
+    final scopeTag = isWeekly ? 'WEEKLY DIRECTIVES' : 'DIRECTIVES';
 
     return Material(
       color: Colors.transparent,
@@ -72,8 +76,8 @@ class TodayGoalsHomeWidget extends StatelessWidget {
                             const SizedBox(width: 8),
                             Text(
                               totalCount > 0
-                                  ? '[ DIRECTIVES // 0$completedCount/0$totalCount COMPLETED ]'
-                                  : '[ DIRECTIVES // STANDBY ]',
+                                  ? '[ $scopeTag // 0$completedCount/0$totalCount COMPLETED ]'
+                                  : '[ $scopeTag // STANDBY ]',
                               style: GoogleFonts.jetBrainsMono(
                                 color: accentAmber,
                                 fontSize: 10.5,
@@ -164,6 +168,7 @@ class TodayGoalsHomeWidget extends StatelessWidget {
   }
 
   Widget _buildStandbyState(bool isLight, Color textWhite, Color textMuted, Color accentCyan) {
+    final isWeekly = scope == GoalScope.weekly;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -171,7 +176,7 @@ class TodayGoalsHomeWidget extends StatelessWidget {
           Icon(MdiIcons.targetVariant, size: 28, color: accentCyan.withValues(alpha: 0.7)),
           const SizedBox(height: 6),
           Text(
-            'NO DIRECTIVES LOGGED FOR TODAY',
+            isWeekly ? 'NO DIRECTIVES LOGGED FOR THIS WEEK' : 'NO DIRECTIVES LOGGED FOR TODAY',
             style: GoogleFonts.jetBrainsMono(
               color: textWhite,
               fontSize: 12.5,

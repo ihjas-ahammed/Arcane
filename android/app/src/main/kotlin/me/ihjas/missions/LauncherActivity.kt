@@ -21,6 +21,7 @@ class LauncherActivity : FlutterActivity() {
     private var launcherBridge: LauncherBridge? = null
     private var updateBridge: UpdateBridge? = null
     private var notificationBridge: NotificationBridge? = null
+    private var inputReplyBridge: InputReplyBridge? = null
 
     override fun getInitialRoute(): String = "/launcher"
 
@@ -60,6 +61,7 @@ class LauncherActivity : FlutterActivity() {
         }
         updateBridge = UpdateBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         notificationBridge = NotificationBridge(this, flutterEngine.dartExecutor.binaryMessenger)
+        inputReplyBridge = InputReplyBridge(this, flutterEngine.dartExecutor.binaryMessenger)
     }
 
     override fun onStart() {
@@ -79,6 +81,8 @@ class LauncherActivity : FlutterActivity() {
         updateBridge = null
         notificationBridge?.dispose()
         notificationBridge = null
+        inputReplyBridge?.dispose()
+        inputReplyBridge = null
         super.onDestroy()
     }
 

@@ -215,6 +215,18 @@
                 android:resource="@xml/widget_bus_info"/>
         </receiver>
 
+        <receiver
+            android:name="me.ihjas.missions.widgets.GoalsWidget"
+            android:label="Arcane — Goals"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_goals_info"/>
+        </receiver>
+
         <!-- Receivers for scheduled local notifications -->
         <receiver
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"

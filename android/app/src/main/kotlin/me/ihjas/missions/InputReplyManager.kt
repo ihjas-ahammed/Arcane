@@ -59,6 +59,66 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 instance ?: InputReplyManager(service).also { instance = it }
             }
         }
+
+        fun mapToJson(map: Map<*, *>): JSONObject {
+            val obj = JSONObject()
+            for ((key, value) in map) {
+                if (key == null) continue
+                obj.put(key.toString(), wrapJsonValue(value))
+            }
+            return obj
+        }
+
+        fun listToJson(list: List<*>): JSONArray {
+            val arr = JSONArray()
+            for (item in list) {
+                arr.put(wrapJsonValue(item))
+            }
+            return arr
+        }
+
+        private fun wrapJsonValue(value: Any?): Any {
+            return when (value) {
+                null -> JSONObject.NULL
+                is Map<*, *> -> mapToJson(value)
+                is List<*> -> listToJson(value)
+                is Array<*> -> listToJson(value.toList())
+                is Number, is Boolean, is String -> value
+                else -> value.toString()
+            }
+        }
+
+        fun jsonToMap(json: JSONObject): Map<String, Any?> {
+            val map = mutableMapOf<String, Any?>()
+            val keys = json.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val value = json.get(key)
+                map[key] = when (value) {
+                    is JSONObject -> jsonToMap(value)
+                    is JSONArray -> jsonToList(value)
+                    JSONObject.NULL -> null
+                    else -> value
+                }
+            }
+            return map
+        }
+
+        fun jsonToList(array: JSONArray): List<Any?> {
+            val list = mutableListOf<Any?>()
+            for (i in 0 until array.length()) {
+                val value = array.get(i)
+                list.add(
+                    when (value) {
+                        is JSONObject -> jsonToMap(value)
+                        is JSONArray -> jsonToList(value)
+                        JSONObject.NULL -> null
+                        else -> value
+                    }
+                )
+            }
+            return list
+        }
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -888,7 +948,17 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                     // Clipboard paste fallback
                     val cm = service.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     cm.setPrimaryClip(ClipData.newPlainText("macro_text", textToType))
-                    service.rootInActiveWindow?.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+                    var pasted = false
+                    for (root in getAllRoots()) {
+                        val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+                        if (focused != null && focused.isEditable) {
+                            pasted = focused.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+                            if (pasted) break
+                        }
+                    }
+                    if (!pasted) {
+                        service.rootInActiveWindow?.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+                    }
                 }
                 SystemClock.sleep((250 / speed).toLong().coerceAtLeast(100L))
             }
@@ -937,16 +1007,16 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                         mainHandler.post {
                             overlay.showReplayTapIndicator(sendX, sendY)
                         }
-                        val root = service.rootInActiveWindow
                         var handled = false
-                        if (root != null) {
+                        for (root in getAllRoots()) {
                             val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
                             if (focused != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                                 handled = focused.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
+                                if (handled) break
                             }
-                            if (!handled) {
-                                handled = clickSmartSendButton()
-                            }
+                        }
+                        if (!handled) {
+                            handled = clickSmartSendButton()
                         }
                         if (!handled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                             dispatchTapGesture(sendX, sendY, 50L)
@@ -1018,6 +1088,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return false
         val path = Path().apply {
             moveTo(x, y)
+            lineTo(x, y)
         }
         val stroke = GestureDescription.StrokeDescription(path, 0, durationMs)
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
@@ -1032,11 +1103,11 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 completed = false
                 latch.countDown()
             }
-        }, null)
+        }, mainHandler)
 
         if (dispatched) {
             try {
-                latch.await(durationMs + 250L, TimeUnit.MILLISECONDS)
+                latch.await(durationMs + 600L, TimeUnit.MILLISECONDS)
             } catch (_: InterruptedException) {}
             return completed
         }
@@ -1055,10 +1126,10 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             override fun onCancelled(gestureDescription: GestureDescription?) {
                 latch.countDown()
             }
-        }, null)
+        }, mainHandler)
         if (dispatched) {
             try {
-                latch.await(durationMs + 200L, TimeUnit.MILLISECONDS)
+                latch.await(durationMs + 600L, TimeUnit.MILLISECONDS)
             } catch (_: InterruptedException) {}
         }
     }
@@ -1126,19 +1197,36 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         return bestNode
     }
 
-    private fun clickSmartSendButton(): Boolean {
-        val root = service.rootInActiveWindow
-        if (root != null) {
-            val candidate = findSmartSendNode(root)
-            if (candidate != null && clickNodeRobustly(candidate)) return true
-        }
+    private fun getAllRoots(): List<AccessibilityNodeInfo> {
+        val list = mutableListOf<AccessibilityNodeInfo>()
+        service.rootInActiveWindow?.let { list.add(it) }
         try {
             val windows = service.windows
             if (!windows.isNullOrEmpty()) {
                 for (w in windows) {
                     val r = w.root ?: continue
-                    val candidate = findSmartSendNode(r)
-                    if (candidate != null && clickNodeRobustly(candidate)) return true
+                    if (!list.contains(r)) {
+                        list.add(r)
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return list
+    }
+
+    private fun clickSmartSendButton(): Boolean {
+        for (root in getAllRoots()) {
+            val candidate = findSmartSendNode(root)
+            if (candidate != null && clickNodeRobustly(candidate)) return true
+        }
+        try {
+            val imeAction = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id
+            } else -1
+            if (imeAction != -1) {
+                for (root in getAllRoots()) {
+                    val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+                    if (focused != null && focused.performAction(imeAction)) return true
                 }
             }
         } catch (_: Exception) {}
@@ -1146,74 +1234,80 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
     }
 
     private fun clickNodeByViewId(viewId: String): Boolean {
-        val root = service.rootInActiveWindow ?: return false
-        val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
-        for (node in nodes) {
-            if (clickNodeRobustly(node)) return true
+        for (root in getAllRoots()) {
+            val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
+            for (node in nodes) {
+                if (clickNodeRobustly(node)) return true
+            }
         }
         return false
     }
 
     private fun clickNodeByText(text: String): Boolean {
-        val root = service.rootInActiveWindow ?: return false
-        val nodes = root.findAccessibilityNodeInfosByText(text)
-        for (node in nodes) {
-            if (clickNodeRobustly(node)) return true
+        for (root in getAllRoots()) {
+            val nodes = root.findAccessibilityNodeInfosByText(text)
+            for (node in nodes) {
+                if (clickNodeRobustly(node)) return true
+            }
         }
         return false
     }
 
     private fun clickNodeByDesc(desc: String): Boolean {
-        val root = service.rootInActiveWindow ?: return false
-        fun search(node: AccessibilityNodeInfo): Boolean {
-            if (node.contentDescription?.toString() == desc) {
-                if (clickNodeRobustly(node)) return true
+        for (root in getAllRoots()) {
+            fun search(node: AccessibilityNodeInfo): Boolean {
+                if (node.contentDescription?.toString() == desc) {
+                    if (clickNodeRobustly(node)) return true
+                }
+                for (i in 0 until node.childCount) {
+                    val child = node.getChild(i) ?: continue
+                    if (search(child)) return true
+                }
+                return false
             }
-            for (i in 0 until node.childCount) {
-                val child = node.getChild(i) ?: continue
-                if (search(child)) return true
-            }
-            return false
+            if (search(root)) return true
         }
-        return search(root)
+        return false
     }
 
     private fun setNodeTextByViewId(viewId: String, text: String): Boolean {
-        val root = service.rootInActiveWindow ?: return false
-        val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
-        for (node in nodes) {
-            if (node.isEditable) {
-                node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
-                val args = Bundle().apply {
-                    putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+        for (root in getAllRoots()) {
+            val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
+            for (node in nodes) {
+                if (node.isEditable) {
+                    node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+                    val args = Bundle().apply {
+                        putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+                    }
+                    if (node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return true
                 }
-                return node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
             }
         }
         return false
     }
 
     private fun setFocusedNodeText(text: String): Boolean {
-        val root = service.rootInActiveWindow ?: return false
-        var focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-        if (focused == null) {
-            fun findEditable(n: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-                if (n.isEditable) return n
-                for (i in 0 until n.childCount) {
-                    val c = n.getChild(i) ?: continue
-                    val res = findEditable(c)
-                    if (res != null) return res
+        for (root in getAllRoots()) {
+            var focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+            if (focused == null) {
+                fun findEditable(n: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+                    if (n.isEditable) return n
+                    for (i in 0 until n.childCount) {
+                        val c = n.getChild(i) ?: continue
+                        val res = findEditable(c)
+                        if (res != null) return res
+                    }
+                    return null
                 }
-                return null
+                focused = findEditable(root)
             }
-            focused = findEditable(root)
-        }
-        if (focused != null && focused.isEditable) {
-            focused.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
-            val args = Bundle().apply {
-                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+            if (focused != null && focused.isEditable) {
+                focused.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+                val args = Bundle().apply {
+                    putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+                }
+                if (focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return true
             }
-            return focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
         }
         return false
     }
@@ -1246,7 +1340,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         val fileName = if (name.endsWith(".json")) name else "$name.json"
         val file = File(getRecordingsDir(), fileName)
         return try {
-            val json = JSONObject(macroData)
+            val json = mapToJson(macroData)
             file.writeText(json.toString(2))
             true
         } catch (e: Exception) {
@@ -1259,37 +1353,5 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         val fileName = if (name.endsWith(".json")) name else "$name.json"
         val file = File(getRecordingsDir(), fileName)
         return file.delete()
-    }
-
-    private fun jsonToMap(json: JSONObject): Map<String, Any?> {
-        val map = mutableMapOf<String, Any?>()
-        val keys = json.keys()
-        while (keys.hasNext()) {
-            val key = keys.next()
-            val value = json.get(key)
-            map[key] = when (value) {
-                is JSONObject -> jsonToMap(value)
-                is JSONArray -> jsonToList(value)
-                JSONObject.NULL -> null
-                else -> value
-            }
-        }
-        return map
-    }
-
-    private fun jsonToList(array: JSONArray): List<Any?> {
-        val list = mutableListOf<Any?>()
-        for (i in 0 until array.length()) {
-            val value = array.get(i)
-            list.add(
-                when (value) {
-                    is JSONObject -> jsonToMap(value)
-                    is JSONArray -> jsonToList(value)
-                    JSONObject.NULL -> null
-                    else -> value
-                }
-            )
-        }
-        return list
     }
 }

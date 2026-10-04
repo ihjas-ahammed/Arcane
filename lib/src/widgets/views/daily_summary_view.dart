@@ -372,6 +372,19 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         ? DateTime.tryParse(_selectedDate!) ?? DateTime.now()
         : DateTime.now();
 
+    if (type == BriefingType.daily || type == BriefingType.startup) {
+      final dateStr = _selectedDate ?? DateFormat('yyyy-MM-dd').format(targetDate);
+      final canProceed = await _checkTelemetryAndConfirm(provider, dateStr);
+      if (!canProceed || !mounted) return;
+    } else if (type == BriefingType.weekly) {
+      final canProceed = await GoalBriefingHelper.showWeeklyGoalsCheckDialog(
+        context,
+        provider,
+        targetDate,
+      );
+      if (!canProceed || !mounted) return;
+    }
+
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(

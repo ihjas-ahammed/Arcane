@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/services/home_widget_service.dart';
 import 'widgets_studio_models.dart';
@@ -102,6 +103,45 @@ class WidgetsStudioSync {
     }
   }
 
+  static Future<void> pushGoalsToAndroid(
+    GoalsWidgetData goals, {
+    BuildContext? context,
+  }) async {
+    final topGoals = goals.goals.take(3).toList();
+    final items = <({String id, String title, bool isCompleted, String tag})>[];
+    for (final g in topGoals) {
+      final isDone = g.getIsEffectiveCompleted();
+      final subTotal = g.subChecklist.length;
+      final subDone = g.subChecklist.where((s) => s.isCompleted).length;
+      String tag = '';
+      if (g.metricType == GoalMetricType.timeCounter) {
+        tag = '${g.currentValue.toInt()}/${g.targetValue.toInt()}m';
+      } else if (subTotal > 0) {
+        tag = '$subDone/$subTotal';
+      } else if (g.metricType == GoalMetricType.counter) {
+        tag = '${g.currentValue.toInt()}/${g.targetValue.toInt()}';
+      } else if (g.xpReward > 0) {
+        tag = '+${g.xpReward}XP';
+      }
+      items.add((id: g.id, title: g.title, isCompleted: isDone, tag: tag));
+    }
+
+    await HomeWidgetService.instance.publishGoals(
+      totalCount: goals.totalCount,
+      completedCount: goals.completedCount,
+      progressPct: (goals.progress * 100).toInt(),
+      totalXp: goals.totalXp,
+      earnedXp: goals.earnedXp,
+      scope: goals.scope == GoalScope.weekly ? 'weekly' : 'daily',
+      items: items,
+    );
+    if (context != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Goals Widget synchronized with Android OS!')),
+      );
+    }
+  }
+
   static Future<void> pushAllToAndroid(
     AppProvider provider, {
     BuildContext? context,
@@ -109,11 +149,13 @@ class WidgetsStudioSync {
     TaskWidgetData? taskData,
     FinanceWidgetData? financeData,
     JournalWidgetData? journalData,
+    GoalsWidgetData? goalsData,
   }) async {
     final bus = busData ?? WidgetsStudioResolvers.resolveLiveBus(provider);
     final task = taskData ?? WidgetsStudioResolvers.resolveLiveTask(provider);
     final fin = financeData ?? WidgetsStudioResolvers.resolveLiveFinance(provider);
     final jnl = journalData ?? WidgetsStudioResolvers.resolveLiveJournal(provider);
+    final goals = goalsData ?? WidgetsStudioResolvers.resolveLiveGoals(provider);
 
     await HomeWidgetService.instance.publishBus(
       origin: bus.origin,
@@ -150,6 +192,7 @@ class WidgetsStudioSync {
       eve: jnl.eve,
       night: jnl.night,
     );
+    await pushGoalsToAndroid(goals);
 
     if (context != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

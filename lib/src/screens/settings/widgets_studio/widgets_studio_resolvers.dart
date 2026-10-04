@@ -340,15 +340,24 @@ class WidgetsStudioResolvers {
 
   static GoalsWidgetData resolveLiveGoals(AppProvider provider) {
     final now = DateTime.now();
-    final goals = provider.getGoalsForDate(now, GoalScope.daily);
+    var scope = GoalScope.daily;
+    var goals = provider.getGoalsForDate(now, GoalScope.daily);
     if (goals.isEmpty) {
-      return const GoalsWidgetData(
+      final weeklyGoals = provider.getGoalsForDate(now, GoalScope.weekly);
+      if (weeklyGoals.isNotEmpty) {
+        scope = GoalScope.weekly;
+        goals = weeklyGoals;
+      }
+    }
+    if (goals.isEmpty) {
+      return GoalsWidgetData(
         totalCount: 0,
         completedCount: 0,
         progress: 0.0,
         totalXp: 0,
         earnedXp: 0,
-        goals: [],
+        goals: const [],
+        scope: scope,
       );
     }
     int completed = 0;
@@ -368,6 +377,7 @@ class WidgetsStudioResolvers {
       totalXp: totalXp,
       earnedXp: earnedXp,
       goals: goals,
+      scope: scope,
     );
   }
 }

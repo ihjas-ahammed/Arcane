@@ -225,6 +225,7 @@ class ExternalAiBriefingHelper {
           'end': targetDateStr,
         },
       },
+      'previous_quotes': provider.getPreviouslyUsedQuotes(),
       'historical_briefs': {
         'weekly_briefs_last_30_days': weeklyReports,
         'monthly_briefs_last_year': monthlyReports,
@@ -273,6 +274,11 @@ class ExternalAiBriefingHelper {
 You are an expert executive coach and tactical psychological analyst for Arcane.
 You are provided with a complete JSON dataset containing the user's historical briefings and activity telemetry for today ($dateStr).
 The dataset also includes "notifications_journal" containing communications, alerts, and messages logged throughout the day — use them to identify meaningful interactions, updates, and context for grateful_people, savor_moment, summary, small_win, and tomorrow's directives.
+The dataset also includes "previous_quotes" listing all quotes and authors previously used across daily briefings and morning reports.
+
+CRITICAL DEDUPLICATION RULE:
+You MUST NOT duplicate or reuse any quote or author that appears in "previous_quotes".
+Pick a fresh, unique, inspiring quote and author for "motivational_quote", and ensure "yesterday_quote" does not repeat previous quotes.
 
 MISSION:
 1. Analyze the attached JSON dataset.

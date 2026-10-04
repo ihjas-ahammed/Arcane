@@ -9,6 +9,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 
 import 'package:missions/src/widgets/ui/tactical_briefing_indicator.dart';
 import 'package:missions/src/screens/journaling/external_ai_briefing_screen.dart';
+import 'package:missions/src/utils/goal_briefing_helper.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 
 class ArchivedReportsScreen extends StatefulWidget {
@@ -226,6 +227,15 @@ class _ArchivedReportsScreenState extends State<ArchivedReportsScreen> {
                   onLongPress: () async {
                     final reportDateStr = reportData['report_date'] as String? ?? doc['id'] as String?;
                     final reportDate = reportDateStr != null ? DateTime.tryParse(reportDateStr) : null;
+                    if (!isMonthly) {
+                      final canProceed = await GoalBriefingHelper.showWeeklyGoalsCheckDialog(
+                        context,
+                        provider,
+                        reportDate ?? DateTime.now(),
+                      );
+                      if (!canProceed || !mounted) return;
+                    }
+                    if (!context.mounted) return;
                     await Navigator.push(
                       context,
                       MaterialPageRoute(

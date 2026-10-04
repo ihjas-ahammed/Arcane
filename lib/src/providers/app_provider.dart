@@ -2240,33 +2240,60 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   }
 
   /// Collects all previously used motivational quotes, authors, and reflection quotes
-  /// across daily data and reports to prevent repeats.
+  /// across daily data, startup reports, briefings, and reviews to prevent repeats.
   List<String> getPreviouslyUsedQuotes() {
     final quotes = <String>{};
     for (final dayData in completedByDay.values) {
       if (dayData is Map) {
         final startDay = dayData['startDayReport'];
-        if (startDay is Map && startDay['motivational_quote'] != null) {
-          final q = startDay['motivational_quote'];
-          if (q is Map) {
-            final text = q['quote']?.toString().trim() ?? '';
-            final author = q['author']?.toString().trim() ?? '';
-            if (author.isNotEmpty && text.isNotEmpty) {
-              quotes.add('"$text" — $author');
-            } else if (text.isNotEmpty) {
-              quotes.add('"$text"');
+        if (startDay is Map) {
+          if (startDay['motivational_quote'] != null) {
+            final q = startDay['motivational_quote'];
+            if (q is Map) {
+              final text = q['quote']?.toString().trim() ?? '';
+              final author = q['author']?.toString().trim() ?? '';
+              if (author.isNotEmpty && text.isNotEmpty) {
+                quotes.add('"$text" — $author');
+              } else if (text.isNotEmpty) {
+                quotes.add('"$text"');
+              }
+            } else if (q is String && q.trim().isNotEmpty) {
+              quotes.add(q.trim());
             }
-          } else if (q is String && q.trim().isNotEmpty) {
-            quotes.add(q.trim());
+          }
+          if (startDay['yesterday_quote'] != null) {
+            final yq = startDay['yesterday_quote'].toString().trim();
+            if (yq.isNotEmpty) quotes.add('"$yq"');
           }
         }
-        final briefing = dayData['aiBriefing'] ?? dayData['briefing'];
+        final briefing = dayData['aiBriefing'] ?? dayData['briefing'] ?? dayData['tactical_briefing'] ?? dayData['tacticalBriefing'];
         if (briefing is Map && briefing['quote_reflections'] is List) {
           for (final qr in briefing['quote_reflections']) {
             if (qr is Map && qr['user_quote'] != null) {
               final uq = qr['user_quote'].toString().trim();
               if (uq.isNotEmpty) quotes.add('"$uq"');
             }
+          }
+        }
+      }
+    }
+    // Also check cached weekly & monthly reports
+    for (final item in cachedWeeklyReports) {
+      final rep = item['report'] ?? item;
+      if (rep is Map) {
+        if (rep['health_intel'] is Map && rep['health_intel']['vitality_quote'] != null) {
+          final vq = rep['health_intel']['vitality_quote'].toString().trim();
+          if (vq.isNotEmpty) quotes.add(vq);
+        }
+      }
+    }
+    for (final item in cachedMonthlyReports) {
+      final rep = item['report'] ?? item;
+      if (rep is Map && rep['quote_reflections'] is List) {
+        for (final qr in rep['quote_reflections']) {
+          if (qr is Map && qr['user_quote'] != null) {
+            final uq = qr['user_quote'].toString().trim();
+            if (uq.isNotEmpty) quotes.add('"$uq"');
           }
         }
       }

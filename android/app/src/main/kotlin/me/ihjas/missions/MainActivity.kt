@@ -46,6 +46,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
     private var launcherBridge: LauncherBridge? = null
     private var updateBridge: UpdateBridge? = null
     private var notificationBridge: NotificationBridge? = null
+    private var inputReplyBridge: InputReplyBridge? = null
 
     companion object {
         const val CHANNEL = "arcane/widget"
@@ -65,9 +66,6 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
 
         @Volatile
         private var assistantMethodChannel: MethodChannel? = null
-
-        @Volatile
-        private var inputReplyMethodChannel: MethodChannel? = null
 
         @Volatile
         private var engineAlive = false
@@ -123,6 +121,40 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         if (!handleAssistantIntent(intent)) disableLockScreenDisplay()
         launcherBridge?.handlePinRequest(intent)
         registerDebugScoReceiver()
+        registerDebugInputReplyReceiver()
+    }
+
+    private var debugInputReplyReceiver: android.content.BroadcastReceiver? = null
+
+    /** Debug hook: adb shell am broadcast -a me.ihjas.missions.DEBUG_INPUT_REPLY */
+    private fun registerDebugInputReplyReceiver() {
+        if (debugInputReplyReceiver != null || (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) == 0) return
+        val r = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context?, i: Intent?) {
+                val mgr = InputReplyManager.instance
+                android.util.Log.i("InputReplyTest", "DEBUG_INPUT_REPLY received. Mgr: $mgr")
+                if (mgr != null) {
+                    val testMacro = mapOf(
+                        "name" to "EmulatorTest",
+                        "steps" to listOf(
+                            mapOf("type" to "wait", "seconds" to 0.1),
+                            mapOf("type" to "click", "x" to 150, "y" to 300, "desc" to "TestTap"),
+                            mapOf("type" to "wait", "seconds" to 0.1),
+                            mapOf("type" to "type", "text" to "HelloArcane", "desc" to "TestType"),
+                            mapOf("type" to "wait", "seconds" to 0.1),
+                            mapOf("type" to "key", "key" to "ENTER", "desc" to "TestEnter")
+                        )
+                    )
+                    val ok = mgr.playMacro(testMacro)
+                    android.util.Log.i("InputReplyTest", "DEBUG_INPUT_REPLY playMacro initiated: $ok")
+                } else {
+                    android.util.Log.w("InputReplyTest", "DEBUG_INPUT_REPLY: InputReplyManager.instance is null")
+                }
+            }
+        }
+        val f = android.content.IntentFilter("me.ihjas.missions.DEBUG_INPUT_REPLY")
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(r, f, Context.RECEIVER_EXPORTED) else registerReceiver(r, f)
+        debugInputReplyReceiver = r
     }
 
     private var debugScoReceiver: android.content.BroadcastReceiver? = null
@@ -1124,141 +1156,8 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         }
 
         // Input Reply whole-device macro engine method channel handler
-        inputReplyMethodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, INPUT_REPLY_CHANNEL)
-        inputReplyMethodChannel?.setMethodCallHandler { call, result ->
-            when (call.method) {
-                "checkAccessibility" -> {
-                    result.success(LauncherTakeoverService.isServiceEnabled(this))
-                }
-                "openAccessibilitySettings" -> {
-                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    }
-                    startActivity(intent)
-                    result.success(true)
-                }
-                "startRecording" -> {
-                    val name = call.argument<String>("name") ?: ""
-                    val targetPackage = call.argument<String>("targetPackage")
-                    val mode = call.argument<String>("mode") ?: "hybrid"
-                    val mgr = InputReplyManager.instance
-                    if (mgr != null) {
-                        result.success(mgr.startRecording(name, targetPackage, mode))
-                    } else {
-                        result.error("SERVICE_UNAVAILABLE", "Accessibility service is not active", null)
-                    }
-                }
-                "stopRecording" -> {
-                    val mgr = InputReplyManager.instance
-                    if (mgr != null) {
-                        result.success(mgr.stopRecording())
-                    } else {
-                        result.success(null)
-                    }
-                }
-                "cancelRecording" -> {
-                    InputReplyManager.instance?.cancelRecording()
-                    result.success(true)
-                }
-                "isRecording" -> {
-                    result.success(InputReplyManager.instance?.isRecordingActive() == true)
-                }
-                "isReplaying" -> {
-                    result.success(InputReplyManager.instance?.isReplayingActive() == true)
-                }
-                "playMacro" -> {
-                    val mgr = InputReplyManager.instance
-                    if (mgr == null) {
-                        result.error("SERVICE_UNAVAILABLE", "Accessibility service is not active", null)
-                        return@setMethodCallHandler
-                    }
-                    val macroData = call.argument<Map<String, Any?>>("macro")
-                    val params = call.argument<Map<String, Any?>>("params")
-                    val speed = call.argument<Double>("speed") ?: 1.0
-                    val repeatCount = call.argument<Int>("repeatCount") ?: 1
-                    val mode = call.argument<String>("mode")
-                    if (macroData != null) {
-                        result.success(mgr.playMacro(macroData, params, speed, repeatCount, mode))
-                    } else {
-                        val name = call.argument<String>("name") ?: ""
-                        val loaded = mgr.getMacro(name)
-                        if (loaded != null) {
-                            result.success(mgr.playMacro(loaded, params, speed, repeatCount, mode))
-                        } else {
-                            result.error("NOT_FOUND", "Macro not found", null)
-                        }
-                    }
-                }
-                "stopReplay" -> {
-                    InputReplyManager.instance?.stopReplay()
-                    result.success(true)
-                }
-                "listRecordings" -> {
-                    val mgr = InputReplyManager.instance
-                    if (mgr != null) {
-                        result.success(mgr.listSavedMacros())
-                    } else {
-                        val dir = File(filesDir, "input_reply/recordings")
-                        val files = dir.listFiles { f -> f.extension == "json" } ?: emptyArray()
-                        val list = mutableListOf<Map<String, Any?>>()
-                        for (file in files) {
-                            try {
-                                val json = JSONObject(file.readText())
-                                val map = mutableMapOf<String, Any?>()
-                                val keys = json.keys()
-                                while (keys.hasNext()) {
-                                    val k = keys.next()
-                                    map[k] = json.opt(k)
-                                }
-                                list.add(map)
-                            } catch (_: Exception) {}
-                        }
-                        result.success(list)
-                    }
-                }
-                "getRecording" -> {
-                    val name = call.argument<String>("name") ?: ""
-                    val mgr = InputReplyManager.instance
-                    val macro = mgr?.getMacro(name)
-                    if (macro != null) {
-                        result.success(macro)
-                    } else {
-                        result.success(null)
-                    }
-                }
-                "saveRecording" -> {
-                    val name = call.argument<String>("name") ?: ""
-                    val macroData = call.argument<Map<String, Any?>>("macro")
-                    val mgr = InputReplyManager.instance
-                    if (mgr != null && macroData != null) {
-                        result.success(mgr.saveMacroToFile(name, macroData))
-                    } else if (macroData != null) {
-                        try {
-                            val dir = File(filesDir, "input_reply/recordings")
-                            if (!dir.exists()) dir.mkdirs()
-                            val file = File(dir, if (name.endsWith(".json")) name else "$name.json")
-                            file.writeText(JSONObject(macroData).toString(2))
-                            result.success(true)
-                        } catch (_: Exception) {
-                            result.success(false)
-                        }
-                    } else {
-                        result.success(false)
-                    }
-                }
-                "deleteRecording" -> {
-                    val name = call.argument<String>("name") ?: ""
-                    val mgr = InputReplyManager.instance
-                    if (mgr != null) {
-                        result.success(mgr.deleteMacro(name))
-                    } else {
-                        val file = File(File(filesDir, "input_reply/recordings"), if (name.endsWith(".json")) name else "$name.json")
-                        result.success(file.delete())
-                    }
-                }
-                else -> result.notImplemented()
-            }
-        }
+        inputReplyBridge?.dispose()
+        inputReplyBridge = InputReplyBridge(this, flutterEngine.dartExecutor.binaryMessenger)
 
         // Flush any pending cold-start assistant action
         val pending = pendingAssistantAction
@@ -1284,6 +1183,8 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() {
+        debugInputReplyReceiver?.let { try { unregisterReceiver(it) } catch (_: Exception) {} }
+        debugInputReplyReceiver = null
         debugScoReceiver?.let { try { unregisterReceiver(it) } catch (_: Exception) {} }
         debugScoReceiver = null
         engineAlive = false
@@ -1297,7 +1198,8 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         ttsMethodChannel = null
         sttMethodChannel = null
         assistantMethodChannel = null
-        inputReplyMethodChannel = null
+        inputReplyBridge?.dispose()
+        inputReplyBridge = null
         tts?.stop()
         tts?.shutdown()
         tts = null

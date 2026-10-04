@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/launcher_service.dart';
@@ -543,18 +544,22 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
   // ── Today's Goals Widget ──────────────────────────────────────
   Widget _buildTodayGoalsCard(AppProvider provider) {
     final live = WidgetsStudioResolvers.resolveLiveGoals(provider);
+    final isWeekly = live.scope == GoalScope.weekly;
 
     return _buildResponsiveWidgetFrame(
-      title: 'TODAY\'S GOALS // 4x2 DAILY DIRECTIVES',
+      title: isWeekly
+          ? 'WEEKLY GOALS // 4x2 DIRECTIVES'
+          : 'TODAY\'S GOALS // 4x2 DAILY DIRECTIVES',
       badge: '${live.completedCount}/${live.totalCount} DONE',
       badgeColor: JweTheme.accentAmber,
       onTap: widget.onOpenArcane,
-      onPin: () {}, // No Android widget pin for this yet
+      onPin: () => HomeWidgetService.instance.requestPinGoals(),
       child: TodayGoalsHomeWidget(
         goals: live.goals,
         progress: live.progress,
         earnedXp: live.earnedXp,
         totalXp: live.totalXp,
+        scope: live.scope,
         onGoalTap: (g) => provider.toggleGoalCheck(g.id),
         onOpenArcane: widget.onOpenArcane,
       ),

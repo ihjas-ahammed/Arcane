@@ -73,6 +73,25 @@ class WidgetActionReceiver : BroadcastReceiver() {
                     }
                 }
             }
+
+            if (action.startsWith("goal_toggle_")) {
+                val goalIds = appWidgetManager.getAppWidgetIds(
+                    android.content.ComponentName(context, GoalsWidget::class.java)
+                )
+                if (goalIds.isNotEmpty()) {
+                    val slot = action.removePrefix("goal_toggle_").toIntOrNull() ?: 0
+                    val viewsGoals = RemoteViews(context.packageName, R.layout.widget_goals)
+                    val checkId = when (slot) {
+                        0 -> R.id.widget_goal_0_check
+                        1 -> R.id.widget_goal_1_check
+                        else -> R.id.widget_goal_2_check
+                    }
+                    viewsGoals.setTextViewText(checkId, "…")
+                    for (id in goalIds) {
+                        appWidgetManager.partiallyUpdateAppWidget(id, viewsGoals)
+                    }
+                }
+            }
         } catch (_: Exception) {
             // Safe fallback if update fails
         }

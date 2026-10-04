@@ -5,8 +5,10 @@ import 'package:flutter/widgets.dart';
 
 import 'package:intl/intl.dart';
 import 'package:missions/src/models/bus_models.dart';
+import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/screens/settings/widgets_studio/widgets_studio_resolvers.dart';
 import 'package:missions/src/services/bus_location_service.dart';
 import 'package:missions/src/services/home_widget_service.dart';
 import 'package:missions/src/utils/day_budget_helper.dart';
@@ -27,6 +29,7 @@ class HomeWidgetPublisher {
   String? _lastFinanceKey;
   String? _lastJournalKey;
   String? _lastBusKey;
+  String? _lastGoalsKey;
 
   Timer? _publishDebounce;
 
@@ -42,6 +45,7 @@ class HomeWidgetPublisher {
     await _publishFinance(force: true);
     await _publishJournal(force: true);
     await _publishBus(force: true);
+    await _publishGoals(force: true);
   }
 
   void _onProviderChanged() {
@@ -62,6 +66,8 @@ class HomeWidgetPublisher {
       _publishJournal();
       // ignore: discarded_futures
       _publishBus();
+      // ignore: discarded_futures
+      _publishGoals();
     });
   }
 
@@ -525,6 +531,64 @@ class HomeWidgetPublisher {
       );
     } catch (e) {
       debugPrint('[HomeWidget] publish bus: $e');
+    }
+  }
+
+  // ── Goals ─────────────────────────────────────────────────────────────
+
+  Future<void> _publishGoals({bool force = false}) async {
+    final live = WidgetsStudioResolvers.resolveLiveGoals(_provider);
+    final topGoals = live.goals.take(3).toList();
+
+    final key = [
+      live.scope.name,
+      live.totalCount,
+      live.completedCount,
+      live.earnedXp,
+      live.totalXp,
+      for (final g in topGoals) '${g.id}:${g.getIsEffectiveCompleted()}:${g.title}:${g.currentValue}:${g.targetValue}',
+    ].join('|');
+
+    if (!force && key == _lastGoalsKey) return;
+    _lastGoalsKey = key;
+
+    final items = <({String id, String title, bool isCompleted, String tag})>[];
+    for (final g in topGoals) {
+      final isDone = g.getIsEffectiveCompleted();
+      final subTotal = g.subChecklist.length;
+      final subDone = g.subChecklist.where((s) => s.isCompleted).length;
+
+      String tag = '';
+      if (g.metricType == GoalMetricType.timeCounter) {
+        tag = '${g.currentValue.toInt()}/${g.targetValue.toInt()}m';
+      } else if (subTotal > 0) {
+        tag = '$subDone/$subTotal';
+      } else if (g.metricType == GoalMetricType.counter) {
+        tag = '${g.currentValue.toInt()}/${g.targetValue.toInt()}';
+      } else if (g.xpReward > 0) {
+        tag = '+${g.xpReward}XP';
+      }
+
+      items.add((
+        id: g.id,
+        title: g.title,
+        isCompleted: isDone,
+        tag: tag,
+      ));
+    }
+
+    try {
+      await HomeWidgetService.instance.publishGoals(
+        totalCount: live.totalCount,
+        completedCount: live.completedCount,
+        progressPct: (live.progress * 100).toInt(),
+        totalXp: live.totalXp,
+        earnedXp: live.earnedXp,
+        scope: live.scope == GoalScope.weekly ? 'weekly' : 'daily',
+        items: items,
+      );
+    } catch (e) {
+      debugPrint('[HomeWidget] publish goals: $e');
     }
   }
 }

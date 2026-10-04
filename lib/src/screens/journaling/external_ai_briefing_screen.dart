@@ -10,6 +10,7 @@ import 'package:missions/src/screens/journaling/weekly_review_screen.dart';
 import 'package:missions/src/services/data_export_service.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/external_ai_briefing_helper.dart';
+import 'package:missions/src/utils/goal_briefing_helper.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/widgets/ui/tactical_briefing_indicator.dart';
 import 'package:provider/provider.dart';
@@ -285,6 +286,7 @@ class _ExternalAiBriefingScreenState extends State<ExternalAiBriefingScreen> {
     final goalsCount = telemetry['goals_count'] ?? 0;
     final txCount = (telemetry['finance']?['transactions'] as List?)?.length ?? 0;
     final trackedMinutes = telemetry['time_tracking']?['total_minutes'] ?? 0;
+    final previousQuotesCount = (dataSnapshot['previous_quotes'] as List?)?.length ?? 0;
 
     return Scaffold(
       backgroundColor: JweTheme.bgBase,
@@ -450,6 +452,15 @@ class _ExternalAiBriefingScreenState extends State<ExternalAiBriefingScreen> {
                         title: 'Advance Synthesis:',
                         value: 'Synthesizes tomorrow morning\'s System Start-Up Sequence in advance',
                         accent: JweTheme.accentCyan,
+                      ),
+                    ],
+                    if (previousQuotesCount > 0) ...[
+                      const SizedBox(height: 6),
+                      _dataBullet(
+                        icon: MdiIcons.formatQuoteOpen,
+                        title: 'Previous Quotes Deduplicated:',
+                        value: '$previousQuotesCount quotes tracked across history to prevent repeats',
+                        accent: JweTheme.accentAmber,
                       ),
                     ],
                   ],
@@ -629,7 +640,17 @@ class _ExternalAiBriefingScreenState extends State<ExternalAiBriefingScreen> {
     final selected = _selectedType == type;
     return Expanded(
       child: InkWell(
-        onTap: () {
+        onTap: () async {
+          if (_selectedType == type) return;
+          final provider = Provider.of<AppProvider>(context, listen: false);
+          if (type == BriefingType.weekly) {
+            final canProceed = await GoalBriefingHelper.showWeeklyGoalsCheckDialog(
+              context,
+              provider,
+              _selectedDate,
+            );
+            if (!canProceed || !mounted) return;
+          }
           setState(() {
             _selectedType = type;
             _parseError = null;

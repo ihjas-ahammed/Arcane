@@ -11,6 +11,7 @@ import 'package:missions/src/screens/bus_schedule_screen.dart';
 import 'package:missions/src/screens/nora_ai_screen.dart';
 import 'package:missions/src/screens/journaling/quick_therapy_screen.dart';
 import 'package:missions/src/screens/reflections_archive_screen.dart';
+import 'package:missions/src/screens/settings/widgets_studio/widgets_studio_resolvers.dart';
 import 'package:missions/src/services/bus_location_service.dart';
 import 'package:missions/src/widgets/dialogs/add_transaction_dialog.dart';
 import 'package:missions/src/widgets/screens/reflection_editor_screen.dart';
@@ -205,6 +206,16 @@ class WidgetActionRouter {
         _push((_) => const NoraAiScreen(isVoiceCommandLaunch: true));
         break;
 
+      case 'goals_open':
+        _gotoTab(HomeTab.missions);
+        break;
+      case 'goal_toggle_0':
+      case 'goal_toggle_1':
+      case 'goal_toggle_2':
+        final slot = int.parse(action.split('_').last);
+        _toggleGoalAtSlot(provider, slot);
+        break;
+
       default:
         if (action.startsWith('nora_prompt:')) {
           final prompt = action.substring('nora_prompt:'.length).trim();
@@ -269,6 +280,16 @@ class WidgetActionRouter {
       final c = navigatorKey.currentContext;
       if (c != null) cb(c);
     });
+  }
+
+  void _toggleGoalAtSlot(AppProvider provider, int slot) {
+    final live = WidgetsStudioResolvers.resolveLiveGoals(provider);
+    if (slot >= 0 && slot < live.goals.length) {
+      final goal = live.goals[slot];
+      provider.toggleGoalCheck(goal.id);
+      final wasCompleted = goal.getIsEffectiveCompleted();
+      showGlobalToast(!wasCompleted ? '✓ Directive completed: ${goal.title}' : 'Directive reset: ${goal.title}');
+    }
   }
 
   void _taskToggle(AppProvider provider) {

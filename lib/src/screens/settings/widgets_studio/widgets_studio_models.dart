@@ -84,6 +84,7 @@ class GoalsWidgetData {
   final int totalXp;
   final int earnedXp;
   final List<GoalModel> goals;
+  final GoalScope scope;
 
   const GoalsWidgetData({
     required this.totalCount,
@@ -92,5 +93,6 @@ class GoalsWidgetData {
     required this.totalXp,
     required this.earnedXp,
     required this.goals,
+    this.scope = GoalScope.daily,
   });
 }

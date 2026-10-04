@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/services/home_widget_service.dart';
 import 'package:missions/src/widgets/homescreen_widgets.dart';
 import '../widgets_studio_controls.dart';
+import '../widgets_studio_models.dart';
 import '../widgets_studio_resolvers.dart';
+import '../widgets_studio_sync.dart';
 
 class GoalsWidgetTab extends StatefulWidget {
   final AppProvider provider;
@@ -19,6 +22,7 @@ class GoalsWidgetTab extends StatefulWidget {
 
 class _GoalsWidgetTabState extends State<GoalsWidgetTab> {
   bool _overrideGoals = false;
+  bool _isSyncing = false;
   List<GoalModel> _mockGoals = [
     GoalModel(
       id: 'mock_1',
@@ -63,6 +67,7 @@ class _GoalsWidgetTabState extends State<GoalsWidgetTab> {
     final displayTotalXp = _overrideGoals
         ? _mockGoals.fold<int>(0, (sum, g) => sum + g.xpReward)
         : live.totalXp;
+    final displayScope = _overrideGoals ? GoalScope.daily : live.scope;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -78,6 +83,7 @@ class _GoalsWidgetTabState extends State<GoalsWidgetTab> {
                 progress: displayProgress,
                 earnedXp: displayEarnedXp,
                 totalXp: displayTotalXp,
+                scope: displayScope,
                 onGoalTap: (g) {
                   if (!_overrideGoals) {
                     widget.provider.toggleGoalCheck(g.id);
@@ -93,6 +99,32 @@ class _GoalsWidgetTabState extends State<GoalsWidgetTab> {
                   }
                 },
               ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          StudioActionButtons(
+            syncLabel: "SYNC GOALS WIDGET",
+            isSyncing: _isSyncing,
+            onSync: () async {
+              setState(() => _isSyncing = true);
+              final data = _overrideGoals
+                  ? GoalsWidgetData(
+                      totalCount: displayGoals.length,
+                      completedCount: displayGoals.where((g) => g.isCompleted).length,
+                      progress: displayProgress,
+                      totalXp: displayTotalXp,
+                      earnedXp: displayEarnedXp,
+                      goals: displayGoals,
+                      scope: GoalScope.daily,
+                    )
+                  : live;
+              await WidgetsStudioSync.pushGoalsToAndroid(data, context: context);
+              if (mounted) setState(() => _isSyncing = false);
+            },
+            onPin: () => WidgetsStudioSync.pinWidget(
+              context,
+              HomeWidgetService.instance.requestPinGoals,
+              "Goals Widget",
             ),
           ),
           const SizedBox(height: 20),

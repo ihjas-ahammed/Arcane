@@ -25,6 +25,7 @@ class HomeWidgetService {
   static const String _providerFinance = 'me.ihjas.missions.widgets.FinanceWidget';
   static const String _providerJournal = 'me.ihjas.missions.widgets.JournalWidget';
   static const String _providerBus = 'me.ihjas.missions.widgets.BusWidget';
+  static const String _providerGoals = 'me.ihjas.missions.widgets.GoalsWidget';
 
   bool get _supported => !kIsWeb && Platform.isAndroid;
 
@@ -90,6 +91,7 @@ class HomeWidgetService {
   Future<bool> requestPinDayPlan() => requestPinWidget(_providerDayPlan);
   Future<bool> requestPinFinance() => requestPinWidget(_providerFinance);
   Future<bool> requestPinJournal() => requestPinWidget(_providerJournal);
+  Future<bool> requestPinGoals() => requestPinWidget(_providerGoals);
 
   // ── Publish ────────────────────────────────────────────────────────────
 
@@ -216,6 +218,46 @@ class HomeWidgetService {
     // When transit state changes or active, also refresh RunningTaskWidget so
     // it can show the travel if placed on user's homescreen
     await _refresh(_providerRunning);
+  }
+
+  Future<void> publishGoals({
+    required int totalCount,
+    required int completedCount,
+    required int progressPct,
+    required int totalXp,
+    required int earnedXp,
+    required String scope,
+    List<({String id, String title, bool isCompleted, String tag})> items = const [],
+  }) async {
+    if (!_supported) return;
+
+    final map = <String, Object>{
+      'arcane.goals.totalCount': totalCount,
+      'arcane.goals.completedCount': completedCount,
+      'arcane.goals.progressPct': progressPct,
+      'arcane.goals.totalXp': totalXp,
+      'arcane.goals.earnedXp': earnedXp,
+      'arcane.goals.scope': scope,
+      'arcane.goals.updatedAtMs': DateTime.now().millisecondsSinceEpoch,
+    };
+
+    for (int i = 0; i < 3; i++) {
+      if (i < items.length) {
+        final item = items[i];
+        map['arcane.goals.g$i.id'] = item.id;
+        map['arcane.goals.g$i.title'] = item.title;
+        map['arcane.goals.g$i.isCompleted'] = item.isCompleted;
+        map['arcane.goals.g$i.tag'] = item.tag;
+      } else {
+        map['arcane.goals.g$i.id'] = '';
+        map['arcane.goals.g$i.title'] = '';
+        map['arcane.goals.g$i.isCompleted'] = false;
+        map['arcane.goals.g$i.tag'] = '';
+      }
+    }
+
+    await _setAll(map);
+    await _refresh(_providerGoals);
   }
 
   Future<void> _setAll(Map<String, Object> values) async {

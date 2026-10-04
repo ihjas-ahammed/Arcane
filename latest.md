@@ -1,3 +1,32 @@
+# ⚡ Arcane System Upgrade // v2026.10.4 (Build #2126100401)
+
+### 🎯 Native Android Goals Widget (4x2) & Auto-Scope Directives
+- **Native OS Goals Widget**:
+  - Introduced the dedicated Android Home Screen **Goals Widget** (`GoalsWidget`, 4x2) with amber tactical styling adhering strictly to dual-theme rules.
+  - Displays dynamic header tags, completion count, XP rewards indicator, calibrated progress bar, 3 directive slots with interactive checkboxes, and a standby empty state.
+  - Instant interactive toggles directly from the Android home screen without launching the app, plus header deep linking to the Missions tab.
+  - Integrated into Widgets Studio with real-time preview, Android OS sync, and pin-to-homescreen request.
+- **Dynamic Scope Auto-Switching (Daily ➔ Weekly)**:
+  - If daily goals are not configured or empty, the Goals widget automatically elevates and displays weekly goals, ensuring directives are always actionable.
+  - Contextual header badges adapt dynamically between `[ DIRECTIVES ... ]` and `[ WEEKLY DIRECTIVES ... ]`.
+
+### 📜 AI Briefing Quote Deduplication & Goal Prerequisites
+- **Historically Grounded Quote Deduplication**:
+  - Exported `previous_quotes` array in the briefing export payload gathering historical quotes from daily/startup reports, cached weekly/monthly summaries, and previous AI briefings.
+  - Added strict prompt constraints instructing external AI models to never repeat quotes and instead supply fresh maxims and varied historical figures each day.
+- **Mandatory Goal Prerequisites for External Briefings**:
+  - Unified prerequisite enforcement across both internal and external AI briefings: verifies tomorrow's directives and next-week goals before opening the external AI briefing modal.
+
+### ⚡ Input-Reply Engine Hardening & Multi-Window Execution
+- **Multi-Window Root Traversal**:
+  - Added full `getAllRoots()` traversal across active windows, floating HUDs, and system overlays for send button detection, view ID lookups, text entry, and clipboard fallback.
+- **Synchronous Gesture & Serialization Fixes**:
+  - Fixed gesture path endpoints in `dispatchTapGestureSync` for reliable gesture injection on Android 14.
+  - Resolved nested JSON map/list serialization in `InputReplyManager` preventing parameter loss during storage and replay.
+  - End-to-end verified on Android 14 emulator (`test_avd`).
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.3 (Build #2126100310)
 
 ### 🎯 Input Reply Engine: Synchronous Click Execution & Engine Modes
