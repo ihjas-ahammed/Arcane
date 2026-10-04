@@ -61,9 +61,7 @@ class SecurityPrivacySettingsSection extends StatelessWidget {
           activeTrackColor: AppTheme.fhAccentPurple,
           contentPadding: EdgeInsets.zero,
           onChanged: (bool value) {
-            appProvider.setSettings(
-              appProvider.settings..themeMode = value ? 'system' : 'dark',
-            );
+            appProvider.setThemeMode(value ? 'system' : 'dark');
           },
         ),
         if (appProvider.settings.themeMode != 'system')
@@ -73,9 +71,7 @@ class SecurityPrivacySettingsSection extends StatelessWidget {
             activeTrackColor: AppTheme.fhAccentPurple,
             contentPadding: EdgeInsets.zero,
             onChanged: (bool value) {
-              appProvider.setSettings(
-                appProvider.settings..themeMode = value ? 'dark' : 'light',
-              );
+              appProvider.setThemeMode(value ? 'dark' : 'light');
             },
           ),
       ],

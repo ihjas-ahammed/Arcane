@@ -597,7 +597,11 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
       badge: '${live.completedCount}/${live.totalCount} DONE',
       badgeColor: JweTheme.accentAmber,
       onTap: widget.onOpenArcane,
-      onPin: () => HomeWidgetService.instance.requestPinGoals(),
+      onPin: () => WidgetsStudioSync.pinWidget(
+        context,
+        HomeWidgetService.instance.requestPinGoals,
+        'Goals Widget',
+      ),
       child: TodayGoalsHomeWidget(
         goals: live.goals,
         progress: live.progress,
@@ -897,7 +901,7 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
                     isOn: !isLight,
                     onTap: () {
                       final newMode = isLight ? 'dark' : 'light';
-                      provider.setSettings(provider.settings..themeMode = newMode);
+                      provider.setThemeMode(newMode);
                     },
                   ),
                   _buildSystemMatrixToggle(

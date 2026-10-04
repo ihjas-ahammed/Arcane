@@ -803,6 +803,19 @@ class LauncherNotificationDeckCard extends StatelessWidget {
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final dayNotifs = provider.getNotificationsForDate(todayStr);
 
+    Map<String, dynamic>? latestNotif;
+    if (dayNotifs.isNotEmpty) {
+      final sorted = List<Map<String, dynamic>>.from(dayNotifs);
+      sorted.sort((a, b) {
+        final tA = a['timestamp'] ?? a['postTime'] ?? 0;
+        final tB = b['timestamp'] ?? b['postTime'] ?? 0;
+        final valA = (tA is num) ? tA.toInt() : (int.tryParse('$tA') ?? 0);
+        final valB = (tB is num) ? tB.toInt() : (int.tryParse('$tB') ?? 0);
+        return valB.compareTo(valA);
+      });
+      latestNotif = sorted.first;
+    }
+
     return InkWell(
       onTap: onOpenNotificationsTab,
       child: ClipPath(
@@ -863,30 +876,49 @@ class LauncherNotificationDeckCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                if (dayNotifs.isEmpty)
+                if (latestNotif == null)
                   Text(
                     'No communication telemetry logged yet today. Tapping will configure monitored apps.',
                     style: LauncherTheme.rajdhani(fontSize: 12, color: LauncherTheme.muted),
                   )
                 else ...[
-                  Text(
-                    '${dayNotifs.first['appName']?.toString().toUpperCase() ?? 'MSG'} · ${dayNotifs.first['title'] ?? ''}',
-                    style: LauncherTheme.rajdhani(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: LauncherTheme.text,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${latestNotif['appName']?.toString().toUpperCase() ?? 'MSG'} · ${latestNotif['title'] ?? ''}',
+                          style: LauncherTheme.rajdhani(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: LauncherTheme.text,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (latestNotif['timeStr'] != null && latestNotif['timeStr'].toString().isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          latestNotif['timeStr'].toString(),
+                          style: LauncherTheme.rajdhani(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: LauncherTheme.muted,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    dayNotifs.first['text']?.toString() ?? '',
+                    latestNotif['text']?.toString().isNotEmpty == true
+                        ? latestNotif['text'].toString()
+                        : 'New communication received',
                     style: LauncherTheme.rajdhani(
                       fontSize: 12,
                       color: LauncherTheme.muted,
                     ),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],

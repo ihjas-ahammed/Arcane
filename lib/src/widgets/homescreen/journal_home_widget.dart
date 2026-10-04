@@ -50,26 +50,33 @@ class JournalHomeWidget extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      color: AppTheme.fhAccentTeal,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      "// REFLECTION LOG",
-                      style: TextStyle(
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
                         color: AppTheme.fhAccentTeal,
-                        fontSize: 11,
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "// REFLECTION LOG",
+                          style: TextStyle(
+                            color: AppTheme.fhAccentTeal,
+                            fontSize: 11,
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   "$count ${count == 1 ? 'ENTRY' : 'ENTRIES'}",
                   style: TextStyle(
@@ -85,16 +92,21 @@ class JournalHomeWidget extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  "REFLECTION PROTOCOL",
-                  style: TextStyle(
-                    color: AppTheme.fhTextSecondary,
-                    fontFamily: 'monospace',
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
+                Expanded(
+                  child: Text(
+                    "REFLECTION PROTOCOL",
+                    style: TextStyle(
+                      color: AppTheme.fhTextSecondary,
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   "$todayCount/5 COMPLETE",
                   style: TextStyle(

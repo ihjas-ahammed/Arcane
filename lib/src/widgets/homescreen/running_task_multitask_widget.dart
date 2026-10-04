@@ -61,13 +61,17 @@ class RunningTaskMultitaskWidget extends StatelessWidget {
                       children: [
                         HudDot(tone: tone),
                         const SizedBox(width: 8),
-                        Text(
-                          'MULTITASK PROTOCOL · [0${items.length} ACTIVE]',
-                          style: GoogleFonts.rajdhani(
-                            color: accentColor,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
+                        Flexible(
+                          child: Text(
+                            'MULTITASK PROTOCOL · [0${items.length} ACTIVE]',
+                            style: GoogleFonts.rajdhani(
+                              color: accentColor,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const Spacer(),

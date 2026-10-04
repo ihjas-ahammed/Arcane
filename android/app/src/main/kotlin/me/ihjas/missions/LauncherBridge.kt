@@ -55,6 +55,11 @@ import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
+import android.graphics.Color
+import android.view.Gravity
+import android.widget.RemoteViews
+import android.widget.TextView
+import android.util.Log
 
 /**
  * Native half of the Arcane home-screen launcher (`arcane/launcher` channel).
@@ -72,6 +77,7 @@ class LauncherBridge(
     companion object {
         const val CHANNEL = "arcane/launcher"
         const val VIEW_TYPE = "arcane/appwidget"
+        private const val TAG = "LauncherBridge"
         private const val HOST_ID = 0x4A52
         private const val REQ_BIND_WIDGET = 4101
         private const val REQ_CONFIGURE_WIDGET = 4102
@@ -105,7 +111,40 @@ class LauncherBridge(
     private val main = Handler(Looper.getMainLooper())
 
     private val widgetManager: AppWidgetManager = AppWidgetManager.getInstance(appContext)
-    val widgetHost = AppWidgetHost(appContext, HOST_ID)
+
+    val widgetHost = object : AppWidgetHost(appContext, HOST_ID) {
+        override fun onCreateView(
+            context: Context,
+            appWidgetId: Int,
+            appWidget: AppWidgetProviderInfo?
+        ): AppWidgetHostView {
+            return SafeAppWidgetHostView(context)
+        }
+    }
+
+    private inner class SafeAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
+        override fun getErrorView(): View {
+            return TextView(context).apply {
+                text = "Widget Unavailable"
+                setTextColor(Color.GRAY)
+                textSize = 11f
+                gravity = Gravity.CENTER
+                setPadding(12, 12, 12, 12)
+            }
+        }
+
+        override fun updateAppWidget(remoteViews: RemoteViews?) {
+            try {
+                super.updateAppWidget(remoteViews)
+            } catch (e: Throwable) {
+                Log.e(TAG, "Error updating app widget", e)
+                try {
+                    removeAllViews()
+                    addView(getErrorView())
+                } catch (_: Throwable) {}
+            }
+        }
+    }
     /** Completion of the in-flight bind/configure flow (null = cancelled). One flow at a time. */
     private var pendingWidgetDone: ((Map<String, Any?>?) -> Unit)? = null
     private var pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
@@ -191,7 +230,7 @@ class LauncherBridge(
     fun handlePinRequest(intent: Intent?): Boolean {
         if (!isPinRequest(intent) || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
         try {
-            val la = appContext.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+            val la = appContext.getSystemService(Context.LAUNCHER_APPS_SERVICE) as? LauncherApps ?: return false
             val request = la.getPinItemRequest(intent) ?: return true
             if (!request.isValid) return true
             if (request.requestType == LauncherApps.PinItemRequest.REQUEST_TYPE_SHORTCUT) {
@@ -200,7 +239,13 @@ class LauncherBridge(
                 if (try { request.accept() } catch (_: Exception) { false }) {
                     val me = Process.myUserHandle()
                     val serial = if (si.userHandle == me) -1L else serialOf(si.userHandle)
-                    channel.invokeMethod("shortcutPinned", describeShortcut(si, serial))
+                    activity.runOnUiThread {
+                        try {
+                            channel.invokeMethod("shortcutPinned", describeShortcut(si, serial))
+                        } catch (e: Throwable) {
+                            Log.e(TAG, "Failed to invoke shortcutPinned", e)
+                        }
+                    }
                 }
                 return true
             }
@@ -212,12 +257,20 @@ class LauncherBridge(
                     request.isValid && request.accept(Bundle().apply { putInt(AppWidgetManager.EXTRA_APPWIDGET_ID, id) })
                 } catch (_: Exception) { false }
                 if (accepted) {
-                    channel.invokeMethod("widgetPinned", desc)
+                    activity.runOnUiThread {
+                        try {
+                            channel.invokeMethod("widgetPinned", desc)
+                        } catch (e: Throwable) {
+                            Log.e(TAG, "Failed to invoke widgetPinned", e)
+                        }
+                    }
                 } else {
                     try { widgetHost.deleteAppWidgetId(id) } catch (_: Exception) {}
                 }
             }
-        } catch (_: Exception) {}
+        } catch (e: Throwable) {
+            Log.e(TAG, "Error handling pin request", e)
+        }
         return true
     }
 
@@ -1079,7 +1132,13 @@ class LauncherBridge(
     private fun startWidgetFlow(cn: ComponentName, done: (Map<String, Any?>?) -> Unit) {
         pendingWidgetDone?.invoke(null)
         pendingWidgetDone = done
-        val id = widgetHost.allocateAppWidgetId()
+        val id = try {
+            widgetHost.allocateAppWidgetId()
+        } catch (e: Throwable) {
+            Log.e(TAG, "Failed to allocate app widget id", e)
+            done(null)
+            return
+        }
         pendingWidgetId = id
         val bound = try { widgetManager.bindAppWidgetIdIfAllowed(id, cn) } catch (_: Exception) { false }
         if (bound) {
@@ -1090,7 +1149,8 @@ class LauncherBridge(
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, cn)
             try {
                 activity.startActivityForResult(intent, REQ_BIND_WIDGET)
-            } catch (_: Exception) {
+            } catch (e: Throwable) {
+                Log.e(TAG, "Failed to launch REQ_BIND_WIDGET", e)
                 finishWidget(id, false)
             }
         }
@@ -1160,40 +1220,88 @@ class LauncherBridge(
 
     inner class WidgetViewFactory : PlatformViewFactory(StandardMessageCodec.INSTANCE) {
         override fun create(context: Context, viewId: Int, args: Any?): PlatformView {
-            @Suppress("UNCHECKED_CAST")
-            val params = args as? Map<String, Any?> ?: emptyMap()
-            val widgetId = (params["id"] as? Number)?.toInt() ?: AppWidgetManager.INVALID_APPWIDGET_ID
-            val widthDp = (params["width"] as? Number)?.toInt() ?: 0
-            val heightDp = (params["height"] as? Number)?.toInt() ?: 0
-            return HostedWidget(widgetId, widthDp, heightDp)
+            return try {
+                @Suppress("UNCHECKED_CAST")
+                val params = args as? Map<String, Any?> ?: emptyMap()
+                val widgetId = (params["id"] as? Number)?.toInt() ?: AppWidgetManager.INVALID_APPWIDGET_ID
+                val widthDp = (params["width"] as? Number)?.toInt() ?: 0
+                val heightDp = (params["height"] as? Number)?.toInt() ?: 0
+                HostedWidget(activity, widgetId, widthDp, heightDp)
+            } catch (e: Throwable) {
+                Log.e(TAG, "WidgetViewFactory error creating view", e)
+                object : PlatformView {
+                    private val v = TextView(activity).apply {
+                        text = "Widget layout error"
+                        setTextColor(Color.GRAY)
+                    }
+                    override fun getView(): View = v
+                    override fun dispose() {}
+                }
+            }
         }
     }
 
-    private inner class HostedWidget(widgetId: Int, widthDp: Int, heightDp: Int) : PlatformView {
-        private val container = FrameLayout(activity)
+    private inner class HostedWidget(
+        private val hostContext: Context,
+        private val widgetId: Int,
+        private val widthDp: Int,
+        private val heightDp: Int
+    ) : PlatformView {
+        private val container = FrameLayout(hostContext)
 
         init {
-            val info = widgetManager.getAppWidgetInfo(widgetId)
-            if (info != null) {
-                val hostView: AppWidgetHostView = widgetHost.createView(activity, widgetId, info)
-                hostView.setPadding(0, 0, 0, 0)
-                container.addView(
-                    hostView,
-                    FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
-                )
-                if (widthDp > 0 && heightDp > 0) {
-                    try {
-                        @Suppress("DEPRECATION")
-                        hostView.updateAppWidgetSize(Bundle(), widthDp, heightDp, widthDp, heightDp)
-                    } catch (_: Exception) {}
+            try {
+                val info = try { widgetManager.getAppWidgetInfo(widgetId) } catch (_: Throwable) { null }
+                if (info != null) {
+                    val hostView: AppWidgetHostView = try {
+                        widgetHost.createView(hostContext, widgetId, info)
+                    } catch (e: Throwable) {
+                        Log.e(TAG, "Failed widgetHost.createView for $widgetId", e)
+                        SafeAppWidgetHostView(hostContext).apply {
+                            setAppWidget(widgetId, info)
+                        }
+                    }
+                    hostView.setPadding(0, 0, 0, 0)
+                    container.addView(
+                        hostView,
+                        FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
+                    )
+                    if (widthDp > 0 && heightDp > 0) {
+                        try {
+                            @Suppress("DEPRECATION")
+                            hostView.updateAppWidgetSize(Bundle(), widthDp, heightDp, widthDp, heightDp)
+                        } catch (_: Exception) {}
+                    }
+                } else {
+                    val tv = TextView(hostContext).apply {
+                        text = "Widget unavailable ($widgetId)"
+                        setTextColor(Color.GRAY)
+                        textSize = 11f
+                        gravity = Gravity.CENTER
+                    }
+                    container.addView(tv)
                 }
+            } catch (e: Throwable) {
+                Log.e(TAG, "HostedWidget init error for $widgetId", e)
+                val tv = TextView(hostContext).apply {
+                    text = "Widget load failed"
+                    setTextColor(Color.GRAY)
+                    textSize = 11f
+                    gravity = Gravity.CENTER
+                }
+                try {
+                    container.removeAllViews()
+                    container.addView(tv)
+                } catch (_: Throwable) {}
             }
         }
 
         override fun getView(): View = container
 
         override fun dispose() {
-            container.removeAllViews()
+            try {
+                container.removeAllViews()
+            } catch (_: Throwable) {}
         }
     }
 

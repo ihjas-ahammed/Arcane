@@ -1,3 +1,37 @@
+# ⚡ Arcane System Upgrade // v2026.10.4 (Build #2126100403)
+
+### 🛡️ Widget Pinning Crash Elimination & Host Protection
+- **Safe Platform View & Host Inflation**:
+  - Subclassed Android `AppWidgetHost` with `SafeAppWidgetHostView` overriding `getErrorView()` and try-catching remote layout inflation to prevent process kills from misconfigured widget layouts.
+  - Wrapped `WidgetViewFactory.create` and `HostedWidget.init` in robust try-catch handlers with graceful fallback views instead of allowing platform view instantiation failures to trigger `CrashGuard.killProcess`.
+  - Protected `widgetHost.allocateAppWidgetId()` and `startActivityForResult(REQ_BIND_WIDGET)` with error barriers.
+  - Guarded `WidgetsStudioSync.pinWidget` with user-facing SnackBar error feedback and safe async completion.
+
+### 🎨 Reactive Theme Switching & Complete Dual-Theme Palette Parity
+- **Reactive Theme Mode State**:
+  - Added `notifyListeners()` to `UserMixin.setSettings` and introduced `setThemeMode(String mode)` to trigger immediate UI rebuilds across the application shell.
+  - Added a 3-button Theme Selector (`SYSTEM`, `DARK`, `LIGHT`) directly inside the Launcher Palette bottom sheet and updated settings quick toggles.
+  - Resolved white-text-on-white-background buttons for `CANVAS` and `PANEL` preview chips by dynamically adapting container colors, text colors, and borders to light and dark theme modes.
+  - Defined explicit `bgLight`, `panelLight`, `bgDark`, and `panelDark` colors across all 8 launcher palette presets conforming to tactical dual-theme design rules.
+
+### 📐 Text Overflow Protection Across All Home Screen Widgets
+- **Zero Overflow Guarantee**:
+  - Hardened `today_goals_home_widget.dart`, `running_task_single_widget.dart`, `running_task_multitask_widget.dart`, `day_plan_home_widget.dart`, `bus_home_widget.dart`, `finance_home_widget.dart`, and `journal_home_widget.dart`.
+  - Wrapped all directive headers, status labels, subtitle cards, metrics rows, and reflection protocols in `Expanded`/`Flexible` with `maxLines: 1` and `TextOverflow.ellipsis`.
+
+### 🎯 Scrollable Directives in Goals Widget
+- **Full Directives Visibility**:
+  - Removed the 3-goal display cap in `TodayGoalsHomeWidget` and implemented a smooth, scrollable `ListView.separated` with `BouncingScrollPhysics` displaying all active daily and weekly goals.
+
+### 🔔 Communications Deck & Smart Notification Capture
+- **Latest Incoming Notification in Deck Card**:
+  - Sorted daily notifications descending by timestamp in `LauncherNotificationDeckCard`, displaying the newest captured notification with app badge, sender title, timestamp, and message snippet.
+- **Smart Notification Filter (Overdraw Summary Removal)**:
+  - Hardened `ArcaneNotificationListenerService.kt` to intercept and ignore generic group summary overdraws (e.g. "2 messages from 3 chats", `FLAG_GROUP_SUMMARY`).
+  - Added deep extraction routines to pull real underlying message text and sender identity from `EXTRA_MESSAGES` (MessagingStyle) or `EXTRA_TEXT_LINES` (InboxStyle), ensuring only genuine communications are recorded into the daily journal.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.4 (Build #2126100402)
 
 ### 🛡️ Data Loss Prevention & 24-Hour Live Action Ledger

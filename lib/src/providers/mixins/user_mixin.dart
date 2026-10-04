@@ -79,6 +79,13 @@ mixin UserMixin on ChangeNotifier {
   void setSettings(AppSettings s) {
     _settings = s;
     sync.markDirty('settings');
+    notifyListeners();
+  }
+
+  void setThemeMode(String mode) {
+    _settings.themeMode = mode;
+    sync.markDirty('settings');
+    notifyListeners();
   }
 
   void setLastLoginDate(String? date) {

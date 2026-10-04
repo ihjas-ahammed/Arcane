@@ -11,16 +11,24 @@ class WidgetsStudioSync {
     Future<bool?> Function() pinFn,
     String widgetName,
   ) async {
-    final ok = await pinFn();
-    if (!context.mounted) return;
-    if (ok == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Requested to add $widgetName to Android home screen.')),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Pinning $widgetName to home screen is not supported on this device/launcher.')),
-      );
+    try {
+      final ok = await pinFn();
+      if (!context.mounted) return;
+      if (ok == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Requested to add $widgetName to Android home screen.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Pinning $widgetName to home screen is not supported on this device/launcher.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to pin $widgetName: $e')),
+        );
+      }
     }
   }
 

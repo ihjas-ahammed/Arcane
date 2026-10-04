@@ -70,23 +70,30 @@ class TodayGoalsHomeWidget extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            Container(width: 4, height: 12, color: accentAmber),
-                            const SizedBox(width: 8),
-                            Text(
-                              totalCount > 0
-                                  ? '[ $scopeTag // 0$completedCount/0$totalCount COMPLETED ]'
-                                  : '[ $scopeTag // STANDBY ]',
-                              style: GoogleFonts.jetBrainsMono(
-                                color: accentAmber,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.2,
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Container(width: 4, height: 12, color: accentAmber),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  totalCount > 0
+                                      ? '[ $scopeTag // 0$completedCount/0$totalCount COMPLETED ]'
+                                      : '[ $scopeTag // STANDBY ]',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: accentAmber,
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                           decoration: BoxDecoration(
@@ -207,15 +214,15 @@ class TodayGoalsHomeWidget extends StatelessWidget {
     Color accentAmber,
     Color accentCyan,
   ) {
-    final displayGoals = goals.take(3).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        for (final goal in displayGoals)
-          _buildGoalItem(goal, isLight, textWhite, textMid, textMuted, accentAmber, accentCyan),
-      ],
+    return ListView.separated(
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.zero,
+      itemCount: goals.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 6),
+      itemBuilder: (context, index) {
+        final goal = goals[index];
+        return _buildGoalItem(goal, isLight, textWhite, textMid, textMuted, accentAmber, accentCyan);
+      },
     );
   }
 

@@ -11,6 +11,8 @@ import 'package:missions/src/screens/launcher/launcher_theme.dart';
 import 'package:missions/src/screens/launcher/views/launcher_items.dart';
 import 'package:missions/src/screens/launcher/views/launcher_fullscreen_setting.dart';
 import 'package:missions/src/screens/launcher/views/launcher_takeover_settings.dart';
+import 'package:missions/src/providers/app_provider.dart';
+import 'package:provider/provider.dart';
 
 // ── Shared chrome ─────────────────────────────────────────────
 
@@ -1232,9 +1234,35 @@ class _LauncherPaletteSheet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _title('LAUNCHER PALETTE', subtitle: 'Tactical color schemes & custom accents'),
+          Builder(
+            builder: (context) {
+              final provider = Provider.of<AppProvider>(context);
+              final currentMode = provider.settings.themeMode;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: LauncherTheme.panel2,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: LauncherTheme.line),
+                  ),
+                  child: Row(
+                    children: [
+                      _themeModeBtn(provider, 'SYSTEM', 'system', currentMode == 'system'),
+                      _themeModeBtn(provider, 'DARK', 'dark', currentMode == 'dark'),
+                      _themeModeBtn(provider, 'LIGHT', 'light', currentMode == 'light'),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
           ValueListenableBuilder<String>(
             valueListenable: service.paletteId,
             builder: (context, currentId, _) {
+              final isLight = LauncherTheme.isLight;
               return Column(
                 children: [
                   for (final p in LauncherPalette.presets)
@@ -1277,7 +1305,9 @@ class _LauncherPaletteSheet extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: p.bgDark,
+                                color: isLight
+                                    ? (p.bgLight ?? const Color(0xFFEDE8E0))
+                                    : (p.bgDark ?? const Color(0xFF050608)),
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(color: LauncherTheme.line),
                               ),
@@ -1285,7 +1315,7 @@ class _LauncherPaletteSheet extends StatelessWidget {
                                 'CANVAS',
                                 style: LauncherTheme.rajdhani(
                                   fontSize: 10,
-                                  color: Colors.white70,
+                                  color: isLight ? const Color(0xFF2A2620) : Colors.white70,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -1294,7 +1324,9 @@ class _LauncherPaletteSheet extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: p.panelDark,
+                                color: isLight
+                                    ? (p.panelLight ?? const Color(0xFFFAF8F5))
+                                    : (p.panelDark ?? const Color(0xFF0E1015)),
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(color: LauncherTheme.line),
                               ),
@@ -1302,7 +1334,7 @@ class _LauncherPaletteSheet extends StatelessWidget {
                                 'PANEL',
                                 style: LauncherTheme.rajdhani(
                                   fontSize: 10,
-                                  color: Colors.white70,
+                                  color: isLight ? const Color(0xFF2A2620) : Colors.white70,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -1372,7 +1404,9 @@ class _LauncherPaletteSheet extends StatelessWidget {
                             color: c,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: isSelected ? Colors.white : Colors.transparent,
+                              color: isSelected
+                                  ? (LauncherTheme.isLight ? Colors.black87 : Colors.white)
+                                  : Colors.transparent,
                               width: 2.5,
                             ),
                           ),
@@ -1384,6 +1418,33 @@ class _LauncherPaletteSheet extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _themeModeBtn(AppProvider provider, String label, String mode, bool active) {
+    return Expanded(
+      child: InkWell(
+        onTap: () => provider.setThemeMode(mode),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: active ? LauncherTheme.redDim : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: active ? LauncherTheme.red : Colors.transparent),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: LauncherTheme.rajdhani(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: active ? LauncherTheme.red : LauncherTheme.muted,
+              letterSpacing: 1.1,
+            ),
+          ),
+        ),
       ),
     );
   }

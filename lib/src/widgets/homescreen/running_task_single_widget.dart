@@ -85,13 +85,17 @@ class RunningTaskSingleWidget extends StatelessWidget {
                       children: [
                         HudDot(tone: tone),
                         const SizedBox(width: 8),
-                        Text(
-                          statusLabel,
-                          style: GoogleFonts.rajdhani(
-                            fontSize: 10.5,
-                            color: accent,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
+                        Flexible(
+                          child: Text(
+                            statusLabel,
+                            style: GoogleFonts.rajdhani(
+                              fontSize: 10.5,
+                              color: accent,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const Spacer(),
@@ -157,22 +161,23 @@ class RunningTaskSingleWidget extends StatelessWidget {
                           const SizedBox(height: 3),
                           Row(
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: accent.withValues(alpha: 0.08),
-                                  border: Border(left: BorderSide(color: accent, width: 2)),
-                                ),
-                                constraints: const BoxConstraints(maxWidth: 360),
-                                child: Text(
-                                  subtitle.toUpperCase(),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.rajdhani(
-                                    color: JweTheme.textMid,
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.2,
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: accent.withValues(alpha: 0.08),
+                                    border: Border(left: BorderSide(color: accent, width: 2)),
+                                  ),
+                                  child: Text(
+                                    subtitle.toUpperCase(),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.rajdhani(
+                                      color: JweTheme.textMid,
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.2,
+                                    ),
                                   ),
                                 ),
                               ),

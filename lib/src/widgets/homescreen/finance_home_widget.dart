@@ -100,15 +100,19 @@ class FinanceHomeWidget extends StatelessWidget {
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             const Spacer(),
             // Today / MTD / Budget Columns
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildCol("TODAY", _fmtMoney(todaySpend), AppTheme.fhAccentTeal),
-                _buildCol("MTD", _fmtMoney(monthSpend), AppTheme.fhAccentGold),
-                _buildCol("BUDGET", "$budgetPct%", AppTheme.fhAccentTeal),
+                Expanded(child: _buildCol("TODAY", _fmtMoney(todaySpend), AppTheme.fhAccentTeal)),
+                const SizedBox(width: 8),
+                Expanded(child: _buildCol("MTD", _fmtMoney(monthSpend), AppTheme.fhAccentGold)),
+                const SizedBox(width: 8),
+                Expanded(child: _buildCol("BUDGET", "$budgetPct%", AppTheme.fhAccentTeal)),
               ],
             ),
             const SizedBox(height: 6),
@@ -190,6 +194,8 @@ class FinanceHomeWidget extends StatelessWidget {
             fontSize: 10,
             letterSpacing: 1.0,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 2),
         Text(
@@ -200,6 +206,8 @@ class FinanceHomeWidget extends StatelessWidget {
             fontSize: 15,
             fontWeight: FontWeight.bold,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );

@@ -2,6 +2,7 @@ package me.ihjas.missions.notifications
 
 import android.app.Notification
 import android.content.Context
+import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import org.json.JSONArray
@@ -25,6 +26,7 @@ class ArcaneNotificationListenerService : NotificationListenerService() {
         const val KEY_SELECTED_PACKAGES = "selected_packages"
         const val KEY_NOTIFS_PREFIX = "notifs_"
         private const val MAX_PER_DAY = 300
+        private val SUMMARY_REGEX = Regex("""(?i)^\d+\s+(?:new\s+)?messages?(\s+from\s+\d+\s+chats?)?$|^\d+\s+unread\s+messages?$|^\d+\s+messages?$|^\d+\s+new\s+messages?$""")
 
         var instance: ArcaneNotificationListenerService? = null
             private set
@@ -127,11 +129,68 @@ class ArcaneNotificationListenerService : NotificationListenerService() {
         if ((flags and Notification.FLAG_FOREGROUND_SERVICE) != 0) return
 
         val extras = notification.extras ?: return
-        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()
+        var title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()
             ?: extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString()?.trim() ?: ""
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
+        var text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
             ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim() ?: ""
         val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()?.trim() ?: ""
+
+        val isGroupSummary = (flags and Notification.FLAG_GROUP_SUMMARY) != 0
+        val isGenericSummary = SUMMARY_REGEX.matches(text) || SUMMARY_REGEX.matches(title)
+
+        // If this is a group summary or generic summary ("X messages from Y chats"), extract actual content or drop
+        if (isGroupSummary || isGenericSummary) {
+            var extractedText: String? = null
+            var extractedSender: String? = null
+
+            // 1. Inspect Notification.EXTRA_MESSAGES (MessagingStyle)
+            try {
+                val messages = extras.getParcelableArray(Notification.EXTRA_MESSAGES)
+                if (messages != null && messages.isNotEmpty()) {
+                    for (i in messages.indices.reversed()) {
+                        val bundle = messages[i] as? Bundle ?: continue
+                        val mText = bundle.getCharSequence("text")?.toString()?.trim()
+                        if (!mText.isNullOrEmpty() && !SUMMARY_REGEX.matches(mText)) {
+                            extractedText = mText
+                            extractedSender = bundle.getCharSequence("sender")?.toString()?.trim()
+                            break
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+
+            // 2. Inspect Notification.EXTRA_TEXT_LINES (InboxStyle)
+            if (extractedText == null) {
+                try {
+                    val lines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+                    if (lines != null && lines.isNotEmpty()) {
+                        for (i in lines.indices.reversed()) {
+                            val lineStr = lines[i]?.toString()?.trim() ?: continue
+                            if (lineStr.isNotEmpty() && !SUMMARY_REGEX.matches(lineStr)) {
+                                if (lineStr.contains(": ")) {
+                                    val parts = lineStr.split(": ", limit = 2)
+                                    extractedSender = parts[0].trim()
+                                    extractedText = parts[1].trim()
+                                } else {
+                                    extractedText = lineStr
+                                }
+                                break
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+
+            if (!extractedText.isNullOrEmpty()) {
+                text = extractedText
+                if (!extractedSender.isNullOrEmpty()) {
+                    title = extractedSender
+                }
+            } else if (isGroupSummary || isGenericSummary) {
+                // Ignore pure overdraw placeholder notifications
+                return
+            }
+        }
 
         // Skip empty notifications
         if (title.isEmpty() && text.isEmpty()) return
