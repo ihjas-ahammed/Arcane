@@ -19,6 +19,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
   final bool dayPlannerWidgetCheckable;
   final List<ResolvedDayPlanItem> topFiveTasks;
   final List<ResolvedDayPlanItem> multitaskTasks;
+  final void Function(int oldIndex, int newIndex)? onReorderTasks;
 
   static Color get _neonCyan => JweTheme.isLight ? JweTheme.accentCyan : const Color(0xFF00F0FF);
   static Color get _neonRed => JweTheme.isLight ? JweTheme.accentRed : const Color(0xFFFF2A4B);
@@ -38,6 +39,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
     this.dayPlannerWidgetCheckable = false,
     this.topFiveTasks = const [],
     this.multitaskTasks = const [],
+    this.onReorderTasks,
     this.onPrimaryAction,
     this.onSecondaryAction,
     this.onFinishAction,
@@ -85,6 +87,7 @@ class RunningTaskHomeWidget extends StatelessWidget {
         neonCyan: _neonCyan,
         neonRed: _neonRed,
         toneFor: _toneFor,
+        onReorder: onReorderTasks,
       );
     }
 

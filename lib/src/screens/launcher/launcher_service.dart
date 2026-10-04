@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:missions/src/screens/launcher/launcher_models.dart';
 import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/views/launcher_items.dart';
@@ -73,6 +73,10 @@ class LauncherService {
   static const _kFullscreen = 'launcher_v4_fullscreen';
   static const _kNotes = 'arcane_launcher_quick_notes';
   static const _kCountryCode = 'launcher_v4_country_code';
+  static const _kLauncherPalette = 'launcher_v4_palette';
+  static const _kLauncherCustomAccent = 'launcher_v4_custom_accent';
+  static const _kCustomWallpaperPath = 'launcher_v4_wallpaper_path';
+  static const _kWallpaperDim = 'launcher_v4_wallpaper_dim';
 
   VoidCallback? onLauncherChanged;
   void _notifyChanged() => onLauncherChanged?.call();
@@ -122,6 +126,18 @@ class LauncherService {
 
   /// Whether Android lets Arcane read pinned shortcuts (only as the default home app).
   final ValueNotifier<bool> shortcutsAvailable = ValueNotifier<bool>(false);
+
+  /// Launcher color palette identifier.
+  final ValueNotifier<String> paletteId = ValueNotifier<String>('crimson');
+
+  /// Custom hex accent color override (null uses palette accent).
+  final ValueNotifier<Color?> customAccent = ValueNotifier<Color?>(null);
+
+  /// Custom background wallpaper image file path (null uses default tactical wallpaper).
+  final ValueNotifier<String?> customWallpaperPath = ValueNotifier<String?>(null);
+
+  /// Dimming factor (0.0 to 0.85) applied on top of the custom wallpaper.
+  final ValueNotifier<double> wallpaperDim = ValueNotifier<double>(0.25);
 
   Map<String, LauncherIconOverride> _overrides = {};
   Map<String, String> _packMap = const {};
@@ -203,6 +219,11 @@ class LauncherService {
     hidden.value = Set.unmodifiable(prefs.getStringList(_kHidden) ?? const <String>[]);
     iconPack.value = prefs.getString(_kIconPack);
     fullscreen.value = prefs.getBool(_kFullscreen) ?? true;
+    paletteId.value = prefs.getString(_kLauncherPalette) ?? 'crimson';
+    final customHex = prefs.getInt(_kLauncherCustomAccent);
+    if (customHex != null) customAccent.value = Color(customHex);
+    customWallpaperPath.value = prefs.getString(_kCustomWallpaperPath);
+    wallpaperDim.value = prefs.getDouble(_kWallpaperDim) ?? 0.25;
     final savedCode = prefs.getString(_kCountryCode);
     if (savedCode != null && savedCode.trim().isNotEmpty) {
       defaultCountryCode.value = savedCode.replaceAll(RegExp(r'\D'), '');
@@ -483,10 +504,21 @@ class LauncherService {
     for (final p in current) {
       p.remove(key);
     }
-    if (current[page].length >= maxHomeItems) return false;
-    final at = (index ?? current[page].length).clamp(0, current[page].length);
-    current[page].insert(at, key);
+    int targetPage = page;
+    if (current[targetPage].length >= maxHomeItems) {
+      // Automatically find next page with space or create a new page
+      int availablePage = current.indexWhere((p) => p.length < maxHomeItems);
+      if (availablePage != -1) {
+        targetPage = availablePage;
+      } else {
+        current.add(<String>[]);
+        targetPage = current.length - 1;
+      }
+    }
+    final at = (index ?? current[targetPage].length).clamp(0, current[targetPage].length);
+    current[targetPage].insert(at, key);
     saveHomePages(current);
+    activeHomePage.value = targetPage;
     return true;
   }
 
@@ -894,14 +926,75 @@ class LauncherService {
       if (w.id == id) return w;
     }
     final minHeight = (result['minHeight'] as num?)?.toDouble() ?? 110;
+
+    int targetPage = activeHomePage.value;
+    final pageWidgets = widgetsForPage(targetPage);
+    if (pageWidgets.length >= 2) {
+      int nextAvailablePage = -1;
+      for (int i = 0; i < homePages.value.length; i++) {
+        if (widgetsForPage(i).length < 2) {
+          nextAvailablePage = i;
+          break;
+        }
+      }
+      if (nextAvailablePage != -1) {
+        targetPage = nextAvailablePage;
+      } else {
+        targetPage = addHomePage();
+      }
+      activeHomePage.value = targetPage;
+    }
+
     final entry = LauncherWidgetEntry(
       id: id,
       provider: result['provider'] as String? ?? '',
       label: result['label'] as String? ?? '',
       height: minHeight.clamp(72, 420).toDouble(),
+      page: targetPage,
     );
     _saveWidgets([...widgets.value, entry]);
     return entry;
+  }
+
+  Future<void> setPalette(String id) async {
+    paletteId.value = id;
+    await (_prefs ?? await SharedPreferences.getInstance()).setString(_kLauncherPalette, id);
+    _notifyChanged();
+  }
+
+  Future<void> setCustomAccent(Color? color) async {
+    customAccent.value = color;
+    final p = _prefs ?? await SharedPreferences.getInstance();
+    if (color != null) {
+      await p.setInt(_kLauncherCustomAccent, color.toARGB32());
+    } else {
+      await p.remove(_kLauncherCustomAccent);
+    }
+    _notifyChanged();
+  }
+
+  Future<void> setCustomWallpaper(String? path) async {
+    customWallpaperPath.value = path;
+    final p = _prefs ?? await SharedPreferences.getInstance();
+    if (path != null) {
+      await p.setString(_kCustomWallpaperPath, path);
+    } else {
+      await p.remove(_kCustomWallpaperPath);
+    }
+    _notifyChanged();
+  }
+
+  Future<void> setWallpaperDim(double dim) async {
+    final clamped = dim.clamp(0.0, 0.85);
+    wallpaperDim.value = clamped;
+    await (_prefs ?? await SharedPreferences.getInstance()).setDouble(_kWallpaperDim, clamped);
+    _notifyChanged();
+  }
+
+  Future<void> resetWallpaper() async {
+    customWallpaperPath.value = null;
+    await (_prefs ?? await SharedPreferences.getInstance()).remove(_kCustomWallpaperPath);
+    _notifyChanged();
   }
 
   void removeWidget(LauncherWidgetEntry entry) {

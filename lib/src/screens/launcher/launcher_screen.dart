@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -439,59 +440,63 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
   Widget build(BuildContext context) {
     if (!LauncherNative.isSupported) return widget.arcaneChild;
 
-    final isLight = LauncherTheme.isLight;
-    final overlay = SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarContrastEnforced: false,
-      statusBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
-      statusBarBrightness: isLight ? Brightness.light : Brightness.dark,
-      systemNavigationBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
-    );
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        LauncherService.instance.paletteId,
+        LauncherService.instance.customAccent,
+      ]),
+      builder: (context, _) {
+        final isLight = LauncherTheme.isLight;
+        final overlay = SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarContrastEnforced: false,
+          statusBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
+          statusBarBrightness: isLight ? Brightness.light : Brightness.dark,
+          systemNavigationBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
+        );
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _handleBack();
-      },
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Launcher surface — skipped entirely (no layout/paint/tickers) while Arcane covers it.
-          AnimatedBuilder(
-            animation: _arcane,
-            builder: (context, child) => Offstage(
-              offstage: _arcane.value == 1,
-              child: TickerMode(enabled: _arcane.value < 1, child: child!),
-            ),
-            child: AnnotatedRegion<SystemUiOverlayStyle>(
-              value: overlay,
-              // A Scaffold (not bare Material) so launcher snackbars have a host; the drawer
-              // handles the keyboard inset itself.
-              child: Scaffold(
-                backgroundColor: LauncherTheme.bg,
-                resizeToAvoidBottomInset: false,
-                body: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    RepaintBoundary(
-                      child: CustomPaint(painter: LauncherWallpaperPainter(isLight: isLight)),
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _handleBack();
+          },
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Launcher surface — skipped entirely (no layout/paint/tickers) while Arcane covers it.
+              AnimatedBuilder(
+                animation: _arcane,
+                builder: (context, child) => Offstage(
+                  offstage: _arcane.value == 1,
+                  child: TickerMode(enabled: _arcane.value < 1, child: child!),
+                ),
+                child: AnnotatedRegion<SystemUiOverlayStyle>(
+                  value: overlay,
+                  // A Scaffold (not bare Material) so launcher snackbars have a host; the drawer
+                  // handles the keyboard inset itself.
+                  child: Scaffold(
+                    backgroundColor: LauncherTheme.bg,
+                    resizeToAvoidBottomInset: false,
+                    body: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _buildWallpaper(isLight),
+                        _buildPages(),
+                        _buildBottomChrome(),
+                        _buildDrawer(),
+                        _buildDragChrome(),
+                        const Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: TacticalStatusBar(),
+                        ),
+                      ],
                     ),
-                    _buildPages(),
-                    _buildBottomChrome(),
-                    _buildDrawer(),
-                    _buildDragChrome(),
-                    const Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      child: TacticalStatusBar(),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
 
           // Arcane — built on first open, then kept alive (state, timers, services) while hidden.
           if (_arcaneBuilt)
@@ -513,6 +518,46 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
               child: RepaintBoundary(child: widget.arcaneChild),
             ),
         ],
+      ),
+    );
+      },
+    );
+  }
+
+  Widget _buildWallpaper(bool isLight) {
+    return RepaintBoundary(
+      child: ListenableBuilder(
+        listenable: Listenable.merge([
+          LauncherService.instance.customWallpaperPath,
+          LauncherService.instance.wallpaperDim,
+        ]),
+        builder: (context, _) {
+          final path = LauncherService.instance.customWallpaperPath.value;
+          final dim = LauncherService.instance.wallpaperDim.value;
+          if (path != null && path.isNotEmpty) {
+            final file = File(path);
+            if (file.existsSync()) {
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.file(
+                    file,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => CustomPaint(
+                      painter: LauncherWallpaperPainter(isLight: isLight),
+                    ),
+                  ),
+                  if (dim > 0)
+                    Container(
+                      color: (isLight ? Colors.white : Colors.black)
+                          .withValues(alpha: dim.clamp(0.0, 1.0)),
+                    ),
+                ],
+              );
+            }
+          }
+          return CustomPaint(painter: LauncherWallpaperPainter(isLight: isLight));
+        },
       ),
     );
   }

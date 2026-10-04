@@ -10,6 +10,7 @@ import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/jwe_panel.dart';
 import 'package:missions/src/services/data_export_service.dart';
 import 'package:missions/src/widgets/dialogs/data_restore_progress_dialog.dart';
+import 'package:missions/src/services/app_action_ledger_service.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -372,6 +373,12 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children:[
                   JwePanel(
+                    title: "24-HOUR LIVE ACTION LEDGER",
+                    accentColor: JweTheme.accentAmber,
+                    child: _buildActionLedgerSection(),
+                  ),
+                  const SizedBox(height: 16),
+                  JwePanel(
                     title: "EXTERNAL EXPORT / IMPORT",
                     accentColor: JweTheme.accentCyan,
                     child: Column(
@@ -487,5 +494,273 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
           )
         )
       ));
+  }
+
+  Widget _buildActionLedgerSection() {
+    final entries = AppActionLedgerService.instance.entries;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: entries.isNotEmpty ? const Color(0xFF10B981) : JweTheme.textMuted,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  entries.isEmpty ? "NO ACTIONS IN LAST 24H" : "${entries.length} LIVE MUTATIONS RECORDED",
+                  style: GoogleFonts.rajdhani(
+                    color: entries.isNotEmpty ? JweTheme.accentAmber : JweTheme.textMuted,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+            if (entries.isNotEmpty)
+              TextButton.icon(
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      backgroundColor: JweTheme.panel,
+                      title: Text("Clear Action Ledger?", style: TextStyle(color: JweTheme.textWhite)),
+                      content: Text("This will clear the 24-hour action history on this device.", style: TextStyle(color: JweTheme.textMuted)),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text("Cancel", style: TextStyle(color: JweTheme.textMuted))),
+                        TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text("Clear", style: TextStyle(color: JweTheme.accentRed))),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    await AppActionLedgerService.instance.clear();
+                    setState(() {});
+                  }
+                },
+                icon: Icon(Icons.clear_all, size: 16, color: JweTheme.textMuted),
+                label: Text("Clear", style: TextStyle(color: JweTheme.textMuted, fontSize: 12)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "All live actions (created missions, modified subtasks, finance records, and reflections) are continuously recorded with granular Git-style field diffs. You can inspect or revert any change instantly.",
+          style: TextStyle(color: JweTheme.textMuted, fontSize: 11, height: 1.3),
+        ),
+        const SizedBox(height: 12),
+        if (entries.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: JweTheme.border.withValues(alpha: 0.15),
+              border: Border.all(color: JweTheme.border.withValues(alpha: 0.3)),
+            ),
+            child: Center(
+              child: Text(
+                "Action ledger is active. Make any edit in missions or finances to see live diffs here.",
+                style: GoogleFonts.rajdhani(color: JweTheme.textMuted, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: entries.length,
+            itemBuilder: (context, index) {
+              final entry = entries[index];
+              return _buildLedgerEntryCard(entry);
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildLedgerEntryCard(DbActionEntry entry) {
+    Color tagColor;
+    String tagLabel;
+    switch (entry.actionType) {
+      case 'CREATE':
+        tagColor = const Color(0xFF10B981);
+        tagLabel = '+ ADD';
+        break;
+      case 'DELETE':
+        tagColor = JweTheme.accentRed;
+        tagLabel = '- DEL';
+        break;
+      case 'COMPLETE':
+        tagColor = JweTheme.accentAmber;
+        tagLabel = '✓ DONE';
+        break;
+      case 'REVERT':
+        tagColor = const Color(0xFF8B5CF6);
+        tagLabel = '↺ REV';
+        break;
+      default:
+        tagColor = JweTheme.accentCyan;
+        tagLabel = '~ MOD';
+    }
+
+    final timeStr = DateFormat('HH:mm:ss').format(entry.timestamp);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: JweTheme.panel,
+        border: Border.all(color: JweTheme.border.withValues(alpha: 0.4)),
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        leading: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: tagColor.withValues(alpha: 0.2),
+            border: Border.all(color: tagColor, width: 1),
+            borderRadius: BorderRadius.circular(2),
+          ),
+          child: Text(
+            tagLabel,
+            style: GoogleFonts.jetBrainsMono(
+              color: tagColor,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        title: Text(
+          entry.title.isNotEmpty ? entry.title : entry.summary,
+          style: GoogleFonts.rajdhani(
+            color: JweTheme.textWhite,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Row(
+          children: [
+            Text(
+              entry.collection.toUpperCase(),
+              style: GoogleFonts.jetBrainsMono(color: JweTheme.accentCyan, fontSize: 10),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              timeStr,
+              style: TextStyle(color: JweTheme.textMuted, fontSize: 11),
+            ),
+          ],
+        ),
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            margin: const EdgeInsets.only(bottom: 10),
+            decoration: BoxDecoration(
+              color: JweTheme.isLight ? const Color(0xFFF0EBE1) : const Color(0xFF070B0F),
+              border: Border.all(color: JweTheme.border.withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.summary,
+                  style: TextStyle(color: JweTheme.textMid, fontSize: 12, height: 1.3),
+                ),
+                if (entry.diffs.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    "GIT-DIFF:",
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.textMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  for (final diff in entry.diffs)
+                    Text(
+                      diff.toGitDiffString(),
+                      style: GoogleFonts.jetBrainsMono(
+                        color: diff.type == DiffType.add
+                            ? const Color(0xFF10B981)
+                            : (diff.type == DiffType.remove ? JweTheme.accentRed : JweTheme.accentCyan),
+                        fontSize: 11,
+                        height: 1.4,
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
+          if (entry.actionType != 'REVERT')
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      backgroundColor: JweTheme.panel,
+                      title: Text("Revert Action?", style: TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold)),
+                      content: Text(
+                        "Are you sure you want to revert this action on '${entry.title}'?\nThis will restore the database to its state prior to this action.",
+                        style: TextStyle(color: JweTheme.textMuted),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: Text("Cancel", style: TextStyle(color: JweTheme.textMuted)),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: JweTheme.accentAmber,
+                            foregroundColor: JweTheme.onAccent,
+                          ),
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text("REVERT NOW"),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (confirm == true && mounted) {
+                    final success = await AppActionLedgerService.instance.revertEntry(
+                      entry,
+                      context.read<AppProvider>(),
+                    );
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(success ? "Action reverted successfully." : "Could not revert this action."),
+                      ));
+                      setState(() {});
+                    }
+                  }
+                },
+                icon: const Icon(Icons.undo, size: 16),
+                label: Text("REVERT ACTION", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: JweTheme.accentAmber,
+                  foregroundColor: JweTheme.onAccent,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: const BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }

@@ -393,6 +393,9 @@ mixin UserMixin on ChangeNotifier {
     if (data['settings'] != null) {
       _settings = AppSettings.fromJson(data['settings']);
     }
+    if (!_settings.hasCompletedTour && (data['mainTasks'] != null || data['skills'] != null)) {
+      _settings.hasCompletedTour = true;
+    }
     
     if (data['skills'] != null) {
       _skills = (data['skills'] as List).map((e) => Skill.fromJson(e)).toList();

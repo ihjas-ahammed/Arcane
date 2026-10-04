@@ -1,3 +1,31 @@
+# ⚡ Arcane System Upgrade // v2026.10.4 (Build #2126100402)
+
+### 🛡️ Data Loss Prevention & 24-Hour Live Action Ledger
+- **Non-Destructive Cloud Sync**:
+  - Replaced destructive state overwriting with recursive deep-merge routines (`mergeAppStateFromMap`), preventing automatic cloud sync or network race conditions from ever deleting or replacing local data.
+  - Tightened database save debounce from 600ms to 200ms to eliminate risk of lost changes during abrupt process terminations.
+- **24-Hour Live Action Ledger & One-Tap Reverts**:
+  - Implemented local persistent action journal (`db_action_ledger_$userId.json`) capturing granular state mutations (CREATE, UPDATE, DELETE, COMPLETE) across tasks, subtasks, financial entries, and reflections.
+  - Real-time Git-diff visualization (`+`, `-`, `~`) and instant one-tap revert actions in the Data Recovery screen (`Settings > Data Recovery`).
+- **Eliminated System Overview Startup Flash**:
+  - Resolved the recurring "SYSTEM OVERVIEW" onboarding tour dialog flash on application startup for existing profiles by verifying existing data footprint.
+
+### 🎨 Launcher Themes, Tactical Palettes & Custom Wallpapers
+- **Tactical Launcher Palettes & Accent Themes**:
+  - Introduced 8 custom palette presets (Crimson Protocol, Tactical Amber, Cyber Cyan, Matrix Emerald, Void Violet, Cobalt Blue, Neon Hazard, and Stealth Slate).
+  - Integrated customizable accent color picker in launcher settings, updating all launcher surfaces, dock, and HUD headers reactively.
+- **Custom Gallery Wallpaper & Dim Controls**:
+  - Added full gallery wallpaper support in the Arcane Launcher with configurable dark/light dim overlay slider (0% to 85%) and one-tap restore to tactical canvas.
+  - Added "Wallpaper & style" menu item to the home screen long-press menu.
+
+### 📑 Smart Widget Pinning & Reorderable Protocols
+- **Automatic Page Creation on Widget Pin**:
+  - When pinning app widgets or shortcuts to the home screen, if the active page is at capacity, Arcane now automatically generates a new home page and pins the widget without errors.
+- **Drag-and-Drop Reordering in Arcane Protocols**:
+  - Added long-press drag and drop reordering for multitask directive cards in the Arcane Protocols 0th widget (Task Hero), updating today's schedule row order immediately.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.4 (Build #2126100401)
 
 ### 🎯 Native Android Goals Widget (4x2) & Auto-Scope Directives

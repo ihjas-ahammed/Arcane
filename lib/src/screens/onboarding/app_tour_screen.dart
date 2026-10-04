@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/widgets/onboarding/tour_slide.dart';
@@ -32,16 +33,22 @@ class _AppTourScreenState extends State<AppTourScreen> {
     super.dispose();
   }
 
-  void _finishTour(AppProvider provider) {
+  Future<void> _finishTour(AppProvider provider) async {
     if (_apiController.text.trim().isNotEmpty) {
       provider.addCustomApiKey(_apiController.text.trim());
     }
-    
+
+    // Persist to SharedPreferences immediately
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_completed_tour', true);
+    } catch (_) {}
+
     // Mark as complete and redirect
     provider.setSettings(provider.settings..hasCompletedTour = true);
-    
+
     // Check if we are inside the nav stack from Settings or straight from App
-    if (Navigator.canPop(context)) {
+    if (mounted && Navigator.canPop(context)) {
       Navigator.pop(context);
     }
   }

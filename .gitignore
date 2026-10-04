@@ -103,3 +103,4 @@ lib/firebase_options.dart.superpowers/
 .graphify/
 graphify-out/cache/
 graphify-out/2026-*/
+backups/

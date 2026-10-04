@@ -61,17 +61,19 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     // Only the fields the app shell actually uses. A plain Consumer here rebuilt the whole
     // MaterialApp (theme, launcher, navigator) on every AppProvider notification.
-    return Selector<AppProvider, (String, Color, bool, bool, bool)>(
+    return Selector<AppProvider, (String, Color, bool, bool, bool, bool, bool)>(
       selector: (_, p) => (
         p.settings.themeMode,
         p.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed,
         p.authLoading,
         p.currentUser == null,
         p.settings.hasCompletedTour,
+        p.mainTasks.isNotEmpty,
+        p.skills.isNotEmpty,
       ),
       builder: (context, shell, child) {
         final appProvider = context.read<AppProvider>();
-        final (themeMode, currentTaskColor, _, _, _) = shell;
+        final (themeMode, currentTaskColor, _, _, hasCompletedTour, hasTasks, hasSkills) = shell;
         final isSystemDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
         final bool isLightTheme = themeMode == 'light' || (themeMode == 'system' && !isSystemDark);
 
@@ -87,6 +89,8 @@ class _MyAppState extends State<MyApp> {
         AppTheme.fhAccentGold = currentTaskColor;
         AppTheme.fhAccentOrange = currentTaskColor;
 
+        final bool isTourFinished = hasCompletedTour || hasTasks || hasSkills;
+
         final Widget mainAppChild = appProvider.authLoading
             ? Scaffold(
                 backgroundColor: isLightTheme ? AppTheme.fhLightBgDeepDark : AppTheme.fhBgDeepDark,
@@ -98,7 +102,7 @@ class _MyAppState extends State<MyApp> {
               )
             : appProvider.currentUser == null
                 ? const LoginScreen()
-                : !appProvider.settings.hasCompletedTour
+                : !isTourFinished
                     ? Theme(
                         data: AppTheme.getThemeData(
                             primaryAccent: AppTheme.fhAccentTealFixed,

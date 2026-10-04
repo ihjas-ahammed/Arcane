@@ -59,8 +59,9 @@ mixin SyncMixin on ChangeNotifier {
 
   AppUser? get currentUser;
   AppSettings get settings;
-  Map<String, dynamic> getFullAppState(); 
+  Map<String, dynamic> getFullAppState();
   void loadStateFromMap(Map<String, dynamic> data);
+  dynamic mergeAppStateFromMap(Map<String, dynamic> rawData);
 
   /// Initializes background realtime sync listeners, connectivity detection, and periodic sync.
   void initSync() {
@@ -152,7 +153,7 @@ mixin SyncMixin on ChangeNotifier {
 
   void _scheduleSave() {
     _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 600), _saveLocalSnapshot);
+    _saveDebounce = Timer(const Duration(milliseconds: 200), _saveLocalSnapshot);
 
     if (currentUser != null && settings.autoSaveEnabled) {
       _scheduleCloudSave();
@@ -292,7 +293,7 @@ mixin SyncMixin on ChangeNotifier {
       _saveDebounce?.cancel();
       _cloudDebounce?.cancel();
       try {
-        loadStateFromMap(cloudData);
+        mergeAppStateFromMap(cloudData);
       } finally {
         _dataLoadInProgress = nested;
       }

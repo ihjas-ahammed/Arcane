@@ -13,6 +13,7 @@ class RunningTaskMultitaskWidget extends StatelessWidget {
   final Color neonCyan;
   final Color neonRed;
   final HudTone Function(Color) toneFor;
+  final void Function(int oldIndex, int newIndex)? onReorder;
 
   const RunningTaskMultitaskWidget({
     super.key,
@@ -22,6 +23,7 @@ class RunningTaskMultitaskWidget extends StatelessWidget {
     required this.neonCyan,
     required this.neonRed,
     required this.toneFor,
+    this.onReorder,
   });
 
   @override
@@ -102,7 +104,7 @@ class RunningTaskMultitaskWidget extends StatelessWidget {
                     ),
                   ),
 
-                  // ── Multitask Cards Row ──
+                  // ── Multitask Cards Row (Reorderable via Drag) ──
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
@@ -112,7 +114,44 @@ class RunningTaskMultitaskWidget extends StatelessWidget {
                           for (int i = 0; i < items.length; i++) ...[
                             if (i > 0) const SizedBox(width: 6),
                             Expanded(
-                              child: _buildMiniCard(items[i], i + 1),
+                              child: DragTarget<int>(
+                                onWillAcceptWithDetails: (details) => details.data != i,
+                                onAcceptWithDetails: (details) {
+                                  onReorder?.call(details.data, i);
+                                },
+                                builder: (context, candidateData, rejectedData) {
+                                  final isHovered = candidateData.isNotEmpty;
+                                  return LongPressDraggable<int>(
+                                    data: i,
+                                    delay: const Duration(milliseconds: 150),
+                                    feedback: Material(
+                                      color: Colors.transparent,
+                                      child: SizedBox(
+                                        width: 110,
+                                        height: 95,
+                                        child: Opacity(
+                                          opacity: 0.9,
+                                          child: _buildMiniCard(items[i], i + 1),
+                                        ),
+                                      ),
+                                    ),
+                                    childWhenDragging: Opacity(
+                                      opacity: 0.25,
+                                      child: _buildMiniCard(items[i], i + 1),
+                                    ),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 150),
+                                      decoration: isHovered
+                                          ? BoxDecoration(
+                                              border: Border.all(color: neonCyan, width: 2),
+                                              borderRadius: BorderRadius.circular(6),
+                                            )
+                                          : null,
+                                      child: _buildMiniCard(items[i], i + 1),
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
                           ],
                         ],
@@ -200,13 +239,23 @@ class RunningTaskMultitaskWidget extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Text(
-                        '0$index',
-                        style: GoogleFonts.rajdhani(
-                          color: JweTheme.textMuted.withValues(alpha: 0.7),
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            MdiIcons.dragVertical,
+                            size: 10,
+                            color: JweTheme.textMuted.withValues(alpha: 0.6),
+                          ),
+                          Text(
+                            '0$index',
+                            style: GoogleFonts.rajdhani(
+                              color: JweTheme.textMuted.withValues(alpha: 0.7),
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

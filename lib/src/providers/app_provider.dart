@@ -26,6 +26,7 @@ import 'package:missions/src/services/update_service.dart';
 import 'package:missions/src/services/nora_agent_engine.dart';
 import 'package:missions/src/services/widget_action_router.dart';
 import 'package:missions/src/widgets/dialogs/whats_new_update_dialog.dart';
+import 'package:missions/src/services/app_action_ledger_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
@@ -867,6 +868,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
           var loadedFromCloud = false;
           try {
             setCurrentUser(user);
+            unawaited(AppActionLedgerService.instance.init(user.uid));
             localData = await _localStorage.loadState(user.uid);
             if (localData != null) {
               loadStateFromMap(localData);
@@ -1459,17 +1461,217 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       bool doPersist = true
   }) {
     if (lastLoginDate != null) setLastLoginDate(lastLoginDate);
-    if (mainTasks != null) setMainTasks(mainTasks);
+    if (mainTasks != null) {
+      if (!authLoading && doPersist) {
+        _recordTaskLedgerDelta(this.mainTasks, mainTasks);
+      }
+      setMainTasks(mainTasks);
+    }
     if (completedByDay != null) setCompletedByDay(completedByDay);
     if (activeTimers != null) setActiveTimers(activeTimers);
     if (chatbotMemory != null) setChatbotMemory(chatbotMemory);
-    if (transactions != null) setTransactions(transactions);
+    if (transactions != null) {
+      if (!authLoading && doPersist) {
+        _recordTransactionLedgerDelta(this.transactions, transactions);
+      }
+      setTransactions(transactions);
+    }
     if (categories != null) setCategories(categories);
     if (savingsGoals != null) setSavingsGoals(savingsGoals);
     if (accounts != null) setAccounts(accounts);
-    if (projects != null) setProjects(projects);
+    if (projects != null) {
+      if (!authLoading && doPersist) {
+        _recordProjectLedgerDelta(this.projects, projects);
+      }
+      setProjects(projects);
+    }
 
     if (doNotify) notifyListeners();
+  }
+
+  void _recordTaskLedgerDelta(List<MainTask> oldList, List<MainTask> newList) {
+    try {
+      final oldMap = {for (final t in oldList) t.id: t};
+      final newMap = {for (final t in newList) t.id: t};
+
+      for (final t in newList) {
+        if (!oldMap.containsKey(t.id)) {
+          unawaited(AppActionLedgerService.instance.recordAction(
+            actionType: 'CREATE',
+            collection: 'task',
+            entityId: t.id,
+            title: t.name,
+            summary: 'Created mission "${t.name}"',
+            before: null,
+            after: t.toJson(),
+          ));
+        }
+      }
+
+      for (final t in oldList) {
+        if (!newMap.containsKey(t.id)) {
+          unawaited(AppActionLedgerService.instance.recordAction(
+            actionType: 'DELETE',
+            collection: 'task',
+            entityId: t.id,
+            title: t.name,
+            summary: 'Deleted mission "${t.name}"',
+            before: t.toJson(),
+            after: null,
+          ));
+        }
+      }
+
+      for (final t in newList) {
+        if (oldMap.containsKey(t.id)) {
+          final oldTask = oldMap[t.id]!;
+          if (jsonEncode(oldTask.toJson()) != jsonEncode(t.toJson())) {
+            final oldSubMap = {for (final s in oldTask.subTasks) s.id: s};
+            final newSubMap = {for (final s in t.subTasks) s.id: s};
+
+            for (final s in t.subTasks) {
+              if (!oldSubMap.containsKey(s.id)) {
+                unawaited(AppActionLedgerService.instance.recordAction(
+                  actionType: 'CREATE',
+                  collection: 'subtask',
+                  entityId: '${t.id}:${s.id}',
+                  title: s.name,
+                  summary: 'Added subtask "${s.name}" to "${t.name}"',
+                  before: null,
+                  after: s.toJson(),
+                ));
+              } else {
+                final oldS = oldSubMap[s.id]!;
+                if (jsonEncode(oldS.toJson()) != jsonEncode(s.toJson())) {
+                  final action = (oldS.completed != s.completed) ? (s.completed ? 'COMPLETE' : 'INCOMPLETE') : 'UPDATE';
+                  unawaited(AppActionLedgerService.instance.recordAction(
+                    actionType: action,
+                    collection: 'subtask',
+                    entityId: '${t.id}:${s.id}',
+                    title: s.name,
+                    summary: '${action == 'COMPLETE' ? 'Completed' : 'Updated'} subtask "${s.name}" in "${t.name}"',
+                    before: oldS.toJson(),
+                    after: s.toJson(),
+                  ));
+                }
+              }
+            }
+
+            for (final s in oldTask.subTasks) {
+              if (!newSubMap.containsKey(s.id)) {
+                unawaited(AppActionLedgerService.instance.recordAction(
+                  actionType: 'DELETE',
+                  collection: 'subtask',
+                  entityId: '${t.id}:${s.id}',
+                  title: s.name,
+                  summary: 'Deleted subtask "${s.name}" from "${t.name}"',
+                  before: s.toJson(),
+                  after: null,
+                ));
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _recordTransactionLedgerDelta(List<FinanceTransaction> oldList, List<FinanceTransaction> newList) {
+    try {
+      final oldMap = {for (final t in oldList) t.id: t};
+      final newMap = {for (final t in newList) t.id: t};
+
+      for (final t in newList) {
+        final txTitle = t.note.isNotEmpty ? t.note : 'Transaction (\$${t.amount.toStringAsFixed(2)})';
+        if (!oldMap.containsKey(t.id)) {
+          unawaited(AppActionLedgerService.instance.recordAction(
+            actionType: 'CREATE',
+            collection: 'transaction',
+            entityId: t.id,
+            title: txTitle,
+            summary: 'Added transaction "$txTitle" (\$${t.amount.toStringAsFixed(2)})',
+            before: null,
+            after: t.toJson(),
+          ));
+        } else {
+          final oldT = oldMap[t.id]!;
+          if (jsonEncode(oldT.toJson()) != jsonEncode(t.toJson())) {
+            unawaited(AppActionLedgerService.instance.recordAction(
+              actionType: 'UPDATE',
+              collection: 'transaction',
+              entityId: t.id,
+              title: txTitle,
+              summary: 'Updated transaction "$txTitle"',
+              before: oldT.toJson(),
+              after: t.toJson(),
+            ));
+          }
+        }
+      }
+
+      for (final t in oldList) {
+        final txTitle = t.note.isNotEmpty ? t.note : 'Transaction (\$${t.amount.toStringAsFixed(2)})';
+        if (!newMap.containsKey(t.id)) {
+          unawaited(AppActionLedgerService.instance.recordAction(
+            actionType: 'DELETE',
+            collection: 'transaction',
+            entityId: t.id,
+            title: txTitle,
+            summary: 'Deleted transaction "$txTitle"',
+            before: t.toJson(),
+            after: null,
+          ));
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _recordProjectLedgerDelta(List<Project> oldList, List<Project> newList) {
+    try {
+      final oldMap = {for (final p in oldList) p.id: p};
+      final newMap = {for (final p in newList) p.id: p};
+
+      for (final p in newList) {
+        if (!oldMap.containsKey(p.id)) {
+          unawaited(AppActionLedgerService.instance.recordAction(
+            actionType: 'CREATE',
+            collection: 'project',
+            entityId: p.id,
+            title: p.name,
+            summary: 'Created project "${p.name}"',
+            before: null,
+            after: p.toJson(),
+          ));
+        } else {
+          final oldP = oldMap[p.id]!;
+          if (jsonEncode(oldP.toJson()) != jsonEncode(p.toJson())) {
+            unawaited(AppActionLedgerService.instance.recordAction(
+              actionType: 'UPDATE',
+              collection: 'project',
+              entityId: p.id,
+              title: p.name,
+              summary: 'Updated project "${p.name}"',
+              before: oldP.toJson(),
+              after: p.toJson(),
+            ));
+          }
+        }
+      }
+
+      for (final p in oldList) {
+        if (!newMap.containsKey(p.id)) {
+          unawaited(AppActionLedgerService.instance.recordAction(
+            actionType: 'DELETE',
+            collection: 'project',
+            entityId: p.id,
+            title: p.name,
+            summary: 'Deleted project "${p.name}"',
+            before: p.toJson(),
+            after: null,
+          ));
+        }
+      }
+    } catch (_) {}
   }
 
   // --- Project Helpers ---
@@ -2799,6 +3001,15 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       xpGained: {},
     );
     setReflectionLogs([...reflectionLogs, log]);
+    unawaited(AppActionLedgerService.instance.recordAction(
+      actionType: 'CREATE',
+      collection: 'reflection',
+      entityId: logId,
+      title: trigger,
+      summary: 'Logged reflection: $trigger -> $emotion',
+      before: null,
+      after: log.toJson(),
+    ));
     _processingReflections.add(logId);
     notifyListeners();
 
@@ -2916,8 +3127,18 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   void deleteReflectionLog(String id) {
     final index = reflectionLogs.indexWhere((l) => l.id == id);
     if (index != -1) {
+      final old = reflectionLogs[index];
       final newLogs = List<ReflectionLog>.from(reflectionLogs)..removeAt(index);
       setReflectionLogs(newLogs);
+      unawaited(AppActionLedgerService.instance.recordAction(
+        actionType: 'DELETE',
+        collection: 'reflection',
+        entityId: id,
+        title: old.trigger,
+        summary: 'Deleted reflection "${old.trigger}"',
+        before: old.toJson(),
+        after: null,
+      ));
       if (currentUser != null) {
         unawaited(_cloudStorage.deleteReflection(currentUser!.uid, id));
       }

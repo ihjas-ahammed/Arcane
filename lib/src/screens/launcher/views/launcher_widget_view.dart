@@ -474,6 +474,7 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
         progress: live.progress,
         capacity: live.capacity,
         multitaskTasks: live.multitaskTasks,
+        onReorderTasks: (oldIdx, newIdx) => _reorderMultitaskItems(provider, oldIdx, newIdx),
         onPrimaryAction: () {
           if (!live.hasTask) {
             widget.onOpenArcane();
@@ -509,6 +510,49 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
         },
       ),
     );
+  }
+
+  void _reorderMultitaskItems(AppProvider provider, int oldIdx, int newIdx) {
+    final today = helper.getTodayDateString();
+    final rows = provider.taskActions.getDayPlanRows(today);
+    final live = WidgetsStudioResolvers.resolveLiveTask(provider);
+    final items = live.multitaskTasks.take(3).toList();
+    if (oldIdx < 0 || oldIdx >= items.length || newIdx < 0 || newIdx >= items.length) return;
+
+    final oldId = items[oldIdx].compoundId;
+    final newId = items[newIdx].compoundId;
+
+    // Check if both items belong to the same row in dailyPlanRows
+    int foundRowIndex = -1;
+    for (int r = 0; r < rows.length; r++) {
+      if (rows[r].contains(oldId) && rows[r].contains(newId)) {
+        foundRowIndex = r;
+        break;
+      }
+    }
+
+    if (foundRowIndex != -1) {
+      final updatedRow = List<String>.from(rows[foundRowIndex]);
+      final o = updatedRow.indexOf(oldId);
+      final n = updatedRow.indexOf(newId);
+      if (o != -1 && n != -1) {
+        final removed = updatedRow.removeAt(o);
+        updatedRow.insert(n, removed);
+        final newRows = List<List<String>>.from(rows);
+        newRows[foundRowIndex] = updatedRow;
+        provider.taskActions.updateDayPlanRows(today, newRows);
+      }
+    } else {
+      // Reorder in flat daily plan
+      final plan = List<String>.from(provider.taskActions.getDayPlan(today));
+      final o = plan.indexOf(oldId);
+      final n = plan.indexOf(newId);
+      if (o != -1 && n != -1) {
+        final removed = plan.removeAt(o);
+        plan.insert(n, removed);
+        provider.taskActions.updateDayPlan(today, plan);
+      }
+    }
   }
 
   // ── Original Widget 2: Day Plan ───────────────────────────────

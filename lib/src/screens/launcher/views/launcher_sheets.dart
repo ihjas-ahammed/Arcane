@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/screens/launcher/launcher_icon.dart';
 import 'package:missions/src/screens/launcher/launcher_models.dart';
@@ -94,6 +96,7 @@ void showLauncherHomeMenu(
         _action(ctx, MdiIcons.webPlus, 'Add web app', () => showAddWebApp(context)),
         _action(ctx, MdiIcons.widgetsOutline, 'Add widget', () => showWidgetPicker(context)),
         _action(ctx, MdiIcons.dockBottom, 'Edit dock', () => showDockEditor(context)),
+        _action(ctx, MdiIcons.imageOutline, 'Wallpaper & style', () => showLauncherWallpaperStyle(context)),
         _action(ctx, MdiIcons.paletteSwatchOutline, 'Icon pack', () => showIconPackPicker(context)),
         _action(ctx, MdiIcons.targetAccount, 'Arcane widgets', onOpenArcaneWidgets),
         _action(ctx, MdiIcons.tuneVariant, 'Launcher settings', () => showLauncherSettings(context)),
@@ -155,6 +158,26 @@ class _LauncherSettingsState extends State<_LauncherSettings> {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: LauncherFullscreenSetting(),
+          ),
+          ValueListenableBuilder<String>(
+            valueListenable: service.paletteId,
+            builder: (_, palId, __) => _action(
+              context,
+              MdiIcons.paletteOutline,
+              'Launcher palette',
+              () => showLauncherPalettePicker(host),
+              subtitle: LauncherPalette.byId(palId).name,
+            ),
+          ),
+          ValueListenableBuilder<String?>(
+            valueListenable: service.customWallpaperPath,
+            builder: (_, wp, __) => _action(
+              context,
+              MdiIcons.imageOutline,
+              'Wallpaper',
+              () => showLauncherWallpaperPicker(host),
+              subtitle: (wp != null && wp.isNotEmpty) ? 'Custom wallpaper set' : 'Tactical canvas (Default)',
+            ),
           ),
           ValueListenableBuilder<String?>(
             valueListenable: service.iconPack,
@@ -1180,4 +1203,379 @@ void showAddWebApp(BuildContext context) {
     url.dispose();
     name.dispose();
   });
+}
+
+// ── Launcher Palette & Wallpaper Sheets ──────────────────────
+
+void showLauncherPalettePicker(BuildContext context) {
+  _sheet<void>(context, (ctx) => const _LauncherPaletteSheet(), tall: true);
+}
+
+void showLauncherWallpaperPicker(BuildContext context) {
+  _sheet<void>(context, (ctx) => const _LauncherWallpaperSheet(), tall: true);
+}
+
+void showLauncherWallpaperStyle(BuildContext context) {
+  _sheet<void>(context, (ctx) => const _LauncherWallpaperSheet(), tall: true);
+}
+
+class _LauncherPaletteSheet extends StatelessWidget {
+  const _LauncherPaletteSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final service = LauncherService.instance;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _title('LAUNCHER PALETTE', subtitle: 'Tactical color schemes & custom accents'),
+          ValueListenableBuilder<String>(
+            valueListenable: service.paletteId,
+            builder: (context, currentId, _) {
+              return Column(
+                children: [
+                  for (final p in LauncherPalette.presets)
+                    RadioListTile<String>(
+                      value: p.id,
+                      groupValue: currentId,
+                      onChanged: (val) {
+                        if (val != null) {
+                          service.setPalette(val);
+                        }
+                      },
+                      activeColor: p.accent,
+                      title: Row(
+                        children: [
+                          Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: p.accent,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: LauncherTheme.line, width: 1.5),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            p.name.toUpperCase(),
+                            style: LauncherTheme.rajdhani(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2,
+                              color: currentId == p.id ? p.accent : LauncherTheme.text,
+                            ),
+                          ),
+                        ],
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(left: 24, top: 4),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: p.bgDark,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: LauncherTheme.line),
+                              ),
+                              child: Text(
+                                'CANVAS',
+                                style: LauncherTheme.rajdhani(
+                                  fontSize: 10,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: p.panelDark,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: LauncherTheme.line),
+                              ),
+                              child: Text(
+                                'PANEL',
+                                style: LauncherTheme.rajdhani(
+                                  fontSize: 10,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1, indent: 20, endIndent: 20),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'CUSTOM ACCENT COLOR',
+                    style: LauncherTheme.rajdhani(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 1.2),
+                  ),
+                ),
+                ValueListenableBuilder<Color?>(
+                  valueListenable: service.customAccent,
+                  builder: (context, custom, _) {
+                    if (custom == null) return const SizedBox.shrink();
+                    return TextButton(
+                      onPressed: () => service.setCustomAccent(null),
+                      child: Text('RESET', style: LauncherTheme.rajdhani(fontSize: 12, color: LauncherTheme.red)),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final c in [
+                  const Color(0xFFFF2A4B), // Crimson
+                  const Color(0xFFFFB000), // Amber
+                  const Color(0xFF00F0FF), // Cyan
+                  const Color(0xFF00FF66), // Green
+                  const Color(0xFFB026FF), // Purple
+                  const Color(0xFF3872FF), // Blue
+                  const Color(0xFFFF7A00), // Orange
+                  const Color(0xFFFF007F), // Pink
+                  const Color(0xFFE2E8F0), // Slate Light
+                ])
+                  ValueListenableBuilder<Color?>(
+                    valueListenable: service.customAccent,
+                    builder: (context, activeColor, _) {
+                      final isSelected = activeColor?.value == c.value;
+                      return InkWell(
+                        onTap: () => service.setCustomAccent(c),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: c,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected ? Colors.white : Colors.transparent,
+                              width: 2.5,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LauncherWallpaperSheet extends StatefulWidget {
+  const _LauncherWallpaperSheet();
+
+  @override
+  State<_LauncherWallpaperSheet> createState() => _LauncherWallpaperSheetState();
+}
+
+class _LauncherWallpaperSheetState extends State<_LauncherWallpaperSheet> {
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      if (image != null && mounted) {
+        await LauncherService.instance.setCustomWallpaper(image.path);
+        setState(() {});
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to pick wallpaper: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final service = LauncherService.instance;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _title('WALLPAPER & STYLE', subtitle: 'Custom backgrounds, dim controls & tactical palettes'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: LauncherTheme.panel2,
+                      foregroundColor: LauncherTheme.text,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: LauncherTheme.line),
+                      ),
+                    ),
+                    icon: Icon(MdiIcons.imagePlus, color: LauncherTheme.red),
+                    label: Text(
+                      'CHOOSE FROM GALLERY',
+                      style: LauncherTheme.rajdhani(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    onPressed: _pickImage,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                ValueListenableBuilder<String?>(
+                  valueListenable: service.customWallpaperPath,
+                  builder: (context, path, _) {
+                    final hasWallpaper = path != null && path.isNotEmpty;
+                    if (!hasWallpaper) return const SizedBox.shrink();
+                    return OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: LauncherTheme.red,
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                        side: BorderSide(color: LauncherTheme.red.withValues(alpha: 0.5)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: Text('RESET', style: LauncherTheme.rajdhani(fontSize: 13, fontWeight: FontWeight.w700)),
+                      onPressed: () {
+                        service.resetWallpaper();
+                        setState(() {});
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          ValueListenableBuilder<String?>(
+            valueListenable: service.customWallpaperPath,
+            builder: (context, path, _) {
+              final hasWallpaper = path != null && path.isNotEmpty && File(path).existsSync();
+              if (!hasWallpaper) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Container(
+                    height: 90,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: LauncherTheme.panel2,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: LauncherTheme.line),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'CURRENTLY USING DEFAULT TACTICAL CANVAS',
+                      style: LauncherTheme.rajdhani(
+                        fontSize: 12,
+                        color: LauncherTheme.muted,
+                        letterSpacing: 1.2,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 140,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: LauncherTheme.line),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Image.file(File(path), fit: BoxFit.cover),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'DIM OVERLAY',
+                          style: LauncherTheme.rajdhani(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        ValueListenableBuilder<double>(
+                          valueListenable: service.wallpaperDim,
+                          builder: (_, dim, __) => Text(
+                            '${(dim * 100).round()}%',
+                            style: LauncherTheme.rajdhani(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: LauncherTheme.red,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    ValueListenableBuilder<double>(
+                      valueListenable: service.wallpaperDim,
+                      builder: (_, dim, __) => Slider(
+                        value: dim.clamp(0.0, 0.85),
+                        min: 0.0,
+                        max: 0.85,
+                        divisions: 17,
+                        activeColor: LauncherTheme.red,
+                        inactiveColor: LauncherTheme.line,
+                        onChanged: (val) => service.setWallpaperDim(val),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1, indent: 20, endIndent: 20),
+          const SizedBox(height: 12),
+          _action(
+            context,
+            MdiIcons.paletteOutline,
+            'Customize Launcher Palette',
+            () => showLauncherPalettePicker(context),
+            subtitle: 'Choose accent and HUD theme colors',
+          ),
+        ],
+      ),
+    );
+  }
 }
