@@ -247,6 +247,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
 
   @override
   void dispose() {
+    _midnightRolloverTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -254,6 +255,12 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      final todayStr = helper.getTodayDateString();
+      if (lastLoginDate != todayStr) {
+        debugPrint("[AppProvider] App resumed on new day ($todayStr vs $lastLoginDate). Running daily rollover.");
+        _handleDailyReset();
+        _scheduleMidnightTimer();
+      }
       drainPendingEnergyLogs();
       if (currentUser != null) {
         fetchDailyReportsFromCloud();
@@ -730,6 +737,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   // --- Ongoing-notification checkpoint actions ---
 
   Timer? _notifUndoTimer;
+  Timer? _midnightRolloverTimer;
 
   /// Handles the CHECK NEXT / UNDO CHECK action buttons on the active-timer
   /// notification. [raw] is encoded as `subtaskId|mainTaskId`.
@@ -828,6 +836,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   Future<void> _initialize() async {
     initializeSkills();
     initializeDefaultFinanceCategories();
+    _scheduleMidnightTimer();
     try {
       await NotificationService.instance.init();
       rescheduleReminders();
@@ -932,7 +941,8 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       _cleanOverlappingSessions();
       _fixTimerAnomalies();
       await _taskActions.recalibrateTimeLogs(silent: true);
-      _handleDailyReset();
+      await _handleDailyReset();
+      _scheduleMidnightTimer();
       try {
         await fetchDailyReportsFromCloud();
       } catch (_) {}
@@ -1072,6 +1082,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     }
   }
 
+  @override
   MergeReport mergeAppStateFromMap(Map<String, dynamic> rawData) {
     final data = normalizeImportedData(rawData);
 
@@ -2763,6 +2774,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   Future<void> _handleDailyReset() async {
     final todayStr = helper.getTodayDateString();
     if (lastLoginDate != todayStr) {
+      debugPrint("[AppProvider] Daily reset triggered: $lastLoginDate -> $todayStr");
       bool changed = false;
       final newMainTasks = mainTasks.map((task) {
         final updatedSubtasks = task.subTasks.map((st) {
@@ -2804,8 +2816,38 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
       setLastLoginDate(todayStr);
       if (changed) setMainTasks(newMainTasks);
+      notifyListeners();
+      try {
+        forceLocalBackup();
+        if (currentUser != null) {
+          unawaited(autoSyncWithCloud());
+        }
+      } catch (e) {
+        debugPrint("[AppProvider] Error backing up post daily reset: $e");
+      }
     }
   }
+
+  void _scheduleMidnightTimer() {
+    _midnightRolloverTimer?.cancel();
+    final now = DateTime.now();
+    final nextMidnight = DateTime(now.year, now.month, now.day + 1, 0, 0, 1);
+    final delay = nextMidnight.difference(now);
+    debugPrint("[AppProvider] Scheduled midnight rollover in ${delay.inMinutes}m (${delay.inSeconds}s) at $nextMidnight");
+
+    _midnightRolloverTimer = Timer(delay, () async {
+      debugPrint("[AppProvider] Midnight reached ($nextMidnight). Running automatic daily rollover.");
+      try {
+        await _handleDailyReset();
+      } catch (e) {
+        debugPrint("[AppProvider] Error during midnight rollover: $e");
+      }
+      _scheduleMidnightTimer();
+    });
+  }
+
+  @visibleForTesting
+  Future<void> handleDailyResetForTesting() => _handleDailyReset();
 
   /// Recursively flip a checkpoint (and any nested substeps) back to
   /// incomplete while preserving structure, names, and configuration.

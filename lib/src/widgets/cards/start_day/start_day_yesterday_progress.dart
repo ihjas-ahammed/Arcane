@@ -20,12 +20,14 @@ class StartDayYesterdayProgress extends StatelessWidget {
     final yesterdayData = provider.completedByDay[yesterdayStr];
     final subtasksRaw = yesterdayData?['subtasksCompleted'];
     final completedSubs = subtasksRaw is List ? subtasksRaw : const [];
+    final checkpointsRaw = yesterdayData?['checkpointsCompleted'];
+    final completedCheckpoints = checkpointsRaw is List ? checkpointsRaw : const [];
     final taskTimesRaw = yesterdayData?['taskTimes'];
     final taskTimes = taskTimesRaw is Map ? taskTimesRaw : const {};
 
     final bool hasAnyTime = taskTimes.values.any((v) => v is num && v > 0);
 
-    if (completedSubs.isEmpty && !hasAnyTime) {
+    if (completedSubs.isEmpty && completedCheckpoints.isEmpty && !hasAnyTime) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -111,8 +113,8 @@ class StartDayYesterdayProgress extends StatelessWidget {
     final subtaskRows = <Widget>[];
     for (final entry in completedSubs) {
       if (entry is! Map) continue;
-      final name = entry['name']?.toString() ?? 'Unnamed Objective';
-      final parentTaskId = entry['parentTaskId']?.toString() ?? '';
+      final name = entry['name']?.toString() ?? entry['subtaskName']?.toString() ?? 'Unnamed Objective';
+      final parentTaskId = entry['parentTaskId']?.toString() ?? entry['taskId']?.toString() ?? '';
       final mainTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parentTaskId);
       final color = mainTask != null ? Color(int.parse('0xFF${mainTask.colorHex}')) : JweTheme.accentCyan;
 
@@ -134,6 +136,69 @@ class StartDayYesterdayProgress extends StatelessWidget {
                   ),
                 ),
               ),
+              if (mainTask != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    border: Border.all(color: color.withValues(alpha: 0.3)),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: Text(
+                    mainTask.name.toUpperCase(),
+                    style: GoogleFonts.jetBrainsMono(
+                      color: color,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Prepare completed checkpoints rows
+    final checkpointRows = <Widget>[];
+    for (final entry in completedCheckpoints) {
+      if (entry is! Map) continue;
+      final name = entry['name']?.toString() ?? 'Checkpoint';
+      final parentTaskId = entry['parentTaskId']?.toString() ?? entry['taskId']?.toString() ?? '';
+      final parentSubtaskName = entry['parentSubtaskName']?.toString() ?? '';
+      final mainTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parentTaskId);
+      final color = mainTask != null ? Color(int.parse('0xFF${mainTask.colorHex}')) : JweTheme.accentCyan;
+
+      checkpointRows.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(MdiIcons.rhombusOutline, size: 12, color: color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  name,
+                  style: GoogleFonts.inter(
+                    color: JweTheme.textMid,
+                    fontSize: 11.5,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+              if (parentSubtaskName.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Text(
+                  parentSubtaskName,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: JweTheme.textMuted,
+                    fontSize: 9,
+                  ),
+                ),
+              ],
               if (mainTask != null) ...[
                 const SizedBox(width: 8),
                 Container(
@@ -202,7 +267,7 @@ class StartDayYesterdayProgress extends StatelessWidget {
                 ...timeRows,
                 const SizedBox(height: 6),
               ],
-              if (timeRows.isNotEmpty && subtaskRows.isNotEmpty)
+              if (timeRows.isNotEmpty && (subtaskRows.isNotEmpty || checkpointRows.isNotEmpty))
                 Divider(color: JweTheme.lineSoft, height: 1),
               if (subtaskRows.isNotEmpty) ...[
                 Padding(
@@ -218,6 +283,24 @@ class StartDayYesterdayProgress extends StatelessWidget {
                   ),
                 ),
                 ...subtaskRows,
+                const SizedBox(height: 10),
+              ],
+              if (subtaskRows.isNotEmpty && checkpointRows.isNotEmpty)
+                Divider(color: JweTheme.lineSoft, height: 1),
+              if (checkpointRows.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.only(left: 12, top: 10, bottom: 6),
+                  child: Text(
+                    'COMPLETED CHECKPOINTS',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.textMuted,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+                ...checkpointRows,
                 const SizedBox(height: 10),
               ],
             ],

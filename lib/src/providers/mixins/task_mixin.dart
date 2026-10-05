@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/app_state_models.dart';
@@ -6,6 +7,7 @@ import 'package:missions/src/models/project_models.dart';
 import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/services/notification_service.dart';
 import 'package:missions/src/utils/constants.dart';
+import 'package:missions/src/utils/helpers.dart';
 import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/providers/mixins/sync_mixin.dart';
 import 'package:collection/collection.dart';
@@ -41,10 +43,8 @@ mixin TaskMixin on ChangeNotifier {
   // --- Setters / Mutators ---
   
   void setMainTasks(List<MainTask> tasks) {
-    if (!listEquals(_mainTasks, tasks)) {
-      _mainTasks = List.from(tasks);
-      sync.markDirty('tasks');
-    }
+    _mainTasks = List.from(tasks);
+    sync.markDirty('tasks');
   }
 
   void setCompletedByDay(Map<String, dynamic> data) {
@@ -76,10 +76,8 @@ mixin TaskMixin on ChangeNotifier {
   }
 
   void setProjects(List<Project> projects) {
-    if (!listEquals(_projects, projects)) {
-      _projects = List.from(projects);
-      sync.markDirty('tasks');
-    }
+    _projects = List.from(projects);
+    sync.markDirty('tasks');
   }
 
   void setRoutineLists(List<RoutineList> lists) {
@@ -391,6 +389,202 @@ mixin TaskMixin on ChangeNotifier {
     }
   }
 
+  // --- Checkpoint Hierarchy & Synchronization Helpers ---
+
+  ({SubSubTask node, bool modified}) _mergeCheckpointNodes(SubSubTask localCp, SubSubTask incCp, bool isRecurring) {
+    bool nodeModified = false;
+    final bool cpCompleted = isRecurring ? localCp.completed : (localCp.completed || incCp.completed);
+    if (cpCompleted != localCp.completed) nodeModified = true;
+
+    final String? cpTime = localCp.completionTimestamp ?? incCp.completionTimestamp;
+    if (cpTime != localCp.completionTimestamp) nodeModified = true;
+
+    final bool cpActive = localCp.isActive || incCp.isActive;
+    if (cpActive != localCp.isActive) nodeModified = true;
+
+    final int cpCount = math.max(localCp.currentCount, incCp.currentCount);
+    if (cpCount != localCp.currentCount) nodeModified = true;
+
+    final substepsRes = _mergeCheckpointLists(localCp.substeps, incCp.substeps, isRecurring);
+    if (substepsRes.modified) nodeModified = true;
+
+    final mergedNode = localCp.copyWith(
+      name: localCp.name.isNotEmpty ? localCp.name : incCp.name,
+      completed: cpCompleted,
+      completionTimestamp: cpTime,
+      isActive: cpActive,
+      currentCount: cpCount,
+      substeps: substepsRes.checkpoints,
+    );
+    return (node: mergedNode, modified: nodeModified);
+  }
+
+  ({List<SubSubTask> checkpoints, bool modified}) _mergeCheckpointLists(List<SubSubTask> localList, List<SubSubTask> incList, bool isRecurring) {
+    bool anyModified = false;
+    final cpMap = <String, SubSubTask>{for (final cp in localList) cp.id: cp};
+    final cpTitleMap = <String, SubSubTask>{
+      for (final cp in localList)
+        if (cp.name.trim().isNotEmpty) cp.name.trim().toLowerCase(): cp
+    };
+    final merged = List<SubSubTask>.from(localList);
+
+    for (final incCp in incList) {
+      SubSubTask? match = cpMap[incCp.id];
+      if (match == null && incCp.name.trim().isNotEmpty) {
+        match = cpTitleMap[incCp.name.trim().toLowerCase()];
+      }
+
+      if (match == null) {
+        merged.add(incCp);
+        cpMap[incCp.id] = incCp;
+        if (incCp.name.trim().isNotEmpty) {
+          cpTitleMap[incCp.name.trim().toLowerCase()] = incCp;
+        }
+        anyModified = true;
+      } else {
+        final nodeRes = _mergeCheckpointNodes(match, incCp, isRecurring);
+        if (nodeRes.modified) {
+          anyModified = true;
+          final idx = merged.indexWhere((c) => c.id == match!.id);
+          if (idx >= 0) {
+            merged[idx] = nodeRes.node;
+          }
+        }
+      }
+    }
+    return (checkpoints: merged, modified: anyModified);
+  }
+
+  bool _crossSyncTasksAndHistory(Map<String, dynamic> historyMap) {
+    bool tasksModified = false;
+    final todayStr = getTodayDateString();
+
+    // 1. Collect completed history from historyMap for non-recurring restoration
+    final completedCheckpointMap = <String, String>{}; // id -> completionTimestamp
+    final completedCheckpointByName = <String, String>{}; // name or subtaskId_name -> completionTimestamp
+    final completedSubtaskIds = <String>{};
+    final completedSubtaskNames = <String>{};
+
+    for (final dayEntry in historyMap.entries) {
+      final dayData = dayEntry.value;
+      if (dayData is Map) {
+        final cpList = dayData['checkpointsCompleted'];
+        if (cpList is List) {
+          for (final c in cpList.whereType<Map>()) {
+            final id = (c['subSubTaskId'] ?? c['id'] ?? c['checkpointId'])?.toString();
+            final name = (c['name'] ?? c['checkpointTitle'] ?? c['title'])?.toString().trim().toLowerCase();
+            final ts = c['completionTimestamp']?.toString() ?? dayEntry.key;
+            if (id != null && id.isNotEmpty) completedCheckpointMap[id] = ts;
+            if (name != null && name.isNotEmpty) {
+              completedCheckpointByName[name] = ts;
+              final subtaskId = (c['parentSubTaskId'] ?? c['parentSubtaskId'] ?? c['subtaskId'])?.toString();
+              if (subtaskId != null && subtaskId.isNotEmpty) {
+                completedCheckpointByName['${subtaskId}_$name'] = ts;
+              }
+            }
+          }
+        }
+        final stList = dayData['subtasksCompleted'];
+        if (stList is List) {
+          for (final s in stList.whereType<Map>()) {
+            final id = (s['subtaskId'] ?? s['id'])?.toString();
+            final name = (s['name'] ?? s['subtaskName'])?.toString().trim().toLowerCase();
+            if (id != null && id.isNotEmpty) completedSubtaskIds.add(id);
+            if (name != null && name.isNotEmpty) completedSubtaskNames.add(name);
+          }
+        }
+      }
+    }
+
+    void restoreCheckpointsRecursively(String subtaskId, List<SubSubTask> cps) {
+      for (final cp in cps) {
+        final normName = cp.name.trim().toLowerCase();
+        final matchedTs = completedCheckpointMap[cp.id] ??
+            completedCheckpointByName['${subtaskId}_$normName'] ??
+            completedCheckpointByName[normName];
+        if (!cp.completed && matchedTs != null) {
+          cp.completed = true;
+          cp.completionTimestamp ??= matchedTs;
+          tasksModified = true;
+        }
+        if (cp.substeps.isNotEmpty) {
+          restoreCheckpointsRecursively(subtaskId, cp.substeps);
+        }
+      }
+    }
+
+    for (final task in _mainTasks) {
+      for (final st in task.subTasks) {
+        if (!st.isRecurring) {
+          final normStName = st.name.trim().toLowerCase();
+          if (!st.completed && (completedSubtaskIds.contains(st.id) || completedSubtaskNames.contains(normStName))) {
+            st.completed = true;
+            tasksModified = true;
+          }
+          restoreCheckpointsRecursively(st.id, st.subSubTasks);
+        }
+      }
+    }
+
+    // 2. Cross-sync completed items on _mainTasks into historyMap
+    for (final task in _mainTasks) {
+      for (final st in task.subTasks) {
+        if (st.completed && st.completedDate != null && st.completedDate!.isNotEmpty) {
+          final dateKey = st.completedDate!;
+          final dayData = Map<String, dynamic>.from(historyMap[dateKey] as Map? ?? {});
+          final curSts = (dayData['subtasksCompleted'] as List? ?? []).whereType<Map>().toList();
+          final exists = curSts.any((s) => s['subtaskId'] == st.id || (s['taskId'] == task.id && s['subtaskName'] == st.name));
+          if (!exists) {
+            curSts.add({
+              'taskId': task.id,
+              'subtaskId': st.id,
+              'subtaskName': st.name,
+              'name': st.name,
+              'completionTimestamp': st.lastCompletedDate?.toIso8601String() ?? st.completedDate,
+            });
+            dayData['subtasksCompleted'] = curSts;
+            historyMap[dateKey] = dayData;
+          }
+        }
+
+        void syncCheckpointsRecursively(List<SubSubTask> cps) {
+          for (final cp in cps) {
+            if (cp.completed) {
+              final cpDate = (cp.completionTimestamp != null && cp.completionTimestamp!.length >= 10)
+                  ? cp.completionTimestamp!.substring(0, 10)
+                  : (st.completedDate ?? todayStr);
+              final dayData = Map<String, dynamic>.from(historyMap[cpDate] as Map? ?? {});
+              final curCps = (dayData['checkpointsCompleted'] as List? ?? []).whereType<Map>().toList();
+              final exists = curCps.any((c) => c['subSubTaskId'] == cp.id);
+              if (!exists) {
+                curCps.add({
+                  'parentTaskId': task.id,
+                  'parentSubTaskId': st.id,
+                  'parentSubtaskName': st.name,
+                  'subSubTaskId': cp.id,
+                  'name': cp.name,
+                  'completionTimestamp': cp.completionTimestamp ?? DateTime.now().toIso8601String(),
+                });
+                dayData['checkpointsCompleted'] = curCps;
+                historyMap[cpDate] = dayData;
+              }
+            }
+            if (cp.substeps.isNotEmpty) {
+              syncCheckpointsRecursively(cp.substeps);
+            }
+          }
+        }
+
+        syncCheckpointsRecursively(st.subSubTasks);
+      }
+    }
+
+    if (tasksModified) {
+      sync.markDirty('tasks');
+    }
+    return tasksModified;
+  }
+
   // --- Data Loading Helper ---
   void loadTaskState(Map<String, dynamic> data) {
     if (data['mainTasks'] != null) {
@@ -431,28 +625,9 @@ mixin TaskMixin on ChangeNotifier {
       }
     }
 
-    // Cross-synchronize: ensure any completed subtasks on _mainTasks with completedDate are in _completedByDay
+    // Cross-synchronize: ensure full two-way parity between _mainTasks and _completedByDay
     final currentCompleted = Map<String, dynamic>.from(_completedByDay);
-    for (final task in _mainTasks) {
-      for (final st in task.subTasks) {
-        if (st.completed && st.completedDate != null && st.completedDate!.isNotEmpty) {
-          final dateKey = st.completedDate!;
-          final dayData = Map<String, dynamic>.from(currentCompleted[dateKey] as Map? ?? {});
-          final curSts = (dayData['subtasksCompleted'] as List? ?? []).whereType<Map>().toList();
-          final exists = curSts.any((s) => s['subtaskId'] == st.id || (s['taskId'] == task.id && s['subtaskName'] == st.name));
-          if (!exists) {
-            curSts.add({
-              'taskId': task.id,
-              'subtaskId': st.id,
-              'subtaskName': st.name,
-              'completionTimestamp': st.lastCompletedDate?.toIso8601String() ?? st.completedDate,
-            });
-            dayData['subtasksCompleted'] = curSts;
-            currentCompleted[dateKey] = dayData;
-          }
-        }
-      }
-    }
+    _crossSyncTasksAndHistory(currentCompleted);
     _completedByDay = currentCompleted;
         
     _selectedTaskId = data['selectedTaskId'] as String? ?? (_mainTasks.isNotEmpty ? _mainTasks.first.id : null);
@@ -586,61 +761,10 @@ mixin TaskMixin on ChangeNotifier {
                   : match.targetCount;
               if (newTargetCount != match.targetCount) stModified = true;
 
-              // Merge checkpoints (subSubTasks)
-              final cpMap = <String, SubSubTask>{for (final cp in match.subSubTasks) cp.id: cp};
-              final cpTitleMap = <String, SubSubTask>{
-                for (final cp in match.subSubTasks)
-                  if (cp.name.trim().isNotEmpty) cp.name.trim().toLowerCase(): cp
-              };
-              final mergedCheckpoints = List<SubSubTask>.from(match.subSubTasks);
-
-              for (final incCp in incSt.subSubTasks) {
-                SubSubTask? cpMatch = cpMap[incCp.id];
-                if (cpMatch == null && incCp.name.trim().isNotEmpty) {
-                  cpMatch = cpTitleMap[incCp.name.trim().toLowerCase()];
-                }
-
-                if (cpMatch == null) {
-                  mergedCheckpoints.add(incCp);
-                  cpMap[incCp.id] = incCp;
-                  if (incCp.name.trim().isNotEmpty) {
-                    cpTitleMap[incCp.name.trim().toLowerCase()] = incCp;
-                  }
-                  stModified = true;
-                } else {
-                  bool cpModified = false;
-                  bool cpCompleted = cpMatch.completed || incCp.completed;
-                  if (cpCompleted != cpMatch.completed) cpModified = true;
-
-                  String? cpTime = cpMatch.completionTimestamp ?? incCp.completionTimestamp;
-                  if (cpTime != cpMatch.completionTimestamp) cpModified = true;
-
-                  bool cpActive = cpMatch.isActive;
-                  if (!cpActive && incCp.isActive) {
-                    cpActive = true;
-                    cpModified = true;
-                  }
-
-                  int cpCount = cpMatch.currentCount;
-                  if (incCp.currentCount > cpCount) {
-                    cpCount = incCp.currentCount;
-                    cpModified = true;
-                  }
-
-                  if (cpModified) {
-                    final idx = mergedCheckpoints.indexWhere((c) => c.id == cpMatch!.id);
-                    if (idx >= 0) {
-                      mergedCheckpoints[idx] = cpMatch.copyWith(
-                        completed: cpCompleted,
-                        completionTimestamp: cpTime,
-                        isActive: cpActive,
-                        currentCount: cpCount,
-                      );
-                      stModified = true;
-                    }
-                  }
-                }
-              }
+              // Merge checkpoints (subSubTasks) recursively
+              final cpRes = _mergeCheckpointLists(match.subSubTasks, incSt.subSubTasks, match.isRecurring);
+              final mergedCheckpoints = cpRes.checkpoints;
+              if (cpRes.modified) stModified = true;
 
               // Merge sessions
               final sMap = <String, TaskSession>{for (final s in match.sessions) s.id: s};
@@ -932,31 +1056,13 @@ mixin TaskMixin on ChangeNotifier {
         }
       }
 
-      // Cross-synchronize: ensure any completed subtasks on _mainTasks with a completedDate are present in _completedByDay
-      for (final task in _mainTasks) {
-        for (final st in task.subTasks) {
-          if (st.completed && st.completedDate != null && st.completedDate!.isNotEmpty) {
-            final dateKey = st.completedDate!;
-            final dayData = Map<String, dynamic>.from(merged[dateKey] as Map? ?? {});
-            final curSts = (dayData['subtasksCompleted'] as List? ?? []).whereType<Map>().toList();
-            final exists = curSts.any((s) => s['subtaskId'] == st.id || (s['taskId'] == task.id && s['subtaskName'] == st.name));
-            if (!exists) {
-              curSts.add({
-                'taskId': task.id,
-                'subtaskId': st.id,
-                'subtaskName': st.name,
-                'completionTimestamp': st.lastCompletedDate?.toIso8601String() ?? st.completedDate,
-              });
-              dayData['subtasksCompleted'] = curSts;
-              merged[dateKey] = dayData;
-              mergedDays++;
-            }
-          }
-        }
-      }
+      // Cross-synchronize: ensure full two-way parity between _mainTasks and _completedByDay
+      final tasksUpdated = _crossSyncTasksAndHistory(merged);
+      if (tasksUpdated) mergedDays++;
 
       _completedByDay = merged;
-      sync.markDirty('tasks');
+      sync.markDirty('history');
+      if (tasksUpdated) sync.markDirty('tasks');
     }
 
     if (data['projects'] != null) {

@@ -1,3 +1,26 @@
+# ⚡ Arcane System Upgrade // v2026.10.5 (Build #2126100501)
+
+### 📌 Permanent Task & Checkpoint Retention Across Daily Rollovers
+- **Complete Preservation of Non-Recurring Objectives & Checkpoints**:
+  - Advancing to a new day now strictly preserves the completed state, depth, and check history of all non-recurring tasks, subtasks, and deeply nested checkpoints.
+  - Eliminated in-place reference mutations in `updateSubtask` by generating clean immutable copies via `copyWith` (including explicit `clearDepth` support).
+  - Removed faulty identity-comparison `listEquals` checks in `setMainTasks` and `setProjects`, guaranteeing that task updates, checkpoint additions, and completions reliably mark collections dirty and write to local and cloud storage.
+  - Implemented bidirectional cross-synchronization (`_crossSyncTasksAndHistory`) creating full two-way parity between `_mainTasks` and `_completedByDay` history, ensuring checkpoints and subtasks are restored even after cloud sync or app reloads.
+  - Added recursive checkpoint tree merging (`_mergeCheckpointLists`, `_mergeCheckpointNodes`) to seamlessly reconcile nested checkpoint hierarchies without dropping sub-steps.
+
+### 🕛 Automated Live Midnight Rollover (Zero Restart Required)
+- **Precision 12:00:01 AM Midnight Timer**:
+  - Implemented `_scheduleMidnightTimer` which schedules automatic day rollover at `00:00:01` every night, recalculating daily rollover delays dynamically without requiring an app restart.
+  - Added lifecycle resume catch-up in `didChangeAppLifecycleState(AppLifecycleState.resumed)` so devices suspended across midnight immediately execute rollover upon waking.
+  - Guarantees instant UI refreshes (`notifyListeners()`), atomic local snapshots, and home screen widget updates upon daily rollover.
+  - Resets only recurring tasks, active timer counters, and daily time spent, while permanently maintaining progress on non-recurring tasks.
+
+### 📊 Yesterday's Task Progress Card: Checkpoint Telemetry
+- **Render Completed Checkpoints**:
+  - Updated `StartDayYesterdayProgress` on the Start Day briefing card to display completed checkpoints in a dedicated `COMPLETED CHECKPOINTS` section with tactical rhombus icons, parent task badges, and dual-theme `JweTheme` styling.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.4 (Build #2126100404)
 
 ### 🔄 Drag & Reorder Arcane Protocols Widgets (0th Page)

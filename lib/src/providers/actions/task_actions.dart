@@ -647,9 +647,21 @@ class TaskActions {
   }
 
   void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
-    final updates = {'completed': true, 'completionTimestamp': DateTime.now().toIso8601String()};
+    final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parentSubtaskId);
+    final cp = sub?.findCheckpoint(subSubtaskId);
+
+    final nowIso = DateTime.now().toIso8601String();
+    final updates = {'completed': true, 'completionTimestamp': nowIso};
     updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
-    logToDailySummary('subSubtaskCompleted', {'parentTaskId': mainTaskId, 'parentSubTaskId': parentSubtaskId, 'subSubTaskId': subSubtaskId});
+    logToDailySummary('subSubtaskCompleted', {
+      'parentTaskId': mainTaskId,
+      'parentSubTaskId': parentSubtaskId,
+      'parentSubtaskName': sub?.name ?? '',
+      'subSubTaskId': subSubtaskId,
+      'name': cp?.name ?? '',
+      'completionTimestamp': nowIso,
+    });
   }
 
   /// Ticks the subtask's current checkpoint (the one "check next" would tick) and adds [name] as a
@@ -990,65 +1002,78 @@ class TaskActions {
   }
 
   void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) {
-    MainTask? taskToUpdate = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
-    if (taskToUpdate == null) return;
+    final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (task == null) return;
 
-    SubTask? subtaskToUpdate = taskToUpdate.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
-    if (subtaskToUpdate == null) return;
+    final subtask = task.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
+    if (subtask == null) return;
 
-    final int oldSubtaskTime = subtaskToUpdate.currentTimeSpent;
+    final int oldSubtaskTime = subtask.currentTimeSpent;
+    final int newTime = updates.containsKey('currentTimeSpent') ? updates['currentTimeSpent'] as int : subtask.currentTimeSpent;
+    final int timeDifference = newTime - oldSubtaskTime;
 
-    if (updates.containsKey('name')) subtaskToUpdate.name = updates['name'] as String;
-    if (updates.containsKey('description')) subtaskToUpdate.description = updates['description'] as String;
-    if (updates.containsKey('isRecurring')) subtaskToUpdate.isRecurring = updates['isRecurring'] as bool;
-    if (updates.containsKey('progressMode')) subtaskToUpdate.progressMode = updates['progressMode'] as String;
-    if (updates.containsKey('why')) subtaskToUpdate.why = updates['why'] as String;
-    if (updates.containsKey('what')) subtaskToUpdate.what = updates['what'] as String;
-    if (updates.containsKey('resources')) subtaskToUpdate.resources = updates['resources'] as String; 
-    if (updates.containsKey('isActive')) subtaskToUpdate.isActive = updates['isActive'] as bool;
-    if (updates.containsKey('subSubTasks')) subtaskToUpdate.subSubTasks = updates['subSubTasks'] as List<SubSubTask>;
-    if (updates.containsKey('depth')) subtaskToUpdate.depth = updates['depth'] as int?;
-    
-    subtaskToUpdate.updatedAt = DateTime.now();
+    bool newCompleted = updates.containsKey('completed') ? updates['completed'] as bool : subtask.completed;
+    String? newCompletedDate = subtask.completedDate;
+    DateTime? newLastCompletedDate = subtask.lastCompletedDate;
 
     if (updates.containsKey('manualProgress')) {
       final double mp = (updates['manualProgress'] as num).toDouble();
-      subtaskToUpdate.manualProgress = mp;
       if (mp >= 1.0) {
-        subtaskToUpdate.completed = true;
-        subtaskToUpdate.completedDate = getTodayDateString();
-        subtaskToUpdate.lastCompletedDate = DateTime.now();
+        newCompleted = true;
+        newCompletedDate = getTodayDateString();
+        newLastCompletedDate = DateTime.now();
       } else {
-        subtaskToUpdate.completed = false;
-        subtaskToUpdate.completedDate = null;
-        subtaskToUpdate.lastCompletedDate = null;
+        newCompleted = false;
+        newCompletedDate = null;
+        newLastCompletedDate = null;
+      }
+    } else if (updates.containsKey('completed')) {
+      if (!newCompleted) {
+        newCompletedDate = null;
+        newLastCompletedDate = null;
+      } else {
+        newCompletedDate = getTodayDateString();
+        newLastCompletedDate = DateTime.now();
       }
     }
 
-    if (updates.containsKey('currentTimeSpent')) subtaskToUpdate.currentTimeSpent = updates['currentTimeSpent'] as int;
-    if (updates.containsKey('completed')) {
-      subtaskToUpdate.completed = updates['completed'] as bool;
-      if (!subtaskToUpdate.completed) {
-        subtaskToUpdate.completedDate = null;
-        subtaskToUpdate.lastCompletedDate = null;
-      } else {
-        subtaskToUpdate.completedDate = getTodayDateString();
-        subtaskToUpdate.lastCompletedDate = DateTime.now();
-      }
-    }
-
-    int timeDifference = 0;
-    if (updates.containsKey('currentTimeSpent')) {
-      timeDifference = subtaskToUpdate.currentTimeSpent - oldSubtaskTime;
-    }
+    final updatedSubtask = subtask.copyWith(
+      name: updates['name'] as String? ?? subtask.name,
+      description: updates['description'] as String? ?? subtask.description,
+      isRecurring: updates['isRecurring'] as bool? ?? subtask.isRecurring,
+      progressMode: updates['progressMode'] as String? ?? subtask.progressMode,
+      why: updates['why'] as String? ?? subtask.why,
+      what: updates['what'] as String? ?? subtask.what,
+      resources: updates['resources'] as String? ?? subtask.resources,
+      isActive: updates['isActive'] as bool? ?? subtask.isActive,
+      subSubTasks: updates['subSubTasks'] as List<SubSubTask>? ?? subtask.subSubTasks,
+      depth: updates.containsKey('depth') ? updates['depth'] as int? : subtask.depth,
+      clearDepth: updates.containsKey('depth') && updates['depth'] == null,
+      manualProgress: updates.containsKey('manualProgress') ? (updates['manualProgress'] as num).toDouble() : subtask.manualProgress,
+      currentTimeSpent: newTime,
+      completed: newCompleted,
+      completedDate: newCompletedDate,
+      lastCompletedDate: newLastCompletedDate,
+      updatedAt: DateTime.now(),
+    );
 
     if (timeDifference != 0) {
-      taskToUpdate.dailyTimeSpent = (taskToUpdate.dailyTimeSpent) + timeDifference;
-      taskToUpdate.lastWorkedDate = getTodayDateString();
       logToDailySummary('taskTime', {'taskId': mainTaskId, 'time': timeDifference});
     }
 
-    final newMainTasks = _provider.mainTasks.map((t) => t.id == mainTaskId ? taskToUpdate : t).toList();
+    final newMainTasks = _provider.mainTasks.map((t) {
+      if (t.id == mainTaskId) {
+        final newDailyTime = timeDifference != 0 ? t.dailyTimeSpent + timeDifference : t.dailyTimeSpent;
+        final newLastWorked = timeDifference != 0 ? getTodayDateString() : t.lastWorkedDate;
+        return t.copyWith(
+          dailyTimeSpent: newDailyTime,
+          lastWorkedDate: newLastWorked,
+          subTasks: t.subTasks.map((s) => s.id == subtaskId ? updatedSubtask : s).toList(),
+        );
+      }
+      return t;
+    }).toList();
+
     _provider.setProviderState(mainTasks: newMainTasks);
     sanitizeRoutineLists();
   }
@@ -1106,9 +1131,13 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
 
     logToDailySummary('subtaskCompleted', {
+      'taskId': mainTask.id,
       'parentTaskId': mainTask.id,
+      'subtaskId': subTask.id,
+      'subtaskName': subTask.name,
       'name': subTask.name,
       'timeLogged': subTask.currentTimeSpent,
+      'completionTimestamp': DateTime.now().toIso8601String(),
     });
     sanitizeRoutineLists();
     return true;
