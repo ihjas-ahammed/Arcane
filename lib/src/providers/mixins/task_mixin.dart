@@ -1015,17 +1015,25 @@ mixin TaskMixin on ChangeNotifier {
 
           // 6. dailyPlan list
           if (oldDay['dailyPlan'] is List) {
-            final curPlan = (currentDay['dailyPlan'] as List? ?? []).map((e) => e.toString()).toList();
-            final curPlanSet = curPlan.toSet();
-            for (final p in (oldDay['dailyPlan'] as List)) {
-              final pStr = p.toString();
-              if (!curPlanSet.contains(pStr)) {
-                curPlan.add(pStr);
-                curPlanSet.add(pStr);
-                dayEnriched = true;
-              }
+            // If currentDay does not yet have a dailyPlan initialized, take the remote/incoming one.
+            // If currentDay already has a dailyPlan (even if empty, meaning the user removed all tasks),
+            // preserve the local dailyPlan so deleted items are not resurrected.
+            if (currentDay['dailyPlan'] == null) {
+              currentDay['dailyPlan'] = (oldDay['dailyPlan'] as List).map((e) => e.toString()).toList();
+              dayEnriched = true;
             }
-            currentDay['dailyPlan'] = curPlan;
+          }
+
+          // dailyPlanRows
+          if (oldDay['dailyPlanRows'] is List && currentDay['dailyPlanRows'] == null) {
+            currentDay['dailyPlanRows'] = oldDay['dailyPlanRows'];
+            dayEnriched = true;
+          }
+
+          // planRowEntries
+          if (oldDay['planRowEntries'] is List && currentDay['planRowEntries'] == null) {
+            currentDay['planRowEntries'] = oldDay['planRowEntries'];
+            dayEnriched = true;
           }
 
           // 7. task_snapshot

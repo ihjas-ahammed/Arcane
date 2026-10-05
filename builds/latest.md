@@ -1,3 +1,36 @@
+# ⚡ Arcane System Upgrade // v2026.10.5 (Build #2126100502)
+
+### 🎮 Radial Emote Wheel Floating Button Long-Press Controller
+- **Tactical Radial Emote Wheel**:
+  - Replaced the rectangular popup menu on the floating task button with a dynamic, circular radial emote controller. Circular options bloom around the button in an in-game weapon/emote wheel style.
+  - Directional dragging targets options instantly: dragging towards any node projects a tactical laser beam, swells the circular node with an ambient halo glow, displays the active action title in a central HUD pill badge, and provides crisp haptic ticks (`KEYBOARD_TAP`).
+  - Releasing in the dragged direction commits and executes the action immediately; releasing in the center deadzone cleanly cancels.
+  - Supports direct tap interactions if released without dragging, with full adaptive geometry accommodating left and right screen bezels.
+
+### ✕ Drag to 'X' Target: Pause & Temporarily Hide
+- **Bottom Magnetic Dismiss Target**:
+  - Dragging the floating bubble reveals a bottom circular dismiss target (`✕`).
+  - Dragging within 68dp of the target triggers magnetic scaling, vibrant red halo illumination, and tactile feedback.
+  - Dropping the bubble into the target halts/pauses any running task session and temporarily conceals the button from the display.
+  - Automatically restores the floating button the moment a new task is initiated or resumed.
+
+### 🛡️ Planner Ghost Task Elimination & Resilient State Protection
+- **No More Reappearing Removed Tasks**:
+  - Eliminated the additive union bug in `mergeTaskState` for `dailyPlan`, `dailyPlanRows`, and `planRowEntries`. When tasks are deleted or cleared from today's plan, local changes are strictly authoritative and are no longer resurrected by cloud or cache syncs.
+  - Synchronized `updateDayPlan` so row entries clean up in lockstep with planner modifications.
+
+### ⚡ Launcher Performance, Memory Trim & Crash Diagnostics
+- **OS Low Memory & Trim Support**:
+  - Implemented `onTrimMemory` and `onLowMemory` in `LauncherActivity`, evicting cached icon pack drawables and releasing non-critical memory under Android OS pressure.
+  - Cleaned up `HostedWidget.dispose()` to detach and nullify `AppWidgetHostView`, preventing platform view leaks.
+  - Added automatic user crash log synchronization (`LauncherNative.getCrashLog()`) uploading to Firebase RTDB (`users/$uid/data/crash_logs`) during cloud saves for remote diagnostics and prevention.
+
+### 🎨 Notification Settings Button Dual-Theme Parity
+- **Fixed Journal Notification Permission Button**:
+  - Adapted the "ENABLE NOTIFICATION ACCESS" action button in `Journal -> Notifications` to render crisp white text and icon in dark mode and bold black on light mode, adhering to `dual-theme.md`.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.5 (Build #2126100501)
 
 ### 📌 Permanent Task & Checkpoint Retention Across Daily Rollovers

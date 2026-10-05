@@ -5,6 +5,7 @@ import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/services/storage_service.dart';
 import 'package:missions/src/services/local_storage_service.dart';
 import 'package:missions/src/services/app_user.dart';
+import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/utils/global_toast.dart';
 
 mixin SyncMixin on ChangeNotifier {
@@ -434,6 +435,15 @@ mixin SyncMixin on ChangeNotifier {
       }
       if (force || _dirtyCollections.isNotEmpty || _dirtyCollections.contains('settings')) {
         if (!await _storageService.saveSettings(currentUser!.uid, settingsData)) success = false;
+      }
+
+      if (LauncherNative.isSupported) {
+        try {
+          final crashLogs = await LauncherNative.getCrashLog();
+          if (crashLogs.isNotEmpty) {
+            await _storageService.saveCrashLogs(currentUser!.uid, crashLogs);
+          }
+        } catch (_) {}
       }
 
       if (success) {

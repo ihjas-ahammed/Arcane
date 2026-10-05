@@ -99,4 +99,14 @@ class LauncherActivity : FlutterActivity() {
         if (launcherBridge?.onRequestPermissionsResult(requestCode, permissions, grantResults) == true) return
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        launcherBridge?.trimMemory(level)
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        launcherBridge?.trimMemory(android.content.ComponentCallbacks2.TRIM_MEMORY_COMPLETE)
+    }
 }

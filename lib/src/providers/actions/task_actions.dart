@@ -256,6 +256,30 @@ class TaskActions {
     }
     newHistory[dateStr]['dailyPlan'] = plan;
     newHistory[dateStr]['dailyPlanRows'] = newRows;
+
+    final rawRowEntries = newHistory[dateStr]['planRowEntries'];
+    if (rawRowEntries is List) {
+      final updatedRowEntries = <List<Map<String, dynamic>>>[];
+      final remainingForEntries = List<String>.from(plan);
+      for (final r in rawRowEntries) {
+        if (r is List) {
+          final row = <Map<String, dynamic>>[];
+          for (final e in r) {
+            if (e is Map) {
+              final id = e['id'] as String?;
+              if (id != null && remainingForEntries.remove(id)) {
+                row.add(Map<String, dynamic>.from(e));
+              }
+            }
+          }
+          if (row.isNotEmpty) {
+            updatedRowEntries.add(row);
+          }
+        }
+      }
+      newHistory[dateStr]['planRowEntries'] = updatedRowEntries;
+    }
+
     _provider.setProviderState(completedByDay: newHistory);
   }
 

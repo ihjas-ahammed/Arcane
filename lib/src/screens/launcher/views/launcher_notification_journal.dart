@@ -469,18 +469,24 @@ class _LauncherNotificationJournalState extends State<LauncherNotificationJourna
                       height: 32,
                       child: ElevatedButton.icon(
                         onPressed: _openPermissionSettings,
-                        icon: const Icon(Icons.settings, size: 14),
+                        icon: Icon(
+                          Icons.settings,
+                          size: 14,
+                          color: isLight ? Colors.black : Colors.white,
+                        ),
                         label: Text(
                           'ENABLE NOTIFICATION ACCESS',
                           style: LauncherTheme.rajdhani(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 1.2,
+                            color: isLight ? Colors.black : Colors.white,
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: JweTheme.accentAmber,
-                          foregroundColor: Colors.black,
+                          backgroundColor: isLight ? JweTheme.accentAmber : const Color(0xFF2A2218),
+                          foregroundColor: isLight ? Colors.black : Colors.white,
+                          side: isLight ? null : BorderSide(color: JweTheme.accentAmber.withValues(alpha: 0.6)),
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                         ),

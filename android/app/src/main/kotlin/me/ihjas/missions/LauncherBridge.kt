@@ -213,6 +213,12 @@ class LauncherBridge(
         io.shutdown()
     }
 
+    fun trimMemory(level: Int) {
+        synchronized(iconPackCache) {
+            iconPackCache.clear()
+        }
+    }
+
     /** Returns true when [intent] came from the HOME button / home-screen launch. */
     fun isHomeIntent(intent: Intent?): Boolean =
         intent?.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)
@@ -1248,12 +1254,13 @@ class LauncherBridge(
         private val heightDp: Int
     ) : PlatformView {
         private val container = FrameLayout(hostContext)
+        private var hostView: AppWidgetHostView? = null
 
         init {
             try {
                 val info = try { widgetManager.getAppWidgetInfo(widgetId) } catch (_: Throwable) { null }
                 if (info != null) {
-                    val hostView: AppWidgetHostView = try {
+                    val view: AppWidgetHostView = try {
                         widgetHost.createView(hostContext, widgetId, info)
                     } catch (e: Throwable) {
                         Log.e(TAG, "Failed widgetHost.createView for $widgetId", e)
@@ -1261,15 +1268,16 @@ class LauncherBridge(
                             setAppWidget(widgetId, info)
                         }
                     }
-                    hostView.setPadding(0, 0, 0, 0)
+                    view.setPadding(0, 0, 0, 0)
                     container.addView(
-                        hostView,
+                        view,
                         FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
                     )
+                    hostView = view
                     if (widthDp > 0 && heightDp > 0) {
                         try {
                             @Suppress("DEPRECATION")
-                            hostView.updateAppWidgetSize(Bundle(), widthDp, heightDp, widthDp, heightDp)
+                            view.updateAppWidgetSize(Bundle(), widthDp, heightDp, widthDp, heightDp)
                         } catch (_: Exception) {}
                     }
                 } else {
@@ -1301,6 +1309,7 @@ class LauncherBridge(
         override fun dispose() {
             try {
                 container.removeAllViews()
+                hostView = null
             } catch (_: Throwable) {}
         }
     }

@@ -39,6 +39,7 @@ abstract class StorageService {
   Future<bool> saveTrading(String userId, Map<String, dynamic> data);
   Future<bool> saveLauncher(String userId, Map<String, dynamic> data);
   Future<Map<String, dynamic>?> getTrading(String userId);
+  Future<bool> saveCrashLogs(String userId, List<String> logs);
   Future<bool> saveHistory(String userId, Map<String, dynamic> data);
   Future<bool> saveReflections(String userId, Map<String, dynamic> data);
   Future<bool> deleteReflection(String userId, String reflectionId);
@@ -328,6 +329,18 @@ class _FlutterFireStorageService implements StorageService {
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService._saveChunkToRTDB:$chunk] $e\n$stack');
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> saveCrashLogs(String userId, List<String> logs) async {
+    if (userId.isEmpty || logs.isEmpty) return true;
+    try {
+      await _rtdbRef(userId, 'crash_logs').set(jsonEncode(logs)).timeout(_rtdbTimeout);
+      return true;
+    } catch (e, stack) {
+      debugPrint('[StorageService.saveCrashLogs] $e\n$stack');
       return false;
     }
   }
@@ -702,6 +715,22 @@ class _LinuxStorageService implements StorageService {
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService._saveChunkToRTDB:$chunk/linux] $e\n$stack');
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> saveCrashLogs(String userId, List<String> logs) async {
+    if (userId.isEmpty || logs.isEmpty) return true;
+    try {
+      await _rtdb
+          .reference()
+          .child('users/$userId/data/crash_logs')
+          .set(jsonEncode(logs))
+          .timeout(_rtdbTimeout);
+      return true;
+    } catch (e, stack) {
+      debugPrint('[StorageService.saveCrashLogs/linux] $e\n$stack');
       return false;
     }
   }

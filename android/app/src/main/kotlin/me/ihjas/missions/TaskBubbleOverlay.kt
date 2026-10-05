@@ -44,7 +44,11 @@ import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import me.ihjas.missions.widgets.WidgetActionReceiver
 import me.ihjas.missions.widgets.WidgetCommon
 import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.hypot
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /**
  * Redesigned AssistiveTouch-style tactical floating task button, drawn by
@@ -103,12 +107,15 @@ class TaskBubbleOverlay(private val context: Context) {
 
     private var bubble: BubbleView? = null
     private var params: WindowManager.LayoutParams? = null
-    private var menu: View? = null
+    private var radialMenu: RadialMenuView? = null
+    private var dismissTarget: DismissTargetView? = null
     private var dialog: View? = null
     private var snapAnim: ValueAnimator? = null
     private var dockAnim: ValueAnimator? = null
     private var isDocked = false
     private var started = false
+    private var temporarilyHidden = false
+    private var lastHiddenTaskTitle: String? = null
 
     // Strong references: SharedPreferences only keeps listeners weakly.
     private val settingsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -132,6 +139,8 @@ class TaskBubbleOverlay(private val context: Context) {
     fun stop() {
         if (!started) return
         started = false
+        temporarilyHidden = false
+        lastHiddenTaskTitle = null
         settingsPrefs.unregisterOnSharedPreferenceChangeListener(settingsListener)
         widgetPrefs.unregisterOnSharedPreferenceChangeListener(widgetListener)
         TaskForegroundService.stop(context)
@@ -141,7 +150,8 @@ class TaskBubbleOverlay(private val context: Context) {
 
     /** Screen size changed (rotation, fold): keep the bubble on its side and on screen. */
     fun onConfigurationChanged() {
-        dismissMenu()
+        dismissRadialMenu()
+        dismissDismissTarget()
         val p = params ?: return
         val b = bubble ?: return
         placeFromPrefs(p)
@@ -152,8 +162,17 @@ class TaskBubbleOverlay(private val context: Context) {
         val enabled = isEnabled(context)
         val running = isRunning()
         val has = hasTask()
+        val currentTitle = widgetPrefs.getString("arcane.task.title", "") ?: ""
 
-        if (started && enabled && (running || has)) {
+        if (temporarilyHidden) {
+            // Automatically unhide when a new task is started or session becomes running
+            if (running || (currentTitle.isNotEmpty() && currentTitle != lastHiddenTaskTitle)) {
+                temporarilyHidden = false
+                lastHiddenTaskTitle = null
+            }
+        }
+
+        if (started && enabled && !temporarilyHidden && (running || has)) {
             show()
             bubble?.refreshState()
             if (running) {
@@ -222,7 +241,8 @@ class TaskBubbleOverlay(private val context: Context) {
     }
 
     private fun hide() {
-        dismissMenu()
+        dismissRadialMenu()
+        dismissDismissTarget()
         snapAnim?.cancel()
         dockAnim?.cancel()
         handler.removeCallbacks(idleRunnable)
@@ -299,7 +319,7 @@ class TaskBubbleOverlay(private val context: Context) {
     }
 
     private fun settleToSide() {
-        if (menu != null || dialog != null || bubble == null) return
+        if (radialMenu != null || dismissTarget != null || dialog != null || bubble == null) return
         val p = params ?: return
         val b = bubble ?: return
         val targetX = dockedX()
@@ -395,124 +415,186 @@ class TaskBubbleOverlay(private val context: Context) {
         }
     }
 
-    // ── Long-press Menu ─────────────────────────────────────────
+    // ── Radial Emote Menu & Dismiss Target ──────────────────────
 
-    @SuppressLint("ClickableViewAccessibility")
-    private fun showMenu() {
-        dismissMenu()
-        val p = params ?: return
-        val s = screen()
-        val onRight = p.x + size / 2 > s.width() / 2
+    private data class RadialItem(
+        val id: String,
+        val label: String,
+        val glyph: String,
+        val color: Int,
+        var angleDeg: Float = 0f,
+        val action: () -> Unit,
+    )
 
-        val panel = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(8f), dp(8f), dp(8f), dp(8f))
-            background = GradientDrawable().apply {
-                setColor(BG_DARK)
-                cornerRadius = dp(16f).toFloat()
-                setStroke(dp(1.2f), CYAN and 0x55FFFFFF)
+    private fun angularDiff(a: Float, b: Float): Float {
+        val diff = abs(a - b) % 360f
+        return if (diff > 180f) 360f - diff else diff
+    }
+
+    private fun buildRadialItems(): List<RadialItem> {
+        val items = mutableListOf<RadialItem>()
+        if (hasTask()) {
+            if (isRunning()) {
+                items.add(RadialItem("toggle", "HALT", "❚❚", RED) { sendAction("task_toggle") })
+            } else {
+                items.add(RadialItem("toggle", "ENGAGE", "▶", AMBER) { sendAction("task_toggle") })
             }
-            elevation = dp(10f).toFloat()
-        }
-
-        val title = widgetPrefs.getString("arcane.task.title", "") ?: ""
-        panel.addView(TextView(context).apply {
-            text = if (hasTask() && title.isNotEmpty()) title.uppercase() else "NO TASK QUEUED"
-            setTextColor(MUTED)
-            textSize = 11.5f
-            letterSpacing = 0.12f
-            typeface = Typeface.DEFAULT_BOLD
-            maxLines = 1
-            ellipsize = TextUtils.TruncateAt.END
-            maxWidth = dp(210f)
-            setPadding(dp(12f), dp(6f), dp(12f), dp(8f))
-        })
-
-        fun item(label: String, color: Int, run: () -> Unit) {
-            panel.addView(TextView(context).apply {
-                text = label
-                setTextColor(color)
-                textSize = 14f
-                letterSpacing = 0.08f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(dp(12f), dp(10f), dp(12f), dp(10f))
-                minWidth = dp(155f)
-                background = GradientDrawable().apply {
-                    cornerRadius = dp(10f).toFloat()
-                    setColor(Color.TRANSPARENT)
-                }
-                setOnClickListener {
-                    it.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                    dismissMenu()
-                    run()
-                }
+            items.add(RadialItem("check", "CHECK", "✓", CYAN) { sendAction("task_check_next") })
+            items.add(RadialItem("add", "ADD +", "＋", CYAN) { showCheckpointDialog() })
+            items.add(RadialItem("finish", "FINISH", "⚑", CYAN) { sendAction("task_finish") })
+            items.add(RadialItem("plan", "PLAN", "☰", Color.WHITE) { openApp("task_open_plan") })
+            items.add(RadialItem("off", "DISABLE", "✕", MUTED) {
+                setEnabled(context, false)
+                Toast.makeText(
+                    context,
+                    "Floating task button off. Turn back on in Settings › Home Launcher.",
+                    Toast.LENGTH_LONG,
+                ).show()
+            })
+        } else {
+            items.add(RadialItem("plan", "PLAN", "☰", Color.WHITE) { openApp("task_open_plan") })
+            items.add(RadialItem("off", "DISABLE", "✕", MUTED) {
+                setEnabled(context, false)
+                Toast.makeText(
+                    context,
+                    "Floating task button off. Turn back on in Settings › Home Launcher.",
+                    Toast.LENGTH_LONG,
+                ).show()
             })
         }
+        return items
+    }
 
-        if (hasTask()) {
-            if (isRunning()) item("❚❚  HALT", RED) { sendAction("task_toggle") }
-            else item("▶  ENGAGE", AMBER) { sendAction("task_toggle") }
-            item("✓  CHECK NEXT", CYAN) { sendAction("task_check_next") }
-            item("＋  ADD CHECKPOINT", CYAN) { showCheckpointDialog() }
-            item("⚑  FINISH", CYAN) { sendAction("task_finish") }
+    private fun assignAngles(items: List<RadialItem>, cx: Float, screenWidth: Float) {
+        val rightEdge = cx > screenWidth - dp(70f)
+        val leftEdge = cx < dp(70f)
+        val n = items.size
+        if (n == 2) {
+            when {
+                rightEdge -> {
+                    items[0].angleDeg = 210f
+                    items[1].angleDeg = 150f
+                }
+                leftEdge -> {
+                    items[0].angleDeg = 330f
+                    items[1].angleDeg = 30f
+                }
+                else -> {
+                    items[0].angleDeg = 270f
+                    items[1].angleDeg = 90f
+                }
+            }
+            return
         }
-        item("☰  OPEN PLAN", Color.WHITE) { openApp("task_open_plan") }
-        item("✕  TURN OFF", MUTED) {
-            setEnabled(context, false)
-            Toast.makeText(
-                context,
-                "Floating task button off. Turn back on in Settings › Home Launcher.",
-                Toast.LENGTH_LONG,
-            ).show()
+        when {
+            rightEdge -> {
+                val step = 180f / (n - 1).coerceAtLeast(1)
+                for (i in 0 until n) {
+                    items[i].angleDeg = (270f - i * step + 360f) % 360f
+                }
+            }
+            leftEdge -> {
+                val step = 180f / (n - 1).coerceAtLeast(1)
+                for (i in 0 until n) {
+                    items[i].angleDeg = (270f + i * step) % 360f
+                }
+            }
+            else -> {
+                val step = 360f / n
+                for (i in 0 until n) {
+                    items[i].angleDeg = (270f + i * step) % 360f
+                }
+            }
         }
+    }
 
-        panel.setOnTouchListener { _, e ->
-            if (e.action == MotionEvent.ACTION_OUTSIDE) { dismissMenu(); true } else false
-        }
+    private fun showRadialMenu() {
+        dismissRadialMenu()
+        val p = params ?: return
+        val s = screen()
+        val cx = (p.x + size / 2).toFloat()
+        val cy = (p.y + size / 2).toFloat()
+        val items = buildRadialItems()
+        assignAngles(items, cx, s.width().toFloat())
 
-        panel.measure(
-            View.MeasureSpec.makeMeasureSpec(s.width(), View.MeasureSpec.AT_MOST),
-            View.MeasureSpec.makeMeasureSpec(s.height(), View.MeasureSpec.AT_MOST),
-        )
-        val w = panel.measuredWidth
-        val h = panel.measuredHeight
-        val gap = dp(10f)
+        val view = RadialMenuView(context, cx, cy, items)
         val mp = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
             overlayType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = if (onRight) (p.x - w - gap).coerceAtLeast(0) else (p.x + size + gap).coerceAtMost(s.width() - w)
-            y = (p.y + size / 2 - h / 2).coerceIn(0, (s.height() - h).coerceAtLeast(0))
+            x = 0
+            y = 0
         }
         try {
-            wm.addView(panel, mp)
-            menu = panel
+            wm.addView(view, mp)
+            radialMenu = view
             wake(animateOut = false)
-            handler.postDelayed(menuTimeout, 6000)
-        } catch (_: Exception) {
-        }
+        } catch (_: Exception) {}
     }
 
-    private val menuTimeout = Runnable { dismissMenu() }
+    private fun dismissRadialMenu() {
+        val rm = radialMenu ?: return
+        radialMenu = null
+        rm.animate().alpha(0f).setDuration(120).withEndAction {
+            try { wm.removeView(rm) } catch (_: Exception) {}
+        }.start()
+        scheduleIdle()
+    }
 
-    private fun dismissMenu() {
-        handler.removeCallbacks(menuTimeout)
-        menu?.let { try { wm.removeView(it) } catch (_: Exception) {} }
-        if (menu != null) scheduleIdle()
-        menu = null
+    private fun showDismissTarget() {
+        if (dismissTarget != null) return
+        val view = DismissTargetView(context)
+        val p = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            overlayType(),
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 0
+            y = 0
+        }
+        try {
+            wm.addView(view, p)
+            dismissTarget = view
+            view.alpha = 0f
+            view.animate().alpha(1f).setDuration(160).start()
+        } catch (_: Exception) {}
+    }
+
+    private fun dismissDismissTarget() {
+        val dt = dismissTarget ?: return
+        dismissTarget = null
+        dt.animate().alpha(0f).setDuration(140).withEndAction {
+            try { wm.removeView(dt) } catch (_: Exception) {}
+        }.start()
+    }
+
+    private fun temporarilyHideBubble() {
+        if (isRunning()) {
+            sendAction("task_toggle")
+        }
+        temporarilyHidden = true
+        lastHiddenTaskTitle = widgetPrefs.getString("arcane.task.title", "") ?: ""
+        hide()
+        Toast.makeText(context, "Task paused. Floating button hidden until next task.", Toast.LENGTH_SHORT).show()
     }
 
     // ── Double-tap: Check + Add Checkpoint ──────────────────────
 
     @SuppressLint("ClickableViewAccessibility")
     private fun showCheckpointDialog() {
-        dismissMenu()
+        dismissRadialMenu()
+        dismissDismissTarget()
         if (dialog != null) return
         val current = widgetPrefs.getString("arcane.task.nextCheckpoint", "") ?: ""
         val task = widgetPrefs.getString("arcane.task.title", "") ?: ""
@@ -735,9 +817,10 @@ class TaskBubbleOverlay(private val context: Context) {
             onTap()
         }
         private val longPress = Runnable {
+            if (dragging) return@Runnable
             longPressed = true
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-            showMenu()
+            showRadialMenu()
         }
         private val tick = object : Runnable {
             override fun run() {
@@ -900,21 +983,49 @@ class TaskBubbleOverlay(private val context: Context) {
                 MotionEvent.ACTION_MOVE -> {
                     val dx = e.rawX - downRawX
                     val dy = e.rawY - downRawY
-                    if (!dragging && (abs(dx) > touchSlop || abs(dy) > touchSlop)) {
-                        dragging = true
-                        removeCallbacks(longPress)
-                        dismissMenu()
+                    if (longPressed) {
+                        radialMenu?.onDrag(dx, dy)
+                    } else {
+                        if (!dragging && (abs(dx) > touchSlop || abs(dy) > touchSlop)) {
+                            dragging = true
+                            removeCallbacks(longPress)
+                            dismissRadialMenu()
+                            showDismissTarget()
+                        }
+                        if (dragging) {
+                            move(startX + dx.roundToInt(), startY + dy.roundToInt())
+                            dismissTarget?.updateBubble(p.x + size / 2, p.y + size / 2)
+                        }
                     }
-                    if (dragging) move(startX + dx.roundToInt(), startY + dy.roundToInt())
                 }
                 MotionEvent.ACTION_UP -> {
                     isPressedState = false
                     invalidate()
                     removeCallbacks(longPress)
                     when {
-                        dragging -> snapToEdge()
-                        !longPressed -> {
-                            dismissMenu()
+                        longPressed -> {
+                            longPressed = false
+                            val action = radialMenu?.getSelectedAction()
+                            if (action != null) {
+                                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                dismissRadialMenu()
+                                action()
+                            } else {
+                                radialMenu?.enableDirectTouch()
+                            }
+                            snapToEdge()
+                        }
+                        dragging -> {
+                            val hovered = dismissTarget?.isTargetHovered == true
+                            dismissDismissTarget()
+                            if (hovered) {
+                                temporarilyHideBubble()
+                            } else {
+                                snapToEdge()
+                            }
+                        }
+                        else -> {
+                            dismissRadialMenu()
                             if (awaitingSecondTap) {
                                 // Double-tap: check checkpoint + add next one
                                 removeCallbacks(singleTap)
@@ -929,17 +1040,317 @@ class TaskBubbleOverlay(private val context: Context) {
                             }
                         }
                     }
-                    if (menu == null) scheduleIdle()
+                    if (radialMenu == null) scheduleIdle()
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     isPressedState = false
                     invalidate()
                     removeCallbacks(longPress)
-                    if (dragging) snapToEdge()
+                    if (longPressed) {
+                        longPressed = false
+                        dismissRadialMenu()
+                        snapToEdge()
+                    }
+                    if (dragging) {
+                        dismissDismissTarget()
+                        snapToEdge()
+                    }
                     scheduleIdle()
                 }
             }
             return true
+        }
+    }
+
+    // ── Radial Emote Menu View ──────────────────────────────────
+
+    @SuppressLint("ViewConstructor")
+    private inner class RadialMenuView(
+        ctx: Context,
+        private val cx: Float,
+        private val cy: Float,
+        private val items: List<RadialItem>,
+    ) : View(ctx) {
+        private val orbitRadius = dp(84f).toFloat()
+        private val nodeRadius = dp(21f).toFloat()
+        private val deadZone = dp(24f).toFloat()
+        private var selectedIndex = -1
+        private var isDirectTouchEnabled = false
+
+        private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+        }
+        private val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+        }
+        private val laserPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+        }
+        private val reticlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+        }
+        private val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textAlign = Paint.Align.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textAlign = Paint.Align.CENTER
+            textSize = dp(9.5f).toFloat()
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.08f
+        }
+        private val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textAlign = Paint.Align.CENTER
+            textSize = dp(12.5f).toFloat()
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.12f
+        }
+        private val pillBounds = RectF()
+
+        private val autoDismissRunnable = Runnable { dismissRadialMenu() }
+
+        init {
+            postDelayed(autoDismissRunnable, 6000)
+        }
+
+        fun onDrag(dragDx: Float, dragDy: Float) {
+            val dist = hypot(dragDx, dragDy)
+            if (dist >= deadZone) {
+                val rad = atan2(dragDy.toDouble(), dragDx.toDouble())
+                var deg = Math.toDegrees(rad).toFloat()
+                if (deg < 0f) deg += 360f
+                val newIndex = items.indices.minByOrNull { angularDiff(items[it].angleDeg, deg) } ?: -1
+                if (newIndex != selectedIndex) {
+                    selectedIndex = newIndex
+                    performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    invalidate()
+                }
+            } else {
+                if (selectedIndex != -1) {
+                    selectedIndex = -1
+                    invalidate()
+                }
+            }
+        }
+
+        fun getSelectedAction(): (() -> Unit)? =
+            if (selectedIndex in items.indices) items[selectedIndex].action else null
+
+        fun enableDirectTouch() {
+            isDirectTouchEnabled = true
+            val p = layoutParams as? WindowManager.LayoutParams ?: return
+            p.flags = p.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+            try { wm.updateViewLayout(this, p) } catch (_: Exception) {}
+            removeCallbacks(autoDismissRunnable)
+            postDelayed(autoDismissRunnable, 5000)
+        }
+
+        override fun onDetachedFromWindow() {
+            removeCallbacks(autoDismissRunnable)
+            super.onDetachedFromWindow()
+        }
+
+        @SuppressLint("ClickableViewAccessibility")
+        override fun onTouchEvent(e: MotionEvent): Boolean {
+            if (!isDirectTouchEnabled) return false
+            if (e.actionMasked == MotionEvent.ACTION_DOWN) {
+                val touched = items.indices.firstOrNull { i ->
+                    val rad = Math.toRadians(items[i].angleDeg.toDouble())
+                    val nx = cx + cos(rad).toFloat() * orbitRadius
+                    val ny = cy + sin(rad).toFloat() * orbitRadius
+                    hypot(e.x - nx, e.y - ny) <= nodeRadius + dp(14f)
+                }
+                if (touched != null && touched >= 0) {
+                    performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    val action = items[touched].action
+                    dismissRadialMenu()
+                    action()
+                } else {
+                    dismissRadialMenu()
+                }
+                return true
+            }
+            return super.onTouchEvent(e)
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            val w = width.toFloat()
+            val h = height.toFloat()
+            if (w <= 0f || h <= 0f) return
+
+            // Scrim
+            bgPaint.color = 0x66000000
+            canvas.drawRect(0f, 0f, w, h, bgPaint)
+
+            // Concentric orbit track
+            reticlePaint.color = 0x1A00F0FF
+            reticlePaint.strokeWidth = dp(1f).toFloat()
+            canvas.drawCircle(cx, cy, orbitRadius, reticlePaint)
+            canvas.drawCircle(cx, cy, dp(18f).toFloat(), reticlePaint)
+
+            val selIndex = selectedIndex
+            val selItem = if (selIndex in items.indices) items[selIndex] else null
+
+            // Laser beam to selected item
+            if (selItem != null) {
+                val selRad = Math.toRadians(selItem.angleDeg.toDouble())
+                val snx = cx + cos(selRad).toFloat() * orbitRadius
+                val sny = cy + sin(selRad).toFloat() * orbitRadius
+
+                laserPaint.color = selItem.color and 0x33FFFFFF
+                laserPaint.strokeWidth = dp(6f).toFloat()
+                canvas.drawLine(cx, cy, snx, sny, laserPaint)
+
+                laserPaint.color = selItem.color
+                laserPaint.strokeWidth = dp(2.4f).toFloat()
+                canvas.drawLine(cx, cy, snx, sny, laserPaint)
+            }
+
+            // Option circles
+            for (i in items.indices) {
+                val item = items[i]
+                val rad = Math.toRadians(item.angleDeg.toDouble())
+                val nx = cx + cos(rad).toFloat() * orbitRadius
+                val ny = cy + sin(rad).toFloat() * orbitRadius
+                val isSelected = (i == selIndex)
+                val r = if (isSelected) dp(25f).toFloat() else nodeRadius
+
+                // Ambient Halo
+                if (isSelected) {
+                    haloPaint.color = item.color and 0x44FFFFFF
+                    haloPaint.strokeWidth = dp(6f).toFloat()
+                    canvas.drawCircle(nx, ny, r + dp(2.5f), haloPaint)
+                }
+
+                // Fill
+                fillPaint.color = if (isSelected) 0xF2121F2F.toInt() else 0xF206090E.toInt()
+                canvas.drawCircle(nx, ny, r, fillPaint)
+
+                // Border
+                strokePaint.color = if (isSelected) item.color else 0x44FFFFFF
+                strokePaint.strokeWidth = if (isSelected) dp(2.2f).toFloat() else dp(1.2f).toFloat()
+                canvas.drawCircle(nx, ny, r, strokePaint)
+
+                // Glyph
+                glyphPaint.color = if (isSelected) item.color else Color.WHITE
+                glyphPaint.textSize = if (isSelected) dp(16f).toFloat() else dp(14f).toFloat()
+                canvas.drawText(item.glyph, nx, ny + dp(5f), glyphPaint)
+
+                // Label
+                labelPaint.color = if (isSelected) item.color else MUTED
+                val labelY = if (sin(rad) < -0.7) ny - r - dp(6f) else ny + r + dp(12f)
+                canvas.drawText(item.label, nx, labelY, labelPaint)
+            }
+
+            // Center HUD pill badge
+            val badgeText = if (selItem != null) "${selItem.glyph}  ${selItem.label}" else "DRAG TO CHOOSE"
+            val badgeColor = selItem?.color ?: MUTED
+            val badgeW = badgePaint.measureText(badgeText) + dp(28f)
+            val badgeH = dp(28f).toFloat()
+            val badgeX = cx.coerceIn(badgeW / 2f + dp(12f), w - badgeW / 2f - dp(12f))
+            val badgeY = if (cy > h * 0.55f) (cy - orbitRadius - dp(38f)).coerceAtLeast(badgeH)
+                         else (cy + orbitRadius + dp(38f)).coerceAtMost(h - badgeH)
+
+            pillBounds.set(badgeX - badgeW / 2f, badgeY - badgeH / 2f, badgeX + badgeW / 2f, badgeY + badgeH / 2f)
+            fillPaint.color = 0xEE080E16.toInt()
+            canvas.drawRoundRect(pillBounds, dp(14f).toFloat(), dp(14f).toFloat(), fillPaint)
+
+            strokePaint.color = badgeColor and 0x88FFFFFF.toInt()
+            strokePaint.strokeWidth = dp(1.2f).toFloat()
+            canvas.drawRoundRect(pillBounds, dp(14f).toFloat(), dp(14f).toFloat(), strokePaint)
+
+            badgePaint.color = badgeColor
+            canvas.drawText(badgeText, badgeX, badgeY + dp(4.5f), badgePaint)
+        }
+    }
+
+    // ── Bottom Dismiss Target View ──────────────────────────────
+
+    @SuppressLint("ViewConstructor")
+    private inner class DismissTargetView(ctx: Context) : View(ctx) {
+        private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+        }
+        private val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+        }
+        private val crossPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+        }
+        private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textAlign = Paint.Align.CENTER
+            textSize = dp(10f).toFloat()
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.12f
+        }
+
+        var isTargetHovered = false
+            private set
+
+        fun updateBubble(bx: Int, by: Int) {
+            val tcx = width / 2f
+            val tcy = height - dp(75f).toFloat()
+            val dist = hypot(bx - tcx, by - tcy)
+            val hovered = dist <= dp(68f)
+            if (hovered != isTargetHovered) {
+                isTargetHovered = hovered
+                if (isTargetHovered) {
+                    performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                }
+                invalidate()
+            }
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            val w = width.toFloat()
+            val h = height.toFloat()
+            if (w <= 0f || h <= 0f) return
+
+            val tcx = w / 2f
+            val tcy = h - dp(75f).toFloat()
+            val r = if (isTargetHovered) dp(32f).toFloat() else dp(26f).toFloat()
+
+            // Bottom subtle gradient scrim
+            val scrimShader = LinearGradient(
+                0f, h - dp(140f).toFloat(), 0f, h,
+                0x00000000, 0x88000000.toInt(),
+                Shader.TileMode.CLAMP,
+            )
+            fillPaint.shader = scrimShader
+            canvas.drawRect(0f, h - dp(140f).toFloat(), w, h, fillPaint)
+            fillPaint.shader = null
+
+            // Glow halo when hovered
+            if (isTargetHovered) {
+                haloPaint.color = 0x55FF3B5C.toInt()
+                haloPaint.strokeWidth = dp(7f).toFloat()
+                canvas.drawCircle(tcx, tcy, r + dp(3f), haloPaint)
+            }
+
+            // Disc
+            fillPaint.color = if (isTargetHovered) 0xCCFF3B5C.toInt() else 0xD9080E16.toInt()
+            canvas.drawCircle(tcx, tcy, r, fillPaint)
+
+            // Border
+            strokePaint.color = if (isTargetHovered) 0xFFFF3B5C.toInt() else 0x55FFFFFF
+            strokePaint.strokeWidth = if (isTargetHovered) dp(2.4f).toFloat() else dp(1.2f).toFloat()
+            canvas.drawCircle(tcx, tcy, r, strokePaint)
+
+            // '✕' icon
+            val crossHalf = if (isTargetHovered) dp(8.5f).toFloat() else dp(7f).toFloat()
+            crossPaint.color = Color.WHITE
+            crossPaint.strokeWidth = if (isTargetHovered) dp(2.8f).toFloat() else dp(2.2f).toFloat()
+            canvas.drawLine(tcx - crossHalf, tcy - crossHalf, tcx + crossHalf, tcy + crossHalf, crossPaint)
+            canvas.drawLine(tcx + crossHalf, tcy - crossHalf, tcx - crossHalf, tcy + crossHalf, crossPaint)
+
+            // Label below target
+            textPaint.color = if (isTargetHovered) 0xFFFF3B5C.toInt() else 0x88FFFFFF.toInt()
+            canvas.drawText(if (isTargetHovered) "RELEASE TO HIDE" else "DRAG TO HIDE", tcx, tcy + r + dp(14f), textPaint)
         }
     }
 }
