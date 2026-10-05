@@ -15,6 +15,7 @@ import 'package:missions/src/widgets/cards/start_day/start_day_recommended_tasks
 import 'package:missions/src/widgets/cards/start_day/start_day_yesterday_progress.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/widgets/ui/startup_wellbeing_metrics.dart';
+import 'package:missions/src/widgets/dialogs/start_new_day_dialog.dart';
 import 'package:provider/provider.dart';
 
 export 'package:missions/src/widgets/cards/start_day/start_day_contingency_section.dart';
@@ -27,12 +28,14 @@ export 'package:missions/src/widgets/cards/start_day/start_day_yesterday_progres
 
 class StartDayReportCard extends StatefulWidget {
   final Map<String, dynamic> report;
+  final String? date;
   final VoidCallback? onRegenerate;
   final bool isRegenerating;
 
   const StartDayReportCard({
     super.key,
     required this.report,
+    this.date,
     this.onRegenerate,
     this.isRegenerating = false,
   });
@@ -167,6 +170,96 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
               ]),
             ),
           ),
+
+          // ── Day Commencement Banner ──────────────────────
+          if (widget.report['day_started'] != true)
+            Container(
+              margin: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: JweTheme.accentCyan.withValues(alpha: 0.12),
+                border: Border.all(color: JweTheme.accentCyan.withValues(alpha: 0.45)),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                children: [
+                  Icon(MdiIcons.playCircleOutline, size: 20, color: JweTheme.accentCyan),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "STARTUP DIRECTIVES READY · DAY PENDING",
+                          style: GoogleFonts.rajdhani(
+                            color: JweTheme.accentCyan,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12.5,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                        Text(
+                          "Commence day to calibrate your live task baseline and begin tracking.",
+                          style: TextStyle(color: JweTheme.textMuted, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: JweTheme.accentCyan,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      minimumSize: const Size(0, 32),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
+                    ),
+                    onPressed: () {
+                      final effectiveDate = widget.date ?? DateFormat('yyyy-MM-dd').format(reportDate);
+                      StartNewDayDialog.show(context, date: effectiveDate);
+                    },
+                    child: Text(
+                      "START DAY",
+                      style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, fontSize: 11.5, letterSpacing: 1.0),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 6, 14, 2),
+              child: Row(
+                children: [
+                  Icon(MdiIcons.checkCircleOutline, size: 12, color: JweTheme.accentCyan),
+                  const SizedBox(width: 6),
+                  Text(
+                    "DAY COMMENCED · TASK TRACKING ACTIVE",
+                    style: GoogleFonts.jetBrainsMono(
+                      color: JweTheme.accentCyan,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                  const Spacer(),
+                  InkWell(
+                    onTap: () {
+                      final effectiveDate = widget.date ?? DateFormat('yyyy-MM-dd').format(reportDate);
+                      StartNewDayDialog.show(context, date: effectiveDate);
+                    },
+                    child: Text(
+                      "RE-CALIBRATE",
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.textMuted,
+                        fontSize: 9,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           // ── Collapsed preview ────────────────────────────
           if (!_isExpanded)

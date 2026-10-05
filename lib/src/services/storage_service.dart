@@ -68,9 +68,17 @@ Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
   }
   if (raw[_docTasks] != null) {
     if (raw[_docTasks] is String) {
-      fullData.addAll(jsonDecode(raw[_docTasks] as String));
+      try {
+        final decoded = Map<String, dynamic>.from(jsonDecode(raw[_docTasks] as String));
+        decoded.remove('completedByDay');
+        fullData.addAll(decoded);
+      } catch (_) {
+        fullData.addAll(jsonDecode(raw[_docTasks] as String));
+      }
     } else if (raw[_docTasks] is Map) {
-      fullData.addAll(Map<String, dynamic>.from(raw[_docTasks] as Map));
+      final decoded = Map<String, dynamic>.from(raw[_docTasks] as Map);
+      decoded.remove('completedByDay');
+      fullData.addAll(decoded);
     }
   }
   if (raw[_docFinance] != null) {
@@ -210,37 +218,32 @@ class _FlutterFireStorageService implements StorageService {
     try {
       final baseRef = _rtdb.ref('users/$userId/data');
 
-      // Fetch each chunk independently to avoid downloading a single massive unchunked snapshot (prevents OOM)
-      final results = await Future.wait([
+      // Fetch lightweight chunks concurrently first
+      final lightSnaps = await Future.wait([
         baseRef.child(_docSettings).get().timeout(_rtdbTimeout),
-        baseRef.child(_docTasks).get().timeout(_rtdbTimeout),
         baseRef.child(_docFinance).get().timeout(_rtdbTimeout),
         baseRef.child(_docHealth).get().timeout(_rtdbTimeout),
         baseRef.child(_docTrading).get().timeout(_rtdbTimeout),
-        baseRef.child('history').get().timeout(_rtdbTimeout),
-        baseRef.child('reflections').get().timeout(_rtdbTimeout),
         baseRef.child(_docLauncher).get().timeout(_rtdbTimeout),
       ]);
 
-      final settingsSnap = results[0];
-      final tasksSnap = results[1];
-      final financeSnap = results[2];
-      final healthSnap = results[3];
-      final tradingSnap = results[4];
-      final historySnap = results[5];
-      final reflectionsSnap = results[6];
-      final launcherSnap = results[7];
-
       Map<dynamic, dynamic> rawData = {};
 
-      if (settingsSnap.exists) rawData[_docSettings] = settingsSnap.value;
+      if (lightSnaps[0].exists) rawData[_docSettings] = lightSnaps[0].value;
+      if (lightSnaps[1].exists) rawData[_docFinance] = lightSnaps[1].value;
+      if (lightSnaps[2].exists) rawData[_docHealth] = lightSnaps[2].value;
+      if (lightSnaps[3].exists) rawData[_docTrading] = lightSnaps[3].value;
+      if (lightSnaps[4].exists) rawData[_docLauncher] = lightSnaps[4].value;
+
+      // Fetch heavy chunks sequentially so their large JSON payloads don't peak heap simultaneously
+      final tasksSnap = await baseRef.child(_docTasks).get().timeout(_rtdbTimeout);
       if (tasksSnap.exists) rawData[_docTasks] = tasksSnap.value;
-      if (financeSnap.exists) rawData[_docFinance] = financeSnap.value;
-      if (healthSnap.exists) rawData[_docHealth] = healthSnap.value;
-      if (tradingSnap.exists) rawData[_docTrading] = tradingSnap.value;
+
+      final historySnap = await baseRef.child('history').get().timeout(_rtdbTimeout);
       if (historySnap.exists) rawData['history'] = historySnap.value;
+
+      final reflectionsSnap = await baseRef.child('reflections').get().timeout(_rtdbTimeout);
       if (reflectionsSnap.exists) rawData['reflections'] = reflectionsSnap.value;
-      if (launcherSnap.exists) rawData[_docLauncher] = launcherSnap.value;
 
       if (rawData.isNotEmpty) {
         return _parseRtdbData(rawData);
@@ -356,9 +359,9 @@ class _FlutterFireStorageService implements StorageService {
         updates[cleanKey] = jsonEncode(entry.value);
       }
       if (updates.isNotEmpty) {
-        // Batch in groups of 100 to avoid Android Binder IPC buffer limits (>1MB) and prevent RTDB OOM
+        // Batch in groups of 20 to avoid Android Binder IPC buffer limits (>1MB) and prevent RTDB OOM
         final entries = updates.entries.toList();
-        const batchSize = 100;
+        const batchSize = 20;
         for (int i = 0; i < entries.length; i += batchSize) {
           final end = (i + batchSize < entries.length) ? i + batchSize : entries.length;
           final batch = Map<String, dynamic>.fromEntries(entries.sublist(i, end));
@@ -385,9 +388,9 @@ class _FlutterFireStorageService implements StorageService {
         }
       }
       if (updates.isNotEmpty) {
-        // Batch in groups of 100 to avoid Android Binder IPC buffer limits (>1MB) and prevent RTDB OOM
+        // Batch in groups of 30 to avoid Android Binder IPC buffer limits (>1MB) and prevent RTDB OOM
         final entries = updates.entries.toList();
-        const batchSize = 100;
+        const batchSize = 30;
         for (int i = 0; i < entries.length; i += batchSize) {
           final end = (i + batchSize < entries.length) ? i + batchSize : entries.length;
           final batch = Map<String, dynamic>.fromEntries(entries.sublist(i, end));
@@ -596,37 +599,33 @@ class _LinuxStorageService implements StorageService {
     try {
       final baseRef = _rtdb.reference().child('users/$userId/data');
 
-      final results = await Future.wait([
+      // Fetch lightweight chunks concurrently first
+      final lightSnaps = await Future.wait([
         baseRef.child(_docSettings).once().timeout(_rtdbTimeout),
-        baseRef.child(_docTasks).once().timeout(_rtdbTimeout),
         baseRef.child(_docFinance).once().timeout(_rtdbTimeout),
         baseRef.child(_docHealth).once().timeout(_rtdbTimeout),
         baseRef.child(_docTrading).once().timeout(_rtdbTimeout),
-        baseRef.child('history').once().timeout(_rtdbTimeout),
-        baseRef.child('reflections').once().timeout(_rtdbTimeout),
         baseRef.child(_docLauncher).once().timeout(_rtdbTimeout),
       ]);
 
-      final settingsSnap = results[0];
-      final tasksSnap = results[1];
-      final financeSnap = results[2];
-      final healthSnap = results[3];
-      final tradingSnap = results[4];
-      final historySnap = results[5];
-      final reflectionsSnap = results[6];
-      final launcherSnap = results[7];
-
       Map<dynamic, dynamic> rawData = {};
-      if (settingsSnap.value != null) rawData[_docSettings] = settingsSnap.value;
+      if (lightSnaps[0].value != null) rawData[_docSettings] = lightSnaps[0].value;
+      if (lightSnaps[1].value != null) rawData[_docFinance] = lightSnaps[1].value;
+      if (lightSnaps[2].value != null) rawData[_docHealth] = lightSnaps[2].value;
+      if (lightSnaps[3].value != null) rawData[_docTrading] = lightSnaps[3].value;
+      if (lightSnaps[4].value != null) rawData[_docLauncher] = lightSnaps[4].value;
+
+      // Fetch heavy chunks sequentially
+      final tasksSnap = await baseRef.child(_docTasks).once().timeout(_rtdbTimeout);
       if (tasksSnap.value != null) rawData[_docTasks] = tasksSnap.value;
-      if (financeSnap.value != null) rawData[_docFinance] = financeSnap.value;
-      if (healthSnap.value != null) rawData[_docHealth] = healthSnap.value;
-      if (tradingSnap.value != null) rawData[_docTrading] = tradingSnap.value;
+
+      final historySnap = await baseRef.child('history').once().timeout(_rtdbTimeout);
       if (historySnap.value != null) rawData['history'] = historySnap.value;
+
+      final reflectionsSnap = await baseRef.child('reflections').once().timeout(_rtdbTimeout);
       if (reflectionsSnap.value != null) {
         rawData['reflections'] = reflectionsSnap.value;
       }
-      if (launcherSnap.value != null) rawData[_docLauncher] = launcherSnap.value;
 
       if (rawData.isNotEmpty) return _parseRtdbData(rawData);
       return null;
@@ -747,7 +746,7 @@ class _LinuxStorageService implements StorageService {
       }
       if (updates.isNotEmpty) {
         final entries = updates.entries.toList();
-        const batchSize = 100;
+        const batchSize = 20;
         for (int i = 0; i < entries.length; i += batchSize) {
           final end = (i + batchSize < entries.length) ? i + batchSize : entries.length;
           final batch = Map<String, dynamic>.fromEntries(entries.sublist(i, end));
@@ -779,7 +778,7 @@ class _LinuxStorageService implements StorageService {
       }
       if (updates.isNotEmpty) {
         final entries = updates.entries.toList();
-        const batchSize = 100;
+        const batchSize = 30;
         for (int i = 0; i < entries.length; i += batchSize) {
           final end = (i + batchSize < entries.length) ? i + batchSize : entries.length;
           final batch = Map<String, dynamic>.fromEntries(entries.sublist(i, end));

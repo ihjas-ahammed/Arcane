@@ -26,6 +26,7 @@ import 'package:missions/src/widgets/analytics/jwe_date_selector.dart';
 import 'package:missions/src/widgets/analytics/jwe_reflection_progress.dart';
 import 'package:missions/src/widgets/analytics/jwe_quick_access_grid.dart';
 import 'package:missions/src/widgets/dialogs/create_time_log_start_dialog.dart';
+import 'package:missions/src/widgets/dialogs/start_new_day_dialog.dart';
 import 'package:missions/src/utils/helpers.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -626,7 +627,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final displayBriefing = savedBriefing ?? _tempGeneratedBriefing;
     
     final startDayReport = _selectedDate != null ? appProvider.getStartDayReport(_selectedDate!) : null;
-    final isToday = _selectedDate == DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     final List<ReflectionLog> reflectionsForDate = _selectedDate != null
         ? appProvider.reflectionLogs.where((l) {
@@ -833,19 +833,70 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
                 child: StartDayReportCard(
                   report: startDayReport,
+                  date: _selectedDate ?? getTodayDateString(),
                   isRegenerating: _isGeneratingStartDay,
                   onRegenerate: () => _generateStartDayReport(appProvider),
                 ),
               )
-            else if (isToday)
+            else
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                child: _HudActionBar(
-                  label: 'SYSTEM STARTUP REPORT',
-                  icon: MdiIcons.power,
+                child: HudPanel(
+                  clip: HudClip.br,
                   accent: JweTheme.accentCyan,
-                  loading: false,
-                  onTap: () => _generateStartDayReport(appProvider),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(MdiIcons.weatherSunny, color: JweTheme.accentCyan, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'UNWRITTEN DAY · STARTUP PENDING',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: JweTheme.accentCyan,
+                                fontSize: 11,
+                                letterSpacing: 1.4,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Start a new day to view or record your startup note and initialize live task tracking cleanly from this moment.',
+                        style: TextStyle(color: JweTheme.textMid, fontSize: 12, height: 1.3),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _HudActionBar(
+                              label: 'START A NEW DAY',
+                              icon: MdiIcons.playCircleOutline,
+                              accent: JweTheme.accentCyan,
+                              loading: false,
+                              onTap: () => StartNewDayDialog.show(
+                                context,
+                                date: _selectedDate ?? getTodayDateString(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _IconBtn(
+                            icon: MdiIcons.brain,
+                            accent: JweTheme.accentAmber,
+                            tooltip: 'GENERATE STARTUP WITH AI',
+                            loading: _isGeneratingStartDay,
+                            onTap: () => _generateStartDayReport(appProvider),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
@@ -937,14 +988,14 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                   liveTasks: appProvider.mainTasks,
                 ),
               )
-            else if (_selectedDate == getTodayDateString())
+            else if (_selectedDate == getTodayDateString() || startDayReport == null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: JweTheme.panel,
-                    border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.4)),
+                    border: Border.all(color: JweTheme.accentCyan.withValues(alpha: 0.4)),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Column(
@@ -952,13 +1003,13 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                     children: [
                       Row(
                         children: [
-                          Icon(MdiIcons.clockStart, color: JweTheme.accentAmber, size: 20),
+                          Icon(MdiIcons.clockStart, color: JweTheme.accentCyan, size: 20),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              "TIME LOG START NOT INITIALIZED",
+                              "TIME LOG BASELINE NOT INITIALIZED",
                               style: GoogleFonts.rajdhani(
-                                color: JweTheme.accentAmber,
+                                color: JweTheme.accentCyan,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                                 letterSpacing: 1.2,
@@ -969,21 +1020,37 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        "Today's startup baseline is missing. Calibrate your time log start now by selecting tasks you checked today to enable today's task progress tracking.",
+                        "Start your day to lock in your live task baseline and track progress cleanly from this moment forward.",
                         style: TextStyle(color: JweTheme.textMuted, fontSize: 12, height: 1.3),
                       ),
                       const SizedBox(height: 12),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: JweTheme.accentAmber,
-                          foregroundColor: Colors.black,
-                        ),
-                        onPressed: () => CreateTimeLogStartDialog.show(context),
-                        icon: const Icon(MdiIcons.clockFast, size: 16),
-                        label: Text(
-                          "CREATE TIME LOG START",
-                          style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.2),
-                        ),
+                      Row(
+                        children: [
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: JweTheme.accentCyan,
+                              foregroundColor: Colors.black,
+                            ),
+                            onPressed: () => StartNewDayDialog.show(
+                              context,
+                              date: _selectedDate ?? getTodayDateString(),
+                            ),
+                            icon: const Icon(MdiIcons.playCircleOutline, size: 16),
+                            label: Text(
+                              "START A NEW DAY",
+                              style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          TextButton(
+                            style: TextButton.styleFrom(foregroundColor: JweTheme.textMuted),
+                            onPressed: () => CreateTimeLogStartDialog.show(context),
+                            child: Text(
+                              "BACKFILL EARLIER TASKS",
+                              style: GoogleFonts.rajdhani(fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

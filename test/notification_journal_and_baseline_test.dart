@@ -95,5 +95,78 @@ void main() {
       final snapshot = startDayReport['task_snapshot'] as Map;
       expect(snapshot.containsKey(mainTask.id), isTrue);
     });
+
+    test('AppProvider.startNewDayForDate establishes baseline and flags day_started', () {
+      final provider = AppProvider.forTest();
+      provider.addMainTask(name: 'Tactical Recon', description: 'Ops', colorHex: '00E5FF', theme: 'Tactical');
+      final mainTask = provider.mainTasks.first;
+
+      provider.addSubtask(mainTask.id, {
+        'name': 'Morning Briefing Check',
+        'completed': false,
+      });
+
+      final todayStr = '2026-10-05';
+      provider.startNewDayForDate(
+        todayStr,
+        startupNote: 'Prepare equipment early. Maintain high focus.',
+        directives: ['Direct checklist 1', 'Direct checklist 2'],
+      );
+
+      final report = provider.getStartDayReport(todayStr);
+      expect(report, isNotNull);
+      expect(report!['day_started'], isTrue);
+      expect(report['forecast'], 'Prepare equipment early. Maintain high focus.');
+      expect(report['directives'], ['Direct checklist 1', 'Direct checklist 2']);
+      expect(report['task_snapshot'], isNotNull);
+      final snapshot = report['task_snapshot'] as Map;
+      expect(snapshot.containsKey(mainTask.id), isTrue);
+    });
+
+    test('Daily rollover unflags day_started and resets recurring tasks in startDayReport', () async {
+      final provider = AppProvider.forTest();
+      provider.setLastLoginDate('2026-10-04');
+
+      final todayStr = DateTime.now().toIso8601String().split('T').first;
+
+      // Add a recurring task that was completed yesterday
+      provider.addMainTask(name: 'Health', description: 'Body', colorHex: 'FF9100', theme: 'Health');
+      final mainTask = provider.mainTasks.first;
+      final subId = provider.addSubtask(mainTask.id, {
+        'name': 'Drink water',
+        'isRecurring': true,
+        'completed': true,
+      });
+
+      // Advance startDayReport prepared the night before with completed recurring subtask
+      final initialReport = {
+        'forecast': 'Advance note from yesterday night',
+        'day_started': true,
+        'task_snapshot': {
+          mainTask.id: {
+            'name': 'Health',
+            'subtasks': {
+              subId: {
+                'name': 'Drink water',
+                'progress': 1.0,
+                'completed': true,
+              }
+            }
+          }
+        }
+      };
+      provider.saveStartDayReport(todayStr, initialReport);
+
+      // Trigger daily rollover
+      await provider.handleDailyResetForTesting();
+
+      final report = provider.getStartDayReport(todayStr);
+      expect(report, isNotNull);
+      expect(report!['day_started'], isFalse); // Must be unflagged for the new day
+      final ts = report['task_snapshot'] as Map;
+      final subSnap = ts[mainTask.id]['subtasks'][subId] as Map;
+      expect(subSnap['completed'], isFalse); // Recurring task reset to 0 in snapshot
+      expect(subSnap['progress'], 0.0);
+    });
   });
 }

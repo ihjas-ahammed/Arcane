@@ -2372,6 +2372,53 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     notifyListeners();
   }
 
+  /// Starts a new day for the given [date], establishing a fresh task baseline snapshot
+  /// at the current time so that live progress is accurately measured from this moment forward.
+  void startNewDayForDate(
+    String date, {
+    String? startupNote,
+    List<String>? directives,
+    Map<String, dynamic>? initialReportData,
+  }) {
+    final now = DateTime.now();
+    final taskSnapshot = buildTaskSnapshot();
+
+    final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
+    final startDayReport = Map<String, dynamic>.from(
+      dayData['startDayReport'] as Map? ?? initialReportData ?? {},
+    );
+
+    startDayReport['task_snapshot'] = taskSnapshot;
+    startDayReport['snapshot_time'] = now.toIso8601String();
+    startDayReport['day_started'] = true;
+    startDayReport['started_at'] = now.toIso8601String();
+
+    if (startupNote != null && startupNote.trim().isNotEmpty) {
+      startDayReport['forecast'] = startupNote.trim();
+    } else if (startDayReport['forecast'] == null ||
+        startDayReport['forecast'].toString().trim().isEmpty) {
+      startDayReport['forecast'] =
+          "Day initiated at ${DateFormat('HH:mm').format(now)}. Systems online and tracking active.";
+    }
+
+    if (directives != null && directives.isNotEmpty) {
+      startDayReport['directives'] = directives;
+    }
+
+    startDayReport['weekly_monthly_goals_snapshot'] ??=
+        GoalBriefingHelper.buildWeeklyMonthlyGoalsSnapshot(this, now);
+
+    dayData['startDayReport'] = startDayReport;
+    newCompletedByDay[date] = dayData;
+    setCompletedByDay(newCompletedByDay);
+
+    if (currentUser != null) {
+      _cloudStorage.saveDailyData(currentUser!.uid, date, 'report', startDayReport);
+    }
+    notifyListeners();
+  }
+
   List<Map<String, dynamic>> getNotificationsForDate(String dateStr) {
     if (completedByDay[dateStr] != null) {
       final notifsRaw = completedByDay[dateStr]['notifications'];
@@ -2816,6 +2863,44 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
       setLastLoginDate(todayStr);
       if (changed) setMainTasks(newMainTasks);
+
+      // If an advance startDayReport exists for today (e.g. synthesized the night before),
+      // ensure day_started is unflagged and recurring tasks in task_snapshot start fresh.
+      if (completedByDay[todayStr] != null && completedByDay[todayStr]['startDayReport'] != null) {
+        final sdr = Map<String, dynamic>.from(completedByDay[todayStr]['startDayReport'] as Map);
+        sdr['day_started'] = false;
+        if (sdr['task_snapshot'] is Map) {
+          final ts = Map<String, dynamic>.from(sdr['task_snapshot'] as Map);
+          for (final tKey in ts.keys) {
+            if (ts[tKey] is Map) {
+              final tVal = Map<String, dynamic>.from(ts[tKey] as Map);
+              if (tVal['subtasks'] is Map) {
+                final subMap = Map<String, dynamic>.from(tVal['subtasks'] as Map);
+                for (final sKey in subMap.keys) {
+                  if (subMap[sKey] is Map) {
+                    final sData = Map<String, dynamic>.from(subMap[sKey] as Map);
+                    final matchingSub = mainTasks.expand((t) => t.subTasks).where((s) => s.id == sKey).firstOrNull;
+                    if (matchingSub?.isRecurring == true) {
+                      sData['progress'] = 0.0;
+                      sData['completed'] = false;
+                      subMap[sKey] = sData;
+                    }
+                  }
+                }
+                tVal['subtasks'] = subMap;
+              }
+              ts[tKey] = tVal;
+            }
+          }
+          sdr['task_snapshot'] = ts;
+        }
+        final newCompleted = Map<String, dynamic>.from(completedByDay);
+        final dayMap = Map<String, dynamic>.from(newCompleted[todayStr] ?? {});
+        dayMap['startDayReport'] = sdr;
+        newCompleted[todayStr] = dayMap;
+        setCompletedByDay(newCompleted);
+      }
+
       notifyListeners();
       try {
         forceLocalBackup();

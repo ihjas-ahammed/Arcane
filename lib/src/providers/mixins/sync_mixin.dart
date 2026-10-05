@@ -167,7 +167,7 @@ mixin SyncMixin on ChangeNotifier {
       if (currentUser != null && _hasUnsavedChanges && !_isSyncing && !_dataLoadInProgress) {
         _isSyncing = true;
         try {
-          await _performActualSaveInternal(force: true);
+          await _performActualSaveInternal(force: _dirtyCollections.isEmpty);
         } finally {
           _isSyncing = false;
           notifyListeners();
@@ -379,6 +379,9 @@ mixin SyncMixin on ChangeNotifier {
       final historyData = {'completedByDay': appData['completedByDay'] ?? {}};
       final reflectionsData = {'reflectionLogs': appData['reflectionLogs'] ?? []};
       
+      // Exclude completedByDay from tasksData so it is not duplicated as a massive 5MB+ payload
+      tasksData.remove('completedByDay');
+
       final settingsData = Map<String, dynamic>.from(userState);
       settingsData.remove('reflectionLogs');
       settingsData['lastSuccessfulSaveTimestamp'] = DateTime.now().toIso8601String();

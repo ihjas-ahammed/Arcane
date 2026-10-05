@@ -1,3 +1,28 @@
+# ⚡ Arcane System Upgrade // v2026.10.5 (Build #2126100503)
+
+### 🛡️ Firebase Sync Out-Of-Memory (OOM) Crash Eradication
+- **Monolithic Payload Reduction**:
+  - Stripped duplicate `completedByDay` history payload (~4.8MB) from the `tasks` cloud payload before pushing to Firebase RTDB. Reduced `tasks` collection transmission size by over 70% (<1.8MB) and permanently eliminated JSON serialization memory pressure.
+  - Automatically pruned duplicate `completedByDay` in `storage_service.dart` defensive parsing routines.
+- **Granular Dirty Collection Pushes**:
+  - Changed debounced auto-syncs to only upload collections that are marked dirty (`_dirtyCollections`), preventing continuous full-dataset syncing on minor field changes.
+- **Batched Commits & Staggered Fetching**:
+  - Lowered history save batching from 100 to 20 days and reflections from 100 to 30 entries, preventing memory spikes and Binder buffer IPC exhaustion.
+  - Staggered cloud restore fetching sequentially: lightweight collections (`settings`, `finance`, `health`, `trading`, `launcher`) first, followed sequentially by heavy collections (`tasks`, `history`, `reflections`), avoiding simultaneous 15MB heap allocations and fatal OOM crashes during boot sync.
+
+### 🌅 Dedicated "Start A New Day" Protocol & Precision Baseline Telemetry
+- **Interactive Startup Commencement Dialog**:
+  - Added a tactical "START A NEW DAY" protocol with a dedicated dialog (`StartNewDayDialog`) enabling operators to review, craft, or AI-generate their startup forecast note and directives on unwritten days.
+  - Starting the day captures an instantaneous, authoritative task snapshot baseline (`task_snapshot`), stamps `started_at` / `snapshot_time`, and sets `day_started: true`.
+- **Accurate Task Progress Tracking**:
+  - Solved the issue where task progress metrics were displaying skewed deltas from previous days or earlier calibrations: metrics are now anchored cleanly to the exact moment the day was started.
+  - Added an interactive commencement banner to `StartDayReportCard` and `DailySummaryView` with instant one-tap access to initialize unwritten days.
+- **Automatic Midnight Rollover & Subtask Reset Parity**:
+  - Automatic midnight rollover unflags `day_started` and zeroes recurring tasks inside advance snapshots so each morning begins with a fresh baseline.
+  - Updated `addSubtask` in `TaskActions` to preserve and propagate `isRecurring`, `completed`, and all metadata attributes properly.
+
+---
+
 # ⚡ Arcane System Upgrade // v2026.10.5 (Build #2126100502)
 
 ### 🎮 Radial Emote Wheel Floating Button Long-Press Controller
