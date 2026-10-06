@@ -26,10 +26,14 @@ class SubmissionSessionsScreen extends StatelessWidget {
       builder: (ctx) => SessionEditDialog(initialStart: session.startTime, initialEnd: session.endTime),
     );
 
-    if (result != null) {
-      final newStart = result['startTime'] as DateTime;
-      final newEnd = result['endTime'] as DateTime;
-      provider.updateSessionInSubtask(parentTask.id, subTask.id, session.id, newStart, newEnd);
+    if (result == null) return;
+    // The dialog answers {'action': 'delete'} or {'action': 'save', 'start', 'end'}. This handler
+    // used to read non-existent 'startTime'/'endTime' keys, so DELETE (and SAVE) silently threw.
+    if (result['action'] == 'delete') {
+      provider.deleteSessionFromSubtask(parentTask.id, subTask.id, session.id);
+    } else if (result['action'] == 'save') {
+      provider.updateSessionInSubtask(
+          parentTask.id, subTask.id, session.id, result['start'] as DateTime, result['end'] as DateTime);
     }
   }
 
