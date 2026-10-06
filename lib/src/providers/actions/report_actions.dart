@@ -70,7 +70,7 @@ class ReportActions {
 
       for (var log in _provider.reflectionLogs) {
         if (log.timestamp.isAfter(startOfTodayMinus7) && log.timestamp.isBefore(startOfToday)) {
-          log.xpGained.forEach((k, v) {
+          log.needs.forEach((k, v) {
             final normalized = WellbeingTheme.normalizeSkillName(k);
             if (normalized != null) {
               yesterdayMetricsMap[normalized] = (yesterdayMetricsMap[normalized] ?? 0) + v;
@@ -78,7 +78,7 @@ class ReportActions {
           });
         }
         if (log.timestamp.isAfter(startOfYesterdayMinus7) && log.timestamp.isBefore(startOfYesterday)) {
-          log.xpGained.forEach((k, v) {
+          log.needs.forEach((k, v) {
             final normalized = WellbeingTheme.normalizeSkillName(k);
             if (normalized != null) {
               dayBeforeMetricsMap[normalized] = (dayBeforeMetricsMap[normalized] ?? 0) + v;
@@ -87,10 +87,14 @@ class ReportActions {
         }
       }
 
+      // Shares of reflection focus (percent), not points.
+      final yTotal = yesterdayMetricsMap.values.fold<int>(0, (a, b) => a + b);
+      final dbTotal = dayBeforeMetricsMap.values.fold<int>(0, (a, b) => a + b);
+      int pctOf(int v, int total) => total <= 0 ? 0 : (v * 100 / total).round();
       List<Map<String, dynamic>> metrics = [];
       for (var skill in _provider.getBaseWellbeingSkills()) {
-        final y = yesterdayMetricsMap[skill.name] ?? 0;
-        final db = dayBeforeMetricsMap[skill.name] ?? 0;
+        final y = pctOf(yesterdayMetricsMap[skill.name] ?? 0, yTotal);
+        final db = pctOf(dayBeforeMetricsMap[skill.name] ?? 0, dbTotal);
         metrics.add({'name': skill.name, 'today': y, 'yesterday': db, 'delta': y - db});
       }
 
@@ -446,33 +450,37 @@ class ReportActions {
     final last30 = now.subtract(const Duration(days: 30));
     final prev30 = now.subtract(const Duration(days: 60));
 
-    final Map<String, int> currentXp = {};
-    final Map<String, int> prevXp = {};
+    final Map<String, int> currentNeeds = {};
+    final Map<String, int> prevNeeds = {};
 
     for (var log in _provider.reflectionLogs) {
       if (log.timestamp.isAfter(last30) && log.timestamp.isBefore(now)) {
-        log.xpGained.forEach((k, v) {
+        log.needs.forEach((k, v) {
           final normalized = WellbeingTheme.normalizeSkillName(k);
           if (normalized != null) {
-            currentXp[normalized] = (currentXp[normalized] ?? 0) + v;
+            currentNeeds[normalized] = (currentNeeds[normalized] ?? 0) + v;
           }
         });
       } else if (log.timestamp.isAfter(prev30) && log.timestamp.isBefore(last30)) {
-        log.xpGained.forEach((k, v) {
+        log.needs.forEach((k, v) {
           final normalized = WellbeingTheme.normalizeSkillName(k);
           if (normalized != null) {
-            prevXp[normalized] = (prevXp[normalized] ?? 0) + v;
+            prevNeeds[normalized] = (prevNeeds[normalized] ?? 0) + v;
           }
         });
       }
     }
 
+    final currTotal = currentNeeds.values.fold<int>(0, (a, b) => a + b);
+    final prevTotal = prevNeeds.values.fold<int>(0, (a, b) => a + b);
+    int pct(int v, int total) => total <= 0 ? 0 : (v * 100 / total).round();
+
     final buffer = StringBuffer();
     for (var skill in _provider.getBaseWellbeingSkills()) {
-      final curr = currentXp[skill.name] ?? 0;
-      final prev = prevXp[skill.name] ?? 0;
+      final curr = currentNeeds[skill.name] ?? 0;
+      final prev = prevNeeds[skill.name] ?? 0;
       if (curr > 0 || prev > 0) {
-        buffer.writeln("${skill.name}: $curr pts (Prev month: $prev pts)");
+        buffer.writeln("${skill.name}: ${pct(curr, currTotal)}% of reflection focus (Prev month: ${pct(prev, prevTotal)}%)");
       }
     }
     return buffer.toString();

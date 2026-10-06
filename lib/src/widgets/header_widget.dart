@@ -11,7 +11,6 @@ import 'package:provider/provider.dart';
 /// Title row uses Saira display + amber code prefix.
 class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
   final String currentViewLabel;
-  final VoidCallback? onOpenPersona;
   final VoidCallback? onToggleFocusClock;
   final Widget? customAction;
 
@@ -22,7 +21,6 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
   const HeaderWidget({
     super.key,
     required this.currentViewLabel,
-    this.onOpenPersona,
     this.onToggleFocusClock,
     this.customAction,
     this.leading,
@@ -38,9 +36,6 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
     final callsign = (appProvider.currentUser?.displayName ?? '').trim().isEmpty
         ? 'OPERATIVE'
         : appProvider.currentUser!.displayName!.trim().toUpperCase();
-    final maxLevel = appProvider.skills.isEmpty
-        ? 1
-        : appProvider.skills.map((s) => s.level).reduce((a, b) => a > b ? a : b);
 
     return AppBar(
       backgroundColor: JweTheme.bgCanvas,
@@ -105,11 +100,6 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
             tooltip: 'FOCUS CLOCK',
           ),
         if (customAction != null) customAction!,
-        IconButton(
-          icon: Icon(MdiIcons.shieldAccount, color: JweTheme.textMuted, size: 22),
-          onPressed: onOpenPersona,
-          tooltip: 'WELL-BEING',
-        ),
         const SizedBox(width: 4),
       ],
       bottom: PreferredSize(
@@ -152,18 +142,6 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
                             Icon(MdiIcons.pencilOutline, size: 10, color: JweTheme.textMuted),
                           ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(width: 2, height: 2, color: JweTheme.lineSoft),
-                    const SizedBox(width: 6),
-                    Text(
-                      'LVL $maxLevel',
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 9.5,
-                        color: JweTheme.accentCyan,
-                        letterSpacing: 1.2,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],

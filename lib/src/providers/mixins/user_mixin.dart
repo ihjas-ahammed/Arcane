@@ -102,7 +102,6 @@ mixin UserMixin on ChangeNotifier {
 
   void setReflectionLogs(List<ReflectionLog> l) {
     _reflectionLogs = l;
-    recalculateAllSkills(); 
     sync.markDirty('reflections');
   }
 
@@ -141,37 +140,6 @@ mixin UserMixin on ChangeNotifier {
     if (_trackedSkills.isEmpty) {
       _trackedSkills = TrackedSkill.defaultSkills();
     }
-  }
-
-  void recalculateAllSkills() {
-    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-    Map<String, int> rollingXp = {};
-    for (var log in _reflectionLogs) {
-      if (log.timestamp.isAfter(sevenDaysAgo)) {
-        log.xpGained.forEach((k, v) {
-          final normalized = WellbeingTheme.normalizeSkillName(k);
-          if (normalized != null) {
-            rollingXp[normalized] = (rollingXp[normalized] ?? 0) + v;
-          }
-        });
-      }
-    }
-    
-    final newSkills = getBaseWellbeingSkills();
-    for (var skill in newSkills) {
-      int xp = rollingXp[skill.name] ?? 0;
-      skill.level = 1;
-      skill.maxXp = 100;
-      int remainingXp = xp;
-      while (remainingXp >= skill.maxXp) {
-        remainingXp -= skill.maxXp;
-        skill.level++;
-        skill.maxXp = (skill.maxXp * 1.15).round();
-      }
-      skill.currentXp = remainingXp;
-    }
-    _skills = newSkills;
-    sync.markDirty('settings');
   }
 
   // --- Habit Rule Methods ---
@@ -468,9 +436,6 @@ mixin UserMixin on ChangeNotifier {
       _sops = sopMap.values.toList();
     }
     
-    // Auto-recalculate levels based purely on the 7-day window of logs.
-    recalculateAllSkills();
-
     if (data['chatbotMemory'] != null) {
       _chatbotMemory = ChatbotMemory.fromJson(data['chatbotMemory']);
     }
@@ -499,7 +464,6 @@ mixin UserMixin on ChangeNotifier {
       final merged = logMap.values.toList()
         ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
       _reflectionLogs = merged;
-      recalculateAllSkills();
       sync.markDirty('reflections');
     }
 

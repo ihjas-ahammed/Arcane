@@ -1213,7 +1213,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
 
     Output JSON: {
       "feedback": "string",
-      "xp_allocation": {
+      "need_allocation": {
         "Positivity": float,
         "Resilience": float,
         "Satisfaction": float,
@@ -1275,7 +1275,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
       "updates":[
         {
           "log_id": "id_string_from_input",
-          "xp_allocation": {
+          "need_allocation": {
             "Positivity": float,
             "Resilience": float,
             "Satisfaction": float,

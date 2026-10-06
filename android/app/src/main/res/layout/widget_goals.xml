@@ -32,7 +32,7 @@
             android:paddingTop="10dp"
             android:paddingBottom="10dp">
 
-            <!-- Header Row: Scope Tag + XP Badge -->
+            <!-- Header Row: Scope Tag + Status -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

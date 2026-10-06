@@ -11,13 +11,10 @@ class ChartDataHelper {
   static Map<String, dynamic> prepareWeeklyData(
       AppProvider provider,
       String? selectedDate,
-      String? selectedTaskFilter,
-      String? selectedVirtueFilter) {
+      String? selectedTaskFilter) {
     final today = DateTime.now();
     final Map<int, double> activityData = {};
     final Map<int, Color> activityColors = {};
-    final Map<int, double> virtueData = {};
-    final Map<int, Color> virtueColors = {};
 
     for (int i = 0; i < 7; i++) {
       final date = today.subtract(Duration(days: i));
@@ -69,35 +66,6 @@ class ChartDataHelper {
       }
       activityData[i] = totalMins;
       activityColors[i] = dominantColor;
-
-      // --- Virtue Data Calculation ---
-      final reflections = provider.reflectionLogs.where((l) {
-        return l.timestamp.year == date.year &&
-            l.timestamp.month == date.month &&
-            l.timestamp.day == date.day;
-      });
-
-      double totalXp = 0;
-      Map<String, int> virtueTotals = {};
-
-      for (var ref in reflections) {
-        ref.xpGained.forEach((k, v) {
-          if (selectedVirtueFilter != null && k != selectedVirtueFilter) {
-            return;
-          }
-          virtueTotals[k] = (virtueTotals[k] ?? 0) + v;
-          totalXp += v;
-        });
-      }
-      virtueData[i] = totalXp;
-
-      Color dominantVirtueColor = JweTheme.accentAmber; // Default JWE Gold/Amber
-      if (virtueTotals.isNotEmpty) {
-        var maxVirtue =
-            virtueTotals.entries.reduce((a, b) => a.value > b.value ? a : b);
-        dominantVirtueColor = WellbeingTheme.getColor(maxVirtue.key);
-      }
-      virtueColors[i] = dominantVirtueColor;
     }
 
     // --- Daily Breakdown Data (Pie Chart) ---
@@ -134,8 +102,6 @@ class ChartDataHelper {
     return {
       'activityData': activityData,
       'activityColors': activityColors,
-      'virtueData': virtueData,
-      'virtueColors': virtueColors,
       'dailyTaskTimeData': dailyTaskTimeData,
       'taskColors': taskColors,
     };

@@ -619,8 +619,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
     final chartData = ChartDataHelper.prepareWeeklyData(
       appProvider, 
       _selectedDate, 
-      _selectedTaskFilter, 
-      _selectedVirtueFilter
+      _selectedTaskFilter
     );
 
     final savedBriefing = _selectedDate != null ? appProvider.getTacticalBriefing(_selectedDate!) : null;
@@ -721,15 +720,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                     chart: WeeklyActivityLineChart(
                       weeklyData: chartData['activityData'],
                       dominantColors: chartData['activityColors'],
-                      isVirtue: false,
-                    ),
-                  ),
-                  ChartCarouselData(
-                    title: 'WELL-BEING GROWTH',
-                    tone: HudTone.cyan,
-                    chart: WeeklyVirtueLineChart(
-                      weeklyXp: chartData['virtueData'],
-                      dominantVirtueColors: chartData['virtueColors'],
                     ),
                   ),
                 ],
@@ -774,7 +764,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                     accent: JweTheme.accentAmber,
                     padding: EdgeInsets.zero,
                     child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                      _PanelHeader(label: 'WELL-BEING', color: JweTheme.accentAmber),
+                      _PanelHeader(label: 'WHAT THE DAY NEEDED', color: JweTheme.accentAmber),
                       Padding(
                         padding: const EdgeInsets.all(10),
                         child: SizedBox(

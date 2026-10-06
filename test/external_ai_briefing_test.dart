@@ -55,7 +55,7 @@ void main() {
           reason: 'Clear objectives mapped out',
           action: 'Executed sprint tasks sequentially',
           aiFeedback: 'Great tactical clarity',
-          xpGained: {'Discipline': 30, 'Focus': 25},
+          needs: {'Discipline': 30, 'Focus': 25},
         ),
         ReflectionLog(
           id: 'log2',
@@ -65,7 +65,7 @@ void main() {
           reason: 'Broken down into small steps',
           action: 'Implemented clean abstractions',
           aiFeedback: 'Continuous progression',
-          xpGained: {'Wisdom': 20},
+          needs: {'Wisdom': 20},
         ),
       ]);
 

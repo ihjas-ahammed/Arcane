@@ -5,7 +5,6 @@ import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'package:missions/src/models/skill_models.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:missions/src/utils/helpers.dart';
 
 class WellbeingPieChart extends StatelessWidget {
   final List<ReflectionLog> logs;
@@ -24,7 +23,7 @@ class WellbeingPieChart extends StatelessWidget {
     Map<String, int> categoryTotals = {};
     
     for (var log in logs) {
-      log.xpGained.forEach((key, value) {
+      log.needs.forEach((key, value) {
         if (value > 0) {
           final normalized = WellbeingTheme.normalizeSkillName(key);
           if (normalized != null) {
@@ -47,13 +46,16 @@ class WellbeingPieChart extends StatelessWidget {
       );
     }
 
-    final int totalXp = categoryTotals.values.fold(0, (sum, item) => sum + item);
-    final entries = categoryTotals.entries.toList();
+    // Only ever the shape of this one day: what share of its reflections touched each area.
+    final int total = categoryTotals.values.fold(0, (sum, item) => sum + item);
+    final entries = categoryTotals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    String pct(int v) => '${(v * 100 / total).round()}%';
 
-    // Default Text
-    String centerTopText = "TOTAL";
-    String centerBottomText = formatCompactNumber(totalXp);
-    Color centerColor = JweTheme.textWhite;
+    // Default text: the area the day leaned on most
+    String centerTopText = "DAY NEEDS";
+    String centerBottomText = entries.first.key;
+    Color centerColor = WellbeingTheme.getColor(entries.first.key);
 
     // Selected Text
     if (selectedVirtue != null && categoryTotals.containsKey(selectedVirtue)) {
@@ -63,7 +65,7 @@ class WellbeingPieChart extends StatelessWidget {
       } else if (centerTopText.contains('-')) {
         centerTopText = centerTopText.replaceAll('-', '-\n');
       }
-      centerBottomText = "+${formatCompactNumber(categoryTotals[selectedVirtue]!)}";
+      centerBottomText = pct(categoryTotals[selectedVirtue]!);
       centerColor = WellbeingTheme.getColor(selectedVirtue!);
     }
 
@@ -110,7 +112,10 @@ class WellbeingPieChart extends StatelessWidget {
             ),
             Text(
               centerBottomText, 
-              style: GoogleFonts.rajdhani(fontSize: 18, color: centerColor, fontWeight: FontWeight.bold)
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.rajdhani(fontSize: 15, height: 1.0, color: centerColor, fontWeight: FontWeight.bold)
             ),
           ],
         )

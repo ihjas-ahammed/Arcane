@@ -136,7 +136,7 @@ void main() {
           reason: 'Shipped clean modular code on schedule',
           action: 'Continue maintaining high quality standards',
           aiFeedback: 'Great work on maintaining discipline.',
-          xpGained: {'discipline': 15},
+          needs: {'discipline': 15},
         ),
         ReflectionLog(
           id: 'ref_2',
@@ -146,7 +146,7 @@ void main() {
           reason: 'Spent too much time debugging minor UI glitch',
           action: 'Timebox debugging to 45 mins then exercise',
           aiFeedback: 'Reflect on time management.',
-          xpGained: {'focus': 10},
+          needs: {'focus': 10},
         ),
       ]);
 

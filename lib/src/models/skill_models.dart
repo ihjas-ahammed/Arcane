@@ -6,17 +6,11 @@ class Skill {
   final String id;
   final String name;
   final String description;
-  int level;
-  int currentXp;
-  int maxXp;
 
   Skill({
     required this.id,
     required this.name,
     required this.description,
-    this.level = 1,
-    this.currentXp = 0,
-    this.maxXp = 100,
   });
 
   factory Skill.fromJson(Map<String, dynamic> json) {
@@ -49,9 +43,6 @@ class Skill {
     return Skill(
         id: id,
         name: name,
-        level: (json['level'] as num?)?.toInt() ?? 1,
-        currentXp: (json['currentXp'] as num?)?.toInt() ?? 0,
-        maxXp: (json['maxXp'] as num?)?.toInt() ?? 100,
         description: json['description'] as String? ?? "A core virtue.");
   }
 
@@ -59,25 +50,8 @@ class Skill {
     return {
       'id': id,
       'name': name,
-      'level': level,
-      'currentXp': currentXp,
-      'maxXp': maxXp,
       'description': description,
     };
-  }
-
-  // Fallback direct modifier (System relies on recalculateFromTotal7DayXp primarily)
-  bool addXp(int amount) {
-    currentXp += amount;
-    bool leveledUp = false;
-    while (currentXp >= maxXp) {
-      currentXp -= maxXp;
-      level++;
-      // Exponentially increasing requirement
-      maxXp = (maxXp * 1.15).round();
-      leveledUp = true;
-    }
-    return leveledUp;
   }
 }
 
@@ -89,7 +63,9 @@ class ReflectionLog {
   String reason;
   String action; 
   final String aiFeedback;
-  final Map<String, int> xpGained;
+  /// How much of this reflection touched each well-being area (0-100). Only ever shown as a
+  /// share of one day's reflections; never summed over time.
+  final Map<String, int> needs;
 
   ReflectionLog({
     required this.id,
@@ -99,17 +75,17 @@ class ReflectionLog {
     required this.reason,
     this.action = '',
     required this.aiFeedback,
-    required this.xpGained,
+    required this.needs,
   });
 
   factory ReflectionLog.fromJson(Map<String, dynamic> json) {
-    final rawXp = Map<String, dynamic>.from(json['xpGained'] as Map? ?? {});
-    final xpGained = <String, int>{};
-    rawXp.forEach((k, v) {
+    final rawNeeds = Map<String, dynamic>.from((json['needs'] ?? json['xpGained']) as Map? ?? {});
+    final needs = <String, int>{};
+    rawNeeds.forEach((k, v) {
       final val = (v as num?)?.toInt() ?? 0;
       final normalized = WellbeingTheme.normalizeSkillName(k);
       if (normalized != null) {
-        xpGained[normalized] = (xpGained[normalized] ?? 0) + val;
+        needs[normalized] = (needs[normalized] ?? 0) + val;
       }
     });
 
@@ -128,7 +104,7 @@ class ReflectionLog {
       reason: json['reason'] as String? ?? '',
       action: json['action'] as String? ?? '', 
       aiFeedback: json['aiFeedback'] as String? ?? '',
-      xpGained: xpGained,
+      needs: needs,
     );
   }
 
@@ -141,7 +117,7 @@ class ReflectionLog {
       'reason': reason,
       'action': action,
       'aiFeedback': aiFeedback,
-      'xpGained': xpGained,
+      'needs': needs,
     };
   }
 }

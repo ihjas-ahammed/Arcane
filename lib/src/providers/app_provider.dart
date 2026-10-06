@@ -2103,33 +2103,37 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     final last7 = now.subtract(const Duration(days: 7));
     final prev7 = now.subtract(const Duration(days: 14));
     
-    Map<String, int> currentXp = {};
-    Map<String, int> prevXp = {};
+    Map<String, int> currentNeeds = {};
+    Map<String, int> prevNeeds = {};
     
     for (var log in reflectionLogs) {
       if (log.timestamp.isAfter(last7) && log.timestamp.isBefore(now)) {
-        log.xpGained.forEach((k, v) {
+        log.needs.forEach((k, v) {
           final normalized = WellbeingTheme.normalizeSkillName(k);
           if (normalized != null) {
-            currentXp[normalized] = (currentXp[normalized] ?? 0) + v;
+            currentNeeds[normalized] = (currentNeeds[normalized] ?? 0) + v;
           }
         });
       } else if (log.timestamp.isAfter(prev7) && log.timestamp.isBefore(last7)) {
-        log.xpGained.forEach((k, v) {
+        log.needs.forEach((k, v) {
           final normalized = WellbeingTheme.normalizeSkillName(k);
           if (normalized != null) {
-            prevXp[normalized] = (prevXp[normalized] ?? 0) + v;
+            prevNeeds[normalized] = (prevNeeds[normalized] ?? 0) + v;
           }
         });
       }
     }
 
+    final currTotal = currentNeeds.values.fold<int>(0, (a, b) => a + b);
+    final prevTotal = prevNeeds.values.fold<int>(0, (a, b) => a + b);
+    int pct(int v, int total) => total <= 0 ? 0 : (v * 100 / total).round();
+
     final buffer = StringBuffer();
     for (var skill in getBaseWellbeingSkills()) {
-      final curr = currentXp[skill.name] ?? 0;
-      final prev = prevXp[skill.name] ?? 0;
+      final curr = currentNeeds[skill.name] ?? 0;
+      final prev = prevNeeds[skill.name] ?? 0;
       if (curr > 0 || prev > 0) {
-        buffer.writeln("${skill.name}: $curr pts (Prev week: $prev pts)");
+        buffer.writeln("${skill.name}: ${pct(curr, currTotal)}% of reflection focus (Prev week: ${pct(prev, prevTotal)}%)");
       }
     }
     return buffer.toString();
@@ -2971,21 +2975,6 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     return 0;
   }
 
-  int get7DayWellbeingMomentum(String skillName) {
-    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-    int total = 0;
-    for (var log in reflectionLogs) {
-      if (log.timestamp.isAfter(sevenDaysAgo)) {
-        log.xpGained.forEach((k, v) {
-          if (WellbeingTheme.normalizeSkillName(k) == skillName) {
-            total += v;
-          }
-        });
-      }
-    }
-    return total;
-  }
-
   Future<void> syncWeeklyWellbeing() async {
     setLoadingTask("Analyzing Weekly Wellbeing...");
     try {
@@ -3011,20 +3000,14 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         onLog: (msg) => debugPrint(msg),
       );
       
-      final sortedForHours = List<ReflectionLog>.from(reflectionLogs)
-        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-
       final newLogs = List<ReflectionLog>.from(reflectionLogs);
       bool logsChanged = false;
       for (var update in updates) {
         final logId = update['log_id'];
         final rawScores = <String, double>{};
-        (update['xp_allocation'] as Map? ?? {}).forEach(
+        (update['need_allocation'] as Map? ?? update['xp_allocation'] as Map? ?? {}).forEach(
             (k, v) => rawScores[k.toString()] = (v as num).toDouble());
-        final logEntry = sortedForHours.firstWhere(
-            (l) => l.id == logId,
-            orElse: () => newLogs.first);
-        final xpMap = _convertXpScoresToActual(rawScores, logEntry.timestamp);
+        final needsMap = _scoresToNeeds(rawScores);
         final idx = newLogs.indexWhere((l) => l.id == logId);
         if (idx != -1) {
           newLogs[idx] = ReflectionLog(
@@ -3035,7 +3018,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
             reason: newLogs[idx].reason,
             action: newLogs[idx].action,
             aiFeedback: newLogs[idx].aiFeedback,
-            xpGained: xpMap,
+            needs: needsMap,
           );
           logsChanged = true;
         }
@@ -3050,43 +3033,15 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     }
   }
 
-  /// Converts AI-scored XP (0.0–1.0 per skill) into actual integer XP.
-  /// Formula: actual = round(score * lifetimeAvg * hoursPassed).
-  /// lifetimeAvg = historical avg XP per scored reflection for that skill (default 20).
-  /// hoursPassed = hours since previous reflection (clamped 0.5–48, default 8).
-  Map<String, int> _convertXpScoresToActual(
-    Map<String, double> scores,
-    DateTime logTimestamp,
-  ) {
-    final prevLogs = reflectionLogs
-        .where((l) => l.timestamp.isBefore(logTimestamp) && l.xpGained.isNotEmpty)
-        .toList()
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-    final hoursPassed = prevLogs.isEmpty
-        ? 8.0
-        : (logTimestamp.difference(prevLogs.first.timestamp).inMinutes / 60.0)
-            .clamp(0.5, 48.0);
-
+  /// Turns the AI's 0.0-1.0 relevance per well-being area into whole 0-100 weights for one
+  /// reflection. These only ever feed a single day's pie chart; nothing accumulates.
+  Map<String, int> _scoresToNeeds(Map<String, double> scores) {
     final result = <String, int>{};
     for (final entry in scores.entries) {
       final normalized = WellbeingTheme.normalizeSkillName(entry.key);
       if (normalized == null) continue;
-
-      final score = entry.value.clamp(0.0, 1.0);
-      if (score <= 0.0) {
-        result[normalized] = 0;
-        continue;
-      }
-      final logsWithXp =
-          reflectionLogs.where((l) => (l.xpGained[normalized] ?? 0) > 0).toList();
-      final lifetimeAvg = logsWithXp.isEmpty
-          ? 20.0
-          : logsWithXp.fold<int>(0, (s, l) => s + (l.xpGained[normalized] ?? 0)) /
-              logsWithXp.length;
-      final rawXp = (score * lifetimeAvg * hoursPassed).round();
-      // Overwrite/merge if multiple keys end up normalized to the same canonical name
-      result[normalized] = (result[normalized] ?? 0) + (rawXp < 1 ? 1 : rawXp);
+      final weight = (entry.value.clamp(0.0, 1.0) * 100).round();
+      if (weight > 0) result[normalized] = (result[normalized] ?? 0) + weight;
     }
     return result;
   }
@@ -3112,7 +3067,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       reason: reason,
       action: action,
       aiFeedback: 'Pending AI analysis...',
-      xpGained: {},
+      needs: {},
     );
     setReflectionLogs([...reflectionLogs, log]);
     unawaited(AppActionLedgerService.instance.recordAction(
@@ -3159,18 +3114,17 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         systemInstruction: settings.customReflectionPrompt,
         writingStyleMap: settings.adaptWritingStyle ? settings.writingStyleMap : null,
       );
-      // Convert 0-1 AI scores to actual XP using lifetime avg * hours elapsed
       final rawScores = <String, double>{};
-      (eval['xp_allocation'] as Map? ?? {}).forEach(
+      (eval['need_allocation'] as Map? ?? eval['xp_allocation'] as Map? ?? {}).forEach(
           (k, v) => rawScores[k.toString()] = (v as num).toDouble());
-      final xpGained = _convertXpScoresToActual(rawScores, DateTime.now());
+      final needs = _scoresToNeeds(rawScores);
       final feedback = (eval['feedback'] as String?) ?? '';
-      updateReflectionLog(logId, aiFeedback: feedback, xpGained: xpGained);
+      updateReflectionLog(logId, aiFeedback: feedback, needs: needs);
 
       insightReady.value = InsightReadyEvent(
         logId: logId,
         feedback: feedback,
-        xpGained: xpGained,
+        needs: needs,
         timestamp: DateTime.now(),
       );
 
@@ -3182,7 +3136,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         payload: logId,
       );
     } catch (e) {
-      updateReflectionLog(logId, aiFeedback: 'AI Analysis failed or offline.', xpGained: {});
+      updateReflectionLog(logId, aiFeedback: 'AI Analysis failed or offline.', needs: {});
     } finally {
       _processingReflections.remove(logId);
       notifyListeners();
@@ -3190,7 +3144,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   }
 
   /// Legacy synchronous path retained for any caller that still needs to
-  /// await the AI result inline (returns log + xp once analysis completes).
+  /// await the AI result inline (returns log + needs once analysis completes).
   Future<Map<String, dynamic>> processReflection({
     required String trigger,
     required String emotion,
@@ -3211,14 +3165,14 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         return;
       }
       if (!completer.isCompleted) {
-        completer.complete({'log': log, 'xpGained': log.xpGained});
+        completer.complete({'log': log, 'needs': log.needs});
       }
     }
     addListener(listener);
     return completer.future;
   }
 
-  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action, String? aiFeedback, Map<String, int>? xpGained}) {
+  void updateReflectionLog(String id, {String? trigger, String? emotion, String? reason, String? action, String? aiFeedback, Map<String, int>? needs}) {
     final index = reflectionLogs.indexWhere((l) => l.id == id);
     if (index != -1) {
       final old = reflectionLogs[index];
@@ -3230,7 +3184,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         reason: reason ?? old.reason,
         action: action ?? old.action,
         aiFeedback: aiFeedback ?? old.aiFeedback,
-        xpGained: xpGained ?? old.xpGained,
+        needs: needs ?? old.needs,
       );
       final newLogs = List<ReflectionLog>.from(reflectionLogs);
       newLogs[index] = updated;
@@ -4344,13 +4298,13 @@ Do NOT wrap the output in markdown block indicators like ```json. Output ONLY th
 class InsightReadyEvent {
   final String logId;
   final String feedback;
-  final Map<String, int> xpGained;
+  final Map<String, int> needs;
   final DateTime timestamp;
 
   const InsightReadyEvent({
     required this.logId,
     required this.feedback,
-    required this.xpGained,
+    required this.needs,
     required this.timestamp,
   });
 }

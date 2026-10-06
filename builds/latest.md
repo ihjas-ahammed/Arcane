@@ -1,4 +1,4 @@
-# ⚡ Arcane System Upgrade // v2026.10.6 (Build #2126100601)
+# ⚡ Arcane System Upgrade // v2026.10.6 (Build #2126100602)
 
 ### 🔄 Data Sync Overhaul
 - Realtime and debounced Firebase syncing removed. Data now syncs once, when you generate the daily briefing, via a progress notification.
@@ -27,5 +27,8 @@
 ### 🧠 Smarter Briefings
 - Built-in and external-AI briefings now receive tracked work sessions, completed steps, health (sleep, meals, water, activity, energy), spending by category and grouped communications.
 
-### 🗑️ Removed
-- The XP system has been removed from the app, widgets, charts and AI prompts.
+### 🗑️ XP, Levels & Wellbeing Drawer Removed
+- The XP system is fully gone: no points, no cumulative scoring, no skill levels, no "LVL" badge in the header and no right-hand wellbeing drawer.
+- Reflection scans now feed a per-day **"What the day needed"** pie chart in the daily summary. It shows only the share of each well-being area for that one day and is never accumulated.
+- Weekly and monthly AI reports describe well-being focus as percentages instead of points. The "Well-being growth" trend chart is removed.
+- Goals carry no XP.

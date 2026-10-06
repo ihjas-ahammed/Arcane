@@ -52,7 +52,7 @@ class _InsightWatcherState extends State<InsightWatcher> {
         context: context,
         barrierDismissible: true,
         builder: (_) => InsightDialog(
-          areas: event.xpGained.entries.where((e) => e.value > 0).map((e) => e.key),
+          areas: event.needs.entries.where((e) => e.value > 0).map((e) => e.key),
           insightText: event.feedback,
         ),
       );

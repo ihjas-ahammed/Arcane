@@ -120,6 +120,9 @@ void main() {
       // No dialog should be shown and result should be true
       expect(find.text('WEEKLY BRIEFING: NEXT WEEK GOALS'), findsNothing);
       expect(result, isTrue);
+
+      // addGoal queues a debounced local save; let it fire before the test ends.
+      await tester.pump(const Duration(seconds: 2));
     });
 
     testWidgets('showWeeklyGoalsCheckDialog shows alert and allows Proceed Anyway when < 2 goals', (tester) async {

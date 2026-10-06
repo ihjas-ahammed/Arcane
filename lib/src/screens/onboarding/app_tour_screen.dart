@@ -1,3 +1,4 @@
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
@@ -7,7 +8,6 @@ import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/widgets/cards/submission_card.dart';
-import 'package:missions/src/widgets/ui/wellbeing_card.dart';
 import 'package:missions/src/widgets/ui/nora_message_bubble.dart';
 import 'package:provider/provider.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
@@ -64,9 +64,6 @@ class _AppTourScreenState extends State<AppTourScreen> {
     final dummySub = SubTask(
       id: 'dummy_sub', name: 'CALIBRATE SENSORS', completed: false, currentTimeSpent: 0
     );
-    final dummySkill = Skill(
-      id: 'res', name: 'Resilience', description: 'Capacity to recover quickly from difficulties.', level: 5, currentXp: 1500, maxXp: 2000
-    );
     final dummyMessage = ChatbotMessage(
       id: 'd1', text: "Operative, I've analyzed your recent logs. Your resilience is trending upward. Ready for today's directives?", sender: MessageSender.bot, timestamp: DateTime.now()
     );
@@ -89,12 +86,10 @@ class _AppTourScreenState extends State<AppTourScreen> {
         accentColor: JweTheme.accentCyan,
       ),
       TourSlide(
-        title: "PSYCHOLOGICAL BIOMETRICS",
-        subtitle: "SYSTEM DIAGNOSTICS",
-        content: "Your mental state is your system integrity. Log events and emotions to track your 12 psychological traits. If you stop logging, the signal naturally fades, encouraging consistent reflection.",
-        visual: IgnorePointer(
-          child: WellbeingCard(skill: dummySkill, onTap: () {}),
-        ),
+        title: "DAILY REFLECTION",
+        subtitle: "WHAT YOUR DAY ASKED FOR",
+        content: "Log events and emotions as they happen. Each day's reflections are scanned into a simple chart of the well-being areas that day called for, so you can see what you need more of.",
+        visual: Icon(MdiIcons.chartDonut, size: 80, color: JweTheme.accentAmber.withValues(alpha: 0.5)),
         accentColor: JweTheme.accentAmber,
       ),
       TourSlide(

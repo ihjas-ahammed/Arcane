@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/services/widget_action_router.dart';
 import 'package:missions/src/widgets/header_widget.dart';
-import 'package:missions/src/widgets/drawers/wellbeing_drawer.dart';
 import 'package:missions/src/widgets/ui/jwe_bottom_nav_bar.dart';
 import 'dart:ui' show ImageFilter;
 import 'package:missions/src/widgets/ui/hud_components.dart';
@@ -336,7 +335,6 @@ class _HomeScreenState extends State<HomeScreen> {
         appBar: HeaderWidget(
           currentViewLabel: headerLabel,
           leading: customLeading,
-          onOpenPersona: () => _scaffoldKey.currentState?.openEndDrawer(),
           onToggleFocusClock: () => setState(() => _showDesktopTimer = !_showDesktopTimer),
           customAction: IconButton(
             icon:  Icon(MdiIcons.cogOutline, color: JweTheme.textMuted),
@@ -344,7 +342,6 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: _navigateToSettings,
           ),
         ),
-        endDrawer: const WellbeingDrawer(),
         body: Stack(
           children: [
             Row(

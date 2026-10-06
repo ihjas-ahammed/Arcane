@@ -125,7 +125,7 @@ class ExternalAiBriefingHelper {
       'reason': l.reason,
       'action': l.action,
       if (l.aiFeedback.isNotEmpty) 'aiFeedback': l.aiFeedback,
-      if (l.xpGained.isNotEmpty) 'xpGained': l.xpGained,
+      if (l.needs.isNotEmpty) 'wellbeing_needs': l.needs,
     }).toList();
 
     // Goals active
@@ -187,11 +187,11 @@ class ExternalAiBriefingHelper {
       }
     }
 
-    // Wellbeing score deltas
+    // Which well-being areas the reflections touched in this window (raw weights, for context)
     final wellbeingTotals = <String, int>{};
     for (final log in provider.reflectionLogs) {
       if (!log.timestamp.isBefore(telemetryStart) && !log.timestamp.isAfter(targetDayEnd)) {
-        log.xpGained.forEach((k, v) {
+        log.needs.forEach((k, v) {
           wellbeingTotals[k] = (wellbeingTotals[k] ?? 0) + v;
         });
       }
@@ -248,7 +248,7 @@ class ExternalAiBriefingHelper {
           'total_minutes': totalTrackedMinutes,
           'by_task': timeByTask,
         },
-        'wellbeing_scores': wellbeingTotals,
+        'wellbeing_needs': wellbeingTotals,
         'known_people': people,
         'notifications_journal_count': notificationsList.length,
         'notifications_journal': notificationsList,

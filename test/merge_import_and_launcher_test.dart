@@ -98,7 +98,7 @@ void main() {
         reason: 'Delivered fix',
         action: 'Celebrate',
         aiFeedback: 'Great momentum',
-        xpGained: {'Mastery': 25},
+        needs: {'Mastery': 25},
       );
       final recentLog2 = ReflectionLog(
         id: 'recent_log_yesterday',
@@ -108,7 +108,7 @@ void main() {
         reason: 'Finished all tasks',
         action: 'Sleep early',
         aiFeedback: 'Rest is restorative',
-        xpGained: {'Vitality': 20},
+        needs: {'Vitality': 20},
       );
       provider.setReflectionLogs([recentLog2, recentLog1]);
 
