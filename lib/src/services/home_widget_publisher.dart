@@ -21,7 +21,13 @@ import 'package:missions/src/utils/task_calculations.dart';
 class HomeWidgetPublisher {
   HomeWidgetPublisher(this._provider) {
     _provider.addListener(_onProviderChanged);
+    _active = this;
   }
+
+  static HomeWidgetPublisher? _active;
+
+  /// Redraws every widget right away (used when a widget tap turned out to be stale).
+  static void republishNow() => _active?.publishAll();
 
   final AppProvider _provider;
 
@@ -33,7 +39,12 @@ class HomeWidgetPublisher {
 
   Timer? _publishDebounce;
 
+  /// Compound ids of the day-plan items the widget last showed, slot by slot. Widget taps are
+  /// checked against this so a stale widget can never tick a different task than the one on it.
+  static List<String> lastPublishedPlanIds = const [];
+
   void dispose() {
+    if (identical(_active, this)) _active = null;
     _publishDebounce?.cancel();
     _provider.removeListener(_onProviderChanged);
   }
@@ -154,6 +165,7 @@ class HomeWidgetPublisher {
       mainTasks: _provider.mainTasks,
       plan: _provider.taskActions.getDayPlan(today),
     );
+    lastPublishedPlanIds = topFiveTasks.map((t) => t.compoundId).toList();
 
     final planRows = _provider.taskActions.getDayPlanRows(today);
     List<String> activeRowCompoundIds = [];
@@ -544,8 +556,6 @@ class HomeWidgetPublisher {
       live.scope.name,
       live.totalCount,
       live.completedCount,
-      live.earnedXp,
-      live.totalXp,
       for (final g in topGoals) '${g.id}:${g.getIsEffectiveCompleted()}:${g.title}:${g.currentValue}:${g.targetValue}',
     ].join('|');
 
@@ -565,8 +575,6 @@ class HomeWidgetPublisher {
         tag = '$subDone/$subTotal';
       } else if (g.metricType == GoalMetricType.counter) {
         tag = '${g.currentValue.toInt()}/${g.targetValue.toInt()}';
-      } else if (g.xpReward > 0) {
-        tag = '+${g.xpReward}XP';
       }
 
       items.add((
@@ -582,8 +590,6 @@ class HomeWidgetPublisher {
         totalCount: live.totalCount,
         completedCount: live.completedCount,
         progressPct: (live.progress * 100).toInt(),
-        totalXp: live.totalXp,
-        earnedXp: live.earnedXp,
         scope: live.scope == GoalScope.weekly ? 'weekly' : 'daily',
         items: items,
       );

@@ -28,14 +28,12 @@ class _GoalsWidgetTabState extends State<GoalsWidgetTab> {
       id: 'mock_1',
       title: 'COMPLETE SYSTEM ARCHITECTURE AUDIT',
       isCompleted: true,
-      xpReward: 50,
       scope: GoalScope.daily,
     ),
     GoalModel(
       id: 'mock_2',
       title: 'NEURAL SYNC // REFLECTION SYNTHESIS',
       isCompleted: false,
-      xpReward: 75,
       scope: GoalScope.daily,
       subChecklist: [
         GoalSubCheckItem(id: 's1', title: 'Review morning telemetry', isCompleted: true),
@@ -49,7 +47,6 @@ class _GoalsWidgetTabState extends State<GoalsWidgetTab> {
       metricType: GoalMetricType.timeCounter,
       currentValue: 40,
       targetValue: 60,
-      xpReward: 100,
       scope: GoalScope.daily,
     ),
   ];
@@ -61,12 +58,6 @@ class _GoalsWidgetTabState extends State<GoalsWidgetTab> {
     final displayProgress = _overrideGoals
         ? (_mockGoals.where((g) => g.isCompleted).length / _mockGoals.length)
         : live.progress;
-    final displayEarnedXp = _overrideGoals
-        ? _mockGoals.where((g) => g.isCompleted).fold<int>(0, (sum, g) => sum + g.xpReward)
-        : live.earnedXp;
-    final displayTotalXp = _overrideGoals
-        ? _mockGoals.fold<int>(0, (sum, g) => sum + g.xpReward)
-        : live.totalXp;
     final displayScope = _overrideGoals ? GoalScope.daily : live.scope;
 
     return SingleChildScrollView(
@@ -81,8 +72,6 @@ class _GoalsWidgetTabState extends State<GoalsWidgetTab> {
               child: TodayGoalsHomeWidget(
                 goals: displayGoals,
                 progress: displayProgress,
-                earnedXp: displayEarnedXp,
-                totalXp: displayTotalXp,
                 scope: displayScope,
                 onGoalTap: (g) {
                   if (!_overrideGoals) {
@@ -112,8 +101,6 @@ class _GoalsWidgetTabState extends State<GoalsWidgetTab> {
                       totalCount: displayGoals.length,
                       completedCount: displayGoals.where((g) => g.isCompleted).length,
                       progress: displayProgress,
-                      totalXp: displayTotalXp,
-                      earnedXp: displayEarnedXp,
                       goals: displayGoals,
                       scope: GoalScope.daily,
                     )
@@ -151,10 +138,6 @@ class _GoalsWidgetTabState extends State<GoalsWidgetTab> {
                     title: Text(
                       g.title,
                       style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-                    ),
-                    subtitle: Text(
-                      "+${g.xpReward} XP",
-                      style: const TextStyle(fontSize: 10, color: Colors.amber),
                     ),
                     value: g.isCompleted,
                     dense: true,

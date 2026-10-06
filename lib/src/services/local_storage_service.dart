@@ -57,9 +57,16 @@ class LocalStorageService {
       // 1. Atomic write: write complete data to .tmp and flush to disk
       await tempFile.writeAsString(jsonString, flush: true);
 
-      // 2. Rotate previous valid cache into .bak for disaster recovery
+      // 2. Rotate previous valid cache into .bak for disaster recovery. A save that shrinks the
+      // cache drastically is suspicious (partial state, bad load): park the old copy separately so
+      // the next normal save can't rotate it away.
       if (await file.exists()) {
         try {
+          final oldLength = await file.length();
+          if (oldLength > 4096 && jsonString.length < oldLength * 0.6) {
+            await file.copy('${file.path}.shrink');
+            debugPrint("[LocalStorageService] Cache shrank ($oldLength -> ${jsonString.length} bytes); kept previous copy as .shrink");
+          }
           await file.copy(backup.path);
         } catch (_) {}
       }

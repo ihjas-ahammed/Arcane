@@ -10,8 +10,6 @@ import 'package:missions/src/widgets/ui/hud_components.dart';
 class TodayGoalsHomeWidget extends StatelessWidget {
   final List<GoalModel> goals;
   final double progress;
-  final int earnedXp;
-  final int totalXp;
   final GoalScope scope;
   final ValueChanged<GoalModel>? onGoalTap;
   final VoidCallback? onOpenArcane;
@@ -20,8 +18,6 @@ class TodayGoalsHomeWidget extends StatelessWidget {
     super.key,
     required this.goals,
     this.progress = 0.0,
-    this.earnedXp = 0,
-    this.totalXp = 0,
     this.scope = GoalScope.daily,
     this.onGoalTap,
     this.onOpenArcane,
@@ -66,7 +62,7 @@ class TodayGoalsHomeWidget extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Header Row: Tag + XP Badge ──
+                    // ── Header Row: Tag + progress badge ──
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -110,7 +106,7 @@ class TodayGoalsHomeWidget extends StatelessWidget {
                               Icon(MdiIcons.lightningBolt, size: 11, color: accentAmber),
                               const SizedBox(width: 3),
                               Text(
-                                totalXp > 0 ? '+$earnedXp / +$totalXp XP' : '+50 XP / GOAL',
+                                '${goals.where((g) => g.getIsEffectiveCompleted()).length} / ${goals.length} DONE',
                                 style: GoogleFonts.jetBrainsMono(
                                   color: accentAmber,
                                   fontSize: 9.5,
@@ -313,16 +309,6 @@ class TodayGoalsHomeWidget extends StatelessWidget {
                 ),
               ),
             ],
-            // XP pill
-            const SizedBox(width: 6),
-            Text(
-              '+${goal.xpReward}XP',
-              style: GoogleFonts.jetBrainsMono(
-                color: isDone ? textMuted : accentAmber,
-                fontSize: 9.5,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
           ],
         ),
       ),

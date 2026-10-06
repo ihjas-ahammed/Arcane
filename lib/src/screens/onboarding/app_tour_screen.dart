@@ -91,7 +91,7 @@ class _AppTourScreenState extends State<AppTourScreen> {
       TourSlide(
         title: "PSYCHOLOGICAL BIOMETRICS",
         subtitle: "SYSTEM DIAGNOSTICS",
-        content: "Your mental state is your system integrity. Log events and emotions to gain XP across 12 psychological traits. If you stop logging, levels naturally decay, enforcing consistent reflection.",
+        content: "Your mental state is your system integrity. Log events and emotions to track your 12 psychological traits. If you stop logging, the signal naturally fades, encouraging consistent reflection.",
         visual: IgnorePointer(
           child: WellbeingCard(skill: dummySkill, onTap: () {}),
         ),

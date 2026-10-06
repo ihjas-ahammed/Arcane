@@ -5,23 +5,18 @@ import 'package:missions/src/theme/arc/arc_theme.dart';
 
 class PersonInfoHeader extends StatelessWidget {
   final int level;
-  final int xp;
   final String role;
   final String titleName;
 
   const PersonInfoHeader({
     super.key,
     required this.level,
-    required this.xp,
     required this.role,
     required this.titleName,
   });
 
   @override
   Widget build(BuildContext context) {
-    // XP Bar Width Calculation (Mock logic: Assuming 3000 max XP for display scaling)
-    final double xpProgress = (xp / 3000).clamp(0.0, 1.0);
-
     return Column(
       children: [
         // --- Header Section ---
@@ -84,42 +79,19 @@ class PersonInfoHeader extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(width: 15),
-                      // XP Bar Container
                       Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              height: 6,
-                              width: double.infinity,
-                              color: ArcStrokes.steel,
-                              margin: const EdgeInsets.only(bottom: 5),
-                              alignment: Alignment.centerLeft,
-                              child: FractionallySizedBox(
-                                widthFactor: xpProgress,
-                                child: Container(
-                                  decoration:   BoxDecoration(
-                                    color: PersonInfoTheme.spideyCyan,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: ArcEffects.cyanGlow(0.4),
-                                        blurRadius: 5,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            role.toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.rajdhani(
+                              color: PersonInfoTheme.textWhite,
+                              fontSize: 11,
+                              letterSpacing: 0.5,
                             ),
-                            Text(
-                              "${role.toUpperCase()} / $xp XP",
-                              style: GoogleFonts.rajdhani(
-                                color: PersonInfoTheme.textWhite,
-                                fontSize: 11,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       )
                     ],

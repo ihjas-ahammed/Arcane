@@ -434,7 +434,7 @@ class _SkillsScreenState extends State<SkillsScreen> {
                 textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(
-                    formatCompactXp(skill.currentValue),
+                    formatCompactNumber(skill.currentValue),
                     style: GoogleFonts.chakraPetch(
                       fontSize: 19,
                       fontWeight: FontWeight.bold,

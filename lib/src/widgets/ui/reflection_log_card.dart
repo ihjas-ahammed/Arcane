@@ -18,8 +18,6 @@ class ReflectionLogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalXp = log.xpGained.values.fold(0, (sum, xp) => sum + (xp > 0 ? xp : 0));
-
     return Container(
       decoration: BoxDecoration(
         color: isSelected ? JweTheme.accentCyan.withValues(alpha: 0.1) : JweTheme.panel,
@@ -50,23 +48,6 @@ class ReflectionLogCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (totalXp > 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: JweTheme.accentAmber.withValues(alpha: 0.1),
-                          border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.5))
-                        ),
-                        child: Text(
-                          "+${formatCompactXp(totalXp)} XP", 
-                          style:  TextStyle(
-                            color: JweTheme.accentAmber, 
-                            fontSize: 10, 
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'RobotoMono'
-                          )
-                        ),
-                      )
                   ],
                 ),
                 const SizedBox(height: 8),

@@ -127,7 +127,6 @@ class _ReflectionsArchiveScreenState extends State<ReflectionsArchiveScreen> {
     }
     
     logs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    final totalLogsXp = logs.fold<int>(0, (sum, log) => sum + log.xpGained.values.fold(0, (s, x) => s + (x > 0 ? x : 0)));
 
     return Scaffold(
       backgroundColor: JweTheme.bgBase,
@@ -216,21 +215,6 @@ class _ReflectionsArchiveScreenState extends State<ReflectionsArchiveScreen> {
                           _filterDate != null ? DateFormat('MMM dd, yyyy').format(_filterDate!) : "ALL RECORDS",
                           style:  TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono', fontSize: 12),
                         ),
-                        if (totalLogsXp > 0) ...[
-                          const SizedBox(width: 10),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: JweTheme.accentAmber.withValues(alpha: 0.12),
-                              border: Border.all(color: JweTheme.accentAmber.withValues(alpha: 0.4)),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                            child: Text(
-                              "+${formatCompactXp(totalLogsXp)} XP",
-                              style: TextStyle(color: JweTheme.accentAmber, fontWeight: FontWeight.bold, fontFamily: 'RobotoMono', fontSize: 10),
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                     Row(

@@ -274,7 +274,7 @@ class _ReflectionEditorScreenState extends State<ReflectionEditorScreen> {
         title: Text("DELETE LOG?",
             style: GoogleFonts.rajdhani(color: SpideyTheme.spideyRed, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
         content:   Text(
-          "This action cannot be undone. XP gained from this reflection will be removed.",
+          "This action cannot be undone. Its wellbeing impact will be removed too.",
           style: TextStyle(color: SpideyTheme.textGrey),
         ),
         actions: [

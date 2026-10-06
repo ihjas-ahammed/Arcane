@@ -7,6 +7,8 @@ import 'package:missions/src/services/local_storage_service.dart';
 import 'package:missions/src/services/app_user.dart';
 import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/utils/global_toast.dart';
+import 'package:missions/src/services/notification_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 mixin SyncMixin on ChangeNotifier {
   final StorageService _storageService = StorageService();
@@ -29,15 +31,21 @@ mixin SyncMixin on ChangeNotifier {
   }
 
   Timer? _saveDebounce;
-  Timer? _cloudDebounce;
-  Timer? _periodicSyncTimer;
-  StreamSubscription<int>? _realtimeSyncSubscription;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
-  
+
   DateTime? _lastSuccessfulSaveTimestamp;
   DateTime? get lastSuccessfulSaveTimestamp => _lastSuccessfulSaveTimestamp;
 
+  /// True when there are local edits that have not yet been pushed to the cloud.
   bool get hasUnsavedChanges => _hasUnsavedChanges;
+
+  static const String _cloudSyncPendingKey = 'cloud_sync_pending_v1';
+
+  /// Set when an end-of-day push failed (offline, server error). Persisted so a
+  /// restart still retries; cleared only after a verified successful push.
+  bool _cloudSyncPending = false;
+  bool get cloudSyncPending => _cloudSyncPending;
+  bool _endOfDaySyncQueued = false;
 
   /// True while the signed-in user's data is being loaded, or the in-memory state reset.
   /// Nothing may be saved or marked dirty in that window: a save would write default or partial
@@ -48,7 +56,6 @@ mixin SyncMixin on ChangeNotifier {
   void beginDataLoad() {
     _dataLoadInProgress = true;
     _saveDebounce?.cancel();
-    _cloudDebounce?.cancel();
   }
 
   /// Ends a load/reset: what's in memory now is the saved state, so nothing is pending.
@@ -64,78 +71,29 @@ mixin SyncMixin on ChangeNotifier {
   void loadStateFromMap(Map<String, dynamic> data);
   dynamic mergeAppStateFromMap(Map<String, dynamic> rawData);
 
-  /// Initializes background realtime sync listeners, connectivity detection, and periodic sync.
+  /// Cloud sync is NOT realtime. Every change is saved to the local cache only; the cloud is
+  /// written once a day when the daily briefing is generated ([syncEndOfDay]) or when the user
+  /// taps a manual sync button. This only wires up the "retry a failed end-of-day sync once we're
+  /// back online" hook.
   void initSync() {
-    stopRealtimeSyncListener();
-    if (currentUser != null) {
-      startRealtimeSyncListener();
-    }
-
-    _periodicSyncTimer?.cancel();
-    _periodicSyncTimer = Timer.periodic(const Duration(minutes: 10), (_) {
-      if (currentUser != null && settings.autoSaveEnabled && !_dataLoadInProgress && !_isSyncing) {
-        autoSyncWithCloud();
-      }
-    });
+    SharedPreferences.getInstance().then((prefs) {
+      _cloudSyncPending = prefs.getBool(_cloudSyncPendingKey) ?? false;
+    }).catchError((_) {});
 
     _connectivitySubscription?.cancel();
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
       final isOnline = results.any((r) => r != ConnectivityResult.none);
-      if (isOnline && currentUser != null && settings.autoSaveEnabled && !_dataLoadInProgress) {
-        debugPrint("[SyncMixin] Network connectivity restored. Running background sync.");
-        if (_hasUnsavedChanges) {
-          _scheduleCloudSave();
-        }
-        autoSyncWithCloud();
+      if (isOnline && _cloudSyncPending && currentUser != null && !_dataLoadInProgress && !_isSyncing) {
+        debugPrint("[SyncMixin] Back online with a pending end-of-day sync. Retrying.");
+        syncEndOfDay();
       }
     });
-  }
-  
-  /// Subscribes to real-time changes in the cloud lastModified timestamp and pulls immediately.
-  void startRealtimeSyncListener() {
-    if (currentUser == null) return;
-    _realtimeSyncSubscription?.cancel();
-    final uid = currentUser!.uid;
-    _realtimeSyncSubscription = _storageService.watchLastModified(uid).listen((remoteTs) async {
-      if (currentUser == null || currentUser!.uid != uid || _dataLoadInProgress || _isSyncing) return;
-      if (remoteTs <= 0) return;
-
-      // CRITICAL DATA PROTECTION: Never overwrite uncommitted local user changes in background!
-      if (_hasUnsavedChanges || _dirtyCollections.isNotEmpty) {
-        debugPrint("[SyncMixin] Realtime sync: Local has unsaved changes. Scheduling cloud push instead of pulling.");
-        if (settings.autoSaveEnabled) {
-          _scheduleCloudSave();
-        }
-        return;
-      }
-
-      final localTs = settings.lastModified;
-      if (remoteTs > localTs) {
-        debugPrint("[SyncMixin] Realtime sync: Remote is newer ($remoteTs > $localTs). Auto-pulling updates in background.");
-        await _manuallyLoadFromCloudInternal();
-      } else if (localTs > remoteTs) {
-        if (settings.autoSaveEnabled) {
-          debugPrint("[SyncMixin] Realtime sync: Local is newer ($localTs >= $remoteTs). Scheduling cloud save.");
-          _scheduleCloudSave();
-        }
-      }
-    }, onError: (e) {
-      debugPrint("[SyncMixin] Realtime sync error: $e");
-    });
-  }
-
-  void stopRealtimeSyncListener() {
-    _realtimeSyncSubscription?.cancel();
-    _realtimeSyncSubscription = null;
   }
 
   @override
   void dispose() {
     _saveDebounce?.cancel();
-    _cloudDebounce?.cancel();
-    _periodicSyncTimer?.cancel();
     _connectivitySubscription?.cancel();
-    stopRealtimeSyncListener();
     super.dispose();
   }
 
@@ -148,50 +106,20 @@ mixin SyncMixin on ChangeNotifier {
     settings.lastModified = DateTime.now().millisecondsSinceEpoch;
     _dirtyCollections.add(collection);
     _hasUnsavedChanges = true;
-    _scheduleSave();
+    // Local cache only. Debounced so bursts of edits cost a single serialization pass.
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 1000), _saveLocalSnapshot);
     notifyListeners();
   }
 
-  void _scheduleSave() {
-    _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 200), _saveLocalSnapshot);
-
-    if (currentUser != null && settings.autoSaveEnabled) {
-      _scheduleCloudSave();
-    }
-  }
-
-  void _scheduleCloudSave() {
-    _cloudDebounce?.cancel();
-    _cloudDebounce = Timer(const Duration(milliseconds: 2500), () async {
-      if (currentUser != null && _hasUnsavedChanges && !_isSyncing && !_dataLoadInProgress) {
-        _isSyncing = true;
-        try {
-          await _performActualSaveInternal(force: _dirtyCollections.isEmpty);
-        } finally {
-          _isSyncing = false;
-          notifyListeners();
-        }
-      }
-    });
-  }
-
+  /// Kept for call-site compatibility: saves locally, never touches the network.
   void scheduleRealtimeSync() {
     _saveLocalSnapshot();
-    if (currentUser != null && settings.autoSaveEnabled) {
-      _scheduleCloudSave();
-    }
-  }
-
-  Future<void> syncIfDirty() async {
-    // Kept for backward compatibility, currently offline default
   }
 
   Future<void> forceLocalBackup() async {
+    _saveDebounce?.cancel();
     await _saveLocalSnapshot(forceFlush: true);
-    if (currentUser != null && settings.autoSaveEnabled && _hasUnsavedChanges) {
-      await _performActualSaveInternal();
-    }
     notifyListeners();
   }
 
@@ -204,6 +132,82 @@ mixin SyncMixin on ChangeNotifier {
       await _localStorageService.saveState(currentUser!.uid, fullData);
     } catch (e) {
       debugPrint("Local snapshot failed: $e");
+    }
+  }
+
+  Future<void> _setCloudSyncPending(bool value) async {
+    _cloudSyncPending = value;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_cloudSyncPendingKey, value);
+    } catch (_) {}
+  }
+
+  /// The single automatic cloud write: a full, forced push of every collection (tasks, history,
+  /// reflections, finance, health, trading, launcher, settings), verified by reading the cloud
+  /// timestamp back, retried with backoff, and reported through a progress notification. If it
+  /// still fails the work is marked pending and retried when connectivity returns.
+  /// Never throws; returns whether the cloud now holds the current local state.
+  Future<bool> syncEndOfDay({bool showNotification = true}) async {
+    if (currentUser == null || _dataLoadInProgress) return false;
+    if (!settings.autoSaveEnabled) return false;
+    if (_isSyncing) {
+      // A push is already running: queue exactly one more so the newest state is also pushed.
+      _endOfDaySyncQueued = true;
+      return false;
+    }
+    _isSyncing = true;
+    notifyListeners();
+    final notif = NotificationService.instance;
+    try {
+      // Local cache first: whatever happens next, nothing is lost on this device.
+      _saveDebounce?.cancel();
+      await _saveLocalSnapshot(forceFlush: true);
+      await _setCloudSyncPending(true);
+
+      const maxAttempts = 3;
+      for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+        if (showNotification) {
+          await notif.showCloudSyncNotification(
+            body: attempt == 1 ? 'Backing up your day to the cloud…' : 'Retrying (attempt $attempt of $maxAttempts)…',
+          );
+        }
+        final ok = await _performActualSaveInternal(
+          force: true,
+          onProgress: (done, total, label) {
+            if (showNotification) {
+              notif.showCloudSyncNotification(body: label, done: done, total: total);
+            }
+          },
+        );
+        if (ok) {
+          await _setCloudSyncPending(false);
+          if (showNotification) {
+            await notif.showCloudSyncNotification(body: 'Everything is safely backed up.', finished: true);
+          }
+          return true;
+        }
+        if (attempt < maxAttempts) {
+          await Future.delayed(Duration(seconds: 2 << attempt));
+        }
+      }
+      if (showNotification) {
+        await notif.showCloudSyncNotification(
+          body: 'Your data is safe on this device. Will retry when you are back online.',
+          failed: true,
+        );
+      }
+      return false;
+    } catch (e) {
+      debugPrint("[SyncMixin] syncEndOfDay error: $e");
+      return false;
+    } finally {
+      _isSyncing = false;
+      notifyListeners();
+      if (_endOfDaySyncQueued) {
+        _endOfDaySyncQueued = false;
+        unawaited(syncEndOfDay(showNotification: showNotification));
+      }
     }
   }
 
@@ -251,33 +255,6 @@ mixin SyncMixin on ChangeNotifier {
     }
   }
 
-  /// Automatically compares remote vs local timestamps on login or startup and synchronizes in the background.
-  Future<void> autoSyncWithCloud() async {
-    if (currentUser == null || _isSyncing || _dataLoadInProgress) return;
-    _isSyncing = true;
-    try {
-      if (_hasUnsavedChanges || _dirtyCollections.isNotEmpty) {
-        debugPrint("[SyncMixin] autoSyncWithCloud: Local has unsaved changes. Syncing to cloud.");
-        await _performActualSaveInternal(force: true);
-        return;
-      }
-
-      final localTs = settings.lastModified;
-      final remoteTs = await _storageService.getLastModified(currentUser!.uid);
-      if (remoteTs > localTs) {
-        debugPrint("[SyncMixin] Remote cloud data is newer ($remoteTs > $localTs). Pulling updates.");
-        await _manuallyLoadFromCloudInternal();
-      } else if (localTs > remoteTs) {
-        debugPrint("[SyncMixin] Local changes newer ($localTs > $remoteTs). Syncing to cloud.");
-        await _performActualSaveInternal(force: true);
-      }
-    } catch (e) {
-      debugPrint("[SyncMixin] autoSyncWithCloud error: $e");
-    } finally {
-      _isSyncing = false;
-    }
-  }
-
   Map<String, dynamic> getTaskStateMap() => {};
   Map<String, dynamic> getFinanceStateMap() => {};
   Map<String, dynamic> getUserStateMap() => {};
@@ -292,7 +269,6 @@ mixin SyncMixin on ChangeNotifier {
       final nested = _dataLoadInProgress;
       _dataLoadInProgress = true;
       _saveDebounce?.cancel();
-      _cloudDebounce?.cancel();
       try {
         mergeAppStateFromMap(cloudData);
       } finally {
@@ -302,7 +278,6 @@ mixin SyncMixin on ChangeNotifier {
       _dirtyCollections.clear();
 
       // Ensure local settings.lastModified matches or exceeds remote RTDB timestamp
-      // to prevent an immediate desync loop
       try {
         final remoteTs = await _storageService.getLastModified(currentUser!.uid);
         if (remoteTs > settings.lastModified) {
@@ -324,6 +299,7 @@ mixin SyncMixin on ChangeNotifier {
     try {
       final success = await _performActualSaveInternal(force: true);
       if (success) {
+        await _setCloudSyncPending(false);
         showGlobalToast("Data successfully synced to cloud");
       } else {
         showGlobalToast("Failed to sync some data to cloud");
@@ -353,7 +329,10 @@ mixin SyncMixin on ChangeNotifier {
     }
   }
 
-  Future<bool> _performActualSaveInternal({bool force = false}) async {
+  Future<bool> _performActualSaveInternal({
+    bool force = false,
+    void Function(int done, int total, String label)? onProgress,
+  }) async {
     if (currentUser == null || _dataLoadInProgress) return false;
     try {
       // 1. Establish a single synchronized timestamp across all collections and RTDB
@@ -407,24 +386,33 @@ mixin SyncMixin on ChangeNotifier {
       });
 
       bool success = true;
+      const totalSteps = 9;
+      var step = 0;
+      void tick(String label) => onProgress?.call(++step, totalSteps, label);
 
       if (force || _dirtyCollections.contains('tasks')) {
         if (!await _storageService.saveTasks(currentUser!.uid, tasksData)) success = false;
+        tick('Tasks & projects');
       }
       if (force || _dirtyCollections.contains('history')) {
         if (!await _storageService.saveHistory(currentUser!.uid, historyData)) success = false;
+        tick('History');
       }
       if (force || _dirtyCollections.contains('reflections')) {
         if (!await _storageService.saveReflections(currentUser!.uid, reflectionsData)) success = false;
+        tick('Reflections');
       }
       if (force || _dirtyCollections.contains('finance')) {
         if (!await _storageService.saveFinance(currentUser!.uid, financeData)) success = false;
+        tick('Finance');
       }
       if (force || _dirtyCollections.contains('health')) {
         if (!await _storageService.saveHealth(currentUser!.uid, healthData)) success = false;
+        tick('Health');
       }
       if (force || _dirtyCollections.contains('trading')) {
         if (!await _storageService.saveTrading(currentUser!.uid, tradingData)) success = false;
+        tick('Trading');
       }
       if (force || _dirtyCollections.contains('launcher')) {
         final hasLauncherItems = launcherData.isNotEmpty &&
@@ -435,10 +423,12 @@ mixin SyncMixin on ChangeNotifier {
         if ((hasLauncherItems || _dirtyCollections.contains('launcher')) && launcherData.isNotEmpty) {
           if (!await _storageService.saveLauncher(currentUser!.uid, launcherData)) success = false;
         }
+        tick('Launcher');
       }
       if (force || _dirtyCollections.isNotEmpty || _dirtyCollections.contains('settings')) {
         if (!await _storageService.saveSettings(currentUser!.uid, settingsData)) success = false;
       }
+      tick('Settings');
 
       if (LauncherNative.isSupported) {
         try {
@@ -451,6 +441,13 @@ mixin SyncMixin on ChangeNotifier {
 
       if (success) {
         await _storageService.setLastModified(currentUser!.uid, nowTs);
+        // Verify the cloud really holds this save before declaring everything synced.
+        final confirmedTs = await _storageService.getLastModified(currentUser!.uid);
+        if (confirmedTs != nowTs) {
+          debugPrint("[SyncMixin] Cloud timestamp verification failed ($confirmedTs != $nowTs).");
+          return false;
+        }
+        tick('Verified');
         _dirtyCollections.clear();
         _hasUnsavedChanges = false;
         _lastSuccessfulSaveTimestamp = DateTime.now();

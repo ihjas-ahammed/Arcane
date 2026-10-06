@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui' show DisplayFeatureType;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -34,18 +35,34 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _refreshTelemetry();
-    _startClock();
-    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (mounted) _refreshTelemetry();
+    _startTimers();
+  }
+
+  /// Only HH:mm is shown, so the clock ticks once a minute (aligned to the minute) instead of
+  /// rebuilding every second, and telemetry is polled lazily. Both stop while backgrounded.
+  void _startTimers() {
+    _stopTimers();
+    _scheduleClock();
+    _pollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (mounted && LauncherService.instance.fullscreen.value) _refreshTelemetry();
     });
   }
 
-  void _startClock() {
+  void _stopTimers() {
+    _pollTimer?.cancel();
     _clockTimer?.cancel();
-    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() => _now = DateTime.now());
-      }
+    _pollTimer = null;
+    _clockTimer = null;
+  }
+
+  void _scheduleClock() {
+    _clockTimer?.cancel();
+    final now = DateTime.now();
+    final nextMinute = DateTime(now.year, now.month, now.day, now.hour, now.minute + 1);
+    _clockTimer = Timer(nextMinute.difference(now), () {
+      if (!mounted) return;
+      setState(() => _now = DateTime.now());
+      _scheduleClock();
     });
   }
 
@@ -54,6 +71,9 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
     if (state == AppLifecycleState.resumed) {
       _refreshTelemetry();
       setState(() => _now = DateTime.now());
+      _startTimers();
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      _stopTimers();
     }
   }
 
@@ -61,12 +81,24 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
     try {
       final status = await LauncherNative.getBatteryAndNetworkStatus();
       if (!mounted || status.isEmpty) return;
+      final level = (status['batteryLevel'] as num?)?.toInt() ?? 100;
+      final charging = status['isCharging'] == true;
+      final network = (status['networkType'] as String?) ?? 'WIFI';
+      final signal = (status['signalLevel'] as num?)?.toInt() ?? 4;
+      final online = status['isOnline'] == true;
+      if (level == _batteryLevel &&
+          charging == _isCharging &&
+          network == _networkType &&
+          signal == _signalLevel &&
+          online == _isOnline) {
+        return;
+      }
       setState(() {
-        _batteryLevel = (status['batteryLevel'] as num?)?.toInt() ?? 100;
-        _isCharging = status['isCharging'] == true;
-        _networkType = (status['networkType'] as String?) ?? 'WIFI';
-        _signalLevel = (status['signalLevel'] as num?)?.toInt() ?? 4;
-        _isOnline = status['isOnline'] == true;
+        _batteryLevel = level;
+        _isCharging = charging;
+        _networkType = network;
+        _signalLevel = signal;
+        _isOnline = online;
       });
     } catch (_) {}
   }
@@ -74,8 +106,7 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _pollTimer?.cancel();
-    _clockTimer?.cancel();
+    _stopTimers();
     super.dispose();
   }
 
@@ -86,8 +117,16 @@ class _TacticalStatusBarState extends State<TacticalStatusBar> with WidgetsBindi
       builder: (context, isFullscreen, _) {
         if (!isFullscreen) return const SizedBox.shrink();
 
-        final viewPaddingTop = MediaQuery.viewPaddingOf(context).top;
-        final barHeight = max(viewPaddingTop, 28.0);
+        // Match the real status-bar / notch height. In immersive mode the system reports no top
+        // padding on some devices, so also read the display cutout bounds directly.
+        final media = MediaQuery.of(context);
+        var topInset = max(media.viewPadding.top, media.padding.top);
+        for (final f in media.displayFeatures) {
+          if (f.type == DisplayFeatureType.cutout && f.bounds.top <= 1) {
+            topInset = max(topInset, f.bounds.bottom);
+          }
+        }
+        final barHeight = max(topInset, 24.0);
         final isLight = LauncherTheme.isLight;
 
         // Dark theme: crisp pure white. Light theme: dark tactical charcoal.

@@ -324,7 +324,7 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
                 textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(
-                    formatCompactXp(skill.currentValue),
+                    formatCompactNumber(skill.currentValue),
                     style: GoogleFonts.chakraPetch(
                       fontSize: 21,
                       fontWeight: FontWeight.bold,
@@ -380,7 +380,7 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
 
   // ── 4 Stats Grid ────────────────────────────────────────────────────
   Widget _buildStatTilesGrid(TrackedSkill skill) {
-    final bestValStr = formatCompactXp(skill.bestValue);
+    final bestValStr = formatCompactNumber(skill.bestValue);
     final sessionsCount = skill.totalSessions;
     final winRateVal = skill.winRate.round();
 
@@ -665,7 +665,7 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
                       Expanded(
                         flex: 2,
                         child: Text(
-                          formatCompactXp(log.value),
+                          formatCompactNumber(log.value),
                           style: GoogleFonts.chakraPetch(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,

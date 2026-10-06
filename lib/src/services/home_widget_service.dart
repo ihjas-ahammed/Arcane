@@ -224,8 +224,6 @@ class HomeWidgetService {
     required int totalCount,
     required int completedCount,
     required int progressPct,
-    required int totalXp,
-    required int earnedXp,
     required String scope,
     List<({String id, String title, bool isCompleted, String tag})> items = const [],
   }) async {
@@ -235,8 +233,6 @@ class HomeWidgetService {
       'arcane.goals.totalCount': totalCount,
       'arcane.goals.completedCount': completedCount,
       'arcane.goals.progressPct': progressPct,
-      'arcane.goals.totalXp': totalXp,
-      'arcane.goals.earnedXp': earnedXp,
       'arcane.goals.scope': scope,
       'arcane.goals.updatedAtMs': DateTime.now().millisecondsSinceEpoch,
     };

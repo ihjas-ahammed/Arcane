@@ -116,6 +116,12 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Draw into the notch/cutout area so the in-app status bar sits exactly where the system one was.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val attrs = window.attributes
+            attrs.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            window.attributes = attrs
+        }
         if (intent?.getBooleanExtra(LauncherTakeoverService.EXTRA_TAKEOVER, false) == true) suppressTransition()
         initTts()
         if (!handleAssistantIntent(intent)) disableLockScreenDisplay()

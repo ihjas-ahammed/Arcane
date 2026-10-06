@@ -156,7 +156,7 @@ class MoreScreen extends StatelessWidget {
           _MenuEntry(
             icon: MdiIcons.trophyOutline,
             title: "Skills & Progression",
-            subtitle: "Skill matrix, XP telemetry & mastery tracking",
+            subtitle: "Skill matrix & mastery tracking",
             color: () => JweTheme.accentAmber,
             builder: (_) => const SkillsScreen(),
           ),

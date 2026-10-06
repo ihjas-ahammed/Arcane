@@ -36,10 +36,8 @@ class GoalsWidget : HomeWidgetProvider() {
             val totalCount = WidgetCommon.getSafeInt(prefs, "arcane.goals.totalCount", 0)
             val completedCount = WidgetCommon.getSafeInt(prefs, "arcane.goals.completedCount", 0)
             val progressPct = WidgetCommon.getSafeInt(prefs, "arcane.goals.progressPct", 0)
-            val totalXp = WidgetCommon.getSafeInt(prefs, "arcane.goals.totalXp", 0)
-            val earnedXp = WidgetCommon.getSafeInt(prefs, "arcane.goals.earnedXp", 0)
 
-            // Header status badge & XP
+            // Header status badge
             if (totalCount > 0) {
                 val compPad = if (completedCount < 10) "0$completedCount" else "$completedCount"
                 val totPad = if (totalCount < 10) "0$totalCount" else "$totalCount"
@@ -48,11 +46,7 @@ class GoalsWidget : HomeWidgetProvider() {
                 views.setTextViewText(R.id.widget_goals_status_badge, "[ $scopeTag // STANDBY ]")
             }
 
-            if (totalXp > 0) {
-                views.setTextViewText(R.id.widget_goals_xp_badge, "+$earnedXp / +$totalXp XP")
-            } else {
-                views.setTextViewText(R.id.widget_goals_xp_badge, "+50 XP / GOAL")
-            }
+            views.setTextViewText(R.id.widget_goals_xp_badge, "$completedCount / $totalCount DONE")
 
             // Progress bar
             views.setProgressBar(R.id.widget_goals_progress, 100, progressPct.coerceIn(0, 100), false)

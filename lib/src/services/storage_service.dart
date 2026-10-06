@@ -19,6 +19,59 @@ const String _docHealth = 'health';
 const String _docTrading = 'trading';
 const String _docLauncher = 'launcher';
 
+// ── Chunked cloud writes ─────────────────────────────────────────────────
+// A whole collection used to be written as one multi-MB string, which blew the heap and the
+// platform-channel buffer. Collections are now stored as many small parts under
+// users/<uid>/chunks/<name>/<version>/pNNNNN, with a tiny pointer node at data/<name>. Syncing
+// runs overnight, so we favour small parts, pauses and retries over speed.
+const int _partChars = 24 * 1024;
+const Duration _partPause = Duration(milliseconds: 60);
+const int _partRetries = 4;
+
+String _partKey(int i) => 'p${i.toString().padLeft(5, '0')}';
+
+List<String> _splitJsonParts(String json) {
+  final parts = <String>[];
+  var start = 0;
+  while (start < json.length) {
+    var end = start + _partChars;
+    if (end >= json.length) {
+      end = json.length;
+    } else if (json.codeUnitAt(end - 1) >= 0xD800 && json.codeUnitAt(end - 1) <= 0xDBFF) {
+      end -= 1; // never cut a surrogate pair in half
+    }
+    parts.add(json.substring(start, end));
+    start = end;
+  }
+  return parts.isEmpty ? [''] : parts;
+}
+
+Future<void> _withRetry(Future<void> Function() op) async {
+  for (var attempt = 0;; attempt++) {
+    try {
+      await op();
+      return;
+    } catch (_) {
+      if (attempt >= _partRetries - 1) rethrow;
+      await Future.delayed(Duration(seconds: 2 << attempt));
+    }
+  }
+}
+
+/// Turns a pointer node back into the JSON string it stands for; anything else passes through.
+Future<dynamic> _resolveChunked(dynamic value, Future<dynamic> Function(int ver, int i) readPart) async {
+  if (value is! Map || value['_chunked'] != true) return value;
+  final ver = (value['ver'] as num).toInt();
+  final n = (value['n'] as num).toInt();
+  final b = StringBuffer();
+  for (var i = 0; i < n; i++) {
+    final part = await readPart(ver, i);
+    if (part is! String) throw StateError('Missing cloud part $i/$n (v$ver)');
+    b.write(part);
+  }
+  return b.toString();
+}
+
 /// Cross-platform cloud storage facade. The factory constructor selects the
 /// concrete impl: FlutterFire on Android/iOS/web/macOS/Windows, and a pair
 /// of pure-Dart clients (firebase_dart for RTDB, firedart for Firestore) on
@@ -229,15 +282,15 @@ class _FlutterFireStorageService implements StorageService {
 
       Map<dynamic, dynamic> rawData = {};
 
-      if (lightSnaps[0].exists) rawData[_docSettings] = lightSnaps[0].value;
-      if (lightSnaps[1].exists) rawData[_docFinance] = lightSnaps[1].value;
-      if (lightSnaps[2].exists) rawData[_docHealth] = lightSnaps[2].value;
-      if (lightSnaps[3].exists) rawData[_docTrading] = lightSnaps[3].value;
-      if (lightSnaps[4].exists) rawData[_docLauncher] = lightSnaps[4].value;
+      if (lightSnaps[0].exists) rawData[_docSettings] = await _readChunk(userId, _docSettings, lightSnaps[0].value);
+      if (lightSnaps[1].exists) rawData[_docFinance] = await _readChunk(userId, _docFinance, lightSnaps[1].value);
+      if (lightSnaps[2].exists) rawData[_docHealth] = await _readChunk(userId, _docHealth, lightSnaps[2].value);
+      if (lightSnaps[3].exists) rawData[_docTrading] = await _readChunk(userId, _docTrading, lightSnaps[3].value);
+      if (lightSnaps[4].exists) rawData[_docLauncher] = await _readChunk(userId, _docLauncher, lightSnaps[4].value);
 
       // Fetch heavy chunks sequentially so their large JSON payloads don't peak heap simultaneously
       final tasksSnap = await baseRef.child(_docTasks).get().timeout(_rtdbTimeout);
-      if (tasksSnap.exists) rawData[_docTasks] = tasksSnap.value;
+      if (tasksSnap.exists) rawData[_docTasks] = await _readChunk(userId, _docTasks, tasksSnap.value);
 
       final historySnap = await baseRef.child('history').get().timeout(_rtdbTimeout);
       if (historySnap.exists) rawData['history'] = historySnap.value;
@@ -311,10 +364,11 @@ class _FlutterFireStorageService implements StorageService {
     try {
       final snap = await _rtdbRef(userId, _docTrading).get().timeout(_rtdbTimeout);
       if (snap.exists && snap.value != null) {
-        if (snap.value is String) {
-          return jsonDecode(snap.value as String) as Map<String, dynamic>?;
-        } else if (snap.value is Map) {
-          return Map<String, dynamic>.from(snap.value as Map);
+        final value = await _readChunk(userId, _docTrading, snap.value);
+        if (value is String) {
+          return jsonDecode(value) as Map<String, dynamic>?;
+        } else if (value is Map) {
+          return Map<String, dynamic>.from(value);
         }
       }
       return null;
@@ -327,14 +381,45 @@ class _FlutterFireStorageService implements StorageService {
   Future<bool> _saveChunkToRTDB(
       String userId, String chunk, Map<String, dynamic> data) async {
     if (userId.isEmpty) return false;
+    final ver = DateTime.now().millisecondsSinceEpoch;
+    final partsRef = _rtdb.ref('users/$userId/chunks/$chunk');
     try {
-      await _rtdbRef(userId, chunk).set(jsonEncode(data)).timeout(_rtdbTimeout);
+      final parts = _splitJsonParts(jsonEncode(data));
+      int? oldVer;
+      try {
+        final v = await _rtdbRef(userId, chunk).child('ver').get().timeout(_rtdbTimeout);
+        oldVer = (v.value as num?)?.toInt();
+      } catch (_) {}
+      for (var i = 0; i < parts.length; i++) {
+        await _withRetry(() => partsRef.child('$ver/${_partKey(i)}').set(parts[i]).timeout(_rtdbTimeout));
+        await Future.delayed(_partPause);
+      }
+      // Only now flip the pointer, so a half-finished upload never replaces good data.
+      await _withRetry(() => _rtdbRef(userId, chunk)
+          .set({'_chunked': true, 'ver': ver, 'n': parts.length}).timeout(_rtdbTimeout));
+      if (oldVer != null && oldVer != ver) {
+        try {
+          await partsRef.child('$oldVer').remove().timeout(_rtdbTimeout);
+        } catch (_) {}
+      }
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService._saveChunkToRTDB:$chunk] $e\n$stack');
+      try {
+        await partsRef.child('$ver').remove().timeout(_rtdbTimeout);
+      } catch (_) {}
       return false;
     }
   }
+
+  Future<dynamic> _readChunk(String userId, String chunk, dynamic value) =>
+      _resolveChunked(value, (ver, i) async {
+        dynamic v;
+        await _withRetry(() async {
+          v = (await _rtdb.ref('users/$userId/chunks/$chunk/$ver/${_partKey(i)}').get().timeout(_rtdbTimeout)).value;
+        });
+        return v;
+      });
 
   @override
   Future<bool> saveCrashLogs(String userId, List<String> logs) async {
@@ -361,11 +446,12 @@ class _FlutterFireStorageService implements StorageService {
       if (updates.isNotEmpty) {
         // Batch in groups of 20 to avoid Android Binder IPC buffer limits (>1MB) and prevent RTDB OOM
         final entries = updates.entries.toList();
-        const batchSize = 20;
+        const batchSize = 5;
         for (int i = 0; i < entries.length; i += batchSize) {
           final end = (i + batchSize < entries.length) ? i + batchSize : entries.length;
           final batch = Map<String, dynamic>.fromEntries(entries.sublist(i, end));
-          await _rtdb.ref('users/$userId/data/history').update(batch).timeout(_rtdbTimeout);
+          await _withRetry(() => _rtdb.ref('users/$userId/data/history').update(batch).timeout(_rtdbTimeout));
+          await Future.delayed(_partPause);
         }
       }
       return true;
@@ -390,11 +476,12 @@ class _FlutterFireStorageService implements StorageService {
       if (updates.isNotEmpty) {
         // Batch in groups of 30 to avoid Android Binder IPC buffer limits (>1MB) and prevent RTDB OOM
         final entries = updates.entries.toList();
-        const batchSize = 30;
+        const batchSize = 8;
         for (int i = 0; i < entries.length; i += batchSize) {
           final end = (i + batchSize < entries.length) ? i + batchSize : entries.length;
           final batch = Map<String, dynamic>.fromEntries(entries.sublist(i, end));
-          await _rtdb.ref('users/$userId/data/reflections').update(batch).timeout(_rtdbTimeout);
+          await _withRetry(() => _rtdb.ref('users/$userId/data/reflections').update(batch).timeout(_rtdbTimeout));
+          await Future.delayed(_partPause);
         }
       }
       return true;
@@ -609,15 +696,15 @@ class _LinuxStorageService implements StorageService {
       ]);
 
       Map<dynamic, dynamic> rawData = {};
-      if (lightSnaps[0].value != null) rawData[_docSettings] = lightSnaps[0].value;
-      if (lightSnaps[1].value != null) rawData[_docFinance] = lightSnaps[1].value;
-      if (lightSnaps[2].value != null) rawData[_docHealth] = lightSnaps[2].value;
-      if (lightSnaps[3].value != null) rawData[_docTrading] = lightSnaps[3].value;
-      if (lightSnaps[4].value != null) rawData[_docLauncher] = lightSnaps[4].value;
+      if (lightSnaps[0].value != null) rawData[_docSettings] = await _readChunk(userId, _docSettings, lightSnaps[0].value);
+      if (lightSnaps[1].value != null) rawData[_docFinance] = await _readChunk(userId, _docFinance, lightSnaps[1].value);
+      if (lightSnaps[2].value != null) rawData[_docHealth] = await _readChunk(userId, _docHealth, lightSnaps[2].value);
+      if (lightSnaps[3].value != null) rawData[_docTrading] = await _readChunk(userId, _docTrading, lightSnaps[3].value);
+      if (lightSnaps[4].value != null) rawData[_docLauncher] = await _readChunk(userId, _docLauncher, lightSnaps[4].value);
 
       // Fetch heavy chunks sequentially
       final tasksSnap = await baseRef.child(_docTasks).once().timeout(_rtdbTimeout);
-      if (tasksSnap.value != null) rawData[_docTasks] = tasksSnap.value;
+      if (tasksSnap.value != null) rawData[_docTasks] = await _readChunk(userId, _docTasks, tasksSnap.value);
 
       final historySnap = await baseRef.child('history').once().timeout(_rtdbTimeout);
       if (historySnap.value != null) rawData['history'] = historySnap.value;
@@ -693,10 +780,11 @@ class _LinuxStorageService implements StorageService {
     try {
       final snap = await _rtdbRef(userId, _docTrading).once().timeout(_rtdbTimeout);
       if (snap.value != null) {
-        if (snap.value is String) {
-          return jsonDecode(snap.value as String) as Map<String, dynamic>?;
-        } else if (snap.value is Map) {
-          return Map<String, dynamic>.from(snap.value as Map);
+        final value = await _readChunk(userId, _docTrading, snap.value);
+        if (value is String) {
+          return jsonDecode(value) as Map<String, dynamic>?;
+        } else if (value is Map) {
+          return Map<String, dynamic>.from(value);
         }
       }
       return null;
@@ -709,14 +797,45 @@ class _LinuxStorageService implements StorageService {
   Future<bool> _saveChunkToRTDB(
       String userId, String chunk, Map<String, dynamic> data) async {
     if (userId.isEmpty) return false;
+    final ver = DateTime.now().millisecondsSinceEpoch;
+    final partsRef = _rtdb.reference().child('users/$userId/chunks/$chunk');
     try {
-      await _rtdbRef(userId, chunk).set(jsonEncode(data)).timeout(_rtdbTimeout);
+      final parts = _splitJsonParts(jsonEncode(data));
+      int? oldVer;
+      try {
+        final v = await _rtdbRef(userId, chunk).child('ver').once().timeout(_rtdbTimeout);
+        oldVer = (v.value as num?)?.toInt();
+      } catch (_) {}
+      for (var i = 0; i < parts.length; i++) {
+        await _withRetry(() => partsRef.child('$ver/${_partKey(i)}').set(parts[i]).timeout(_rtdbTimeout));
+        await Future.delayed(_partPause);
+      }
+      // Only now flip the pointer, so a half-finished upload never replaces good data.
+      await _withRetry(() => _rtdbRef(userId, chunk)
+          .set({'_chunked': true, 'ver': ver, 'n': parts.length}).timeout(_rtdbTimeout));
+      if (oldVer != null && oldVer != ver) {
+        try {
+          await partsRef.child('$oldVer').remove().timeout(_rtdbTimeout);
+        } catch (_) {}
+      }
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService._saveChunkToRTDB:$chunk/linux] $e\n$stack');
+      try {
+        await partsRef.child('$ver').remove().timeout(_rtdbTimeout);
+      } catch (_) {}
       return false;
     }
   }
+
+  Future<dynamic> _readChunk(String userId, String chunk, dynamic value) =>
+      _resolveChunked(value, (ver, i) async {
+        dynamic v;
+        await _withRetry(() async {
+          v = (await _rtdb.reference().child('users/$userId/chunks/$chunk/$ver/${_partKey(i)}').once().timeout(_rtdbTimeout)).value;
+        });
+        return v;
+      });
 
   @override
   Future<bool> saveCrashLogs(String userId, List<String> logs) async {
@@ -746,7 +865,7 @@ class _LinuxStorageService implements StorageService {
       }
       if (updates.isNotEmpty) {
         final entries = updates.entries.toList();
-        const batchSize = 20;
+        const batchSize = 5;
         for (int i = 0; i < entries.length; i += batchSize) {
           final end = (i + batchSize < entries.length) ? i + batchSize : entries.length;
           final batch = Map<String, dynamic>.fromEntries(entries.sublist(i, end));
@@ -778,7 +897,7 @@ class _LinuxStorageService implements StorageService {
       }
       if (updates.isNotEmpty) {
         final entries = updates.entries.toList();
-        const batchSize = 30;
+        const batchSize = 8;
         for (int i = 0; i < entries.length; i += batchSize) {
           final end = (i + batchSize < entries.length) ? i + batchSize : entries.length;
           final batch = Map<String, dynamic>.fromEntries(entries.sublist(i, end));

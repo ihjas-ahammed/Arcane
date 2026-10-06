@@ -41,7 +41,7 @@ class WellbeingPieChart extends StatelessWidget {
           children: [
             Icon(MdiIcons.chartDonut, color: JweTheme.textMuted.withValues(alpha: 0.3), size: 32),
             const SizedBox(height: 8),
-            Text("NO XP DATA", style: GoogleFonts.rajdhani(color: JweTheme.textMuted, fontSize: 16, fontWeight: FontWeight.bold)),
+            Text("NO DATA", style: GoogleFonts.rajdhani(color: JweTheme.textMuted, fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
       );
@@ -51,8 +51,8 @@ class WellbeingPieChart extends StatelessWidget {
     final entries = categoryTotals.entries.toList();
 
     // Default Text
-    String centerTopText = "TOTAL XP";
-    String centerBottomText = formatCompactXp(totalXp);
+    String centerTopText = "TOTAL";
+    String centerBottomText = formatCompactNumber(totalXp);
     Color centerColor = JweTheme.textWhite;
 
     // Selected Text
@@ -63,7 +63,7 @@ class WellbeingPieChart extends StatelessWidget {
       } else if (centerTopText.contains('-')) {
         centerTopText = centerTopText.replaceAll('-', '-\n');
       }
-      centerBottomText = "+${formatCompactXp(categoryTotals[selectedVirtue]!)}";
+      centerBottomText = "+${formatCompactNumber(categoryTotals[selectedVirtue]!)}";
       centerColor = WellbeingTheme.getColor(selectedVirtue!);
     }
 

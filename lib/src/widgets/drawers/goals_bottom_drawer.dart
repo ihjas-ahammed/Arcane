@@ -169,12 +169,6 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
       return g.getIsEffectiveCompleted(dynamicTimeMinutes: timeMins);
     }).length;
 
-    final totalXp = goals.fold<int>(0, (sum, g) {
-      final timeMins = _calculateLinkedTimeMinutes(appProvider, g);
-      final isDone = g.getIsEffectiveCompleted(dynamicTimeMinutes: timeMins);
-      return sum + (isDone ? g.xpReward : 0);
-    });
-
     final double overallProgressRatio = goals.isEmpty
         ? 0.0
         : goals.fold<double>(0.0, (sum, g) {
@@ -233,7 +227,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
 
                     const SizedBox(height: 12),
 
-                    // Header Row: Left Icon Box, Non-Overflowing Titles, Right XP Badge
+                    // Header Row: Left Icon Box, Non-Overflowing Titles, Right progress badge
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Row(
@@ -321,7 +315,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                                 ArcaneAppIcon(size: 13, color: themeColor),
                                 const SizedBox(width: 4),
                                 Text(
-                                  '+${formatCompactXp(totalXp)} XP',
+                                  '$completedCount/${goals.length}',
                                   style: GoogleFonts.orbitron(
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.bold,

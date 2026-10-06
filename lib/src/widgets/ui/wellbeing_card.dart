@@ -4,7 +4,6 @@ import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
-import 'package:missions/src/utils/helpers.dart';
 
 /// Operator HUD trait tile — telemetry row with segmented bar.
 class WellbeingCard extends StatelessWidget {
@@ -23,7 +22,6 @@ class WellbeingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = skill.maxXp > 0 ? skill.currentXp / skill.maxXp : 0.0;
-    final level = skill.level;
     final color = WellbeingTheme.getColor(skill.name);
     final icon = WellbeingTheme.getIcon(skill.name);
     final tone = _toneFor(color);
@@ -58,22 +56,13 @@ class WellbeingCard extends StatelessWidget {
                   ),
                 ),
               ),
-              Text(
-                'LVL $level',
-                style: GoogleFonts.jetBrainsMono(
-                  color: color,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.4,
-                ),
-              ),
             ]),
             const SizedBox(height: 10),
             HudProgressBar(value: progress * 100, tone: tone, segments: 18, height: 4),
             const SizedBox(height: 4),
             Row(children: [
               Text(
-                '${formatCompactXp(skill.currentXp)} / ${formatCompactXp(skill.maxXp)} XP',
+                '7-DAY SIGNAL',
                 style: GoogleFonts.jetBrainsMono(
                   color: JweTheme.textMuted,
                   fontSize: 10,

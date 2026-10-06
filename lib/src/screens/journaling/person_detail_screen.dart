@@ -153,7 +153,6 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     }
 
     final int level = parsedDetails?['level'] ?? 1;
-    final int xp = parsedDetails?['xp'] ?? 0;
     final String role = parsedDetails?['role'] ?? person.relation;
     final String titleName = person.name;
 
@@ -246,7 +245,6 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                   // Header details
                   PersonInfoHeader(
                     level: parsedDetails != null ? level : 0,
-                    xp: parsedDetails != null ? xp : 0,
                     role: role,
                     titleName: titleName,
                   ),

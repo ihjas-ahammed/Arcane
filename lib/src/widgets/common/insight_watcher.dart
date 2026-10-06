@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:missions/src/providers/app_provider.dart';
-import 'package:missions/src/widgets/dialogs/xp_gain_dialog.dart';
+import 'package:missions/src/widgets/dialogs/insight_dialog.dart';
 
 /// Listens to [AppProvider.insightReady] and pops the "INSIGHT ACQUIRED" dialog
 /// once analysis completes. Wrap below the home screen so the dialog renders
@@ -51,8 +51,8 @@ class _InsightWatcherState extends State<InsightWatcher> {
       await showDialog(
         context: context,
         barrierDismissible: true,
-        builder: (_) => XpGainDialog(
-          xpGained: event.xpGained,
+        builder: (_) => InsightDialog(
+          areas: event.xpGained.entries.where((e) => e.value > 0).map((e) => e.key),
           insightText: event.feedback,
         ),
       );

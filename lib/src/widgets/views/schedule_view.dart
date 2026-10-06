@@ -408,6 +408,41 @@ class _ScheduleViewState extends State<ScheduleView> {
     );
   }
 
+  Future<void> _handleDeleteEntry(AppProvider provider, TimelineEntry entry) async {
+    if (entry.isPredicted || entry.originalObject is! TaskSession) return;
+    final session = entry.originalObject as TaskSession;
+
+    String? mainTaskId;
+    String? subTaskId;
+    for (final m in provider.mainTasks) {
+      for (final s in m.subTasks) {
+        if (s.sessions.any((sess) => sess.id == session.id)) {
+          mainTaskId = m.id;
+          subTaskId = s.id;
+        }
+      }
+    }
+    if (mainTaskId == null || subTaskId == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete session?'),
+        content: Text(
+          '${DateFormat('HH:mm').format(session.startTime)} – ${DateFormat('HH:mm').format(session.endTime)}'
+          ' (${session.endTime.difference(session.startTime).inMinutes} min)',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('DELETE')),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      provider.deleteSessionFromSubtask(mainTaskId, subTaskId, session.id);
+    }
+  }
+
   void _handleEditEntry(AppProvider provider, TimelineEntry entry) async {
     if (entry.isPredicted) {
       _handlePredictedEntryTap(provider, entry);
@@ -821,6 +856,7 @@ class _ScheduleViewState extends State<ScheduleView> {
       onUpdateEntryTimeRange: (entry, newStart, newEnd) => _handleUpdateEntryTimeRange(provider, entry, newStart, newEnd),
       onAddSession: () => _handleAddSession(provider),
       onEditEntry: (entry) => _handleEditEntry(provider, entry),
+      onDeleteEntry: (entry) => _handleDeleteEntry(provider, entry),
       onSwitchTask: (entry) => _handleSwitchTask(provider, entry),
       initialScrollOffset: 0,
       scrollToNow: isToday,

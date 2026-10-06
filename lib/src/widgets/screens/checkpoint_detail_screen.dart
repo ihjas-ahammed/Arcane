@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -67,8 +68,26 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
     });
   }
 
+  Timer? _titleDebounce;
+  VoidCallback? _pendingTitleSave;
+
+  /// Typing shouldn't rebuild the whole app (and queue a snapshot save) on every keystroke.
+  void _saveTitleDebounced(AppProvider provider, SubSubTask cp) {
+    _pendingTitleSave = () => _saveTitle(provider, cp);
+    _titleDebounce?.cancel();
+    _titleDebounce = Timer(const Duration(milliseconds: 600), _flushTitleSave);
+  }
+
+  void _flushTitleSave() {
+    _titleDebounce?.cancel();
+    final pending = _pendingTitleSave;
+    _pendingTitleSave = null;
+    pending?.call();
+  }
+
   @override
   void dispose() {
+    _flushTitleSave();
     _stepController.dispose();
     _titleController.dispose();
     super.dispose();
@@ -269,6 +288,7 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
               agentColor: agentColor,
               hasReminder: CheckpointRemindersDialog.hasReminder(provider, liveCheckpoint),
               onBack: () {
+                _flushTitleSave();
                 _saveTitle(provider, liveCheckpoint);
                 Navigator.pop(context);
               },
@@ -334,9 +354,9 @@ class _CheckpointDetailScreenState extends State<CheckpointDetailScreen> {
                       ),
                       maxLines: null,
                       keyboardType: TextInputType.multiline,
-                      onChanged: (_) => _saveTitle(provider, liveCheckpoint),
-                      onSubmitted: (_) => _saveTitle(provider, liveCheckpoint),
-                      onEditingComplete: () => _saveTitle(provider, liveCheckpoint),
+                      onChanged: (_) => _saveTitleDebounced(provider, liveCheckpoint),
+                      onSubmitted: (_) => _flushTitleSave(),
+                      onEditingComplete: _flushTitleSave,
                     ),
                     const SizedBox(height: 16),
 

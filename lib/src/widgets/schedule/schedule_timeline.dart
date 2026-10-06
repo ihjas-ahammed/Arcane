@@ -15,6 +15,8 @@ class ScheduleTimeline extends StatefulWidget {
   final Function(TimelineEntry entry, DateTime newStart, DateTime newEnd)? onUpdateEntryTimeRange;
   final VoidCallback onAddSession;
   final Function(TimelineEntry) onEditEntry;
+  /// Fired when a card is long-pressed and released without being dragged.
+  final Function(TimelineEntry)? onDeleteEntry;
   final Function(TimelineEntry entry)? onSwitchTask;
   final double initialScrollOffset;
   final bool scrollToNow;
@@ -28,6 +30,7 @@ class ScheduleTimeline extends StatefulWidget {
     this.onUpdateEntryTimeRange,
     required this.onAddSession,
     required this.onEditEntry,
+    this.onDeleteEntry,
     this.onSwitchTask,
     this.initialScrollOffset = 0,
     this.scrollToNow = false,
@@ -501,6 +504,9 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     if (original != null && finalStart != null && finalEnd != null) {
       if (finalStart != original.startTime || finalEnd != original.endTime) {
         widget.onUpdateEntryTimeRange?.call(original, finalStart, finalEnd);
+      } else {
+        // Long-press with no drag: offer to delete instead of moving.
+        widget.onDeleteEntry?.call(original);
       }
     }
   }

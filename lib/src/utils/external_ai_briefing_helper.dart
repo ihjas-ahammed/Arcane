@@ -1,3 +1,4 @@
+import 'package:missions/src/utils/briefing_context_helper.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:missions/src/models/chatbot_models.dart';
@@ -186,7 +187,7 @@ class ExternalAiBriefingHelper {
       }
     }
 
-    // Wellbeing XP deltas
+    // Wellbeing score deltas
     final wellbeingTotals = <String, int>{};
     for (final log in provider.reflectionLogs) {
       if (!log.timestamp.isBefore(telemetryStart) && !log.timestamp.isAfter(targetDayEnd)) {
@@ -247,11 +248,12 @@ class ExternalAiBriefingHelper {
           'total_minutes': totalTrackedMinutes,
           'by_task': timeByTask,
         },
-        'wellbeing_xp': wellbeingTotals,
+        'wellbeing_scores': wellbeingTotals,
         'known_people': people,
         'notifications_journal_count': notificationsList.length,
         'notifications_journal': notificationsList,
       },
+      'day_context': BriefingContextHelper.buildDayContextMap(provider, targetDate),
     };
   }
 
@@ -274,6 +276,7 @@ class ExternalAiBriefingHelper {
 You are an expert executive coach and tactical psychological analyst for Arcane.
 You are provided with a complete JSON dataset containing the user's historical briefings and activity telemetry for today ($dateStr).
 The dataset also includes "notifications_journal" containing communications, alerts, and messages logged throughout the day — use them to identify meaningful interactions, updates, and context for grateful_people, savor_moment, summary, small_win, and tomorrow's directives.
+The dataset also includes "day_context" with the day's tracked work sessions, completed steps, health (sleep, meals, water, activity, energy), spending by category and communication volume — ground the summary, small_win and directives in these facts.
 The dataset also includes "previous_quotes" listing all quotes and authors previously used across daily briefings and morning reports.
 
 CRITICAL DEDUPLICATION RULE:

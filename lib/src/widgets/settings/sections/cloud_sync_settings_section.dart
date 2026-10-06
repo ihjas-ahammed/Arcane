@@ -53,8 +53,8 @@ class CloudSyncSettingsSection extends StatelessWidget {
               color: AppTheme.fhBorderColor.withValues(alpha: 0.5),
             ),
             SwitchListTile.adaptive(
-              title: const Text('Real-Time Sync'),
-              subtitle: const Text('Automatically sync changes to cloud immediately.'),
+              title: const Text('End-of-Day Cloud Backup'),
+              subtitle: const Text('Changes are saved on this device instantly. The cloud is updated once, when you generate your daily briefing.'),
               value: appProvider.settings.autoSaveEnabled,
               activeTrackColor: AppTheme.fhAccentTeal,
               contentPadding: EdgeInsets.zero,

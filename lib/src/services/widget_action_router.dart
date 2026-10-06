@@ -13,6 +13,7 @@ import 'package:missions/src/screens/journaling/quick_therapy_screen.dart';
 import 'package:missions/src/screens/reflections_archive_screen.dart';
 import 'package:missions/src/screens/settings/widgets_studio/widgets_studio_resolvers.dart';
 import 'package:missions/src/services/bus_location_service.dart';
+import 'package:missions/src/services/home_widget_publisher.dart';
 import 'package:missions/src/widgets/dialogs/add_transaction_dialog.dart';
 import 'package:missions/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
@@ -346,6 +347,13 @@ class WidgetActionRouter {
     );
     if (index >= topFive.length) return;
     final item = topFive[index];
+    final shown = HomeWidgetPublisher.lastPublishedPlanIds;
+    if (index < shown.length && shown[index] != item.compoundId) {
+      // The plan changed since the widget last drew; ticking by position would hit another task.
+      showGlobalToast('Plan changed — widget refreshed, tap again');
+      HomeWidgetPublisher.republishNow();
+      return;
+    }
     if (item.targetCheckpointId != null) {
       provider.taskActions.completeSubSubtask(item.mainTaskId, item.subTaskId, item.targetCheckpointId!);
       showGlobalToast('✓ Checked: ${item.name}');

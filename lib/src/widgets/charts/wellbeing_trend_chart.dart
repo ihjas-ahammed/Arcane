@@ -50,7 +50,7 @@ class WellbeingTrendChart extends StatelessWidget {
                   final daysAgo = 6 - spot.x.toInt();
                   final date = DateTime.now().subtract(Duration(days: daysAgo));
                   return LineTooltipItem(
-                    "${DateFormat('MMM dd').format(date)}\n+${spot.y.toInt()} XP",
+                    "${DateFormat('MMM dd').format(date)}\n+${spot.y.toInt()} pts",
                     TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)
                   );
                 }).toList();

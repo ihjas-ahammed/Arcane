@@ -153,7 +153,6 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
         targetValue: _targetValue <= 0 ? 1.0 : _targetValue,
         startDateTime: _startDateTime,
         linkedTaskIds: _selectedTaskIds.toList(),
-        xpReward: 50,
         dateKey: periodKey,
         isRecurring: _isRecurring,
         subChecklist: subItems,

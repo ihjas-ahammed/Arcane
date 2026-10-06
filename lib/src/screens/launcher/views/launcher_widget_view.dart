@@ -164,7 +164,10 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
     WidgetsBinding.instance.removeObserver(this);
     _clockTimer?.cancel();
     _clock.dispose();
-    _notesSave?.cancel();
+    if (_notesSave?.isActive ?? false) {
+      _notesSave!.cancel();
+      LauncherService.instance.setQuickNotes(_notesController.text);
+    }
     _notesController.dispose();
     super.dispose();
   }
@@ -763,8 +766,6 @@ class _LauncherWidgetViewState extends State<LauncherWidgetView> with WidgetsBin
       child: TodayGoalsHomeWidget(
         goals: live.goals,
         progress: live.progress,
-        earnedXp: live.earnedXp,
-        totalXp: live.totalXp,
         scope: live.scope,
         onGoalTap: (g) => provider.toggleGoalCheck(g.id),
         onOpenArcane: widget.onOpenArcane,

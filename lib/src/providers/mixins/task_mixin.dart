@@ -139,6 +139,11 @@ mixin TaskMixin on ChangeNotifier {
       return periodGoals;
     }
 
+    // Browsing a past period must never invent goals (they'd be saved as if they had existed).
+    if (periodKey.compareTo(GoalModel.getPeriodKey(scope, DateTime.now())) < 0) {
+      return periodGoals;
+    }
+
     // Auto-instantiate clean sheet copies of recurring goals for this period
     final recurringTemplates = _goals
         .where((g) => g.scope == scope && g.isRecurring)
@@ -167,9 +172,13 @@ mixin TaskMixin on ChangeNotifier {
       }
 
       _goals = [..._goals, ...newSheetGoals];
-      NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
-      sync.markDirty('tasks');
-      notifyListeners();
+      // This getter runs inside build(): notifying synchronously re-enters the widget tree
+      // (rebuild storms / "setState during build"). Persist and notify after the frame.
+      Future.microtask(() {
+        NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
+        sync.markDirty('tasks');
+        notifyListeners();
+      });
       return newSheetGoals;
     }
 
@@ -455,7 +464,10 @@ mixin TaskMixin on ChangeNotifier {
     return (checkpoints: merged, modified: anyModified);
   }
 
-  bool _crossSyncTasksAndHistory(Map<String, dynamic> historyMap) {
+  /// [restoreFromHistory] re-checks tasks/checkpoints found in history. It must stay false for normal
+  /// loads: history keeps old completion entries after a user un-checks something (and name matching
+  /// is global), so restoring on every launch re-checked unfinished items. Only imports/merges use it.
+  bool _crossSyncTasksAndHistory(Map<String, dynamic> historyMap, {bool restoreFromHistory = false}) {
     bool tasksModified = false;
     final todayStr = getTodayDateString();
 
@@ -514,6 +526,7 @@ mixin TaskMixin on ChangeNotifier {
     }
 
     for (final task in _mainTasks) {
+      if (!restoreFromHistory) break;
       for (final st in task.subTasks) {
         if (!st.isRecurring) {
           final normStName = st.name.trim().toLowerCase();
@@ -1065,7 +1078,7 @@ mixin TaskMixin on ChangeNotifier {
       }
 
       // Cross-synchronize: ensure full two-way parity between _mainTasks and _completedByDay
-      final tasksUpdated = _crossSyncTasksAndHistory(merged);
+      final tasksUpdated = _crossSyncTasksAndHistory(merged, restoreFromHistory: true);
       if (tasksUpdated) mergedDays++;
 
       _completedByDay = merged;

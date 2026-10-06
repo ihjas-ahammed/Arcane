@@ -118,20 +118,12 @@ class _TacticalGoalCardState extends State<TacticalGoalCard> {
               ),
               const SizedBox(height: 4),
 
-              // XP Badge, Recurring Tag, Place Tag, Reminder Tag & Linked Tasks
+              // Recurring Tag, Place Tag, Reminder Tag & Linked Tasks
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Text(
-                    '+${goal.xpReward} XP',
-                    style: GoogleFonts.orbitron(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.bold,
-                      color: themeColor,
-                    ),
-                  ),
                   if (goal.placeId != null) ...[
                     Builder(
                       builder: (context) {
@@ -297,8 +289,7 @@ class _TacticalGoalCardState extends State<TacticalGoalCard> {
                       onTap: () {
                         appProvider.updateGoalCounter(goal.id, 1);
                         if (goal.currentValue + 1 >= goal.targetValue) {
-                          showGlobalToast(
-                              'Counter Target Reached! +${goal.xpReward} XP');
+                          showGlobalToast('Counter Target Reached!');
                         }
                       },
                       child: Container(

@@ -75,7 +75,7 @@ class WellbeingDetailDialog extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  "LEVEL ${skill.level}",
+                  "7-DAY SIGNAL",
                   style: GoogleFonts.rajdhani(
                     color: color,
                     fontSize: 18,
@@ -83,7 +83,7 @@ class WellbeingDetailDialog extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  "${formatCompactXp(skill.currentXp)} / ${formatCompactXp(skill.maxXp)} XP",
+                  "${(progress * 100).round()}%",
                   style: GoogleFonts.rajdhani(
                     color: PersonInfoTheme.textWhite,
                     fontSize: 14,
@@ -117,7 +117,7 @@ class WellbeingDetailDialog extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    "+${formatCompactXp(xpGainedToday)} XP",
+                    "+${formatCompactNumber(xpGainedToday)}",
                     style: GoogleFonts.rajdhani(
                       color: xpGainedToday > 0 ? PersonInfoTheme.spideyCyan : PersonInfoTheme.textGrey,
                       fontSize: 16,

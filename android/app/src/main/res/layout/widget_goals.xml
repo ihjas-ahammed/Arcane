@@ -70,7 +70,7 @@
                     android:paddingEnd="6dp"
                     android:paddingTop="2dp"
                     android:paddingBottom="2dp"
-                    android:text="+50 XP / GOAL"
+                    android:text="0 / 0 DONE"
                     android:textColor="@color/widget_accent_amber"
                     android:textSize="8.5sp"
                     android:textStyle="bold" />

@@ -128,8 +128,6 @@ class WidgetsStudioSync {
         tag = '$subDone/$subTotal';
       } else if (g.metricType == GoalMetricType.counter) {
         tag = '${g.currentValue.toInt()}/${g.targetValue.toInt()}';
-      } else if (g.xpReward > 0) {
-        tag = '+${g.xpReward}XP';
       }
       items.add((id: g.id, title: g.title, isCompleted: isDone, tag: tag));
     }
@@ -138,8 +136,6 @@ class WidgetsStudioSync {
       totalCount: goals.totalCount,
       completedCount: goals.completedCount,
       progressPct: (goals.progress * 100).toInt(),
-      totalXp: goals.totalXp,
-      earnedXp: goals.earnedXp,
       scope: goals.scope == GoalScope.weekly ? 'weekly' : 'daily',
       items: items,
     );

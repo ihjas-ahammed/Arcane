@@ -22,7 +22,14 @@ class LauncherAppWidget extends StatefulWidget {
   State<LauncherAppWidget> createState() => _LauncherAppWidgetState();
 }
 
-class _LauncherAppWidgetState extends State<LauncherAppWidget> {
+class _LauncherAppWidgetState extends State<LauncherAppWidget> with AutomaticKeepAliveClientMixin {
+  /// Availability survives state re-creation, so a widget coming back into view renders
+  /// immediately instead of flashing blank while the platform channel is queried again.
+  static final Map<int, bool> _availabilityCache = {};
+
+  @override
+  bool get wantKeepAlive => true;
+
   bool? _available;
   double _travel = 0;
   bool _moved = false;
@@ -30,8 +37,10 @@ class _LauncherAppWidgetState extends State<LauncherAppWidget> {
   @override
   void initState() {
     super.initState();
+    _available = _availabilityCache[widget.entry.id];
     LauncherNative.getWidgetInfo(widget.entry.id).then((info) {
-      if (mounted) setState(() => _available = info != null);
+      _availabilityCache[widget.entry.id] = info != null;
+      if (mounted && _available != (info != null)) setState(() => _available = info != null);
     });
   }
 
@@ -245,6 +254,7 @@ class _LauncherAppWidgetState extends State<LauncherAppWidget> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final entry = widget.entry;
     final accent = LauncherTheme.red;
     final feedbackWidth = (MediaQuery.sizeOf(context).width - 24).clamp(240.0, 600.0);

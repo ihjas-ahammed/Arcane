@@ -7,6 +7,7 @@ import 'package:missions/src/services/local_storage_service.dart';
 import 'package:missions/src/services/storage_service.dart';
 import 'package:missions/src/services/data_export_service.dart';
 import 'package:missions/src/services/notification_service.dart';
+import 'package:missions/src/utils/briefing_context_helper.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
 import 'package:missions/src/utils/history_helper.dart';
 import 'package:missions/src/utils/constants.dart';
@@ -201,7 +202,9 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     // Payload for the timer notification is encoded as "<subtaskId>|<mainTaskId>".
     NotificationService.instance.setOnTap((payload) {
       if (payload == null) return;
-      if (payload.startsWith('stop_timer:')) {
+      if (payload == 'retry_cloud_sync') {
+        syncEndOfDay();
+      } else if (payload.startsWith('stop_timer:')) {
         final subtaskId =
             payload.substring('stop_timer:'.length).split('|').first;
         _timerActions.pauseTimer(subtaskId);
@@ -262,10 +265,6 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         _scheduleMidnightTimer();
       }
       drainPendingEnergyLogs();
-      if (currentUser != null) {
-        fetchDailyReportsFromCloud();
-        autoSyncWithCloud();
-      }
     } else if (state == AppLifecycleState.paused ||
                state == AppLifecycleState.inactive ||
                state == AppLifecycleState.hidden) {
@@ -900,11 +899,6 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
           }
 
           if (loadedFromCloud) unawaited(forceLocalBackup());
-          if (localData != null && settings.autoSaveEnabled) {
-            autoSyncWithCloud().catchError((e) {
-              debugPrint("Failed auto sync with cloud on auth change: $e");
-            });
-          }
           initSync();
         }
 
@@ -914,7 +908,6 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         // Run background validation and maintenance asynchronously without blocking UI
         unawaited(_runPostAuthMaintenance());
       } else {
-        stopRealtimeSyncListener();
         if (currentUser != null || authLoading) {
           setCurrentUser(null);
           beginDataLoad();
@@ -1536,7 +1529,9 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       for (final t in newList) {
         if (oldMap.containsKey(t.id)) {
           final oldTask = oldMap[t.id]!;
-          if (jsonEncode(oldTask.toJson()) != jsonEncode(t.toJson())) {
+          // Untouched tasks/subtasks keep their identity across copyWith, so skip the (expensive)
+          // serialize-and-compare for everything except what an action actually replaced.
+          if (!identical(oldTask, t) && jsonEncode(oldTask.toJson()) != jsonEncode(t.toJson())) {
             final oldSubMap = {for (final s in oldTask.subTasks) s.id: s};
             final newSubMap = {for (final s in t.subTasks) s.id: s};
 
@@ -1553,7 +1548,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
                 ));
               } else {
                 final oldS = oldSubMap[s.id]!;
-                if (jsonEncode(oldS.toJson()) != jsonEncode(s.toJson())) {
+                if (!identical(oldS, s) && jsonEncode(oldS.toJson()) != jsonEncode(s.toJson())) {
                   final action = (oldS.completed != s.completed) ? (s.completed ? 'COMPLETE' : 'INCOMPLETE') : 'UPDATE';
                   unawaited(AppActionLedgerService.instance.recordAction(
                     actionType: action,
@@ -2134,7 +2129,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       final curr = currentXp[skill.name] ?? 0;
       final prev = prevXp[skill.name] ?? 0;
       if (curr > 0 || prev > 0) {
-        buffer.writeln("${skill.name}: $curr XP (Prev week: $prev XP)");
+        buffer.writeln("${skill.name}: $curr pts (Prev week: $prev pts)");
       }
     }
     return buffer.toString();
@@ -2250,6 +2245,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
     if (currentUser != null) {
       _cloudStorage.saveDailyData(currentUser!.uid, date, 'briefing', data);
+      unawaited(syncEndOfDay());
     }
   }
 
@@ -2666,14 +2662,8 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
     final goalsStr = GoalBriefingHelper.buildTacticalBriefingGoalsAIContext(this, targetDate);
 
-    final dayNotifs = getNotificationsForDate(date);
-    final notifsText = dayNotifs.take(50).map((n) {
-      final t = n['timeStr'] ?? '';
-      final app = n['appName'] ?? n['packageName'] ?? '';
-      final title = n['title'] ?? '';
-      final text = n['text'] ?? '';
-      return '[$t $app] $title: $text';
-    }).join('\n');
+    final notifsText = BriefingContextHelper.buildNotificationsText(this, date);
+    final dayContextText = BriefingContextHelper.buildDayContextText(this, targetDate);
 
     final result = await _aiService.generateDailySummary(
       reflections: logsFormatted, 
@@ -2683,6 +2673,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       financeText: financeStr,
       goalsText: goalsStr,
       notificationsText: notifsText.isNotEmpty ? notifsText : null,
+      dayContextText: dayContextText.isNotEmpty ? dayContextText : null,
       modelCandidates: settings.heavyModels, 
       liteModelCandidates: settings.liteModels,
       proTimeout: const Duration(seconds: 60),
@@ -2774,6 +2765,9 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       }
     }
 
+    // End of day: this is the one moment the whole app state is pushed to the cloud.
+    unawaited(syncEndOfDay());
+
     return result;
   }
 
@@ -2800,11 +2794,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
           }
           if (cleaned.length != sub.sessions.length) {
             final totalSeconds = cleaned.fold(0, (sum, s) => sum + s.durationSeconds);
-            return SubTask(
-              id: sub.id, name: sub.name, description: sub.description, completed: sub.completed, currentTimeSpent: totalSeconds,
-              completedDate: sub.completedDate, isCountable: sub.isCountable, targetCount: sub.targetCount, currentCount: sub.currentCount,
-              subSubTasks: sub.subSubTasks, sessions: cleaned, isRecurring: sub.isRecurring, lastCompletedDate: sub.lastCompletedDate, createdAt: sub.createdAt, updatedAt: sub.updatedAt, why: sub.why, what: sub.what, resources: sub.resources,
-            );
+            return sub.copyWith(currentTimeSpent: totalSeconds, sessions: cleaned);
           }
           return sub;
         }).toList()
@@ -2904,9 +2894,6 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       notifyListeners();
       try {
         forceLocalBackup();
-        if (currentUser != null) {
-          unawaited(autoSyncWithCloud());
-        }
       } catch (e) {
         debugPrint("[AppProvider] Error backing up post daily reset: $e");
       }

@@ -1196,7 +1196,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
 
     1. Provide constructive feedback. ($instruction)
     2. Focus on present actionability. Use recent context to understand patterns but keep feedback focused on THIS specific log.
-    3. Score XP for each Well-Being area as a float 0.0 to 1.0 using ONLY clear evidence in this log:
+    3. Score each Well-Being area as a float 0.0 to 1.0 using ONLY clear evidence in this log:
        - Positivity (0.0–1.0): Score ONLY if log shows moments of joy, gratitude, humor, awe, love, or contentment. No evidence = 0.0. Explicit positive emotion = 0.8–1.0.
        - Resilience (0.0–1.0): Score ONLY if log shows bouncing back from setback, tolerating distress, reframing a negative event, or regulating strong emotions. Mere acknowledgment of difficulty = 0.0.
        - Satisfaction (0.0–1.0): Score ONLY if log shows subjective sense of overall life going well or a meaningful accomplishment. Mundane tasks = 0.0.
@@ -1324,6 +1324,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     String? goalsText,
     String? previousQuotesContext,
     String? notificationsText,
+    String? dayContextText,
   }) async {
     String systemStyle = "";
     if (writingStyleMap != null && writingStyleMap.isNotEmpty) {
@@ -1335,6 +1336,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
 
     Current Logs (TODAY'S LOGS — FOR QUOTING AND TODAY'S ANALYSIS): ${jsonEncode(reflections)}
     ${notificationsText != null && notificationsText.isNotEmpty ? 'Today Notifications / Communications Journal (MESSAGES, ALERTS & INTERACTIONS LOGGED TODAY):\n$notificationsText\n(Note: Use these communication events, messages, and updates to add rich context into grateful_people, savor_moment, summary, small_win, suggested_activities, and obstacle_plan)' : ''}
+    ${dayContextText != null && dayContextText.isNotEmpty ? 'What Actually Happened Today (TRACKED WORK, HEALTH, SPENDING & COMMUNICATIONS — ground the summary, small_win and suggestions in these facts):\n$dayContextText' : ''}
     Reflection History (BROADER WEEKLY CONTEXT — FOR CONTEXT ONLY, DO NOT QUOTE FROM THIS): $fullContext
     Previous Briefings (Context): ${jsonEncode(previousBriefings)}
     ${previousQuotesContext != null && previousQuotesContext.isNotEmpty ? 'Previously Used Quotes & Reflections (STRICT EXCLUSION LIST - DO NOT REPEAT ANY OF THESE):\n$previousQuotesContext' : ''}
@@ -1896,7 +1898,6 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     {
       "title": "A short alias/title for them (e.g. 'The Realist' or 'The Mentor')",
       "level": int (1-100 based on relationship depth),
-      "xp": int (total arbitrary xp based on significance, e.g. 2650),
       "role": "Their inferred role (e.g. Student, Colleague)",
       "status": "Current relationship status (e.g. Calibration Phase, Active)",
       "psychological_profile": "A solid paragraph describing their traits and dynamics with the user...",

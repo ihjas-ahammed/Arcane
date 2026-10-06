@@ -441,10 +441,11 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
   Widget build(BuildContext context) {
     if (!LauncherNative.isSupported) return widget.arcaneChild;
 
-    final appProvider = Provider.of<AppProvider>(context);
+    // Only the theme mode matters here; listening to the whole provider rebuilt the entire launcher
+    // (pager, drawer, hosted widgets) on every unrelated state change.
+    final themeMode = context.select<AppProvider, String>((p) => p.settings.themeMode);
     final isSystemDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    final bool isLightTheme = appProvider.settings.themeMode == 'light' ||
-        (appProvider.settings.themeMode == 'system' && !isSystemDark);
+    final bool isLightTheme = themeMode == 'light' || (themeMode == 'system' && !isSystemDark);
     JweTheme.isLight = isLightTheme;
 
     return ListenableBuilder(
@@ -589,10 +590,12 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
             itemCount: 1 + pageCount,
             itemBuilder: (context, index) {
               if (index == 0) {
-                return LauncherWidgetView(onOpenArcane: _openArcane);
+                return _KeepAlivePage(child: RepaintBoundary(child: LauncherWidgetView(onOpenArcane: _openArcane)));
               }
               final homeIndex = index - 1;
-              return GestureDetector(
+              // Keep every page alive: a page that scrolls out of the PageView used to be disposed,
+              // which tore down its hosted app widgets and re-inflated them on every return.
+              return _KeepAlivePage(child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onVerticalDragStart: _onVerticalDragStart,
                 onVerticalDragUpdate: _onVerticalDragUpdate,
@@ -615,7 +618,7 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
                   onLaunch: _launch,
                   onOpenArcane: _openArcane,
                 ),
-              );
+              ));
             },
           );
         },
@@ -712,5 +715,26 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
         },
       ),
     );
+  }
+}
+
+
+/// Keeps a PageView page (and the platform views hosted inside it) alive while off-screen.
+class _KeepAlivePage extends StatefulWidget {
+  final Widget child;
+  const _KeepAlivePage({required this.child});
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

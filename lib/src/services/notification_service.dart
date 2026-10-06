@@ -50,6 +50,7 @@ class NotificationService {
   // --- Notification IDs ---
   static const int _timerNotifId = 2001;
   static const int _transitNotifId = 2002;
+  static const int _cloudSyncNotifId = 2003;
   static const int reflectionReminderId = 3001;
   static const int financeReminderId = 3002;
   static const int healthReminderId = 3003;
@@ -1059,6 +1060,53 @@ class NotificationService {
     if (kIsWeb) return;
     await _plugin.cancel(id);
   }
+
+  // ---------------------------------------------------------------------------
+  // End-of-day cloud sync progress (the only time data is pushed to Firebase)
+  // ---------------------------------------------------------------------------
+
+  /// Shows / updates the ongoing "cloud sync" notification. [done] and [total]
+  /// drive the progress bar; pass [failed] to show a persistent retry prompt,
+  /// or [finished] to show a short-lived success message.
+  Future<void> showCloudSyncNotification({
+    required String body,
+    int done = 0,
+    int total = 0,
+    bool finished = false,
+    bool failed = false,
+  }) async {
+    if (kIsWeb || !_initialized || !_isAndroid) return;
+    final ongoing = !finished && !failed;
+    final details = AndroidNotificationDetails(
+      _reminderChannelId,
+      _reminderChannelName,
+      channelDescription: _reminderChannelDesc,
+      importance: ongoing ? Importance.low : Importance.defaultImportance,
+      priority: ongoing ? Priority.low : Priority.defaultPriority,
+      ongoing: ongoing,
+      autoCancel: !ongoing,
+      onlyAlertOnce: true,
+      showProgress: ongoing && total > 0,
+      maxProgress: total,
+      progress: done,
+      timeoutAfter: finished ? 5000 : null,
+      icon: '@mipmap/ic_launcher',
+      color: const Color(0xFFFFB547),
+      category: AndroidNotificationCategory.progress,
+    );
+    try {
+      await _plugin.show(
+        _cloudSyncNotifId,
+        failed ? 'CLOUD SYNC // FAILED' : (finished ? 'CLOUD SYNC // COMPLETE' : 'CLOUD SYNC // IN PROGRESS'),
+        body,
+        NotificationDetails(android: details),
+        payload: failed ? 'retry_cloud_sync' : null,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> cancelCloudSyncNotification() => cancel(_cloudSyncNotifId);
+
 
   // ---------------------------------------------------------------------------
   // Energy Check & Wearable Direct Reply Methods

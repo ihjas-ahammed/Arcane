@@ -76,7 +76,8 @@ class TaskBubbleOverlay(private val context: Context) {
 
         private const val IDLE_ALPHA = 0.38f
         private const val IDLE_DELAY_MS = 2500L
-        private const val PAUSED_AUTO_HIDE_MS = 20 * 60 * 1000L // 20 minutes paused timeout
+        private const val PAUSED_AUTO_HIDE_MS = 3 * 60 * 60 * 1000L // 3 hours paused timeout
+        private const val OFF_GRACE_MS = 1500L // ride out half-written task state before hiding
 
         private const val BG_DARK = 0xF605080E.toInt()
         private const val CYAN = 0xFF00F0FF.toInt()
@@ -173,6 +174,8 @@ class TaskBubbleOverlay(private val context: Context) {
         }
 
         if (started && enabled && !temporarilyHidden && (running || has)) {
+            offConfirmed = false
+            handler.removeCallbacks(confirmOffRunnable)
             show()
             bubble?.refreshState()
             if (running) {
@@ -187,9 +190,23 @@ class TaskBubbleOverlay(private val context: Context) {
                 handler.postDelayed(pausedAutoHideRunnable, PAUSED_AUTO_HIDE_MS)
             }
         } else {
+            // The Dart side writes hasTask/isRunning as separate prefs, so a half-written update can
+            // briefly read as "no task". Only tear the bubble down once that state has persisted.
+            if (bubble != null && started && enabled && !temporarilyHidden && !offConfirmed) {
+                handler.removeCallbacks(confirmOffRunnable)
+                handler.postDelayed(confirmOffRunnable, OFF_GRACE_MS)
+                return@Runnable
+            }
+            offConfirmed = false
             TaskForegroundService.stop(context)
             hide()
         }
+    }
+
+    private var offConfirmed = false
+    private val confirmOffRunnable = Runnable {
+        offConfirmed = true
+        sync()
     }
 
     private val pausedAutoHideRunnable = Runnable {
@@ -246,6 +263,7 @@ class TaskBubbleOverlay(private val context: Context) {
         snapAnim?.cancel()
         dockAnim?.cancel()
         handler.removeCallbacks(idleRunnable)
+        handler.removeCallbacks(confirmOffRunnable)
         handler.removeCallbacks(pausedAutoHideRunnable)
         bubble?.let { try { wm.removeView(it) } catch (_: Exception) {} }
         bubble = null

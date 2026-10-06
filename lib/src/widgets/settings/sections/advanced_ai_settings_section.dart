@@ -261,7 +261,7 @@ class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
           maxLines: 3,
           decoration: const InputDecoration(
             labelText: 'Reflection Analysis System Prompt',
-            hintText: 'Define how reflections are analyzed and XP awarded.',
+            hintText: 'Define how reflections are analyzed and scored.',
             alignLabelWithHint: true,
           ),
           onChanged: (val) {

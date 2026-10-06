@@ -472,7 +472,7 @@ class ReportActions {
       final curr = currentXp[skill.name] ?? 0;
       final prev = prevXp[skill.name] ?? 0;
       if (curr > 0 || prev > 0) {
-        buffer.writeln("${skill.name}: $curr XP (Prev month: $prev XP)");
+        buffer.writeln("${skill.name}: $curr pts (Prev month: $prev pts)");
       }
     }
     return buffer.toString();

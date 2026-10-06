@@ -71,10 +71,6 @@ class TimerActions {
       progress: subTask?.calculateProgress() ?? 0.0,
       nextCheckpointName: nextCp?.name,
     );
-
-    if (_provider.settings.autoSaveEnabled) {
-      _provider.manuallySaveToCloud();
-    }
   }
 
   void pauseTimer(String id) {
@@ -103,9 +99,6 @@ class TimerActions {
       // Defer session commit + cloud save off the hot path
       Future.microtask(() {
         _commitSessionAndPause(id, timer, pauseTime);
-        if (_provider.settings.autoSaveEnabled) {
-          _provider.manuallySaveToCloud();
-        }
       });
     }
   }
@@ -131,9 +124,6 @@ class TimerActions {
         if (timer.isRunning) {
           _commitSessionAndPause(id, timer, pauseTime);
         }
-        if (_provider.settings.autoSaveEnabled) {
-          _provider.manuallySaveToCloud();
-        }
       });
     }
   }
@@ -144,6 +134,9 @@ class TimerActions {
     if (now.difference(start).inHours >= 12) {
       start = now.subtract(const Duration(hours: 1)); 
     }
+
+    // Accidental starts/stops under a minute aren't worth a session.
+    if (now.difference(start) < const Duration(minutes: 1)) return;
 
     if (now.isAfter(start)) {
       if (timer.type == 'subtask') {

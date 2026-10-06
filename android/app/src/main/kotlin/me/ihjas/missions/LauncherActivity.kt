@@ -3,6 +3,7 @@ package me.ihjas.missions
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import me.ihjas.missions.notifications.NotificationBridge
@@ -27,6 +28,12 @@ class LauncherActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Draw into the notch/cutout area so the in-app status bar sits exactly where the system one was.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val attrs = window.attributes
+            attrs.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            window.attributes = attrs
+        }
         if (intent?.getBooleanExtra(LauncherTakeoverService.EXTRA_TAKEOVER, false) == true) {
             suppressTransition()
         }

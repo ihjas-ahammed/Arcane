@@ -20,7 +20,7 @@ String _fmtValue(double v, String unit) {
 /// Vertical bars for last 7 days, dotted mean line, peak/today glow,
 /// JetBrainsMono telemetry labels.
 class WeeklyActivityLineChart extends StatelessWidget {
-  /// keys are daysAgo (0 = today, 6 = oldest); values are minutes (or XP).
+  /// keys are daysAgo (0 = today, 6 = oldest); values are minutes (or wellbeing points).
   final Map<int, double> weeklyData;
   final Map<int, Color> dominantColors;
   final bool isVirtue;
@@ -59,7 +59,7 @@ class WeeklyActivityLineChart extends StatelessWidget {
 
     final maxV = hasData ? values.reduce(math.max) : 0.0;
     final avg = values.reduce((a, b) => a + b) / 7.0;
-    final unit = isVirtue ? 'XP' : 'm';
+    final unit = isVirtue ? 'pts' : 'm';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -69,7 +69,7 @@ class WeeklyActivityLineChart extends StatelessWidget {
           Container(width: 3, height: 12, color: overallDominant),
           const SizedBox(width: 8),
           Text(
-            isVirtue ? '// WEEKLY XP DELTA' : '// 7-DAY PERFORMANCE',
+            isVirtue ? '// WEEKLY WELLBEING DELTA' : '// 7-DAY PERFORMANCE',
             style: GoogleFonts.jetBrainsMono(
               color: overallDominant,
               fontSize: 10,

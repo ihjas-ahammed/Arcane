@@ -56,34 +56,8 @@ String romanize(int num) {
   return thousands + hundreds + tens + ones;
 }
 
-double xpForLevel(int level, double xpPerLevelBase, double xpLevelMultiplier) {
-  if (level <= 1) return 0;
-  double totalXp = 0;
-  for (int i = 1; i < level; i++) {
-    totalXp +=
-        (xpPerLevelBase * (xpLevelMultiplierPow(xpLevelMultiplier, i - 1)))
-            .floor();
-  }
-  return totalXp;
-}
-
-double xpToNext(
-    int currentLevel, double xpPerLevelBase, double xpLevelMultiplier) {
-  return (xpPerLevelBase *
-          (xpLevelMultiplierPow(xpLevelMultiplier, currentLevel - 1)))
-      .floorToDouble();
-}
-
 // Custom power function to avoid dart:math for simple integer powers
 // ignore_for_file: non_constant_identifier_names
-double xpLevelMultiplierPow(double base, int exponent) {
-  double result = 1.0;
-  for (int i = 0; i < exponent; i++) {
-    result *= base;
-  }
-  return result;
-}
-
 String formatTime(double totalSeconds) {
   int hours = (totalSeconds / 3600).floor();
   int minutes = ((totalSeconds % 3600) / 60).floor();
@@ -99,10 +73,10 @@ String formatTime(double totalSeconds) {
   return "$paddedMinutes:$paddedSeconds";
 }
 
-/// Formats XP and numeric scores compactly.
+/// Formats numeric scores compactly.
 /// Returns exact integer string for values up to 9999 (e.g. "9999").
 /// Above 9999, formats with K / M / B (e.g. 10000 -> "10K", 10100 -> "10.1K", 1200000 -> "1.2M").
-String formatCompactXp(num value) {
+String formatCompactNumber(num value) {
   if (value.abs() <= 9999) {
     return value.round().toString();
   }

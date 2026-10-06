@@ -122,7 +122,6 @@ class GoalModel {
   final List<String> linkedTaskIds;
   final DateTime? startDateTime;
   final DateTime createdAt;
-  final int xpReward;
   final String dateKey; // Period key: yyyy-MM-dd (daily), Monday's yyyy-MM-dd (weekly), yyyy-MM (monthly)
   final bool isRecurring;
   final List<GoalSubCheckItem> subChecklist;
@@ -141,7 +140,6 @@ class GoalModel {
     this.linkedTaskIds = const [],
     this.startDateTime,
     DateTime? createdAt,
-    this.xpReward = 50,
     String? dateKey,
     this.isRecurring = false,
     this.subChecklist = const [],
@@ -188,7 +186,6 @@ class GoalModel {
     List<String>? linkedTaskIds,
     DateTime? startDateTime,
     DateTime? createdAt,
-    int? xpReward,
     String? dateKey,
     bool? isRecurring,
     List<GoalSubCheckItem>? subChecklist,
@@ -208,7 +205,6 @@ class GoalModel {
       linkedTaskIds: linkedTaskIds ?? this.linkedTaskIds,
       startDateTime: startDateTime ?? this.startDateTime,
       createdAt: createdAt ?? this.createdAt,
-      xpReward: xpReward ?? this.xpReward,
       dateKey: dateKey ?? this.dateKey,
       isRecurring: isRecurring ?? this.isRecurring,
       subChecklist: subChecklist ?? this.subChecklist,
@@ -246,7 +242,6 @@ class GoalModel {
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
           : DateTime.now(),
-      xpReward: json['xpReward'] as int? ?? 50,
       dateKey: json['dateKey'] as String? ?? getPeriodKey(scopeVal, dt ?? DateTime.now()),
       isRecurring: json['isRecurring'] as bool? ?? false,
       subChecklist: (json['subChecklist'] as List<dynamic>?)
@@ -274,7 +269,6 @@ class GoalModel {
       'linkedTaskIds': linkedTaskIds,
       'startDateTime': startDateTime?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
-      'xpReward': xpReward,
       'dateKey': dateKey,
       'isRecurring': isRecurring,
       'subChecklist': subChecklist.map((e) => e.toJson()).toList(),
