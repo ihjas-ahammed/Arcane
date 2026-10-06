@@ -388,13 +388,13 @@ class UpdateService {
       );
 
       if (isNewer) {
-        final apkUrl = await resolveApkUrl(updateModel);
-        final reachable = await _isDownloadable(client, apkUrl, updateModel.versionCode);
+        final downloadUrl = await resolveDownloadUrl(updateModel);
+        final reachable = await _isDownloadable(client, downloadUrl, updateModel.versionCode);
         if (!reachable) {
-          debugPrint('[UpdateService] APK for #$remoteVersionCode preflight warning: $apkUrl');
+          debugPrint('[UpdateService] Package for #${updateModel.versionCode} preflight warning: $downloadUrl');
         }
         // Proactively clean older versions from cache
-        await clearOldApks(updateModel.versionedApkFilename);
+        await clearOldPackages(updateModel.versionedPackageFilename);
         return updateModel;
       }
       return null;
@@ -441,6 +441,21 @@ class UpdateService {
     }
 
     return candidates;
+  }
+
+  /// Picks the download URL matching this device (split APK on Android, tar.gz on Linux).
+  Future<String> resolveDownloadUrl(UpdateModel update) async {
+    if (!kIsWeb && Platform.isLinux) {
+      if (update.linuxArchUrls.containsKey('x86_64')) {
+        return update.linuxArchUrls['x86_64']!;
+      }
+      if (update.linuxUrl != null && update.linuxUrl!.isNotEmpty) {
+        return update.linuxUrl!;
+      }
+      final cleanVersion = update.versionName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+      return 'https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v$cleanVersion-b${update.versionCode}-linux-x86_64.tar.gz';
+    }
+    return resolveApkUrl(update);
   }
 
   /// Picks the split APK matching this device's ABI (falls back to `apk_url`).
@@ -509,11 +524,11 @@ class UpdateService {
     return updateDir;
   }
 
-  /// Checks if a valid APK for this specific update is already cached locally
-  Future<File?> getCachedApk(UpdateModel update) async {
+  /// Checks if a valid package for this specific update is already cached locally
+  Future<File?> getCachedPackage(UpdateModel update) async {
     try {
       final dir = await _getUpdateDir();
-      final filename = update.versionedApkFilename;
+      final filename = update.versionedPackageFilename;
       final file = File('${dir.path}/$filename');
       if (await file.exists()) {
         final length = await file.length();
@@ -527,13 +542,16 @@ class UpdateService {
         }
       }
     } catch (e) {
-      debugPrint('[UpdateService] Error checking cached APK: $e');
+      debugPrint('[UpdateService] Error checking cached package: $e');
     }
     return null;
   }
 
-  /// Removes outdated APK files to reclaim storage
-  Future<void> clearOldApks([String? currentApkFilename]) async {
+  /// Backward-compatible alias for getCachedPackage
+  Future<File?> getCachedApk(UpdateModel update) => getCachedPackage(update);
+
+  /// Removes outdated package files to reclaim storage
+  Future<void> clearOldPackages([String? currentPackageFilename]) async {
     try {
       final dir = await _getUpdateDir();
       if (await dir.exists()) {
@@ -541,8 +559,12 @@ class UpdateService {
         for (final entity in entities) {
           if (entity is File) {
             final name = entity.path.split(Platform.pathSeparator).last;
-            if (name.endsWith('.apk') || name.endsWith('.apk.download') || name.endsWith('.download')) {
-              if (currentApkFilename == null || name != currentApkFilename) {
+            if (name.endsWith('.apk') ||
+                name.endsWith('.apk.download') ||
+                name.endsWith('.tar.gz') ||
+                name.endsWith('.tar.gz.download') ||
+                name.endsWith('.download')) {
+              if (currentPackageFilename == null || name != currentPackageFilename) {
                 try {
                   entity.deleteSync();
                 } catch (_) {}
@@ -562,17 +584,20 @@ class UpdateService {
         }
       } catch (_) {}
     } catch (e) {
-      debugPrint('[UpdateService] Error cleaning old APKs: $e');
+      debugPrint('[UpdateService] Error cleaning old packages: $e');
     }
   }
 
-  /// Downloads the APK with real-time stream progress
-  Future<File> downloadApk(
+  /// Backward-compatible alias for clearOldPackages
+  Future<void> clearOldApks([String? currentApkFilename]) => clearOldPackages(currentApkFilename);
+
+  /// Downloads the update package (APK on Android, tar.gz on Linux) with real-time progress
+  Future<File> downloadPackage(
     UpdateModel update, {
     required void Function(double progress, int receivedBytes, int totalBytes) onProgress,
   }) async {
     final dir = await _getUpdateDir();
-    final filename = update.versionedApkFilename;
+    final filename = update.versionedPackageFilename;
     final targetFile = File('${dir.path}/$filename');
     final tempFile = File('${dir.path}/$filename.download');
 
@@ -582,7 +607,7 @@ class UpdateService {
       } catch (_) {}
     }
 
-    final downloadUrl = await resolveApkUrl(update);
+    final downloadUrl = await resolveDownloadUrl(update);
     if (downloadUrl.isEmpty) {
       throw Exception('Update download URL is empty in update metadata');
     }
@@ -627,18 +652,20 @@ class UpdateService {
       await sink.close();
 
       if (await tempFile.length() < 1024 * 1024) {
-        throw Exception('Downloaded APK is corrupt or too small (< 1MB)');
+        throw Exception('Downloaded package is corrupt or too small (< 1MB)');
       }
 
-      // Android rejects an APK that isn't newer than the installed app, so verify first.
-      final archiveCode = await apkVersionCode(tempFile.path);
-      final normArchive = normalizeVersionCode(archiveCode);
-      final normUpdate = normalizeVersionCode(update.versionCode);
-      if (normArchive > 0 && normUpdate > 0 && normArchive < normUpdate) {
-        throw Exception(
-          'The server returned an older build (#$normArchive instead of #$normUpdate). '
-          'The new build is still propagating. Try again in a few minutes.',
-        );
+      if (Platform.isAndroid) {
+        // Android rejects an APK that isn't newer than the installed app, so verify first.
+        final archiveCode = await apkVersionCode(tempFile.path);
+        final normArchive = normalizeVersionCode(archiveCode);
+        final normUpdate = normalizeVersionCode(update.versionCode);
+        if (normArchive > 0 && normUpdate > 0 && normArchive < normUpdate) {
+          throw Exception(
+            'The server returned an older build (#$normArchive instead of #$normUpdate). '
+            'The new build is still propagating. Try again in a few minutes.',
+          );
+        }
       }
 
       if (await targetFile.exists()) {
@@ -648,8 +675,8 @@ class UpdateService {
       }
       await tempFile.rename(targetFile.path);
 
-      // Clean all older cached APKs from previous versions
-      await clearOldApks(filename);
+      // Clean all older cached packages from previous versions
+      await clearOldPackages(filename);
 
       return targetFile;
     } catch (e) {
@@ -664,6 +691,12 @@ class UpdateService {
     }
   }
 
+  /// Backward-compatible alias for downloadPackage
+  Future<File> downloadApk(
+    UpdateModel update, {
+    required void Function(double progress, int receivedBytes, int totalBytes) onProgress,
+  }) => downloadPackage(update, onProgress: onProgress);
+
   /// Version code inside a downloaded APK (-1 when unreadable / off-Android).
   Future<int> apkVersionCode(String path) async {
     if (!Platform.isAndroid) return -1;
@@ -674,9 +707,131 @@ class UpdateService {
     }
   }
 
+  /// Installs an update archive on Linux.
+  /// Extracts the bundle into temporary staging, creates a detached updater script that
+  /// waits for the current process to close, overwrites the bundle directory, and relaunches.
+  Future<String?> installLinux(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        return 'The downloaded update archive is missing. Tap download again.';
+      }
+
+      final execPath = Platform.resolvedExecutable;
+      final execFile = File(execPath);
+      final appDir = execFile.parent;
+
+      final tempDir = await getTemporaryDirectory();
+      final stagingDir = Directory(
+        '${tempDir.path}/arcane_update_staging_${DateTime.now().millisecondsSinceEpoch}',
+      );
+      if (await stagingDir.exists()) {
+        await stagingDir.delete(recursive: true);
+      }
+      await stagingDir.create(recursive: true);
+
+      // Extract tar.gz into stagingDir
+      final tarRes = await Process.run('tar', ['-xzf', filePath, '-C', stagingDir.path]);
+      if (tarRes.exitCode != 0) {
+        return 'Could not extract update archive: ${tarRes.stderr}';
+      }
+
+      // Check if extracted contents are nested in a subfolder or root
+      Directory sourceDir = stagingDir;
+      final entries = stagingDir.listSync();
+      if (entries.length == 1 && entries.first is Directory) {
+        sourceDir = entries.first as Directory;
+      }
+
+      // Test write permission on appDir
+      bool isWritable = false;
+      try {
+        final testFile = File('${appDir.path}/.arcane_write_test_${DateTime.now().millisecondsSinceEpoch}');
+        await testFile.writeAsString('test');
+        await testFile.delete();
+        isWritable = true;
+      } catch (_) {
+        isWritable = false;
+      }
+
+      final scriptFile = File('${tempDir.path}/arcane_updater.sh');
+      final currentPid = pid;
+
+      if (isWritable) {
+        final script = '''#!/usr/bin/env bash
+OLD_PID=\$1
+TARGET_DIR="\$2"
+SOURCE_DIR="\$3"
+EXE_PATH="\$4"
+
+# Wait for old instance to terminate
+for i in {1..50}; do
+  if ! kill -0 "\$OLD_PID" 2>/dev/null; then
+    break
+  fi
+  sleep 0.1
+done
+
+# Copy new files over existing app bundle
+cp -rf "\$SOURCE_DIR"/* "\$TARGET_DIR"/
+chmod +x "\$TARGET_DIR/missions"
+
+# Clean up staging directory
+rm -rf "\$SOURCE_DIR"
+
+# Relaunch the application
+nohup "\$EXE_PATH" >/dev/null 2>&1 &
+''';
+        await scriptFile.writeAsString(script);
+        await Process.run('chmod', ['+x', scriptFile.path]);
+
+        await Process.start(
+          'bash',
+          [scriptFile.path, currentPid.toString(), appDir.path, sourceDir.path, execPath],
+          mode: ProcessStartMode.detached,
+        );
+
+        exit(0);
+      } else {
+        // App is installed in a system directory (e.g. /opt or /usr)
+        final script = '''#!/usr/bin/env bash
+TARGET_DIR="\$1"
+SOURCE_DIR="\$2"
+cp -rf "\$SOURCE_DIR"/* "\$TARGET_DIR"/
+chmod +x "\$TARGET_DIR/missions"
+rm -rf "\$SOURCE_DIR"
+''';
+        await scriptFile.writeAsString(script);
+        await Process.run('chmod', ['+x', scriptFile.path]);
+
+        final res = await Process.run('pkexec', ['bash', scriptFile.path, appDir.path, sourceDir.path]);
+        if (res.exitCode != 0) {
+          return 'Permission denied updating $appDir (${res.stderr}).';
+        }
+
+        await Process.start(execPath, [], mode: ProcessStartMode.detached);
+        exit(0);
+      }
+    } catch (e) {
+      debugPrint('[UpdateService] Linux install error: $e');
+      return 'Failed to install update: $e';
+    }
+  }
+
+  /// Installs the downloaded update package on the current platform
+  Future<String?> installPackage(String filePath) async {
+    if (Platform.isLinux) {
+      return installLinux(filePath);
+    }
+    return installApk(filePath);
+  }
+
   /// Opens the system installer for [filePath]. Returns null on success, otherwise a message
   /// saying exactly what to do next.
   Future<String?> installApk(String filePath) async {
+    if (Platform.isLinux) {
+      return installLinux(filePath);
+    }
     try {
       final file = File(filePath);
       if (!await file.exists()) {

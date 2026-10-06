@@ -8,6 +8,20 @@ Productivity apps often feel like a chore. Task Dominion bridges the gap between
 
 ---
 
+## 🐧 Linux Quick Install (x86_64)
+
+Install or update Arcane directly in one command:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/scripts/install-linux.sh | bash
+```
+
+- Installs Arcane to `~/.local/share/arcane` with command `arcane` linked to `~/.local/bin`.
+- Adds a desktop launcher entry with icon to your applications menu.
+- Built-in seamless in-app auto-update: Arcane checks for updates, downloads the optimized release, and restarts automatically.
+
+---
+
 ## Core Systems
 
 ### 1. Missions & Protocols (Tasks)

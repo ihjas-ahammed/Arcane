@@ -13,6 +13,9 @@ set(APPLICATION_ID "me.ihjas.missions")
 # versions of CMake.
 cmake_policy(SET CMP0063 NEW)
 
+# Allow legacy C pointer casts in third-party plugins on modern GCC
+add_compile_options(-Wno-error=incompatible-pointer-types -Wno-incompatible-pointer-types)
+
 # Load bundled libraries from the lib/ directory relative to the binary.
 set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
 

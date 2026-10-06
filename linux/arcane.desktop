@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Arcane
+Comment=Focus, Missions & Well-being Tactical Terminal
+Exec=missions
+Icon=arcane
+Terminal=false
+Type=Application
+Categories=Utility;Office;ProjectManagement;
+StartupWMClass=missions
+Keywords=productivity;missions;tracker;focus;tactical;

@@ -96,7 +96,7 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
   }
 
   Future<void> _checkCache() async {
-    final cached = await widget.updateService.getCachedApk(widget.update);
+    final cached = await widget.updateService.getCachedPackage(widget.update);
     int? size;
     if (cached != null) {
       try {
@@ -116,9 +116,9 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
       final exists = await _cachedFile!.exists();
       final cachedCode = exists ? await widget.updateService.apkVersionCode(_cachedFile!.path) : -1;
       // A cached APK from an earlier same-day build would be rejected by Android; re-download it.
-      final stale = cachedCode > 0 && widget.update.versionCode > 0 && cachedCode < widget.update.versionCode;
+      final stale = Platform.isAndroid && cachedCode > 0 && widget.update.versionCode > 0 && cachedCode < widget.update.versionCode;
       if (exists && !stale && await _cachedFile!.length() > 1024 * 1024) {
-        final error = await widget.updateService.installApk(_cachedFile!.path);
+        final error = await widget.updateService.installPackage(_cachedFile!.path);
         if (mounted) setState(() => _errorMessage = error);
         return;
       }
@@ -143,7 +143,7 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
     });
 
     try {
-      final file = await widget.updateService.downloadApk(
+      final file = await widget.updateService.downloadPackage(
         widget.update,
         onProgress: (progress, received, total) {
           if (mounted) {
@@ -169,7 +169,7 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
         });
 
         // Launch installer immediately
-        final error = await widget.updateService.installApk(file.path);
+        final error = await widget.updateService.installPackage(file.path);
         if (mounted) setState(() => _errorMessage = error);
       }
     } catch (e) {
@@ -328,7 +328,7 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'APK v${widget.update.versionName} CACHED (${_cachedFileSize != null ? _formatBytes(_cachedFileSize!) : 'READY'})',
+                          '${Platform.isLinux ? "PACKAGE" : "APK"} v${widget.update.versionName} CACHED (${_cachedFileSize != null ? _formatBytes(_cachedFileSize!) : 'READY'})',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.jetBrainsMono(
@@ -426,7 +426,7 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
                         children: [
                           Expanded(
                             child: Text(
-                              'DOWNLOADING APK... ${(_downloadProgress * 100).toInt()}%',
+                              '${Platform.isLinux ? "DOWNLOADING UPGRADE..." : "DOWNLOADING APK..."} ${(_downloadProgress * 100).toInt()}%',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.orbitron(
@@ -539,8 +539,10 @@ class _WhatsNewUpdateDialogState extends State<WhatsNewUpdateDialog> {
                         fit: BoxFit.scaleDown,
                         child: Text(
                           _cachedFile != null
-                              ? 'INSTALL UPGRADE'
-                              : (_isDownloading ? 'DOWNLOADING...' : 'DOWNLOAD & INSTALL'),
+                              ? (Platform.isLinux ? 'INSTALL & RESTART' : 'INSTALL UPGRADE')
+                              : (_isDownloading
+                                  ? 'DOWNLOADING...'
+                                  : (Platform.isLinux ? 'DOWNLOAD & RESTART' : 'DOWNLOAD & INSTALL')),
                           style: GoogleFonts.orbitron(
                             fontSize: 10.5,
                             fontWeight: FontWeight.bold,

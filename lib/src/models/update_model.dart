@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+
 class UpdateModel {
   final int versionCode;
   final String versionName;
@@ -9,6 +12,9 @@ class UpdateModel {
   final Map<String, int> apkArchVersionCodes;
   final String changelogUrl;
   final String? changelogMarkdown;
+  final String? linuxUrl;
+  final String? linuxFilename;
+  final Map<String, String> linuxArchUrls;
 
   const UpdateModel({
     required this.versionCode,
@@ -21,6 +27,9 @@ class UpdateModel {
     this.apkArchVersionCodes = const {},
     required this.changelogUrl,
     this.changelogMarkdown,
+    this.linuxUrl,
+    this.linuxFilename,
+    this.linuxArchUrls = const {},
   });
 
   bool isForceUpdate(int currentVersionCode) {
@@ -50,6 +59,16 @@ class UpdateModel {
       });
     }
 
+    final rawLinuxArch = json['linux_arch_urls'];
+    final linuxArchMap = <String, String>{};
+    if (rawLinuxArch is Map) {
+      rawLinuxArch.forEach((k, v) {
+        if (k is String && v is String) {
+          linuxArchMap[k] = v;
+        }
+      });
+    }
+
     return UpdateModel(
       versionCode: json['version_code'] as int? ?? 0,
       versionName: json['version_name'] as String? ?? 'Unknown',
@@ -61,6 +80,9 @@ class UpdateModel {
       apkArchVersionCodes: archCodesMap,
       changelogUrl: json['changelog_url'] as String? ?? '',
       changelogMarkdown: changelogMarkdown ?? json['changelog_markdown'] as String?,
+      linuxUrl: json['linux_url'] as String?,
+      linuxFilename: json['linux_filename'] as String?,
+      linuxArchUrls: linuxArchMap,
     );
   }
 
@@ -69,7 +91,22 @@ class UpdateModel {
     return 'Arcane_v${cleanVersion}_b$versionCode.apk';
   }
 
-  UpdateModel copyWith({String? changelogMarkdown}) {
+  String get versionedLinuxFilename {
+    final cleanVersion = versionName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    return 'missions-v${cleanVersion}-b$versionCode-linux-x86_64.tar.gz';
+  }
+
+  String get versionedPackageFilename {
+    if (!kIsWeb && Platform.isLinux) return versionedLinuxFilename;
+    return versionedApkFilename;
+  }
+
+  UpdateModel copyWith({
+    String? changelogMarkdown,
+    String? linuxUrl,
+    String? linuxFilename,
+    Map<String, String>? linuxArchUrls,
+  }) {
     return UpdateModel(
       versionCode: versionCode,
       versionName: versionName,
@@ -81,6 +118,9 @@ class UpdateModel {
       apkArchVersionCodes: apkArchVersionCodes,
       changelogUrl: changelogUrl,
       changelogMarkdown: changelogMarkdown ?? this.changelogMarkdown,
+      linuxUrl: linuxUrl ?? this.linuxUrl,
+      linuxFilename: linuxFilename ?? this.linuxFilename,
+      linuxArchUrls: linuxArchUrls ?? this.linuxArchUrls,
     );
   }
 }
