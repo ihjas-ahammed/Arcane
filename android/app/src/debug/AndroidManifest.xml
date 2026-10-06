@@ -4,4 +4,17 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <application>
+        <!-- Debug-only: drives input-reply record/replay over adb for emulator testing. -->
+        <receiver
+            android:name="me.ihjas.missions.DebugReplayReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="me.ihjas.missions.DEBUG_RECORD_START" />
+                <action android:name="me.ihjas.missions.DEBUG_RECORD_STOP" />
+                <action android:name="me.ihjas.missions.DEBUG_PLAY" />
+                <action android:name="me.ihjas.missions.DEBUG_STATUS" />
+            </intent-filter>
+        </receiver>
+    </application>
 </manifest>

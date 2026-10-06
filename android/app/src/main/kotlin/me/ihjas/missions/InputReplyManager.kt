@@ -54,9 +54,28 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         var instance: InputReplyManager? = null
             private set
 
+        /**
+         * The accessibility service can be torn down and recreated inside the same process (user
+         * toggle, system restart, app update). A manager kept from the first instance would hold a
+         * dead service: no window token for its overlays and every gesture rejected. Rebind instead.
+         */
         fun initialize(service: LauncherTakeoverService): InputReplyManager {
-            return instance ?: synchronized(this) {
-                instance ?: InputReplyManager(service).also { instance = it }
+            return synchronized(this) {
+                val current = instance
+                if (current != null && current.service === service) return@synchronized current
+                current?.shutdown()
+                InputReplyManager(service).also { instance = it }
+            }
+        }
+
+        /** Called when [service] goes away so a later reconnect starts from a clean manager. */
+        fun release(service: LauncherTakeoverService) {
+            synchronized(this) {
+                val current = instance ?: return
+                if (current.service === service) {
+                    current.shutdown()
+                    instance = null
+                }
             }
         }
 
@@ -264,6 +283,26 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
 
     // ── Public API ──────────────────────────────────────────────────────────
 
+    /**
+     * True only for things that really are a send/submit control. Plain substring matching flagged
+     * "Postal code", "Compost", "Replying to…" and the like, which then hijacked replay clicks.
+     */
+    private fun looksLikeSend(viewId: String?, desc: String?, text: String?): Boolean {
+        val word = Regex("\\b(send|submit|post|reply)\\b", RegexOption.IGNORE_CASE)
+        fun label(s: String?) = !s.isNullOrBlank() && s.length <= 24 && word.containsMatchIn(s)
+        val id = viewId?.substringAfter(":id/", viewId)?.lowercase()
+        val idHit = id != null && listOf("send", "submit", "post_button", "reply_button", "compose_send").any { id.contains(it) }
+        return idHit || label(desc) || label(text)
+    }
+
+    private fun shutdown() {
+        shouldAbortReplay = true
+        isRecording = false
+        isReplaying = false
+        mainHandler.removeCallbacks(keyboardCheckRunnable)
+        mainHandler.post { overlay.hide() }
+    }
+
     fun isRecordingActive(): Boolean = isRecording
     fun isReplayingActive(): Boolean = isReplaying
 
@@ -388,6 +427,11 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         if (!isRecording) return
 
         val pkg = event.packageName?.toString() ?: return
+        if (event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED ||
+            event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED ||
+            event.eventType == AccessibilityEvent.TYPE_VIEW_LONG_CLICKED) {
+            Log.v(TAG, "rec event type=${AccessibilityEvent.eventTypeToString(event.eventType)} pkg=$pkg text=${event.text} src=${event.source != null}")
+        }
         // Ignore events from our own application package while recording unless it's the intended target
         if (pkg == service.packageName && activePackageName.isNotEmpty() && activePackageName != service.packageName) {
             return
@@ -479,17 +523,20 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 if (node == null && event.recordCount > 0) {
                     node = event.getRecord(0)?.source
                 }
+                var nodeIsFallback = false
                 if (node == null) {
-                    val root = service.rootInActiveWindow
-                    val d = event.contentDescription?.toString()
-                    val t = if (event.text.isNotEmpty()) event.text.joinToString("") else null
-                    if (root != null) {
-                        if (!d.isNullOrEmpty()) {
-                            node = root.findAccessibilityNodeInfosByText(d).firstOrNull()
+                    // The event's source can already be gone if the tap navigated away. Fall back to
+                    // finding it by its labels, one at a time (joined, they match no node at all).
+                    val labels = buildList {
+                        event.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let { add(it) }
+                        event.text.forEach { t -> t?.toString()?.takeIf { it.isNotBlank() }?.let { add(it) } }
+                    }
+                    for (root in getAllRoots()) {
+                        for (label in labels) {
+                            node = root.findAccessibilityNodeInfosByText(label).firstOrNull { it.isVisibleToUser }
+                            if (node != null) { nodeIsFallback = true; break }
                         }
-                        if (node == null && !t.isNullOrEmpty()) {
-                            node = root.findAccessibilityNodeInfosByText(t).firstOrNull()
-                        }
+                        if (node != null) break
                     }
                 }
 
@@ -498,16 +545,14 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 val wasAfterType = lastActionWasType
                 lastActionWasType = false
 
-                var viewId: String? = node?.viewIdResourceName ?: event.source?.viewIdResourceName
-                var desc: String? = event.contentDescription?.toString() ?: node?.contentDescription?.toString()
-                var text: String? = if (event.text.isNotEmpty()) event.text.joinToString("") else node?.text?.toString()
+                // A node found by label AFTER the tap usually belongs to the screen the tap opened (its
+                // title bar, say), so it only vouches for the label, never for id, description or bounds.
+                var viewId: String? = if (nodeIsFallback) null else node?.viewIdResourceName ?: event.source?.viewIdResourceName
+                var desc: String? = event.contentDescription?.toString() ?: (if (nodeIsFallback) null else node?.contentDescription?.toString())
+                // First label only: joining every child's text yields a string no single node matches on replay.
+                var text: String? = event.text.firstOrNull { !it.isNullOrBlank() }?.toString() ?: node?.text?.toString()
 
-                val sKeywords = listOf("send", "submit", "post", "reply", "compose_send", "send_button", "send_message", "btn_send", "action_send")
-                val isSendEvent = sKeywords.any { k ->
-                    (desc?.contains(k, ignoreCase = true) == true) ||
-                    (viewId?.contains(k, ignoreCase = true) == true) ||
-                    (text?.contains(k, ignoreCase = true) == true)
-                }
+                val isSendEvent = looksLikeSend(viewId, desc, text)
 
                 // If node is not found and it's a send action or tap right after typing, search other windows for send button
                 if (node == null && (isSendEvent || wasAfterType)) {
@@ -526,7 +571,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                     } catch (_: Exception) {}
                 }
 
-                if (node != null) {
+                if (node != null && !nodeIsFallback) {
                     node.getBoundsInScreen(rect)
                     // If node is a huge container (width > 40% screen and height > 20% screen),
                     // drill down to find the specific clickable leaf child so center doesn't hit keyboard center
@@ -545,24 +590,27 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 }
 
                 // Prevent defaulting to center screen ('v' key zone):
-                val finalCenterX = if (rect.width() > 0) {
+                // -1 = position unknown (no trustworthy node). Replay then relies on the element only
+                // rather than tapping a made-up spot such as the nav bar.
+                val positionKnown = rect.width() > 0 && rect.height() > 0
+                val finalCenterX = if (positionKnown) {
                     rect.centerX().coerceAtLeast(0)
                 } else if (isSendEvent) {
                     (dm.widthPixels * 0.92f).roundToInt()
                 } else {
-                    dm.widthPixels / 2
+                    -1
                 }
 
-                val finalCenterY = if (rect.height() > 0) {
+                val finalCenterY = if (positionKnown) {
                     rect.centerY().coerceAtLeast(0)
                 } else if (isSendEvent) {
                     if (isKeyboardActive) (dm.heightPixels * 0.58f).roundToInt() else (dm.heightPixels * 0.94f).roundToInt()
                 } else {
-                    dm.heightPixels - 100
+                    -1
                 }
 
-                val xRatio = if (dm.widthPixels > 0) (finalCenterX.toFloat() / dm.widthPixels).coerceIn(0.01f, 0.99f) else 0.5f
-                val yRatio = if (dm.heightPixels > 0) (finalCenterY.toFloat() / dm.heightPixels).coerceIn(0.01f, 0.99f) else 0.85f
+                val xRatio = if (finalCenterX >= 0 && dm.widthPixels > 0) (finalCenterX.toFloat() / dm.widthPixels).coerceIn(0.01f, 0.99f) else -1f
+                val yRatio = if (finalCenterY >= 0 && dm.heightPixels > 0) (finalCenterY.toFloat() / dm.heightPixels).coerceIn(0.01f, 0.99f) else -1f
 
                 addWaitStep(deltaSec)
                 val step = mutableMapOf<String, Any?>(
@@ -587,7 +635,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 lastRecordedY = finalCenterY
                 lastTextEditNodeId = null
                 lastTextEditStepIndex = -1
-                overlay.showTapIndicator(finalCenterX.toFloat(), finalCenterY.toFloat())
+                if (finalCenterX >= 0 && finalCenterY >= 0) overlay.showTapIndicator(finalCenterX.toFloat(), finalCenterY.toFloat())
                 updateOverlay()
                 checkKeyboardState()
             }
@@ -605,9 +653,12 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                     "type" to "long_click",
                     "x" to rect.centerX(),
                     "y" to rect.centerY(),
+                    "xRatio" to rect.centerX().toFloat() / dm.widthPixels,
+                    "yRatio" to rect.centerY().toFloat() / dm.heightPixels,
                     "duration" to 600,
                     "viewId" to node.viewIdResourceName,
                     "desc" to node.contentDescription?.toString(),
+                    "text" to (event.text.firstOrNull { !it.isNullOrBlank() }?.toString() ?: node.text?.toString()),
                     "package" to pkg
                 )
                 recordedSteps.add(step)
@@ -726,10 +777,11 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         modeOverride: String? = null
     ): Boolean {
         if (isReplaying) return false
+        // Validate before flipping the flag: bailing out afterwards left isReplaying stuck true
+        // and silently blocked every later replay.
+        val steps = (macroData["steps"] as? List<*>)?.filterIsInstance<Map<String, Any?>>() ?: return false
         isReplaying = true
         shouldAbortReplay = false
-
-        val steps = (macroData["steps"] as? List<*>)?.filterIsInstance<Map<String, Any?>>() ?: return false
         val macroName = macroData["name"] as? String ?: "Macro"
         val effectiveMode = when ((modeOverride ?: macroData["mode"] as? String ?: "hybrid").lowercase()) {
             "touch_sensor", "touch" -> "touch_sensor"
@@ -819,6 +871,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 val dm = service.resources.displayMetrics
                 val xRatio = (step["xRatio"] as? Number)?.toFloat()
                 val yRatio = (step["yRatio"] as? Number)?.toFloat()
+                val positionUnknown = (step["x"] as? Number)?.toInt() == -1 && (step["y"] as? Number)?.toInt() == -1
                 var targetX = if (xRatio != null && xRatio in 0.0f..1.0f) {
                     xRatio * dm.widthPixels
                 } else {
@@ -836,12 +889,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 val isSendExplicit = (step["isSend"] as? Boolean) == true
                 val isAfterTypeExplicit = (step["isAfterType"] as? Boolean) == true || wasAfterType
 
-                val sKeywords = listOf("send", "submit", "post", "reply", "compose_send", "send_button", "send_message", "btn_send", "action_send")
-                val isSendAction = isSendExplicit || sKeywords.any { k ->
-                    (desc?.contains(k, ignoreCase = true) == true) ||
-                    (viewId?.contains(k, ignoreCase = true) == true) ||
-                    (text?.contains(k, ignoreCase = true) == true)
-                }
+                val isSendAction = isSendExplicit || looksLikeSend(viewId, desc, text)
 
                 // If this action occurs after typing, or is a send/submit action, wait for target app UI to update
                 if (isAfterTypeExplicit || isSendAction) {
@@ -889,7 +937,10 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
                 }
 
                 // 2. TOUCH_SENSOR or HYBRID fallback: Real physical touch coordinate injection
-                if (!handled) {
+                if (!handled && positionUnknown) {
+                    Log.w(TAG, "Replay: click on '${text ?: desc ?: viewId}' not found on screen and has no recorded position; skipped")
+                }
+                if (!handled && !positionUnknown) {
                     mainHandler.post {
                         overlay.showReplayTapIndicator(targetX, targetY)
                     }
@@ -912,11 +963,34 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
 
             "long_click" -> {
                 val dm = service.resources.displayMetrics
-                val x = (step["x"] as? Number)?.toFloat() ?: (dm.widthPixels / 2f)
-                val y = (step["y"] as? Number)?.toFloat() ?: (dm.heightPixels / 2f)
+                val lxr = (step["xRatio"] as? Number)?.toFloat()
+                val lyr = (step["yRatio"] as? Number)?.toFloat()
+                val x = if (lxr != null && lxr in 0.0f..1.0f) lxr * dm.widthPixels
+                        else (step["x"] as? Number)?.toFloat() ?: (dm.widthPixels / 2f)
+                val y = if (lyr != null && lyr in 0.0f..1.0f) lyr * dm.heightPixels
+                        else (step["y"] as? Number)?.toFloat() ?: (dm.heightPixels / 2f)
                 val duration = (step["duration"] as? Number)?.toLong() ?: 600L
 
-                dispatchTapGesture(x, y, duration)
+                // Hybrid/elements: press where the element is NOW (layouts shift between runs).
+                var px = x
+                var py = y
+                if (mode != "touch_sensor") {
+                    val live = findVisibleNode(
+                        step["viewId"] as? String,
+                        step["text"] as? String,
+                        step["desc"] as? String,
+                    )
+                    if (live != null) {
+                        val r = Rect()
+                        live.getBoundsInScreen(r)
+                        if (r.width() > 0 && r.height() > 0) {
+                            px = r.centerX().toFloat()
+                            py = r.centerY().toFloat()
+                        }
+                    }
+                }
+                mainHandler.post { overlay.showReplayTapIndicator(px, py) }
+                dispatchTapGesture(px, py, duration)
                 SystemClock.sleep((300 / speed).toLong().coerceAtLeast(100L))
             }
 
@@ -1233,9 +1307,35 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         return false
     }
 
+    /** First on-screen node matching the recorded viewId, then exact text, then description. */
+    private fun findVisibleNode(viewId: String?, text: String?, desc: String?): AccessibilityNodeInfo? {
+        for (root in getAllRoots()) {
+            if (!viewId.isNullOrEmpty()) {
+                root.findAccessibilityNodeInfosByViewId(viewId).firstOrNull { it.isVisibleToUser }?.let { return it }
+            }
+            if (!text.isNullOrEmpty()) {
+                root.findAccessibilityNodeInfosByText(text)
+                    .filter { it.isVisibleToUser }
+                    .minByOrNull { if (it.text?.toString()?.trim().equals(text.trim(), ignoreCase = true)) 0 else 1 }
+                    ?.let { return it }
+            }
+            if (!desc.isNullOrEmpty()) {
+                var found: AccessibilityNodeInfo? = null
+                fun walk(n: AccessibilityNodeInfo) {
+                    if (found != null) return
+                    if (n.isVisibleToUser && n.contentDescription?.toString() == desc) { found = n; return }
+                    for (i in 0 until n.childCount) n.getChild(i)?.let { walk(it) }
+                }
+                walk(root)
+                found?.let { return it }
+            }
+        }
+        return null
+    }
+
     private fun clickNodeByViewId(viewId: String): Boolean {
         for (root in getAllRoots()) {
-            val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
+            val nodes = root.findAccessibilityNodeInfosByViewId(viewId).filter { it.isVisibleToUser }
             for (node in nodes) {
                 if (clickNodeRobustly(node)) return true
             }
@@ -1245,7 +1345,11 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
 
     private fun clickNodeByText(text: String): Boolean {
         for (root in getAllRoots()) {
+            // findAccessibilityNodeInfosByText is a substring match over every node, on-screen or
+            // not ("OK" also matches "Book"). Only consider what the user can see, exact matches first.
             val nodes = root.findAccessibilityNodeInfosByText(text)
+                .filter { it.isVisibleToUser }
+                .sortedBy { if (it.text?.toString()?.trim().equals(text.trim(), ignoreCase = true)) 0 else 1 }
             for (node in nodes) {
                 if (clickNodeRobustly(node)) return true
             }

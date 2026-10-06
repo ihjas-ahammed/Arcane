@@ -312,6 +312,7 @@ class LauncherTakeoverService : AccessibilityService() {
 
     override fun onUnbind(intent: Intent?): Boolean {
         if (activeInstance == this) activeInstance = null
+        InputReplyManager.release(this)
         taskBubble?.stop()
         taskBubble = null
         noraBubble?.stop()
@@ -329,6 +330,7 @@ class LauncherTakeoverService : AccessibilityService() {
 
     override fun onDestroy() {
         if (activeInstance == this) activeInstance = null
+        InputReplyManager.release(this)
         taskBubble?.stop()
         taskBubble = null
         noraBubble?.stop()

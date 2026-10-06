@@ -1,4 +1,4 @@
-# ⚡ Arcane System Upgrade // v2026.10.6 (Build #2126100602)
+# ⚡ Arcane System Upgrade // v2026.10.6 (Build #2126100603)
 
 ### 🔄 Data Sync Overhaul
 - Realtime and debounced Firebase syncing removed. Data now syncs once, when you generate the daily briefing, via a progress notification.
@@ -23,6 +23,15 @@
 
 ### 🫧 Floating Button
 - The task bubble no longer disappears on a half-written task-state update, and the paused auto-hide is now 3 hours instead of 20 minutes.
+
+### 🤖 Input-Reply Fixes (tested on an Android 14 emulator)
+- **Stopped working after the accessibility service restarted.** The engine kept a reference to the dead service, so overlays had no window token and every tap was rejected until the whole app was killed. It now rebinds on reconnect and releases cleanly on disconnect.
+- **A macro with no steps locked replay forever.** The "replaying" flag is now set only after the macro validates.
+- **Recorded clicks matched nothing on replay.** A row's text was recorded as every child label glued together; it now records the element's own label and replay prefers visible, exact matches.
+- **Wrong fallback targets.** When a tap navigated away before it could be recorded, the engine grabbed the next screen's title bar. It now keeps only the label, and replay skips a click it cannot locate instead of tapping the navigation bar.
+- **"Postal code", "Compost" and similar were treated as Send buttons**, hijacking replay clicks. Send detection is now whole-word.
+- Long-press steps now scale across screen sizes and find their element live.
+- Verified end to end: opening Settings pages, typing into search, runtime parameters, scrolling, and switching Clock tabs.
 
 ### 🧠 Smarter Briefings
 - Built-in and external-AI briefings now receive tracked work sessions, completed steps, health (sleep, meals, water, activity, energy), spending by category and grouped communications.
