@@ -170,6 +170,12 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
     private var isKeyboardActive = false
     private var activeImePackageVisible = false
 
+    // Exact-touch capture (see TouchCaptureOverlay)
+    private var captureOverlay: TouchCaptureOverlay? = null
+    private var captureActive = false
+    private var lastTouchStepIndex = -1
+    private var lastTouchStepTime = 0L
+
     private val keyboardCheckRunnable = object : Runnable {
         override fun run() {
             if (!isRecording) return
@@ -185,6 +191,114 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             } else if (isReplaying) {
                 stopReplay()
             }
+        }
+    }
+
+    /** True pixel size of the screen: the space gestures are dispatched in (displayMetrics can be shorter). */
+    private fun realScreen(): Pair<Int, Int> {
+        val wm = service.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val b = wm.maximumWindowMetrics.bounds
+            b.width() to b.height()
+        } else {
+            val dm = android.util.DisplayMetrics()
+            @Suppress("DEPRECATION")
+            wm.defaultDisplay.getRealMetrics(dm)
+            dm.widthPixels to dm.heightPixels
+        }
+    }
+
+    /** Top edge of the soft keyboard in screen pixels, or -1. */
+    private fun imeTop(): Int {
+        try {
+            service.windows?.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }?.let {
+                val r = Rect()
+                it.getBoundsInScreen(r)
+                if (r.height() > 0) return r.top
+            }
+        } catch (_: Exception) {}
+        return -1
+    }
+
+    private fun startCapture() {
+        captureOverlay?.hide()
+        val overlayLayer = TouchCaptureOverlay(service) { g -> recordCapturedGesture(g) }
+        captureActive = overlayLayer.show()
+        captureOverlay = if (captureActive) overlayLayer else null
+    }
+
+    private fun stopCapture() {
+        captureOverlay?.hide()
+        captureOverlay = null
+        captureActive = false
+        lastTouchStepIndex = -1
+    }
+
+    private fun recordCapturedGesture(g: TouchCaptureOverlay.CapturedGesture) {
+        if (!isRecording) return
+        val now = SystemClock.elapsedRealtime()
+        val deltaSec = ((now - lastActionTime) / 1000f).coerceIn(0.2f, 4.0f)
+        val (w, h) = realScreen()
+        fun xr(v: Float) = (v / w).coerceIn(0f, 1f)
+        fun yr(v: Float) = (v / h).coerceIn(0f, 1f)
+        addWaitStep(deltaSec)
+        val step: Map<String, Any?> = when (g.kind) {
+            TouchCaptureOverlay.Kind.TAP -> mapOf(
+                "type" to "click", "space" to "screen",
+                "x" to g.x1.roundToInt(), "y" to g.y1.roundToInt(),
+                "xRatio" to xr(g.x1), "yRatio" to yr(g.y1),
+                "count" to 1, "kb" to isKeyboardActive,
+                "viewId" to null, "desc" to null, "text" to null,
+                "package" to activePackageName,
+                "isSend" to false, "isAfterType" to lastActionWasType,
+            )
+            TouchCaptureOverlay.Kind.LONG_PRESS -> mapOf(
+                "type" to "long_click", "space" to "screen",
+                "x" to g.x1.roundToInt(), "y" to g.y1.roundToInt(),
+                "xRatio" to xr(g.x1), "yRatio" to yr(g.y1),
+                "duration" to g.durationMs, "kb" to isKeyboardActive,
+                "package" to activePackageName,
+            )
+            TouchCaptureOverlay.Kind.SWIPE -> mapOf(
+                "type" to "swipe", "space" to "screen",
+                "x1" to g.x1.roundToInt(), "y1" to g.y1.roundToInt(),
+                "x2" to g.x2.roundToInt(), "y2" to g.y2.roundToInt(),
+                "x1Ratio" to xr(g.x1), "y1Ratio" to yr(g.y1),
+                "x2Ratio" to xr(g.x2), "y2Ratio" to yr(g.y2),
+                "path" to g.path.map { listOf(xr(it.x), yr(it.y)) },
+                "duration" to g.durationMs, "kb" to isKeyboardActive,
+                "package" to activePackageName,
+            )
+        }
+        recordedSteps.add(step)
+        lastTouchStepIndex = if (g.kind == TouchCaptureOverlay.Kind.TAP) recordedSteps.size - 1 else -1
+        lastTouchStepTime = now
+        lastActionTime = now
+        lastRecordedTapTime = now
+        if (g.kind == TouchCaptureOverlay.Kind.SWIPE) lastRecordedSwipeTime = now
+        lastTextEditNodeId = null
+        lastTextEditStepIndex = -1
+        lastActionWasType = false
+        updateOverlay()
+        Log.i(TAG, "Captured ${g.kind} at (${g.x1.roundToInt()}, ${g.y1.roundToInt()}) kb=$isKeyboardActive")
+    }
+
+    /** The app's own click event arrives just after the captured tap: use it to label that step. */
+    private fun enrichLastTouchStep(event: AccessibilityEvent) {
+        val idx = lastTouchStepIndex
+        if (idx < 0 || idx >= recordedSteps.size) return
+        if (SystemClock.elapsedRealtime() - lastTouchStepTime > 1500L) return
+        val current = recordedSteps[idx]
+        if (current["type"] != "click" || current["text"] != null || current["viewId"] != null || current["desc"] != null) return
+        val node = event.source
+        val viewId = node?.viewIdResourceName
+        val desc = event.contentDescription?.toString() ?: node?.contentDescription?.toString()
+        val text = event.text.firstOrNull { !it.isNullOrBlank() }?.toString() ?: node?.text?.toString()
+        recordedSteps[idx] = current.toMutableMap().also {
+            it["viewId"] = viewId
+            it["desc"] = desc
+            it["text"] = text
+            it["isSend"] = looksLikeSend(viewId, desc, text)
         }
     }
 
@@ -225,6 +339,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
     fun checkKeyboardState() {
         if (!isRecording) return
         val showing = isKeyboardShowing()
+        captureOverlay?.setKeyboardTop(if (showing) imeTop() else -1)
         if (showing != isKeyboardActive) {
             isKeyboardActive = showing
             mainHandler.post {
@@ -300,8 +415,9 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         isRecording = false
         isReplaying = false
         mainHandler.removeCallbacks(keyboardCheckRunnable)
-        mainHandler.post { overlay.hide() }
+        mainHandler.post { stopCapture(); overlay.hide() }
     }
+
 
     fun isRecordingActive(): Boolean = isRecording
     fun isReplayingActive(): Boolean = isReplaying
@@ -309,10 +425,10 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
     fun startRecording(name: String, targetPackage: String? = null, mode: String = "hybrid"): Boolean {
         if (isRecording) return true
         isRecording = true
+        // Real touches are the default; "hybrid" (legacy) now means the same.
         activeRecordingMode = when (mode.lowercase()) {
-            "touch_sensor", "touch" -> "touch_sensor"
             "elements", "element" -> "elements"
-            else -> "hybrid"
+            else -> "touch_sensor"
         }
         activeRecordingName = if (name.isNotBlank()) name.trim() else "macro_${System.currentTimeMillis()}"
         recordingStartTime = SystemClock.elapsedRealtime()
@@ -338,6 +454,8 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         isKeyboardActive = false
         activeImePackageVisible = false
         mainHandler.post {
+            // Capture layer first so the recording HUD (added next) stays on top of it.
+            if (activeRecordingMode != "elements") startCapture()
             overlay.showRecording(activeRecordingName, activeRecordingMode)
             service.updateEventFilter()
             mainHandler.postDelayed(keyboardCheckRunnable, 350L)
@@ -366,18 +484,20 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         lastActionWasType = false
 
         mainHandler.post {
+            stopCapture()
             overlay.hide()
             service.updateEventFilter()
         }
 
         // Build macro JSON
+        val (screenW, screenH) = realScreen()
         val dm = service.resources.displayMetrics
         val macro = mutableMapOf<String, Any?>(
             "format" to FORMAT_AGENT,
             "name" to activeRecordingName,
             "mode" to activeRecordingMode,
             "created_at" to SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(Date()),
-            "screen" to listOf(dm.widthPixels, dm.heightPixels),
+            "screen" to listOf(screenW, screenH),
             "target_package" to activePackageName,
             "parameters" to recordedParameters.toList(),
             "steps" to recordedSteps.toList()
@@ -399,6 +519,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         recordedSteps.clear()
         recordedParameters.clear()
         mainHandler.post {
+            stopCapture()
             overlay.hide()
             service.updateEventFilter()
         }
@@ -471,6 +592,11 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
 
             AccessibilityEvent.TYPE_VIEW_CLICKED -> {
+                if (captureActive && !isImePackage(pkg)) {
+                    // The exact touch is already recorded; the click event only supplies a label.
+                    enrichLastTouchStep(event)
+                    return
+                }
                 // Filter out immediate double-fire from Android view hierarchy (e.g. child & parent within 60ms)
                 val rawNode = event.source
                 val rawViewId = rawNode?.viewIdResourceName
@@ -641,7 +767,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
 
             AccessibilityEvent.TYPE_VIEW_LONG_CLICKED -> {
-                if (isImePackage(pkg)) return
+                if (isImePackage(pkg) || captureActive) return
 
                 val node = event.source ?: return
                 val rect = Rect()
@@ -712,6 +838,7 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
 
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
+                if (captureActive) return // the real swipe path is recorded from the touch itself
                 // Ignore scroll events generated by or immediately following direct touch taps or swipes
                 if (now - lastRecordedSwipeTime < 800L || now - lastRecordedTapTime < 500L) {
                     return
@@ -783,10 +910,11 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         isReplaying = true
         shouldAbortReplay = false
         val macroName = macroData["name"] as? String ?: "Macro"
-        val effectiveMode = when ((modeOverride ?: macroData["mode"] as? String ?: "hybrid").lowercase()) {
-            "touch_sensor", "touch" -> "touch_sensor"
+        // Replay presses real coordinates. "hybrid" (legacy macros) no longer lets element lookups
+        // override where the finger went; only an explicit "elements" macro works that way.
+        val effectiveMode = when ((modeOverride ?: macroData["mode"] as? String ?: "touch_sensor").lowercase()) {
             "elements", "element" -> "elements"
-            else -> "hybrid"
+            else -> "touch_sensor"
         }
         val params = runtimeParams ?: emptyMap()
 
@@ -868,130 +996,117 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
             }
 
             "click" -> {
+                val (realW, realH) = realScreen()
                 val dm = service.resources.displayMetrics
                 val xRatio = (step["xRatio"] as? Number)?.toFloat()
                 val yRatio = (step["yRatio"] as? Number)?.toFloat()
                 val positionUnknown = (step["x"] as? Number)?.toInt() == -1 && (step["y"] as? Number)?.toInt() == -1
-                var targetX = if (xRatio != null && xRatio in 0.0f..1.0f) {
-                    xRatio * dm.widthPixels
+                val screenSpace = step["space"] == "screen"
+                val targetX: Float
+                val targetY: Float
+                if (screenSpace && xRatio != null && yRatio != null && xRatio in 0f..1f && yRatio in 0f..1f) {
+                    // Recorded from the real finger position: scale within the true screen.
+                    targetX = xRatio * realW
+                    targetY = yRatio * realH
                 } else {
-                    (step["x"] as? Number)?.toFloat() ?: (dm.widthPixels / 2f)
-                }
-                var targetY = if (yRatio != null && yRatio in 0.0f..1.0f) {
-                    yRatio * dm.heightPixels
-                } else {
-                    (step["y"] as? Number)?.toFloat() ?: (dm.heightPixels / 2f)
+                    // Older recordings stored element centres relative to the app-area metrics.
+                    targetX = if (xRatio != null && xRatio in 0.0f..1.0f) xRatio * dm.widthPixels
+                              else (step["x"] as? Number)?.toFloat() ?: (dm.widthPixels / 2f)
+                    targetY = if (yRatio != null && yRatio in 0.0f..1.0f) yRatio * dm.heightPixels
+                              else (step["y"] as? Number)?.toFloat() ?: (dm.heightPixels / 2f)
                 }
 
                 val viewId = step["viewId"] as? String
                 val text = step["text"] as? String
                 val desc = step["desc"] as? String
-                val isSendExplicit = (step["isSend"] as? Boolean) == true
-                val isAfterTypeExplicit = (step["isAfterType"] as? Boolean) == true || wasAfterType
+                val isAfterType = (step["isAfterType"] as? Boolean) == true || wasAfterType
 
-                val isSendAction = isSendExplicit || looksLikeSend(viewId, desc, text)
+                // Let the app finish reacting to typed text before the next press.
+                if (isAfterType) SystemClock.sleep((240 / speed.coerceAtLeast(0.5)).toLong().coerceIn(120L, 400L))
+                // The layout under the finger depends on whether the keyboard is up.
+                ensureKeyboardState(step["kb"] as? Boolean)
 
-                // If this action occurs after typing, or is a send/submit action, wait for target app UI to update
-                if (isAfterTypeExplicit || isSendAction) {
-                    SystemClock.sleep((240 / speed.coerceAtLeast(0.5)).toLong().coerceIn(120L, 400L))
-                }
-
-                // If keyboard was closed during replay, adjust coordinates away from keyboard center ('v' key zone) to send area
-                if (isSendAction || isAfterTypeExplicit) {
-                    val keyboardOpenNow = isKeyboardShowing()
-                    if (!keyboardOpenNow) {
-                        val isCenterHorizontal = targetX > (dm.widthPixels * 0.30f) && targetX < (dm.widthPixels * 0.70f)
-                        val isKeyboardHeight = targetY > (dm.heightPixels * 0.50f) && targetY < (dm.heightPixels * 0.75f)
-                        if (isSendAction && (isCenterHorizontal || isKeyboardHeight)) {
-                            Log.w(TAG, "Replay: correcting send action coordinates away from keyboard center to send area")
-                            targetX = dm.widthPixels * 0.92f
-                            targetY = dm.heightPixels * 0.94f
-                        }
-                    }
+                fun byElement(): Boolean {
+                    if (!viewId.isNullOrEmpty() && clickNodeByViewId(viewId)) return true
+                    if (!text.isNullOrEmpty() && clickNodeByText(text)) return true
+                    if (!desc.isNullOrEmpty() && clickNodeByDesc(desc)) return true
+                    return false
                 }
 
                 var handled = false
+                // "elements" macros look the control up first; everything else presses the recorded point.
+                if (mode == "elements") handled = byElement()
 
-                // 1. ELEMENTS or HYBRID MODE: Search live UI elements first to avoid layout/keyboard shift issues
-                if (mode == "elements" || mode == "hybrid") {
-                    if (isSendAction) {
-                        handled = clickSmartSendButton()
-                        if (handled) Log.i(TAG, "Replayed send action via clickSmartSendButton ($mode)")
-                    }
-                    if (!handled && !viewId.isNullOrEmpty()) {
-                        handled = clickNodeByViewId(viewId)
-                        if (handled) Log.i(TAG, "Replayed click via viewId '$viewId' ($mode)")
-                    }
-                    if (!handled && !text.isNullOrEmpty()) {
-                        handled = clickNodeByText(text)
-                        if (handled) Log.i(TAG, "Replayed click via text '$text' ($mode)")
-                    }
-                    if (!handled && !desc.isNullOrEmpty()) {
-                        handled = clickNodeByDesc(desc)
-                        if (handled) Log.i(TAG, "Replayed click via desc '$desc' ($mode)")
-                    }
-                    if (!handled && isAfterTypeExplicit) {
-                        handled = clickSmartSendButton()
-                        if (handled) Log.i(TAG, "Replayed after-type click via clickSmartSendButton fallback")
-                    }
-                }
-
-                // 2. TOUCH_SENSOR or HYBRID fallback: Real physical touch coordinate injection
-                if (!handled && positionUnknown) {
-                    Log.w(TAG, "Replay: click on '${text ?: desc ?: viewId}' not found on screen and has no recorded position; skipped")
-                }
-                if (!handled && !positionUnknown) {
-                    mainHandler.post {
-                        overlay.showReplayTapIndicator(targetX, targetY)
-                    }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                if (!handled && !positionUnknown && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    mainHandler.post { overlay.showReplayTapIndicator(targetX, targetY) }
+                    handled = dispatchTapGestureSync(targetX, targetY, 45L)
+                    if (!handled) {
+                        SystemClock.sleep(150)
                         handled = dispatchTapGestureSync(targetX, targetY, 45L)
-                        Log.i(TAG, "Replayed step 'click' via touch tap at ($targetX, $targetY) - result=$handled ($mode)")
                     }
+                    Log.i(TAG, "Replayed click by touch at (${targetX.roundToInt()}, ${targetY.roundToInt()}) result=$handled")
                 }
 
-                // 3. TOUCH_SENSOR fallback: If touch tap failed, try nodes as secondary fallback
-                if (!handled && mode == "touch_sensor") {
-                    if (isSendAction) handled = clickSmartSendButton()
-                    if (!handled && !viewId.isNullOrEmpty()) handled = clickNodeByViewId(viewId)
-                    if (!handled && !text.isNullOrEmpty()) handled = clickNodeByText(text)
-                    if (!handled && !desc.isNullOrEmpty()) handled = clickNodeByDesc(desc)
+                // Only if the touch itself could not be delivered (or there is no position) try the element.
+                if (!handled) {
+                    handled = byElement()
+                    if (!handled) Log.w(TAG, "Replay: click not delivered (touch failed, element '${text ?: desc ?: viewId}' not found)")
                 }
 
                 SystemClock.sleep((100 / speed).toLong().coerceAtLeast(30L))
             }
 
             "long_click" -> {
+                val (realW, realH) = realScreen()
                 val dm = service.resources.displayMetrics
                 val lxr = (step["xRatio"] as? Number)?.toFloat()
                 val lyr = (step["yRatio"] as? Number)?.toFloat()
-                val x = if (lxr != null && lxr in 0.0f..1.0f) lxr * dm.widthPixels
+                val screenSpace = step["space"] == "screen"
+                val x = if (lxr != null && lxr in 0.0f..1.0f) lxr * (if (screenSpace) realW else dm.widthPixels)
                         else (step["x"] as? Number)?.toFloat() ?: (dm.widthPixels / 2f)
-                val y = if (lyr != null && lyr in 0.0f..1.0f) lyr * dm.heightPixels
+                val y = if (lyr != null && lyr in 0.0f..1.0f) lyr * (if (screenSpace) realH else dm.heightPixels)
                         else (step["y"] as? Number)?.toFloat() ?: (dm.heightPixels / 2f)
-                val duration = (step["duration"] as? Number)?.toLong() ?: 600L
+                val duration = (step["duration"] as? Number)?.toLong()?.coerceAtLeast(500L) ?: 600L
 
-                // Hybrid/elements: press where the element is NOW (layouts shift between runs).
+                ensureKeyboardState(step["kb"] as? Boolean)
                 var px = x
                 var py = y
-                if (mode != "touch_sensor") {
-                    val live = findVisibleNode(
-                        step["viewId"] as? String,
-                        step["text"] as? String,
-                        step["desc"] as? String,
-                    )
+                // Only "elements" macros re-aim at the live element; touch macros press where they pressed.
+                if (mode == "elements") {
+                    val live = findVisibleNode(step["viewId"] as? String, step["text"] as? String, step["desc"] as? String)
                     if (live != null) {
                         val r = Rect()
                         live.getBoundsInScreen(r)
-                        if (r.width() > 0 && r.height() > 0) {
-                            px = r.centerX().toFloat()
-                            py = r.centerY().toFloat()
-                        }
+                        if (r.width() > 0 && r.height() > 0) { px = r.centerX().toFloat(); py = r.centerY().toFloat() }
                     }
                 }
                 mainHandler.post { overlay.showReplayTapIndicator(px, py) }
                 dispatchTapGesture(px, py, duration)
                 SystemClock.sleep((300 / speed).toLong().coerceAtLeast(100L))
+            }
+
+            "swipe" -> {
+                // A real recorded drag: same path, same speed, in true screen space.
+                val (realW, realH) = realScreen()
+                val raw = (step["path"] as? List<*>)?.mapNotNull { p ->
+                    val l = p as? List<*> ?: return@mapNotNull null
+                    val px = (l.getOrNull(0) as? Number)?.toFloat() ?: return@mapNotNull null
+                    val py = (l.getOrNull(1) as? Number)?.toFloat() ?: return@mapNotNull null
+                    (px * realW) to (py * realH)
+                } ?: emptyList()
+                val points = if (raw.size >= 2) raw else listOf(
+                    ((step["x1Ratio"] as? Number)?.toFloat() ?: 0.5f) * realW to ((step["y1Ratio"] as? Number)?.toFloat() ?: 0.7f) * realH,
+                    ((step["x2Ratio"] as? Number)?.toFloat() ?: 0.5f) * realW to ((step["y2Ratio"] as? Number)?.toFloat() ?: 0.3f) * realH,
+                )
+                ensureKeyboardState(step["kb"] as? Boolean)
+                val path = Path()
+                path.moveTo(points.first().first, points.first().second)
+                for (i in 1 until points.size) path.lineTo(points[i].first, points[i].second)
+                val recorded = (step["duration"] as? Number)?.toLong() ?: 300L
+                val duration = (recorded / speed.coerceAtLeast(0.1)).toLong().coerceIn(60L, 4000L)
+                mainHandler.post { overlay.showReplayTapIndicator(points.first().first, points.first().second) }
+                dispatchSwipeGesture(path, duration)
+                SystemClock.sleep((350 / speed).toLong().coerceAtLeast(120L))
             }
 
             "type" -> {
@@ -1154,6 +1269,26 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         return smallest
     }
 
+    /**
+     * Presses land on different things with the keyboard open vs closed. Match the state the step
+     * was recorded in: close it if it should be closed, or give it a moment to open if it should be up.
+     */
+    private fun ensureKeyboardState(wantOpen: Boolean?) {
+        if (wantOpen == null) return
+        if (!wantOpen) {
+            if (isKeyboardShowing()) {
+                service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+                val until = SystemClock.elapsedRealtime() + 1000L
+                while (isKeyboardShowing() && SystemClock.elapsedRealtime() < until) SystemClock.sleep(80)
+                SystemClock.sleep(150) // let the layout settle after the keyboard animates away
+            }
+        } else {
+            val until = SystemClock.elapsedRealtime() + 1600L
+            while (!isKeyboardShowing() && SystemClock.elapsedRealtime() < until) SystemClock.sleep(100)
+            if (isKeyboardShowing()) SystemClock.sleep(200)
+        }
+    }
+
     private fun dispatchTapGesture(x: Float, y: Float, durationMs: Long): Boolean {
         return dispatchTapGestureSync(x, y, durationMs)
     }
@@ -1162,7 +1297,6 @@ class InputReplyManager private constructor(private val service: LauncherTakeove
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return false
         val path = Path().apply {
             moveTo(x, y)
-            lineTo(x, y)
         }
         val stroke = GestureDescription.StrokeDescription(path, 0, durationMs)
         val gesture = GestureDescription.Builder().addStroke(stroke).build()

@@ -221,7 +221,7 @@ void main() {
       expect(roundTrip.parameters.first.defaultValue, 'arcane launcher');
       expect(roundTrip.steps.length, 3);
       expect(roundTrip.steps[1].param, 'q');
-      expect(roundTrip.mode, 'hybrid');
+      expect(roundTrip.mode, 'touch_sensor');
     });
 
     test('InputReplyMacro handles engine mode configuration and copyWith', () {

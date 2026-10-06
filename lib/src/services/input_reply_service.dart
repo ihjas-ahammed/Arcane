@@ -180,7 +180,7 @@ class InputReplyMacro {
     required this.createdAt,
     this.screen = const [1080, 2400],
     this.targetPackage = '',
-    this.mode = 'hybrid',
+    this.mode = 'touch_sensor',
     this.parameters = const [],
     this.steps = const [],
   });
@@ -207,7 +207,7 @@ class InputReplyMacro {
       createdAt: json['created_at'] as String? ?? DateTime.now().toIso8601String(),
       screen: screen.length >= 2 ? screen : const [1080, 2400],
       targetPackage: json['target_package'] as String? ?? '',
-      mode: json['mode'] as String? ?? 'hybrid',
+      mode: (json['mode'] as String?) == 'elements' ? 'elements' : 'touch_sensor',
       parameters: params,
       steps: steps,
     );
@@ -461,7 +461,7 @@ class InputReplyService {
   Future<bool> startRecording({
     required String name,
     String? targetPackage,
-    String mode = 'hybrid',
+    String mode = 'touch_sensor',
   }) async {
     if (!Platform.isAndroid) return false;
     try {

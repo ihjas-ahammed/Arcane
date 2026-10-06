@@ -89,7 +89,7 @@ class _InputReplyScreenState extends State<InputReplyScreen> with WidgetsBinding
           ? rawName
           : 'Macro_${DateTime.now().millisecondsSinceEpoch % 100000}';
       final target = result['targetPackage'];
-      final mode = result['mode'] ?? 'hybrid';
+      final mode = result['mode'] ?? 'touch_sensor';
       final ok = await _service.startRecording(
         name: name,
         targetPackage: target?.isNotEmpty == true ? target : null,
@@ -99,7 +99,7 @@ class _InputReplyScreenState extends State<InputReplyScreen> with WidgetsBinding
         setState(() => _isRecording = true);
         if (mounted) {
           final targetInfo = target?.isNotEmpty == true ? ' Target: $target' : '';
-          final modeLabel = mode == 'touch_sensor' ? 'TOUCH SENSOR' : (mode == 'elements' ? 'UI ELEMENTS' : 'SMART HYBRID');
+          final modeLabel = mode == 'touch_sensor' ? 'TOUCH SENSOR' : (mode == 'elements' ? 'UI ELEMENTS' : 'TOUCH SENSOR');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: JweTheme.panel,
@@ -259,44 +259,6 @@ class _InputReplyScreenState extends State<InputReplyScreen> with WidgetsBinding
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => setModalState(() => executionMode = 'hybrid'),
-                            borderRadius: BorderRadius.circular(4),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                              decoration: BoxDecoration(
-                                color: executionMode == 'hybrid'
-                                    ? JweTheme.accentCyan.withValues(alpha: 0.15)
-                                    : JweTheme.bgCanvas,
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: executionMode == 'hybrid' ? JweTheme.accentCyan : JweTheme.border,
-                                  width: executionMode == 'hybrid' ? 1.5 : 1.0,
-                                ),
-                              ),
-                              child: Column(
-                                children: [
-                                  Icon(MdiIcons.autoFix, size: 14, color: executionMode == 'hybrid' ? JweTheme.accentCyan : JweTheme.textMuted),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'HYBRID',
-                                    style: GoogleFonts.jetBrainsMono(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: executionMode == 'hybrid' ? JweTheme.accentCyan : JweTheme.textMid,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Smart Adaptive',
-                                    style: GoogleFonts.jetBrainsMono(fontSize: 8, color: JweTheme.textMuted),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
                         Expanded(
                           child: InkWell(
                             onTap: () => setModalState(() => executionMode = 'touch_sensor'),
@@ -1672,7 +1634,7 @@ class _InputReplyScreenState extends State<InputReplyScreen> with WidgetsBinding
                     border: Border.all(color: _modeColor(macro.mode).withValues(alpha: 0.5), width: 0.8),
                   ),
                   child: Text(
-                    macro.mode == 'touch_sensor' ? 'TOUCH' : (macro.mode == 'elements' ? 'ELEM' : 'HYBRID'),
+                    macro.mode == 'elements' ? 'ELEM' : 'TOUCH',
                     style: GoogleFonts.jetBrainsMono(
                       color: _modeColor(macro.mode),
                       fontSize: 9,
@@ -1798,18 +1760,8 @@ class _InputReplyScreenState extends State<InputReplyScreen> with WidgetsBinding
                   ),
                   const SizedBox(height: 14),
                   _modeSelectionTile(
-                    title: 'Smart Hybrid (Recommended)',
-                    desc: 'Searches live UI elements first to compensate for keyboard/layout shifts, falling back to calibrated touch taps.',
-                    modeKey: 'hybrid',
-                    current: currentMode,
-                    icon: MdiIcons.autoFix,
-                    color: JweTheme.accentCyan,
-                    onTap: () => setSheetState(() => currentMode = 'hybrid'),
-                  ),
-                  const SizedBox(height: 8),
-                  _modeSelectionTile(
-                    title: 'Touch Sensor (Direct Coordinates)',
-                    desc: 'Direct physical screen coordinate taps. Ideal for canvas games and custom un-instrumented UIs.',
+                    title: 'Touch (Recommended)',
+                    desc: 'Replays your exact taps, swipes and long-presses at the coordinates you pressed. Typing is replayed as text so the keyboard never gets in the way.',
                     modeKey: 'touch_sensor',
                     current: currentMode,
                     icon: MdiIcons.gestureTap,
@@ -1948,7 +1900,7 @@ class _RecordingModeSheetState extends State<_RecordingModeSheet> {
   LauncherApp? _selectedApp;
   LauncherApp? _wholeDeviceSelectedApp;
   String _searchQuery = '';
-  String _selectedMode = 'hybrid';
+  String _selectedMode = 'touch_sensor';
 
   @override
   void initState() {
@@ -2260,7 +2212,7 @@ class _RecordingModeSheetState extends State<_RecordingModeSheet> {
           ),
           const SizedBox(height: 12),
 
-          // Engine Mode Selector (Hybrid, Touch, Elements)
+          // Engine Mode Selector (Touch, Elements)
           _buildEngineModeSelector(),
           const SizedBox(height: 12),
 
@@ -2846,14 +2798,6 @@ class _RecordingModeSheetState extends State<_RecordingModeSheet> {
         const SizedBox(height: 6),
         Row(
           children: [
-            _buildEngineModeOption(
-              modeKey: 'hybrid',
-              title: 'HYBRID',
-              subtitle: 'Smart Adaptive',
-              icon: MdiIcons.autoFix,
-              accentColor: JweTheme.accentCyan,
-            ),
-            const SizedBox(width: 6),
             _buildEngineModeOption(
               modeKey: 'touch_sensor',
               title: 'TOUCH',
