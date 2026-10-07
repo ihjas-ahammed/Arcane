@@ -997,7 +997,7 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
     final q = _taskSearchQuery;
 
     for (var main in tasks) {
-      final activeSubs = main.subTasks.where((s) => !s.isDeleted).toList();
+      final activeSubs = main.subTasks.where((s) => s.isPickable).toList();
       final bool mainMatch = q.isEmpty || main.name.toLowerCase().contains(q);
 
       final matchingSubs = activeSubs.where((sub) {

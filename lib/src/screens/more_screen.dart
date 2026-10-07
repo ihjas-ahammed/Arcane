@@ -22,6 +22,7 @@ import 'package:missions/src/widgets/settings/sections/launcher_settings_section
 import 'package:missions/src/widgets/views/settings_view.dart';
 import 'package:missions/src/screens/trading/realtime_trading_screen.dart';
 import 'package:missions/src/screens/tools/input_reply_screen.dart';
+import 'package:missions/src/screens/tools/devices_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -210,6 +211,13 @@ class MoreScreen extends StatelessWidget {
             subtitle: "Record & replay whole-device interactions, gestures & macros",
             color: () => JweTheme.accentCyan,
             builder: (_) => const InputReplyScreen(),
+          ),
+          _MenuEntry(
+            icon: MdiIcons.watchVariant,
+            title: "Devices",
+            subtitle: "Smartwatch & Bluetooth data, watch app selection and keep-alive",
+            color: () => JweTheme.accentTeal,
+            builder: (_) => const DevicesScreen(),
           ),
           _MenuEntry(
             icon: MdiIcons.busStopCovered,

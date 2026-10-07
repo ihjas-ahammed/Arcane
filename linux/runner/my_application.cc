@@ -69,6 +69,7 @@ static void my_application_activate(GApplication* application) {
   int y = workarea.y + 40;
 
   gtk_window_set_default_size(window, width, height);
+  gtk_widget_set_size_request(GTK_WIDGET(window), 360, 520);
   gtk_window_move(window, x, y);
 
   // Set window icon from bundle-relative path

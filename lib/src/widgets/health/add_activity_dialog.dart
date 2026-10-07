@@ -5,29 +5,34 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:uuid/uuid.dart';
 
 import 'package:missions/src/models/health_models.dart';
+import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/services/widget_action_router.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/task_calculations.dart';
 
-int taskWorkoutMinutesForDay(AppProvider provider, String taskId, String dateStr) {
-  final task = provider.mainTasks.firstWhereOrNull((t) => t.id == taskId);
-  if (task == null) return 0;
-  final target = DateTime.tryParse(dateStr);
-  if (target == null) return 0;
-  return TaskCalculations.getMainTaskSecondsForDay(task, target, provider.mainTasks) ~/ 60;
-}
+/// Protocol that holds daily routines; its tasks are not offered as workout time sources.
+const String _routineProtocolId = 'build_routine';
 
 void showActivityDialog(BuildContext context, AppProvider provider, String dateStr) {
   final distanceController = TextEditingController(text: "0.0");
   final workoutController = TextEditingController(text: "0");
   String? linkedTaskName;
 
-  final linkableTasks = provider.mainTasks
-      .where((t) => !t.isDeleted)
-      .map((t) => (t.id, t.name, taskWorkoutMinutesForDay(provider, t.id, dateStr)))
-      .where((r) => r.$3 > 0)
-      .toList();
+  // Every selectable task (subtask) of every protocol except Routine. Tasks with time tracked
+  // that day come first. Inactive, deleted and archived tasks are hidden.
+  final target = DateTime.tryParse(dateStr) ?? DateTime.now();
+  final linkableTasks = <(String, String, int)>[
+    for (final m in provider.mainTasks)
+      if (m.isPickable && m.id != _routineProtocolId)
+        for (final sub in m.subTasks)
+          if (sub.isPickable)
+            (
+              '${m.id}|${sub.id}',
+              '${m.name} › ${sub.name}',
+              TaskCalculations.getSubtaskSecondsForDay(sub, target, provider.mainTasks) ~/ 60,
+            ),
+  ]..sort((a, b) => (b.$3 > 0 ? 1 : 0).compareTo(a.$3 > 0 ? 1 : 0));
 
   showDialog(
     context: context,
@@ -73,7 +78,7 @@ void showActivityDialog(BuildContext context, AppProvider provider, String dateS
             const SizedBox(height: 14),
             if (linkableTasks.isEmpty) ...[
               Text(
-                'No task time tracked today to copy from.',
+                'No tasks available to copy time from.',
                 style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.5, fontStyle: FontStyle.italic),
               ),
               const SizedBox(height: 8),

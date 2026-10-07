@@ -409,9 +409,9 @@ class _LinkTaskDialogState extends State<LinkTaskDialog> {
     final List<Map<String, dynamic>> availableTasks = [];
 
     for (final mainTask in widget.provider.mainTasks) {
-      if (mainTask.isDeleted) continue;
+      if (!mainTask.isPickable) continue;
       for (final sub in mainTask.subTasks) {
-        if (sub.isDeleted) continue;
+        if (!sub.isPickable) continue;
         final key = '${mainTask.id}|${sub.id}';
         if (widget.project.linkedTaskKeys.contains(key)) continue;
 

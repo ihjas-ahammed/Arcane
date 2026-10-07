@@ -5,6 +5,10 @@ import android.content.Context
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.os.Handler
+import android.os.Looper
+import me.ihjas.missions.DeviceMonitor
+import me.ihjas.missions.WatchKeepAlive
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -94,14 +98,31 @@ class ArcaneNotificationListenerService : NotificationListenerService() {
         }
     }
 
+    private val beat = Handler(Looper.getMainLooper())
+    private val beatRunnable = object : Runnable {
+        override fun run() {
+            try { WatchKeepAlive.heartbeat(this@ArcaneNotificationListenerService, force = false) } catch (_: Exception) {}
+            beat.postDelayed(this, WatchKeepAlive.HEARTBEAT_MS)
+        }
+    }
+
     override fun onListenerConnected() {
         super.onListenerConnected()
         instance = this
+        DeviceMonitor.start(applicationContext)
+        beat.removeCallbacks(beatRunnable)
+        beat.postDelayed(beatRunnable, WatchKeepAlive.HEARTBEAT_MS)
     }
 
     override fun onListenerDisconnected() {
         if (instance == this) instance = null
+        beat.removeCallbacks(beatRunnable)
         super.onListenerDisconnected()
+    }
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification?) {
+        super.onNotificationRemoved(sbn)
+        if (sbn != null) try { WatchKeepAlive.onRemoved(this, sbn) } catch (_: Exception) {}
     }
 
     override fun onDestroy() {
@@ -116,6 +137,9 @@ class ArcaneNotificationListenerService : NotificationListenerService() {
 
         // Do not record Arcane's own notifications
         if (pkg == packageName) return
+
+        // Watch companion app: remember it is alive and keep what it shows (steps, heart rate, …).
+        try { WatchKeepAlive.onPosted(this, sbn) } catch (_: Exception) {}
 
         // Verify if package is selected for notification journal
         val monitored = getSelectedPackages(applicationContext)

@@ -1078,10 +1078,27 @@ class TaskBubbleOverlay(private val context: Context) {
     @SuppressLint("ViewConstructor")
     private inner class RadialMenuView(
         ctx: Context,
-        private val cx: Float,
-        private val cy: Float,
+        initialCx: Float,
+        initialCy: Float,
         private val items: List<RadialItem>,
     ) : View(ctx) {
+        // Window coordinates differ from the bubble's by the status-bar / cutout inset, so the menu
+        // re-derives its centre from where the bubble really is on screen. Otherwise the whole fan
+        // sits that inset lower than the button it should be orbiting.
+        private var cx = initialCx
+        private var cy = initialCy
+        private val tmpMine = IntArray(2)
+        private val tmpBubble = IntArray(2)
+
+        private fun recenter() {
+            val b = bubble ?: return
+            if (!isAttachedToWindow || !b.isAttachedToWindow) return
+            getLocationOnScreen(tmpMine)
+            b.getLocationOnScreen(tmpBubble)
+            cx = tmpBubble[0] - tmpMine[0] + b.width / 2f
+            cy = tmpBubble[1] - tmpMine[1] + b.height / 2f
+        }
+
         private val orbitRadius = dp(84f).toFloat()
         private val nodeRadius = dp(21f).toFloat()
         private val deadZone = dp(24f).toFloat()
@@ -1167,6 +1184,7 @@ class TaskBubbleOverlay(private val context: Context) {
         @SuppressLint("ClickableViewAccessibility")
         override fun onTouchEvent(e: MotionEvent): Boolean {
             if (!isDirectTouchEnabled) return false
+            recenter()
             if (e.actionMasked == MotionEvent.ACTION_DOWN) {
                 val touched = items.indices.firstOrNull { i ->
                     val rad = Math.toRadians(items[i].angleDeg.toDouble())
@@ -1188,6 +1206,7 @@ class TaskBubbleOverlay(private val context: Context) {
         }
 
         override fun onDraw(canvas: Canvas) {
+            recenter()
             val w = width.toFloat()
             val h = height.toFloat()
             if (w <= 0f || h <= 0f) return

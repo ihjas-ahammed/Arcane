@@ -374,7 +374,7 @@ class _ScheduleViewState extends State<ScheduleView> {
     showDialog(
       context: context,
       builder: (ctx) {
-        final validTasks = provider.mainTasks.where((t) => !t.isDeleted).toList();
+        final validTasks = provider.mainTasks.where((t) => t.isPickable).toList();
         return AlertDialog(
           backgroundColor: JweTheme.panel,
           title: const Text("SELECT MISSION"),
@@ -385,7 +385,7 @@ class _ScheduleViewState extends State<ScheduleView> {
               itemCount: validTasks.length,
               itemBuilder: (context, index) {
                 final task = validTasks[index];
-                final activeSubtasks = task.subTasks.where((s) => !s.completed && !s.isDeleted).toList();
+                final activeSubtasks = task.subTasks.where((s) => s.isPickable && !s.completed).toList();
                 if (activeSubtasks.isEmpty) return const SizedBox.shrink();
 
                 return ExpansionTile(
@@ -545,7 +545,7 @@ class _ScheduleViewState extends State<ScheduleView> {
               itemCount: validTasks.length,
               itemBuilder: (context, index) {
                 final task = validTasks[index];
-                final activeSubtasks = task.subTasks.where((s) => !s.completed && !s.isDeleted).toList();
+                final activeSubtasks = task.subTasks.where((s) => s.isPickable && !s.completed).toList();
                 if (activeSubtasks.isEmpty) return const SizedBox.shrink();
 
                 return ExpansionTile(

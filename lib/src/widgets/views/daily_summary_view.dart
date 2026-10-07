@@ -1,3 +1,4 @@
+import 'package:missions/src/utils/responsive.dart';
 import 'package:flutter/material.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
@@ -637,7 +638,7 @@ class _DailySummaryViewState extends State<DailySummaryView> {
         :[];
 
     final screenWidth = MediaQuery.of(context).size.width;
-    final isLargeScreen = screenWidth > 900;
+    final isLargeScreen = Responsive.hasRailWidth(screenWidth);
     final bottomPadding = isLargeScreen ? 20.0 : (64.0 + MediaQuery.of(context).padding.bottom + 24.0);
 
     return Scaffold(

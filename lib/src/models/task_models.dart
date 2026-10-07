@@ -696,6 +696,16 @@ class MainTaskTemplate {
   });
 }
 
+/// Whether a protocol / task may be offered in any "pick a task" list. Inactive, deleted and
+/// archived (completed, non-recurring) tasks are never selectable.
+extension MainTaskPickable on MainTask {
+  bool get isPickable => isActive && !isDeleted;
+}
+
+extension SubTaskPickable on SubTask {
+  bool get isPickable => isActive && !isDeleted && !(completed && !isRecurring);
+}
+
 extension TaskCopyExtension on MainTask {
   String toCopyStructure() {
     final buffer = StringBuffer();

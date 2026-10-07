@@ -1,3 +1,4 @@
+import 'package:missions/src/utils/responsive.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -30,7 +31,7 @@ class HeaderWidget extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final appProvider = Provider.of<AppProvider>(context);
     final screenWidth = MediaQuery.of(context).size.width;
-    final bool isLargeScreen = screenWidth > 900;
+    final bool isLargeScreen = Responsive.hasRailWidth(screenWidth);
     final now = TimeOfDay.now();
     final clock = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
     final callsign = (appProvider.currentUser?.displayName ?? '').trim().isEmpty

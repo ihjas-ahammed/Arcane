@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:missions/src/utils/responsive.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -614,7 +615,7 @@ class _ScheduleTimelineState extends State<ScheduleTimeline> {
     final double totalHeight = pixelsPerHour * hoursCount;
 
     final screenWidth = MediaQuery.of(context).size.width;
-    final isLargeScreen = screenWidth > 900;
+    final isLargeScreen = Responsive.hasRailWidth(screenWidth);
     final bottomPadding = isLargeScreen ? 16.0 : (64.0 + MediaQuery.of(context).padding.bottom + 24.0);
 
     // Separate real sessions from predicted overlay entries so real sessions take full width and overdraw through

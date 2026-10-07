@@ -22,7 +22,13 @@ class HomeWidgetPublisher {
   HomeWidgetPublisher(this._provider) {
     _provider.addListener(_onProviderChanged);
     _active = this;
+    // Self-heal: the floating button and widgets trust the last published state, so re-assert
+    // the truth regularly. A single missed or failed publish can no longer leave a stale
+    // "running" clock ticking.
+    _heartbeat = Timer.periodic(const Duration(seconds: 30), (_) => _publishTask(force: true));
   }
+
+  Timer? _heartbeat;
 
   static HomeWidgetPublisher? _active;
 
@@ -46,6 +52,7 @@ class HomeWidgetPublisher {
   void dispose() {
     if (identical(_active, this)) _active = null;
     _publishDebounce?.cancel();
+    _heartbeat?.cancel();
     _provider.removeListener(_onProviderChanged);
   }
 
@@ -153,6 +160,42 @@ class HomeWidgetPublisher {
   }
 
   Future<void> _publishTask({bool force = false}) async {
+    try {
+      await _publishTaskInner(force: force);
+    } catch (e, st) {
+      debugPrint('[HomeWidget] publish task failed: $e\n$st');
+      await _publishTaskFallback();
+    }
+  }
+
+  /// Minimal, can't-fail-on-planning-data publish: just the true running state, so the floating
+  /// button and widgets never keep showing a timer that has stopped.
+  Future<void> _publishTaskFallback() async {
+    try {
+      final running = _provider.activeTimers.entries
+          .firstWhereOrNull((e) => e.value.isRunning && e.value.type == 'subtask');
+      MainTask? m;
+      SubTask? s;
+      if (running != null) {
+        m = _provider.mainTasks.firstWhereOrNull((t) => t.id == running.value.mainTaskId && !t.isDeleted);
+        s = m?.subTasks.firstWhereOrNull((st) => st.id == running.key && !st.isDeleted);
+      }
+      final isRunning = s != null && !s.completed;
+      await HomeWidgetService.instance.publishTask(
+        hasTask: isRunning,
+        title: isRunning ? s.name : 'NO PLAN SET',
+        subtitle: isRunning ? (m?.name ?? '') : 'QUEUE STANDBY',
+        isRunning: isRunning,
+        isCheckpoint: false,
+        accumulatedSeconds: isRunning ? TaskCalculations.getHistoricalTodaySeconds(s, _provider.mainTasks).toInt() : 0,
+        sessionStart: isRunning ? running!.value.startTime : null,
+      );
+    } catch (e) {
+      debugPrint('[HomeWidget] fallback publish failed: $e');
+    }
+  }
+
+  Future<void> _publishTaskInner({bool force = false}) async {
     final r = _resolveActiveTask();
     final s = r.subTask;
     final m = r.mainTask;

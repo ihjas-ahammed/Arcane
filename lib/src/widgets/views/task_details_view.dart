@@ -1,3 +1,4 @@
+import 'package:missions/src/utils/responsive.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/providers/app_provider.dart';
@@ -167,7 +168,8 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final cellWidth = (constraints.maxWidth - 8) / 2;
+              final columns = Responsive.columnsFor(constraints.maxWidth, minTileWidth: 230, min: 2, max: 4);
+              final cellWidth = (constraints.maxWidth - 8 * (columns - 1)) / columns;
               const desiredHeight = 96.0;
               final childAspectRatio = cellWidth / desiredHeight;
 
@@ -176,7 +178,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
+                  crossAxisCount: columns,
                   crossAxisSpacing: 8,
                   mainAxisSpacing: 8,
                   childAspectRatio: childAspectRatio,
@@ -301,7 +303,7 @@ class _TaskDetailsViewState extends State<TaskDetailsView> {
 
         final theme = Theme.of(context);
         final screenWidth = MediaQuery.of(context).size.width;
-        final isLargeScreen = screenWidth > 900;
+        final isLargeScreen = Responsive.hasRailWidth(screenWidth);
         final bottomPadding = isLargeScreen ? 20.0 : (64.0 + MediaQuery.of(context).padding.bottom + 24.0);
 
         return RefreshIndicator(

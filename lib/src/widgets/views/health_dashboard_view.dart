@@ -1,3 +1,4 @@
+import 'package:missions/src/utils/responsive.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -8,14 +9,12 @@ import 'package:missions/src/models/health_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/health/health_logs_tab.dart';
-import 'package:missions/src/widgets/health/health_nutrition_tab.dart';
 import 'package:missions/src/widgets/health/health_stats_tab.dart';
 
 export 'package:missions/src/widgets/health/add_activity_dialog.dart';
 export 'package:missions/src/widgets/health/add_sleep_dialog.dart';
 export 'package:missions/src/widgets/health/circadian_advisor_card.dart';
 export 'package:missions/src/widgets/health/health_logs_tab.dart';
-export 'package:missions/src/widgets/health/health_nutrition_tab.dart';
 export 'package:missions/src/widgets/health/health_stats_tab.dart';
 
 class HealthDashboardView extends StatefulWidget {
@@ -32,7 +31,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -47,7 +46,7 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
     final log = provider.healthLogs[dateStr] ?? DailyHealthLog(dateStr: dateStr);
     final accentColor = JweTheme.accentTeal;
-    final isLargeScreen = MediaQuery.of(context).size.width > 900;
+    final isLargeScreen = Responsive.hasRail(context);
     final bottomPadding = isLargeScreen ? 20.0 : (64.0 + MediaQuery.of(context).padding.bottom + 24.0);
 
     return Scaffold(
@@ -127,25 +126,6 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(MdiIcons.silverwareForkKnife, size: 14),
-                        SizedBox(width: 6),
-                        Text(
-                          "NUTRITION",
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.1,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Tab(
-                    height: 40,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
                         Icon(MdiIcons.chartDonut, size: 14),
                         SizedBox(width: 6),
                         Text(
@@ -173,13 +153,6 @@ class _HealthDashboardViewState extends State<HealthDashboardView> with SingleTi
                     log: log,
                     dateStr: dateStr,
                     selectedDate: _selectedDate,
-                    accent: accentColor,
-                    bottomPadding: bottomPadding,
-                  ),
-                  HealthNutritionTab(
-                    provider: provider,
-                    log: log,
-                    dateStr: dateStr,
                     accent: accentColor,
                     bottomPadding: bottomPadding,
                   ),

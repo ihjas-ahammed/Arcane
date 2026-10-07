@@ -20,6 +20,7 @@ class ArcaneApplication : Application() {
     override fun onCreate() {
         CrashGuard.install(this)
         super.onCreate()
+        try { DeviceMonitor.start(this) } catch (_: Throwable) {}
     }
 }
 

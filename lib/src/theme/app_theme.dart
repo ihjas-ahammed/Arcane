@@ -256,7 +256,11 @@ class AppTheme {
         ),
       ),
 
+      // Dialogs / sheets never stretch across a desktop window.
+      bottomSheetTheme: const BottomSheetThemeData(constraints: BoxConstraints(maxWidth: 680)),
+      visualDensity: VisualDensity.adaptivePlatformDensity,
       dialogTheme: DialogThemeData(
+        constraints: const BoxConstraints(minWidth: 280, maxWidth: 600),
         backgroundColor: bgDeep,
         titleTextStyle: TextStyle(
             fontFamily: fontDisplay,

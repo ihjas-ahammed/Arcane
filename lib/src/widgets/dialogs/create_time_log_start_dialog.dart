@@ -1,3 +1,4 @@
+import 'package:missions/src/models/task_models.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -151,7 +152,7 @@ class _CreateTimeLogStartDialogState extends State<CreateTimeLogStartDialog> {
                         for (var t in provider.mainTasks) {
                           if (t.isDeleted || !t.isActive) continue;
                           for (var s in t.subTasks) {
-                            if (!s.isDeleted && s.isActive) _selectedSubtaskIds.add(s.id);
+                            if (s.isPickable) _selectedSubtaskIds.add(s.id);
                           }
                         }
                       }
@@ -172,7 +173,7 @@ class _CreateTimeLogStartDialogState extends State<CreateTimeLogStartDialog> {
                 itemBuilder: (context, i) {
                   final activeTasks = provider.mainTasks.where((t) => !t.isDeleted && t.isActive).toList();
                   final task = activeTasks[i];
-                  final subtasks = task.subTasks.where((s) => !s.isDeleted && s.isActive).toList();
+                  final subtasks = task.subTasks.where((s) => s.isPickable).toList();
                   if (subtasks.isEmpty) return const SizedBox.shrink();
 
                   return Column(

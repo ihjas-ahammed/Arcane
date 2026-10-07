@@ -64,20 +64,7 @@ class BriefingContextHelper {
     final health = <String, dynamic>{};
     final log = provider.healthLogs[dateStr];
     if (log != null) {
-      final foodById = {for (final f in provider.foodItems) f.id: f};
-      var kcal = 0;
-      final meals = <String>[];
-      for (final m in log.meals) {
-        final f = foodById[m.foodItemId];
-        if (f == null) continue;
-        kcal += f.calories;
-        meals.add('${DateFormat('HH:mm').format(m.timestamp)} ${f.name} (${f.calories} kcal)');
-      }
       health['water_glasses'] = log.waterGlasses;
-      if (meals.isNotEmpty) {
-        health['meals'] = meals;
-        health['total_calories'] = kcal;
-      }
       if (log.sleepLogs.isNotEmpty) {
         health['sleep'] = [
           for (final s in log.sleepLogs)
@@ -178,7 +165,6 @@ class BriefingContextHelper {
         b.writeln('  - Sleep: ${(h['sleep'] as List).map((s) => '${s['hours']}h${s['nap'] == true ? ' (nap)' : ''}').join(', ')}');
       }
       if (h['water_glasses'] != null) b.writeln('  - Water: ${h['water_glasses']} glasses');
-      if (h['meals'] != null) b.writeln('  - Meals (${h['total_calories']} kcal): ${(h['meals'] as List).join('; ')}');
       if (h['activity'] != null) {
         b.writeln('  - Activity: ${h['activity']['walk_km']} km walked, ${h['activity']['workout_minutes']} min workout');
       }

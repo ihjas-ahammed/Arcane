@@ -1,3 +1,4 @@
+import 'package:missions/src/utils/responsive.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/models/project_models.dart';
@@ -528,7 +529,7 @@ class _ProjectsViewState extends State<ProjectsView> {
           constraints: const BoxConstraints(maxWidth: 1100),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).size.width > 900 ? 24.0 : (64.0 + MediaQuery.of(context).padding.bottom + 24.0)),
+            padding: EdgeInsets.fromLTRB(16, 12, 16, Responsive.hasRail(context) ? 24.0 : (64.0 + MediaQuery.of(context).padding.bottom + 24.0)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

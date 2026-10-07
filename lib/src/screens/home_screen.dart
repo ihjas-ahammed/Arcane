@@ -1,4 +1,6 @@
+import 'package:missions/src/utils/responsive.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/services/widget_action_router.dart';
@@ -186,10 +188,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _DesktopNavItem(label: 'WALLET', icon: MdiIcons.walletOutline),
   ];
 
-  Widget _buildDesktopNavRail(Color activeColor) {
+  Widget _buildDesktopNavRail(Color activeColor, {required bool extended}) {
     return Container(
-      width: 72,
-      decoration:   BoxDecoration(
+      width: extended ? 188 : 72,
+      decoration: BoxDecoration(
         color: ArcSurfaces.deepPanel,
         border: Border(right: BorderSide(color: JweTheme.lineSoft, width: 1)),
       ),
@@ -200,48 +202,49 @@ class _HomeScreenState extends State<HomeScreen> {
             final item = _desktopNavItems[i];
             final on = i == _selectedIndex;
             final color = on ? JweTheme.accentAmber : JweTheme.textMuted;
-            return InkWell(
-              onTap: () => _onItemTapped(i),
-              splashColor: JweTheme.amberSoft,
-              highlightColor: Colors.transparent,
-              child: Stack(
-                alignment: Alignment.centerLeft,
-                children: [
-                  if (on)
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 2,
-                        color: JweTheme.accentAmber,
+            final label = GoogleFonts.jetBrainsMono(
+              fontSize: extended ? 11 : 8,
+              height: 1.0,
+              color: color,
+              letterSpacing: extended ? 1.6 : 1.2,
+              fontWeight: FontWeight.w600,
+            );
+            return Tooltip(
+              message: '${item.label}  (Ctrl+${i + 1})',
+              waitDuration: const Duration(milliseconds: 600),
+              child: InkWell(
+                onTap: () => _onItemTapped(i),
+                splashColor: JweTheme.amberSoft,
+                hoverColor: JweTheme.amberSoft.withValues(alpha: 0.5),
+                highlightColor: Colors.transparent,
+                child: Stack(
+                  alignment: Alignment.centerLeft,
+                  children: [
+                    if (on)
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        child: Container(width: 2, color: JweTheme.accentAmber),
                       ),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
-                    child: SizedBox(
+                    Container(
+                      color: on ? JweTheme.amberSoft.withValues(alpha: 0.35) : null,
+                      padding: EdgeInsets.symmetric(vertical: extended ? 13 : 14, horizontal: extended ? 18 : 4),
                       width: double.infinity,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(item.icon, size: 22, color: color),
-                          const SizedBox(height: 5),
-                          Text(
-                            item.label,
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.jetBrainsMono(
-                              fontSize: 8,
-                              height: 1.0,
-                              color: color,
-                              letterSpacing: 1.2,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
+                      child: extended
+                          ? Row(children: [
+                              Icon(item.icon, size: 20, color: color),
+                              const SizedBox(width: 14),
+                              Expanded(child: Text(item.label, style: label)),
+                            ])
+                          : Column(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(item.icon, size: 22, color: color),
+                              const SizedBox(height: 5),
+                              Text(item.label, textAlign: TextAlign.center, style: label),
+                            ]),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           }),
@@ -253,7 +256,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final bool isLargeScreen = screenWidth > 900;
+    final bool isLargeScreen = Responsive.hasRailWidth(screenWidth);
 
     // Select only what the shell renders; watching the whole provider rebuilt the scaffold,
     // header and tab stack on every notifyListeners (timers, sync, finance ticks, …).
@@ -295,21 +298,21 @@ class _HomeScreenState extends State<HomeScreen> {
       Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
+          constraints: const BoxConstraints(maxWidth: 1200),
           child: const TaskDetailsView(),
         ),
       ),
       Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
+          constraints: const BoxConstraints(maxWidth: 900),
           child: const HealthDashboardView(),
         ),
       ),
       ScheduleView(openTick: _scheduleOpenTick),
       const ProjectsView(),
       const LogbookScreen(),
-      const FinanceDashboardScreen(),
+      const ResponsiveContent(maxWidth: 1100, child: FinanceDashboardScreen()),
     ];
     final List<Widget> widgetOptions = <Widget>[
       for (int i = 0; i < allViews.length; i++)
@@ -328,7 +331,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Theme(
       data: _scaffoldTheme!,
-      child: Scaffold(
+      child: CallbackShortcuts(
+        bindings: {
+          for (var i = 0; i < _desktopNavItems.length; i++)
+            SingleActivator(LogicalKeyboardKey(0x00000000031 + i), control: true): () => _onItemTapped(i),
+        },
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
         key: _scaffoldKey,
         extendBody: true,
         backgroundColor: JweTheme.bgBase,
@@ -346,7 +356,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Row(
               children: [
-                if (isLargeScreen) _buildDesktopNavRail(currentTaskColor),
+                if (isLargeScreen) _buildDesktopNavRail(currentTaskColor, extended: Responsive.extendedRail(context)),
                 Expanded(
                   child: IndexedStack(
                     index: _selectedIndex,
@@ -396,6 +406,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 onGoalsTapped: () => GoalsBottomDrawer.show(context),
                 onGoalsLongPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NoraAiScreen())),
               ),
+          ),
+        ),
       ),
     );
   }

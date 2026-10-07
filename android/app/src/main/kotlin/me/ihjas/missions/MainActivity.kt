@@ -44,6 +44,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
     private var pendingStartListening = false
     private val PERMISSION_REQUEST_CODE = 2001
     private var launcherBridge: LauncherBridge? = null
+    private var devicesBridge: DevicesBridge? = null
     private var updateBridge: UpdateBridge? = null
     private var notificationBridge: NotificationBridge? = null
     private var inputReplyBridge: InputReplyBridge? = null
@@ -267,6 +268,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (devicesBridge?.onRequestPermissionsResult(requestCode, grantResults) == true) return
         if (launcherBridge?.onRequestPermissionsResult(requestCode, permissions, grantResults) == true) return
         if (requestCode == PERMISSION_REQUEST_CODE) {
             val audioIdx = permissions.indexOf(android.Manifest.permission.RECORD_AUDIO)
@@ -669,6 +671,8 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         updateBridge = UpdateBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         notificationBridge?.dispose()
         notificationBridge = NotificationBridge(this, flutterEngine.dartExecutor.binaryMessenger)
+        devicesBridge?.dispose()
+        devicesBridge = DevicesBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         launcherBridge?.dispose()
         launcherBridge = LauncherBridge(this, flutterEngine.dartExecutor.binaryMessenger).also { bridge ->
             flutterEngine.platformViewsController.registry
@@ -1194,6 +1198,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         debugScoReceiver?.let { try { unregisterReceiver(it) } catch (_: Exception) {} }
         debugScoReceiver = null
         engineAlive = false
+        devicesBridge?.dispose()
         launcherBridge?.dispose()
         launcherBridge = null
         updateBridge?.dispose()

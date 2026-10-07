@@ -125,7 +125,16 @@ class _MyAppState extends State<MyApp> {
           navigatorKey: WidgetActionRouter.instance.navigatorKey,
           scaffoldMessengerKey: rootScaffoldMessengerKey,
           builder: (context, child) {
-            return child!;
+            // On very wide monitors keep the whole app a sane width instead of stretching it.
+            return ColoredBox(
+              color: JweTheme.bgBase,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1800),
+                  child: child!,
+                ),
+              ),
+            );
           },
           theme: AppTheme.getThemeData(
               primaryAccent: isLightTheme

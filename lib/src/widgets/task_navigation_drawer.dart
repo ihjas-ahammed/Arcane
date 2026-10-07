@@ -1,3 +1,4 @@
+import 'package:missions/src/utils/responsive.dart';
 import 'package:flutter/material.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/app_theme.dart';
@@ -118,7 +119,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                       icon: _getThemeIcon(task.theme),
                       onTap: () {
                         appProvider.setSelectedTaskId(task.id);
-                        if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
+                        if (!Responsive.hasRail(context)) Navigator.pop(context);
                       },
                       onLongPress: () {
                         showDialog(
@@ -160,7 +161,7 @@ class _TaskNavigationDrawerState extends State<TaskNavigationDrawer> {
                         isSelected: isSelected,
                         onTap: () {
                           appProvider.setSelectedTaskId(task.id);
-                          if (MediaQuery.of(context).size.width < 900) Navigator.pop(context);
+                          if (!Responsive.hasRail(context)) Navigator.pop(context);
                         },
                         onLongPress: () {
                           showDialog(

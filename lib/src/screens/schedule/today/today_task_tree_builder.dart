@@ -22,9 +22,7 @@ List<Widget> buildSelectableTaskTree({
     final bool taskMatches = q.isEmpty || task.name.toLowerCase().contains(q);
 
     final activeSubs = task.subTasks.where((s) {
-      if (s.isDeleted) return false;
-      if (s.completed && !s.isRecurring) return false;
-      return true;
+      return s.isPickable;
     }).toList();
 
     if (activeSubs.isEmpty) continue;
