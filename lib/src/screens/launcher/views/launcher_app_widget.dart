@@ -256,91 +256,37 @@ class _LauncherAppWidgetState extends State<LauncherAppWidget> with AutomaticKee
   Widget build(BuildContext context) {
     super.build(context);
     final entry = widget.entry;
-    final accent = LauncherTheme.red;
     final feedbackWidth = (MediaQuery.sizeOf(context).width - 24).clamp(240.0, 600.0);
 
-    final cardContent = ClipPath(
-      clipper: const Chamfer4CornerClipper(chamfer: 10.0),
-      child: CustomPaint(
-        foregroundPainter: TacticalCardBorderPainter(
-          themeColor: accent,
-          chamfer: 10.0,
-          bracketSize: 12.0,
-          leftBarWidth: 3.0,
-          borderColor: LauncherTheme.line,
-        ),
-        child: Container(
-          color: LauncherTheme.panel,
-          padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ── Tactical Title Bar ──
-              Container(
-                color: Colors.transparent,
-                padding: const EdgeInsets.fromLTRB(8, 4, 4, 4),
-                child: Row(
-                  children: [
-                    Icon(MdiIcons.dragHorizontal, size: 13, color: accent),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(
-                        '// APP_WIDGET: ${entry.label.toUpperCase()}',
-                        style: LauncherTheme.rajdhani(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.4,
-                          color: LauncherTheme.muted,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    InkWell(
-                      onTap: _showMenu,
-                      borderRadius: BorderRadius.circular(4),
-                      child: Padding(
-                        padding: const EdgeInsets.all(3),
-                        child: Icon(MdiIcons.dotsVertical, size: 14, color: LauncherTheme.muted),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // ── Hosted Widget Surface ──
-              SizedBox(
-                height: entry.height,
-                child: switch (_available) {
-                  null => const SizedBox.shrink(),
-                  false => _Unavailable(entry: entry),
-                  true => LayoutBuilder(
-                      builder: (context, constraints) {
-                        final width = constraints.maxWidth.round();
-                        return ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child: AndroidView(
-                            // Recreate the host view when its size changes so the provider gets the new size.
-                            key: ValueKey('${entry.id}-$width-${entry.height.round()}'),
-                            viewType: 'arcane/appwidget',
-                            layoutDirection: Directionality.of(context),
-                            creationParams: {'id': entry.id, 'width': width, 'height': entry.height.round()},
-                            creationParamsCodec: const StandardMessageCodec(),
-                            // Horizontal swipes still page the launcher; taps and in-widget scrolls go to the widget.
-                            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                              Factory<VerticalDragGestureRecognizer>(VerticalDragGestureRecognizer.new),
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                },
-              ),
-            ],
-          ),
-        ),
+    // Just the widget itself, like any other launcher: no frame, title bar or border.
+    // Long-press still drags it or opens its menu.
+    final cardContent = SizedBox(
+  height: entry.height,
+  child: switch (_available) {
+    null => const SizedBox.shrink(),
+    false => _Unavailable(entry: entry),
+    true => LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth.round();
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: AndroidView(
+              // Recreate the host view when its size changes so the provider gets the new size.
+              key: ValueKey('${entry.id}-$width-${entry.height.round()}'),
+              viewType: 'arcane/appwidget',
+              layoutDirection: Directionality.of(context),
+              creationParams: {'id': entry.id, 'width': width, 'height': entry.height.round()},
+              creationParamsCodec: const StandardMessageCodec(),
+              // Horizontal swipes still page the launcher; taps and in-widget scrolls go to the widget.
+              gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                Factory<VerticalDragGestureRecognizer>(VerticalDragGestureRecognizer.new),
+              },
+            ),
+          );
+        },
       ),
-    );
+  },
+);
 
     return LongPressDraggable<LauncherWidgetDragData>(
       data: LauncherWidgetDragData(entry: entry, fromPage: entry.page),

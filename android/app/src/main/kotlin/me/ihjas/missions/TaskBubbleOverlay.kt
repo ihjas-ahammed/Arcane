@@ -74,8 +74,11 @@ class TaskBubbleOverlay(private val context: Context) {
         private const val KEY_RIGHT = "task_bubble_right"
         private const val KEY_Y = "task_bubble_y" // fraction of usable height
 
-        private const val IDLE_ALPHA = 0.38f
+        private const val IDLE_ALPHA = 1f // stays opaque so wallpaper lines never show through it
         private const val IDLE_DELAY_MS = 2500L
+        private const val CONTINUE_NOTIF_ID = 4002
+        private const val CONTINUE_CHANNEL = "arcane_task_continue"
+
         /** Self-heal beat: re-runs [sync] so a bubble the system dropped (or a missed pref change) comes back. */
         private const val HEARTBEAT_MS = 20_000L
 
@@ -184,10 +187,10 @@ class TaskBubbleOverlay(private val context: Context) {
             }
         }
 
-        // The button stays on screen whenever it is enabled (an idle button opens the plan), so it
-        // can never go missing just because the plan was empty, a day rolled over, or a session
-        // sat paused. Only the user switching it off (or "hide until next task") removes it.
-        if (started && enabled && !temporarilyHidden) {
+        // The floating button exists only while a timer is running. When nothing is running a
+        // notification offers to continue the plan task instead, so there is no permanent play
+        // button sitting over other apps.
+        if (started && enabled && !temporarilyHidden && running) {
             show()
             val b = bubble
             if (b != null && !b.isAttachedToWindow && System.currentTimeMillis() - shownAtMs > 3000) {
@@ -196,17 +199,72 @@ class TaskBubbleOverlay(private val context: Context) {
                 show()
             }
             bubble?.refreshState()
-            if (running) {
-                val title = widgetPrefs.getString("arcane.task.title", "") ?: "Arcane Task"
-                val subtitle = widgetPrefs.getString("arcane.task.subtitle", "") ?: "Reading / Task In Progress"
-                TaskForegroundService.start(context, title, subtitle)
-            } else {
-                TaskForegroundService.stop(context)
-            }
+            val title = widgetPrefs.getString("arcane.task.title", "") ?: "Arcane Task"
+            val subtitle = widgetPrefs.getString("arcane.task.subtitle", "") ?: "Reading / Task In Progress"
+            TaskForegroundService.start(context, title, subtitle)
+            cancelContinueNotification()
+            wasRunning = true
         } else {
             TaskForegroundService.stop(context)
             hide()
+            if (started && enabled && !temporarilyHidden && hasTask() && currentTitle.isNotEmpty() &&
+                (wasRunning || currentTitle != lastContinueTitle)) {
+                postContinueNotification(currentTitle, widgetPrefs.getString("arcane.task.subtitle", "") ?: "")
+            } else if (!hasTask()) {
+                cancelContinueNotification()
+            }
+            wasRunning = false
         }
+    }
+
+    private var wasRunning = false
+    private var lastContinueTitle: String? = null
+
+    private fun cancelContinueNotification() {
+        lastContinueTitle = null
+        try {
+            (context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager).cancel(CONTINUE_NOTIF_ID)
+        } catch (_: Exception) {}
+    }
+
+    /** "Continue <plan task>" with an action that engages it, without opening the app. */
+    private fun postContinueNotification(title: String, subtitle: String) {
+        lastContinueTitle = title
+        try {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            if (Build.VERSION.SDK_INT >= 26) {
+                nm.createNotificationChannel(android.app.NotificationChannel(
+                    CONTINUE_CHANNEL, "Continue plan task", android.app.NotificationManager.IMPORTANCE_LOW,
+                ).apply { setShowBadge(false) })
+            }
+            val flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            val engage = android.app.PendingIntent.getBroadcast(
+                context, 4002,
+                Intent(context, WidgetActionReceiver::class.java).apply {
+                    action = "me.ihjas.missions.WIDGET_ACTION"
+                    data = actionUri("task_toggle")
+                }, flags,
+            )
+            val open = android.app.PendingIntent.getActivity(
+                context, 4003,
+                Intent(context, MainActivity::class.java).apply {
+                    action = HomeWidgetLaunchIntent.HOME_WIDGET_LAUNCH_ACTION
+                    data = actionUri("task_open_plan")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                }, flags,
+            )
+            val n = androidx.core.app.NotificationCompat.Builder(context, CONTINUE_CHANNEL)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("Continue: $title")
+                .setContentText(subtitle.ifEmpty { "Next in your plan" })
+                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
+                .setOnlyAlertOnce(true)
+                .setAutoCancel(true)
+                .setContentIntent(open)
+                .addAction(0, "ENGAGE", engage)
+                .build()
+            nm.notify(CONTINUE_NOTIF_ID, n)
+        } catch (_: Exception) {}
     }
 
     private fun sync() {
@@ -898,7 +956,7 @@ class TaskBubbleOverlay(private val context: Context) {
             // 2. Multi-gradient dark glass disc
             val shader = LinearGradient(
                 0f, 0f, w, h,
-                0xF20F1D30.toInt(), 0xF804070D.toInt(),
+                0xFF0F1D30.toInt(), 0xFF04070D.toInt(),
                 Shader.TileMode.CLAMP,
             )
             fillPaint.shader = shader

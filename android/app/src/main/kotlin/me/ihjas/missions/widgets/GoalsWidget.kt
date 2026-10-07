@@ -98,11 +98,11 @@ class GoalsWidget : HomeWidgetProvider() {
                         if (isCompleted) {
                             views.setInt(checks[i], "setBackgroundResource", R.drawable.widget_check_on_amber)
                             views.setTextViewText(checks[i], "✓")
-                            views.setTextColor(titles[i], ContextCompat.getColor(context, R.color.widget_text_muted))
+                            views.setTextColor(titles[i], WidgetTheme.color(context, R.color.widget_text_muted))
                         } else {
                             views.setInt(checks[i], "setBackgroundResource", R.drawable.widget_check_off_amber)
                             views.setTextViewText(checks[i], "")
-                            views.setTextColor(titles[i], ContextCompat.getColor(context, R.color.widget_text_white))
+                            views.setTextColor(titles[i], WidgetTheme.color(context, R.color.widget_text_white))
                         }
 
                         // Checkbox tap toggles goal check via action intent
@@ -129,7 +129,7 @@ class GoalsWidget : HomeWidgetProvider() {
     }
 
     private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int, prefs: SharedPreferences) {
-        val views = RemoteViews(context.packageName, R.layout.widget_goals)
+        val views = WidgetTheme.views(context, R.layout.widget_goals)
         renderGoalsLayout(context, views, prefs)
         mgr.updateAppWidget(widgetId, views)
     }

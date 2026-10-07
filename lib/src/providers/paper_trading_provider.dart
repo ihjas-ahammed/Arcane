@@ -96,7 +96,10 @@ class PaperTradingProvider extends ChangeNotifier {
     for (final sym in _holdings.keys) {
       marketService.addPinnedSymbol(sym);
     }
-    marketService.start();
+    // Live quotes (websocket + polling) are only needed in the background when something is
+    // waiting on a price: open positions, pending orders, stops. Otherwise the trading screen
+    // starts the feed when it is opened.
+    if (_holdings.isNotEmpty || _orders.isNotEmpty) marketService.start();
     notifyListeners();
   }
 

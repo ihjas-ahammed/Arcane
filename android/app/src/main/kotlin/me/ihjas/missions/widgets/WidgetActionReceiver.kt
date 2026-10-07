@@ -46,7 +46,7 @@ class WidgetActionReceiver : BroadcastReceiver() {
                 android.content.ComponentName(context, RunningTaskWidget::class.java)
             )
             if (runningIds.isNotEmpty()) {
-                val views = RemoteViews(context.packageName, R.layout.widget_running_task)
+                val views = WidgetTheme.views(context, R.layout.widget_running_task)
                 when (action) {
                     "task_toggle" -> {
                         val prefs = context.getSharedPreferences("HomeWidgetPrefs", Context.MODE_PRIVATE)
@@ -66,7 +66,7 @@ class WidgetActionReceiver : BroadcastReceiver() {
                     android.content.ComponentName(context, DayPlanWidget::class.java)
                 )
                 if (dayPlanIds.isNotEmpty()) {
-                    val viewsDp = RemoteViews(context.packageName, R.layout.widget_dayplan)
+                    val viewsDp = WidgetTheme.views(context, R.layout.widget_dayplan)
                     viewsDp.setTextViewText(R.id.widget_dayplan_btn_check, "CHECKING...")
                     for (id in dayPlanIds) {
                         appWidgetManager.partiallyUpdateAppWidget(id, viewsDp)
@@ -80,7 +80,7 @@ class WidgetActionReceiver : BroadcastReceiver() {
                 )
                 if (goalIds.isNotEmpty()) {
                     val slot = action.removePrefix("goal_toggle_").toIntOrNull() ?: 0
-                    val viewsGoals = RemoteViews(context.packageName, R.layout.widget_goals)
+                    val viewsGoals = WidgetTheme.views(context, R.layout.widget_goals)
                     val checkId = when (slot) {
                         0 -> R.id.widget_goal_0_check
                         1 -> R.id.widget_goal_1_check

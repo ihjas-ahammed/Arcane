@@ -22,7 +22,7 @@ class FinanceWidget : HomeWidgetProvider() {
     }
 
     private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int, prefs: SharedPreferences) {
-        val views = RemoteViews(context.packageName, R.layout.widget_finance)
+        val views = WidgetTheme.views(context, R.layout.widget_finance)
 
         val options = mgr.getAppWidgetOptions(widgetId)
         val minHeight = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT) ?: 0

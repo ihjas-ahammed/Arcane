@@ -36,16 +36,16 @@ class RunningTaskWidget : HomeWidgetProvider() {
 
         val views: RemoteViews
         if (isOnBus && !isTaskRunning) {
-            views = RemoteViews(context.packageName, R.layout.widget_running_task)
+            views = WidgetTheme.views(context, R.layout.widget_running_task)
             renderBusTransit(context, views, prefs)
         } else if (dayPlannerWidgetCheckable) {
-            views = RemoteViews(context.packageName, R.layout.widget_dayplan)
+            views = WidgetTheme.views(context, R.layout.widget_dayplan)
             renderDayPlan(context, views, prefs)
         } else if (multitaskCount > 1) {
-            views = RemoteViews(context.packageName, R.layout.widget_running_task)
+            views = WidgetTheme.views(context, R.layout.widget_running_task)
             renderMultitask(context, views, prefs, multitaskCount)
         } else {
-            views = RemoteViews(context.packageName, R.layout.widget_running_task)
+            views = WidgetTheme.views(context, R.layout.widget_running_task)
             renderRunning(context, views, prefs)
         }
 
@@ -111,11 +111,12 @@ class RunningTaskWidget : HomeWidgetProvider() {
         if (isRunning) {
             views.setTextViewText(R.id.widget_btn_engage, "HALT")
             views.setInt(R.id.widget_btn_engage, "setBackgroundResource", R.drawable.widget_btn_primary_red)
-            views.setTextColor(R.id.widget_btn_engage, ContextCompat.getColor(context, R.color.widget_text_white))
+            views.setTextColor(R.id.widget_btn_engage, WidgetTheme.color(context, R.color.widget_text_white))
         } else {
             views.setTextViewText(R.id.widget_btn_engage, "ENGAGE ALL")
             views.setInt(R.id.widget_btn_engage, "setBackgroundResource", R.drawable.widget_btn_primary_amber)
-            views.setTextColor(R.id.widget_btn_engage, ContextCompat.getColor(context, R.color.widget_bg_deep))
+            WidgetTheme.primary(context, views, R.id.widget_btn_engage)
+            views.setTextColor(R.id.widget_btn_engage, WidgetTheme.color(context, R.color.widget_bg_deep))
         }
 
         views.setTextViewText(R.id.widget_btn_check, "CHECK")
@@ -146,10 +147,10 @@ class RunningTaskWidget : HomeWidgetProvider() {
             else -> "[ MISSION // STANDBY ]"
         }
         val accentColor = when {
-            !hasTask -> ContextCompat.getColor(context, R.color.widget_text_muted)
-            isRunning -> ContextCompat.getColor(context, R.color.widget_accent_red)
-            isCheckpoint -> ContextCompat.getColor(context, R.color.widget_accent_cyan)
-            else -> ContextCompat.getColor(context, R.color.widget_accent_amber)
+            !hasTask -> WidgetTheme.color(context, R.color.widget_text_muted)
+            isRunning -> WidgetTheme.color(context, R.color.widget_accent_red)
+            isCheckpoint -> WidgetTheme.color(context, R.color.widget_accent_cyan)
+            else -> WidgetTheme.color(context, R.color.widget_accent_amber)
         }
 
         val artRes = when {
@@ -212,11 +213,12 @@ class RunningTaskWidget : HomeWidgetProvider() {
             if (isRunning) {
                 views.setTextViewText(R.id.widget_btn_engage, "HALT")
                 views.setInt(R.id.widget_btn_engage, "setBackgroundResource", R.drawable.widget_btn_primary_red)
-                views.setTextColor(R.id.widget_btn_engage, ContextCompat.getColor(context, R.color.widget_text_white))
+                views.setTextColor(R.id.widget_btn_engage, WidgetTheme.color(context, R.color.widget_text_white))
             } else {
                 views.setTextViewText(R.id.widget_btn_engage, "ENGAGE")
                 views.setInt(R.id.widget_btn_engage, "setBackgroundResource", R.drawable.widget_btn_primary_amber)
-                views.setTextColor(R.id.widget_btn_engage, ContextCompat.getColor(context, R.color.widget_bg_deep))
+                WidgetTheme.primary(context, views, R.id.widget_btn_engage)
+                views.setTextColor(R.id.widget_btn_engage, WidgetTheme.color(context, R.color.widget_bg_deep))
             }
             views.setTextViewText(R.id.widget_btn_check, "CHECK")
             views.setTextViewText(R.id.widget_btn_finish, "FINISH")
@@ -229,7 +231,8 @@ class RunningTaskWidget : HomeWidgetProvider() {
             views.setViewVisibility(R.id.widget_btn_finish, View.VISIBLE)
             views.setTextViewText(R.id.widget_btn_engage, "OPEN PLAN")
             views.setInt(R.id.widget_btn_engage, "setBackgroundResource", R.drawable.widget_btn_primary_amber)
-            views.setTextColor(R.id.widget_btn_engage, ContextCompat.getColor(context, R.color.widget_bg_deep))
+            WidgetTheme.primary(context, views, R.id.widget_btn_engage)
+            views.setTextColor(R.id.widget_btn_engage, WidgetTheme.color(context, R.color.widget_bg_deep))
             views.setTextViewText(R.id.widget_btn_finish, "OPEN")
 
             views.setOnClickPendingIntent(R.id.widget_btn_engage, openPlanIntent)
@@ -245,7 +248,7 @@ class RunningTaskWidget : HomeWidgetProvider() {
         val speedKmh = WidgetCommon.getSafeInt(prefs, "arcane.bus.speedKmh", 20)
         val displaySpeed = if (speedKmh > 0) speedKmh else 20
 
-        val accentColor = ContextCompat.getColor(context, R.color.widget_accent_amber)
+        val accentColor = WidgetTheme.color(context, R.color.widget_accent_amber)
         views.setImageViewResource(R.id.widget_bg_art, R.drawable.widget_bg_art_amber)
 
         views.setTextViewText(R.id.widget_status_label, "[ IN THE BUS // TRANSIT ACTIVE ]")
@@ -277,7 +280,7 @@ class RunningTaskWidget : HomeWidgetProvider() {
 
         views.setTextViewText(R.id.widget_btn_engage, "END TRIP")
         views.setInt(R.id.widget_btn_engage, "setBackgroundResource", R.drawable.widget_btn_primary_red)
-        views.setTextColor(R.id.widget_btn_engage, ContextCompat.getColor(context, R.color.widget_text_white))
+        views.setTextColor(R.id.widget_btn_engage, WidgetTheme.color(context, R.color.widget_text_white))
         views.setOnClickPendingIntent(R.id.widget_btn_engage, WidgetCommon.actionIntent(context, "bus_end_trip", 201))
 
         views.setTextViewText(R.id.widget_btn_check, "RADAR")

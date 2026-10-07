@@ -23,7 +23,7 @@ class JournalWidget : HomeWidgetProvider() {
     }
 
     private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int, prefs: SharedPreferences) {
-        val views = RemoteViews(context.packageName, R.layout.widget_journal)
+        val views = WidgetTheme.views(context, R.layout.widget_journal)
 
         val options = mgr.getAppWidgetOptions(widgetId)
         val minHeight = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT) ?: 0
@@ -65,12 +65,13 @@ class JournalWidget : HomeWidgetProvider() {
     }
 
     private fun setPip(context: Context, views: RemoteViews, id: Int, filled: Boolean) {
+        WidgetTheme.pip(context, views, id, filled)
         if (filled) {
             views.setInt(id, "setBackgroundResource", R.drawable.widget_pip_on)
-            views.setTextColor(id, ContextCompat.getColor(context, R.color.widget_bg_deep))
+            views.setTextColor(id, WidgetTheme.color(context, R.color.widget_bg_deep))
         } else {
             views.setInt(id, "setBackgroundResource", R.drawable.widget_pip_off)
-            views.setTextColor(id, ContextCompat.getColor(context, R.color.widget_text_muted))
+            views.setTextColor(id, WidgetTheme.color(context, R.color.widget_text_muted))
         }
     }
 }

@@ -91,7 +91,7 @@ class DayPlanWidget : HomeWidgetProvider() {
     }
 
     private fun render(context: Context, mgr: AppWidgetManager, widgetId: Int, prefs: SharedPreferences) {
-        val views = RemoteViews(context.packageName, R.layout.widget_dayplan)
+        val views = WidgetTheme.views(context, R.layout.widget_dayplan)
         renderDayPlanLayout(context, views, prefs)
         mgr.updateAppWidget(widgetId, views)
     }

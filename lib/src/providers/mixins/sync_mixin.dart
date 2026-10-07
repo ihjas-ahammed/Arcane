@@ -139,8 +139,23 @@ mixin SyncMixin on ChangeNotifier {
     notifyListeners();
   }
 
+  bool _localSaveRunning = false;
+  bool _localSaveAgain = false;
+
   Future<void> _saveLocalSnapshot({bool forceFlush = false, Map<String, dynamic>? precomputedState}) async {
     if (currentUser == null || _dataLoadInProgress) return;
+    // One serialization pass at a time: edits that arrive meanwhile are folded into a single
+    // follow-up save, so a burst of taps can't queue several multi-MB encodes behind each other.
+    if (_localSaveRunning && precomputedState == null && !forceFlush) {
+      _localSaveAgain = true;
+      return;
+    }
+    // A flush (app pausing, before a cloud push) must leave the newest state on disk: wait for
+    // the save in flight, then write again.
+    for (var i = 0; forceFlush && _localSaveRunning && i < 250; i++) {
+      await Future.delayed(const Duration(milliseconds: 20));
+    }
+    _localSaveRunning = true;
     try {
       // Reuse a just-built state map when the caller already has one instead of re-running
       // getFullAppState()'s full serialization pass.
@@ -151,6 +166,12 @@ mixin SyncMixin on ChangeNotifier {
       // Never give up on the local copy: try again until the write goes through.
       _saveDebounce?.cancel();
       _saveDebounce = Timer(const Duration(seconds: 2), _saveLocalSnapshot);
+    } finally {
+      _localSaveRunning = false;
+      if (_localSaveAgain) {
+        _localSaveAgain = false;
+        unawaited(_saveLocalSnapshot());
+      }
     }
   }
 

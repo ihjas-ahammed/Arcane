@@ -42,6 +42,7 @@ class HomeWidgetPublisher {
   String? _lastJournalKey;
   String? _lastBusKey;
   String? _lastGoalsKey;
+  String? _lastThemeKey;
 
   Timer? _publishDebounce;
 
@@ -59,6 +60,7 @@ class HomeWidgetPublisher {
   /// Force a republish — used immediately after init so the widget reflects
   /// state without waiting for the first user-driven mutation.
   Future<void> publishAll() async {
+    await _publishTheme(force: true);
     await _publishTask(force: true);
     await _publishFinance(force: true);
     await _publishJournal(force: true);
@@ -77,6 +79,8 @@ class HomeWidgetPublisher {
     _publishDebounce = Timer(const Duration(milliseconds: 400), () {
       // Cheap fire-and-forget — these are async but we don't need to await.
       // ignore: discarded_futures
+      _publishTheme();
+      // ignore: discarded_futures
       _publishTask();
       // ignore: discarded_futures
       _publishFinance();
@@ -87,6 +91,23 @@ class HomeWidgetPublisher {
       // ignore: discarded_futures
       _publishGoals();
     });
+  }
+
+  // ── Theme ──────────────────────────────────────────────────────────────
+
+  Future<void> _publishTheme({bool force = false}) async {
+    try {
+      final mode = _provider.settings.themeMode;
+      final system = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+      final light = mode == 'light' || (mode == 'system' && !system);
+      final accent = (_provider.getSelectedTask()?.taskColor ?? const Color(0xFF00F0FF)).toARGB32();
+      final key = '$light|$accent';
+      if (!force && key == _lastThemeKey) return;
+      _lastThemeKey = key;
+      await HomeWidgetService.instance.publishTheme(light: light, accentArgb: accent);
+    } catch (e) {
+      debugPrint('[HomeWidget] publish theme: $e');
+    }
   }
 
   // ── Task ───────────────────────────────────────────────────────────────
