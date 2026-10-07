@@ -1,3 +1,4 @@
+import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -1164,6 +1165,31 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     return (result['checkpoints'] as List?)?.map((c) => c as Map<String, dynamic>).toList() ??[];
   }
 
+
+  /// The needs framework ("What the day needed") as prompt text, built from the same source the
+  /// charts and dialogs use so the model, the UI and the reports always speak the same terms.
+  static String _needsRubric() {
+    final b = StringBuffer();
+    for (final n in WellbeingTheme.needNames) {
+      b.writeln('       - $n: ${WellbeingTheme.descriptions[n]}');
+    }
+    return b.toString();
+  }
+
+  static String _needsJsonShape([String indent = '        ']) =>
+      WellbeingTheme.needNames.map((n) => '$indent"$n": float').join(',\n');
+
+  static const String _needsScoringRules = """
+    NEEDS FRAMEWORK. A reflection is a signal about which basic human needs the day was calling for
+    (drawn from Self-Determination Theory, Maslow, Ryff, Frankl, Csikszentmihalyi and Stoic/Aristotelian ethics).
+    Score how strongly each need SHOWS UP in this log, whether it is being met or is being frustrated.
+    The score is salience, not a verdict of good or bad. Judge only from evidence in the text, never from what you assume.
+    Scale: 0.0 no trace; 0.1-0.3 hinted; 0.4-0.6 clearly present; 0.7-1.0 central to the log.
+    Most logs touch only 1-4 needs; leave the rest at 0.0. Distinguish carefully: Autonomy is choice, Competence is
+    capability, Integrity is acting by one's values, Purpose is direction/contribution, Equanimity is steadiness under
+    emotion, Delight is savouring, Flow is absorption, Self-Worth is self-regard, Belonging is connection to others.
+""";
+
   Future<Map<String, dynamic>> evaluateReflection({
     required String trigger,
     required String emotion,
@@ -1196,36 +1222,15 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
 
     1. Provide constructive feedback. ($instruction)
     2. Focus on present actionability. Use recent context to understand patterns but keep feedback focused on THIS specific log.
-    3. Score each Well-Being area as a float 0.0 to 1.0 using ONLY clear evidence in this log:
-       - Positivity (0.0–1.0): Score ONLY if log shows moments of joy, gratitude, humor, awe, love, or contentment. No evidence = 0.0. Explicit positive emotion = 0.8–1.0.
-       - Resilience (0.0–1.0): Score ONLY if log shows bouncing back from setback, tolerating distress, reframing a negative event, or regulating strong emotions. Mere acknowledgment of difficulty = 0.0.
-       - Satisfaction (0.0–1.0): Score ONLY if log shows subjective sense of overall life going well or a meaningful accomplishment. Mundane tasks = 0.0.
-       - Vitality (0.0–1.0): Score ONLY if log references physical energy, exercise, sleep quality, or bodily health positively.
-       - Env. Mastery (0.0–1.0): Score ONLY if log shows user successfully shaped their environment: organized something, solved a logistical problem, or created a productive space.
-       - Relationships (0.0–1.0): Score ONLY if log shows feeling loved, supported, or valued by a specific person — or a meaningful positive interaction.
-       - Self-Acceptance (0.0–1.0): Score ONLY if log shows self-compassion, honest self-recognition without harsh judgment, or accepting a limitation gracefully.
-       - Mastery (0.0–1.0): Score ONLY if log shows completing a challenging task, learning a hard concept, or demonstrating a skill under difficulty.
-       - Autonomy (0.0–1.0): Score ONLY if log shows user making a self-determined choice, resisting social pressure, or acting according to their own values.
-       - Growth (0.0–1.0): Score ONLY if log shows intentional development: learning something new, seeking feedback, or practicing a skill deliberately.
-       - Engagement (0.0–1.0): Score ONLY if log shows flow state, absorption in a task, or genuine enthusiasm for an activity.
-       - Meaning (0.0–1.0): Score ONLY if log shows connection to purpose, contribution to something larger, or acting in alignment with deep values.
-    Use 0.0 when the evidence is absent or ambiguous. Partial evidence = 0.1–0.4. Clear evidence = 0.5–0.7. Exceptionally strong evidence = 0.8–1.0.
-
+    3. In your feedback, name in plain words the one or two needs this log reveals (met or frustrated) and offer one small, concrete next step. Do not use jargon or the word "salience".
+    4. Score the needs below.
+    $_needsScoringRules
+    Needs:
+${_needsRubric()}
     Output JSON: {
       "feedback": "string",
       "need_allocation": {
-        "Positivity": float,
-        "Resilience": float,
-        "Satisfaction": float,
-        "Vitality": float,
-        "Env. Mastery": float,
-        "Relationships": float,
-        "Self-Acceptance": float,
-        "Mastery": float,
-        "Autonomy": float,
-        "Growth": float,
-        "Engagement": float,
-        "Meaning": float
+${_needsJsonShape()}
       }
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
@@ -1250,23 +1255,10 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
   }) async {
     final prompt = """
     Analyze the following array of reflection logs.
-    For each log, score the user's well-being evidence across 12 areas as a float 0.0 to 1.0.
-
-    Scoring rules (apply PER LOG — do NOT average across logs):
-    - Positivity: joy, gratitude, humor, awe, love, contentment. 0.0 if absent.
-    - Resilience: bouncing back, tolerating distress, reframing, emotion regulation. 0.0 if mere acknowledgment of difficulty.
-    - Satisfaction: subjective sense of overall life going well or meaningful accomplishment. 0.0 for routine tasks.
-    - Vitality: physical energy, exercise, good sleep, bodily health referenced positively.
-    - Env. Mastery: successfully shaped environment, solved logistics, created productive space.
-    - Relationships: feeling loved/supported/valued by a specific person; meaningful positive interaction.
-    - Self-Acceptance: self-compassion, honest self-recognition without harsh judgment.
-    - Mastery: completed a challenging task, learned hard concept, demonstrated skill under difficulty.
-    - Autonomy: self-determined choice, resisting pressure, acting by own values.
-    - Growth: deliberate learning, seeking feedback, practicing a skill intentionally.
-    - Engagement: flow state, absorption, genuine enthusiasm for an activity.
-    - Meaning: connection to purpose, contribution to something larger, acting by deep values.
-    Absent or ambiguous evidence = 0.0. Partial = 0.1–0.4. Clear = 0.5–0.7. Exceptionally strong = 0.8–1.0.
-
+    For each log, score the 12 needs below (apply PER LOG, do NOT average across logs).
+    $_needsScoringRules
+    Needs:
+${_needsRubric()}
     Logs to evaluate:
     ${jsonEncode(logsPayload)}
 
@@ -1276,18 +1268,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
         {
           "log_id": "id_string_from_input",
           "need_allocation": {
-            "Positivity": float,
-            "Resilience": float,
-            "Satisfaction": float,
-            "Vitality": float,
-            "Env. Mastery": float,
-            "Relationships": float,
-            "Self-Acceptance": float,
-            "Mastery": float,
-            "Autonomy": float,
-            "Growth": float,
-            "Engagement": float,
-            "Meaning": float
+${_needsJsonShape('            ')}
           }
         }
       ]
@@ -1458,7 +1439,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
 
     Reflection Logs: $logsText
     Time Data: $timeStatsText
-    Wellbeing Progress: $wellbeingStatsText
+    Needs focus (share of the period's reflections that surfaced each need): $wellbeingStatsText
     ${financeText != null && financeText.isNotEmpty ? 'Finance: $financeText' : ''}
     ${healthText != null && healthText.isNotEmpty ? 'Health & Vitality (Last 7 Days): $healthText' : ''}
     ${agentProgressText != null && agentProgressText.isNotEmpty ? 'Agent Progress (Tasks): $agentProgressText' : ''}
@@ -1470,7 +1451,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
 
     Task:
     1. "summary": Uplifting, optimistic read of the week celebrating growth, wins, and progress.
-    2. "wellbeing_analysis": Positive comparison of wellbeing progress compared to previous week.
+    2. "wellbeing_analysis": Compare which needs (Rest, Security, Belonging, Self-Worth, Autonomy, Competence, Growth, Purpose, Integrity, Flow, Equanimity, Delight) the reflections pointed to this week versus last week, and what that says about what the user was missing or tending.
     3. "health_analysis": Comprehensive, uplifting 7-day health & vitality analysis evaluating sleep patterns, hydration, workouts, and movement habits with empowering coaching encouragement and recovery advice.
     4. "health_intel": {"sleep_insight": "string", "activity_insight": "string", "recovery_score": "string (e.g. 92% or Optimal)", "vitality_quote": "string", "actionable_tip": "string"}.
     5. "gtd_get_current": 2-4 active or stalled projects/tasks with one specific Next Action.
@@ -1565,7 +1546,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
 
     Reflection Logs (last ~30 days): $logsText
     Time Data (last ~30 days): $timeStatsText
-    Wellbeing Progress: $wellbeingStatsText
+    Needs focus (share of the period's reflections that surfaced each need): $wellbeingStatsText
     ${financeText != null && financeText.isNotEmpty ? 'Finance: $financeText' : ''}
     ${healthText != null && healthText.isNotEmpty ? 'Health: $healthText' : ''}
     ${peopleContext != null && peopleContext.isNotEmpty ? 'Known People: $peopleContext' : ''}
@@ -1584,7 +1565,7 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     5. "progress_review": "area", "small_wins", "compound_effect".
     6. "identity_trajectory": Who the user became.
     7. "relationship_audit": EVERY person who mattered. "name", "trend", "action".
-    8. "wellbeing_deltas": 2-4 movements in wellbeing.
+    8. "wellbeing_deltas": 2-4 shifts in which needs the reflections surfaced (area = need name, hypothesis = why).
     9. "life_domains": rate domains 1-10 with evidence.
     10. "best_possible_self": One-month-out portrait.
     11. "next_month_woop": 1-3 goals.

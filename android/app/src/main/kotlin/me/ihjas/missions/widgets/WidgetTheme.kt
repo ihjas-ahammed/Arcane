@@ -11,8 +11,8 @@ import androidx.core.graphics.ColorUtils
 import me.ihjas.missions.R
 
 /**
- * Makes every Arcane widget follow the app: light / dark theme and the accent colour of the
- * selected protocol. The Dart side publishes `arcane.theme.light` and `arcane.theme.accent`; each
+ * Makes every Arcane widget follow the launcher: its light / dark theme, accent, panel and text
+ * colours. The Dart side publishes them as `arcane.theme.*` prefs; each
  * widget is created through [views] and its static colours are re-tinted at runtime. Surfaces and
  * buttons are flat shapes, so a background tint recolours them cleanly. Needs API 31
  * (`setColorStateList`); older systems keep the original dark look.
@@ -20,12 +20,13 @@ import me.ihjas.missions.R
 object WidgetTheme {
     private const val DEFAULT_ACCENT = 0xFF00F0FF.toInt()
 
-    class T(val light: Boolean, val accent: Int) {
-        val surface: Int = if (light) ColorUtils.blendARGB(Color.WHITE, accent, 0.10f)
-                           else ColorUtils.blendARGB(0xFF0B0F17.toInt(), accent, 0.10f)
-        val text: Int = if (light) 0xFF14181F.toInt() else 0xFFF2F6FA.toInt()
-        val mid: Int = if (light) 0xFF3C4654.toInt() else 0xFFB9C4CF.toInt()
-        val muted: Int = if (light) 0xFF6B7684.toInt() else 0xFF7A8A99.toInt()
+    /** Launcher palette as published by the app; each colour falls back to a sensible derivation. */
+    class T(val light: Boolean, val accent: Int, panel: Int?, textColor: Int?, mutedColor: Int?) {
+        val surface: Int = panel ?: if (light) ColorUtils.blendARGB(Color.WHITE, accent, 0.10f)
+                                    else ColorUtils.blendARGB(0xFF0B0F17.toInt(), accent, 0.10f)
+        val text: Int = textColor ?: if (light) 0xFF14181F.toInt() else 0xFFF2F6FA.toInt()
+        val muted: Int = mutedColor ?: if (light) 0xFF6B7684.toInt() else 0xFF7A8A99.toInt()
+        val mid: Int = ColorUtils.blendARGB(text, muted, 0.45f)
         val onAccent: Int = if (ColorUtils.calculateLuminance(accent) > 0.5) 0xFF0B0F17.toInt() else Color.WHITE
         // Accent text must stay readable on the surface.
         val accentText: Int = run {
@@ -40,9 +41,10 @@ object WidgetTheme {
 
     fun get(context: Context): T {
         val p = WidgetCommon.prefs(context)
+        fun opt(key: String): Int? = if (p.all.containsKey(key)) WidgetCommon.getSafeLong(p, key, 0L).toInt() or 0xFF000000.toInt() else null
         val light = WidgetCommon.getSafeBoolean(p, "arcane.theme.light", false)
         val accent = WidgetCommon.getSafeLong(p, "arcane.theme.accent", DEFAULT_ACCENT.toLong()).toInt()
-        return T(light, accent or 0xFF000000.toInt())
+        return T(light, accent or 0xFF000000.toInt(), opt("arcane.theme.surface"), opt("arcane.theme.text"), opt("arcane.theme.muted"))
     }
 
     private val themed get() = Build.VERSION.SDK_INT >= 31

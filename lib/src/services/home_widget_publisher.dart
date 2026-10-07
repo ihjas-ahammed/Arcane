@@ -8,6 +8,7 @@ import 'package:missions/src/models/bus_models.dart';
 import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/screens/launcher/launcher_theme.dart';
 import 'package:missions/src/screens/settings/widgets_studio/widgets_studio_resolvers.dart';
 import 'package:missions/src/services/bus_location_service.dart';
 import 'package:missions/src/services/home_widget_service.dart';
@@ -25,7 +26,13 @@ class HomeWidgetPublisher {
     // Self-heal: the floating button and widgets trust the last published state, so re-assert
     // the truth regularly. A single missed or failed publish can no longer leave a stale
     // "running" clock ticking.
-    _heartbeat = Timer.periodic(const Duration(seconds: 30), (_) => _publishTask(force: true));
+    _heartbeat = Timer.periodic(const Duration(seconds: 30), (_) {
+      // The launcher palette can change without any app state changing.
+      // ignore: discarded_futures
+      _publishTheme();
+      // ignore: discarded_futures
+      _publishTask(force: true);
+    });
   }
 
   Timer? _heartbeat;
@@ -97,14 +104,22 @@ class HomeWidgetPublisher {
 
   Future<void> _publishTheme({bool force = false}) async {
     try {
-      final mode = _provider.settings.themeMode;
-      final system = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
-      final light = mode == 'light' || (mode == 'system' && !system);
-      final accent = (_provider.getSelectedTask()?.taskColor ?? const Color(0xFF00F0FF)).toARGB32();
-      final key = '$light|$accent';
+      // The launcher's own palette, not the protocol colour: widgets should look like the launcher.
+      final light = LauncherTheme.isLight;
+      final accent = LauncherTheme.accent.toARGB32();
+      final surface = LauncherTheme.panel.toARGB32();
+      final text = LauncherTheme.text.toARGB32();
+      final muted = LauncherTheme.muted.toARGB32();
+      final key = '$light|$accent|$surface|$text|$muted';
       if (!force && key == _lastThemeKey) return;
       _lastThemeKey = key;
-      await HomeWidgetService.instance.publishTheme(light: light, accentArgb: accent);
+      await HomeWidgetService.instance.publishTheme(
+        light: light,
+        accentArgb: accent,
+        surfaceArgb: surface,
+        textArgb: text,
+        mutedArgb: muted,
+      );
     } catch (e) {
       debugPrint('[HomeWidget] publish theme: $e');
     }

@@ -1,4 +1,12 @@
-# ⚡ Arcane System Upgrade // v2026.10.7 (Build #2126100704)
+# ⚡ Arcane System Upgrade // v2026.10.7 (Build #2126100705)
+
+### 🧭 "What the day needed" rebuilt
+- New framework of 12 distinct needs, each grounded in psychology and philosophy: Rest, Security (Maslow), Belonging, Self-Worth (Baumeister & Leary, Neff), Autonomy, Competence (Self-Determination Theory, Stoic sphere of choice), Growth (Ryff, Aristotle), Purpose, Integrity (Frankl, virtue ethics), Flow (Csikszentmihalyi), Equanimity (Stoic ataraxia, emotion regulation), Delight (Fredrickson).
+- The AI now scores how strongly each need shows up in a reflection (met or frustrated), with clear definitions, and its feedback names the needs and gives one small step. Weekly / monthly reports use the same terms.
+- The reflection insight alert is updated to match: "What this reflection needed", with a short meaning for each need. Older reflections are mapped onto the new needs automatically.
+
+### 🧩 Widgets use the launcher colours
+- Widgets now take the launcher's palette (accent, panel, text, light / dark), not the protocol colour.
 
 ### ✅ No more surprise checking
 - Stopping a timer never checks a task or takes it off the day plan any more.

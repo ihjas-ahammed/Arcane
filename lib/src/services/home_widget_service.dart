@@ -150,10 +150,22 @@ class HomeWidgetService {
     await _refresh(_providerDayPlan);
   }
 
-  /// Theme the native widgets follow: light/dark and the protocol accent (ARGB int).
-  Future<void> publishTheme({required bool light, required int accentArgb}) async {
+  /// Theme the native widgets follow: the launcher's palette (light/dark, accent, panel, text), as ARGB ints.
+  Future<void> publishTheme({
+    required bool light,
+    required int accentArgb,
+    required int surfaceArgb,
+    required int textArgb,
+    required int mutedArgb,
+  }) async {
     if (!_supported) return;
-    await _setAll({'arcane.theme.light': light, 'arcane.theme.accent': accentArgb});
+    await _setAll({
+      'arcane.theme.light': light,
+      'arcane.theme.accent': accentArgb,
+      'arcane.theme.surface': surfaceArgb,
+      'arcane.theme.text': textArgb,
+      'arcane.theme.muted': mutedArgb,
+    });
     for (final p in [_providerRunning, _providerDayPlan, _providerFinance, _providerJournal, _providerBus, _providerGoals]) {
       await _refresh(p);
     }

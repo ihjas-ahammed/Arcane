@@ -116,24 +116,21 @@ mixin UserMixin on ChangeNotifier {
   }
 
   List<Skill> getBaseWellbeingSkills() {
+    const ids = {
+      'Rest': 'rest', 'Security': 'sec', 'Belonging': 'bel', 'Self-Worth': 'wor', 'Autonomy': 'aut',
+      'Competence': 'com', 'Growth': 'gro', 'Purpose': 'pur', 'Integrity': 'int', 'Flow': 'flo',
+      'Equanimity': 'equ', 'Delight': 'del',
+    };
     return [
-      Skill(id: 'pos', name: 'Positivity', description: 'More positive emotions: higher frequency and intensity of positive moods and emotions in oneâ€™s daily life.'),
-      Skill(id: 'res', name: 'Resilience', description: 'Fewer negative emotions: lower frequency and intensity of negative moods and emotions in oneâ€™s daily life.'),
-      Skill(id: 'sat', name: 'Satisfaction', description: 'Life satisfaction: a positive subjective evaluation of oneâ€™s life overall.'),
-      Skill(id: 'vit', name: 'Vitality', description: 'Vitality: a positive subjective sense of physical health and energy.'),
-      Skill(id: 'env', name: 'Env. Mastery', description: 'Environmental mastery: the ability to shape environments to suit oneâ€™s needs and desires.'),
-      Skill(id: 'rel', name: 'Relationships', description: 'Positive relationships: feeling loved, supported, and valued by others.'),
-      Skill(id: 'acc', name: 'Self-Acceptance', description: 'Self-acceptance: positive attitudes toward self; a sense of self-worth.'),
-      Skill(id: 'mas', name: 'Mastery', description: 'Mastery: feelings of competence in accomplishing challenging tasks.'),
-      Skill(id: 'aut', name: 'Autonomy', description: 'Autonomy: feeling independent, free to make oneâ€™s own choices in life.'),
-      Skill(id: 'gro', name: 'Growth', description: 'Personal growth: continually seeking development and improvement.'),
-      Skill(id: 'eng', name: 'Engagement', description: 'Engagement in life: being absorbed, interested, and involved in oneâ€™s daily activities.'),
-      Skill(id: 'mea', name: 'Meaning', description: 'Meaning: feeling that life has purpose and direction.'),
+      for (final n in WellbeingTheme.needNames)
+        Skill(id: ids[n]!, name: n, description: WellbeingTheme.descriptions[n] ?? ''),
     ];
   }
 
   void initializeSkills() {
-    bool hasLegacy = _skills.any((s) => s.name.toLowerCase() == 'wisdom') || _skills.length < 12;
+    // Anything that isn't the current set of needs (older virtue / well-being lists) is replaced.
+    bool hasLegacy = _skills.length != WellbeingTheme.needNames.length ||
+        !_skills.every((s) => WellbeingTheme.needNames.contains(s.name));
     if (_skills.isEmpty || hasLegacy) {
       _skills = getBaseWellbeingSkills();
     }

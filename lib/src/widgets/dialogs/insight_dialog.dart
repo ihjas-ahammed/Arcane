@@ -11,7 +11,7 @@ import 'package:missions/src/widgets/ui/hud_components.dart';
 /// Rendered as a compact modal floating over the underlying screen, styled to
 /// match the logbook screen's HUD panels.
 class InsightDialog extends StatelessWidget {
-  /// Wellbeing areas touched by the reflection (names only, no scoring).
+  /// Needs this reflection surfaced (names only, ordered as stored).
   final Iterable<String> areas;
   final String? insightText;
 
@@ -170,9 +170,9 @@ class _SkillsBlock extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _SectionLabel(
-          label: 'AREAS IMPACTED',
+          label: 'WHAT THIS REFLECTION NEEDED',
           color: JweTheme.accentCyan,
-          trailing: '${entries.length} CH',
+          trailing: entries.length == 1 ? '1 NEED' : '${entries.length} NEEDS',
         ),
         GridView.count(
           crossAxisCount: 4,
@@ -189,6 +189,29 @@ class _SkillsBlock extends StatelessWidget {
                 .slideY(begin: 0.2, end: 0);
           }),
         ),
+        const SizedBox(height: 10),
+        // What each need means, so the chips are never just labels.
+        for (final e in entries.take(4))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 5),
+            child: Text.rich(
+              TextSpan(children: [
+                TextSpan(
+                  text: '${e.toUpperCase()}  ',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: WellbeingTheme.getColor(e),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                TextSpan(
+                  text: WellbeingTheme.describe(e),
+                  style: GoogleFonts.inter(color: JweTheme.textMuted, fontSize: 11, height: 1.35),
+                ),
+              ]),
+            ),
+          ),
       ],
     );
   }
@@ -244,7 +267,7 @@ class _TransmissionBlock extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionLabel(label: 'TRANSMISSION', color: JweTheme.accentAmber),
+        _SectionLabel(label: 'READING', color: JweTheme.accentAmber),
         ClipPath(
           clipper: HudCutClipper(clip: HudClip.both, cut: 10),
           child: Container(

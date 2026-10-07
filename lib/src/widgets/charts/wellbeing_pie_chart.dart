@@ -53,7 +53,7 @@ class WellbeingPieChart extends StatelessWidget {
     String pct(int v) => '${(v * 100 / total).round()}%';
 
     // Default text: the area the day leaned on most
-    String centerTopText = "DAY NEEDS";
+    String centerTopText = "MOST CALLED FOR";
     String centerBottomText = entries.first.key;
     Color centerColor = WellbeingTheme.getColor(entries.first.key);
 
