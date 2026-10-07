@@ -75,6 +75,8 @@ class LocalStorageService {
       await tempFile.rename(file.path);
     } catch (e) {
       debugPrint("LocalStorage Save Error: $e");
+      // Surface the failure so the caller can retry: a swallowed error here is silent data loss.
+      rethrow;
     }
   }
 

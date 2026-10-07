@@ -26,7 +26,7 @@ const String _docLauncher = 'launcher';
 // runs overnight, so we favour small parts, pauses and retries over speed.
 const int _partChars = 24 * 1024;
 const Duration _partPause = Duration(milliseconds: 60);
-const int _partRetries = 4;
+const int _partRetries = 8;
 
 String _partKey(int i) => 'p${i.toString().padLeft(5, '0')}';
 
@@ -393,6 +393,11 @@ class _FlutterFireStorageService implements StorageService {
       for (var i = 0; i < parts.length; i++) {
         await _withRetry(() => partsRef.child('$ver/${_partKey(i)}').set(parts[i]).timeout(_rtdbTimeout));
         await Future.delayed(_partPause);
+      }
+      // Read the first and last parts back: the pointer only flips once the cloud really holds them.
+      for (final i in {0, parts.length - 1}) {
+        final back = (await _rtdb.ref('users/$userId/chunks/$chunk/$ver/${_partKey(i)}').get().timeout(_rtdbTimeout)).value;
+        if (back != parts[i]) throw StateError('Cloud verification failed for $chunk part $i');
       }
       // Only now flip the pointer, so a half-finished upload never replaces good data.
       await _withRetry(() => _rtdbRef(userId, chunk)
@@ -809,6 +814,11 @@ class _LinuxStorageService implements StorageService {
       for (var i = 0; i < parts.length; i++) {
         await _withRetry(() => partsRef.child('$ver/${_partKey(i)}').set(parts[i]).timeout(_rtdbTimeout));
         await Future.delayed(_partPause);
+      }
+      // Read the first and last parts back: the pointer only flips once the cloud really holds them.
+      for (final i in {0, parts.length - 1}) {
+        final back = (await partsRef.child('$ver/${_partKey(i)}').once().timeout(_rtdbTimeout)).value;
+        if (back != parts[i]) throw StateError('Cloud verification failed for $chunk part $i');
       }
       // Only now flip the pointer, so a half-finished upload never replaces good data.
       await _withRetry(() => _rtdbRef(userId, chunk)

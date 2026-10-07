@@ -76,8 +76,8 @@ class TaskBubbleOverlay(private val context: Context) {
 
         private const val IDLE_ALPHA = 0.38f
         private const val IDLE_DELAY_MS = 2500L
-        private const val PAUSED_AUTO_HIDE_MS = 3 * 60 * 60 * 1000L // 3 hours paused timeout
-        private const val OFF_GRACE_MS = 1500L // ride out half-written task state before hiding
+        /** Self-heal beat: re-runs [sync] so a bubble the system dropped (or a missed pref change) comes back. */
+        private const val HEARTBEAT_MS = 20_000L
 
         private const val BG_DARK = 0xF605080E.toInt()
         private const val CYAN = 0xFF00F0FF.toInt()
@@ -114,6 +114,7 @@ class TaskBubbleOverlay(private val context: Context) {
     private var snapAnim: ValueAnimator? = null
     private var dockAnim: ValueAnimator? = null
     private var isDocked = false
+    private var shownAtMs = 0L
     private var started = false
     private var temporarilyHidden = false
     private var lastHiddenTaskTitle: String? = null
@@ -135,11 +136,22 @@ class TaskBubbleOverlay(private val context: Context) {
         settingsPrefs.registerOnSharedPreferenceChangeListener(settingsListener)
         widgetPrefs.registerOnSharedPreferenceChangeListener(widgetListener)
         sync()
+        handler.removeCallbacks(heartbeatRunnable)
+        handler.postDelayed(heartbeatRunnable, HEARTBEAT_MS)
+    }
+
+    private val heartbeatRunnable = object : Runnable {
+        override fun run() {
+            if (!started) return
+            sync()
+            handler.postDelayed(this, HEARTBEAT_MS)
+        }
     }
 
     fun stop() {
         if (!started) return
         started = false
+        handler.removeCallbacks(heartbeatRunnable)
         temporarilyHidden = false
         lastHiddenTaskTitle = null
         settingsPrefs.unregisterOnSharedPreferenceChangeListener(settingsListener)
@@ -162,7 +174,6 @@ class TaskBubbleOverlay(private val context: Context) {
     private val syncRunnable = Runnable {
         val enabled = isEnabled(context)
         val running = isRunning()
-        val has = hasTask()
         val currentTitle = widgetPrefs.getString("arcane.task.title", "") ?: ""
 
         if (temporarilyHidden) {
@@ -173,44 +184,27 @@ class TaskBubbleOverlay(private val context: Context) {
             }
         }
 
-        if (started && enabled && !temporarilyHidden && (running || has)) {
-            offConfirmed = false
-            handler.removeCallbacks(confirmOffRunnable)
+        // The button stays on screen whenever it is enabled (an idle button opens the plan), so it
+        // can never go missing just because the plan was empty, a day rolled over, or a session
+        // sat paused. Only the user switching it off (or "hide until next task") removes it.
+        if (started && enabled && !temporarilyHidden) {
             show()
+            val b = bubble
+            if (b != null && !b.isAttachedToWindow && System.currentTimeMillis() - shownAtMs > 3000) {
+                // The system dropped our window: rebuild it.
+                hide()
+                show()
+            }
             bubble?.refreshState()
             if (running) {
-                handler.removeCallbacks(pausedAutoHideRunnable)
                 val title = widgetPrefs.getString("arcane.task.title", "") ?: "Arcane Task"
                 val subtitle = widgetPrefs.getString("arcane.task.subtitle", "") ?: "Reading / Task In Progress"
                 TaskForegroundService.start(context, title, subtitle)
             } else {
                 TaskForegroundService.stop(context)
-                // Schedule auto-hide if paused and untouched for a long period
-                handler.removeCallbacks(pausedAutoHideRunnable)
-                handler.postDelayed(pausedAutoHideRunnable, PAUSED_AUTO_HIDE_MS)
             }
         } else {
-            // The Dart side writes hasTask/isRunning as separate prefs, so a half-written update can
-            // briefly read as "no task". Only tear the bubble down once that state has persisted.
-            if (bubble != null && started && enabled && !temporarilyHidden && !offConfirmed) {
-                handler.removeCallbacks(confirmOffRunnable)
-                handler.postDelayed(confirmOffRunnable, OFF_GRACE_MS)
-                return@Runnable
-            }
-            offConfirmed = false
             TaskForegroundService.stop(context)
-            hide()
-        }
-    }
-
-    private var offConfirmed = false
-    private val confirmOffRunnable = Runnable {
-        offConfirmed = true
-        sync()
-    }
-
-    private val pausedAutoHideRunnable = Runnable {
-        if (!isRunning()) {
             hide()
         }
     }
@@ -250,6 +244,7 @@ class TaskBubbleOverlay(private val context: Context) {
             wm.addView(view, p)
             bubble = view
             params = p
+            shownAtMs = System.currentTimeMillis()
             view.refreshState()
             isDocked = false
             scheduleIdle()
@@ -263,8 +258,6 @@ class TaskBubbleOverlay(private val context: Context) {
         snapAnim?.cancel()
         dockAnim?.cancel()
         handler.removeCallbacks(idleRunnable)
-        handler.removeCallbacks(confirmOffRunnable)
-        handler.removeCallbacks(pausedAutoHideRunnable)
         bubble?.let { try { wm.removeView(it) } catch (_: Exception) {} }
         bubble = null
         params = null

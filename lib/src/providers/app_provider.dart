@@ -268,7 +268,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     } else if (state == AppLifecycleState.paused ||
                state == AppLifecycleState.inactive ||
                state == AppLifecycleState.hidden) {
-      if (hasUnsavedChanges) {
+      if (hasPendingLocalSave) {
         forceLocalBackup();
       }
     }

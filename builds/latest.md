@@ -1,16 +1,14 @@
-# ⚡ Arcane System Upgrade // v2026.10.6 (Build #2126100604)
+# ⚡ Arcane System Upgrade // v2026.10.7 (Build #2126100701)
 
-### 🐧 Linux Desktop (x86_64) Release & Auto-Update
-- Official Linux x86_64 optimized release bundle now published in `builds/` and accessible via GitHub raw links.
-- Single-command direct terminal installer added (`curl -sSL https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/scripts/install-linux.sh | bash`).
-- Fully automated in-app updater: Arcane checks for Linux updates, downloads the optimized release, and restarts automatically with zero downtime.
-- Desktop menu entry and high-res tactical icon support added.
+### 💾 Your data is saved the moment you change it
+- Every edit is written to the on-device cache within ~120 ms (it used to wait a full second), and a failed write is retried until it lands.
+- Fixed: goals you added and the checks you made could vanish overnight. The end-of-day cloud push used to write its minutes-old snapshot back over your local data when it finished; it no longer touches the local cache at all.
+- Edits made while a cloud push is running now stay marked as unsynced and are pushed right after.
 
-### 🖐️ Input-Reply: Exact Touch
-- Recording now captures your real taps, long-presses and swipes at the exact pixel you pressed, and replay presses those same coordinates. The small left/up drift is gone.
-- Hybrid mode is removed; Touch is the default. Elements mode is still available.
-- The soft keyboard is left alone: the capture layer stays off the keyboard, so typing is still recorded as text.
-- Fixed duplicate click steps appearing for each recorded tap.
+### ☁️ Cloud sync is one-way and does not give up
+- Upload never replaces local data. The manual sync buttons are upload-only; restoring from the cloud is only in Settings, and it saves a copy of what is on the device first.
+- The end-of-day push keeps retrying (backoff up to 5 min) until every collection (tasks, history, reflections, finance, health, trading, launcher, settings) is in the cloud. If the app is closed mid-push it resumes on the next start or when you are back online.
+- Each uploaded chunk is read back from the cloud and checked before it replaces the old copy; more retries per part.
 
-### 🗓️ Sessions
-- The DELETE and SAVE buttons in the Session Archives screen did nothing. Both work now, and deleting shows the usual undo snackbar.
+### 🎯 Floating task button
+- It no longer disappears. The 3-hour paused auto-hide and the "no task, so hide" rule are gone; the button stays on screen whenever it is enabled (tap it with no task to open the plan) and re-checks itself every 20 s, so it comes back on its own instead of only when the Plan view is opened.
