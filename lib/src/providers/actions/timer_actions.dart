@@ -89,9 +89,7 @@ class TimerActions {
       );
       _provider.setProviderState(activeTimers: newActiveTimers);
 
-      if (timer.type == 'subtask') {
-        _provider.taskActions.removeFromDayPlan("${timer.mainTaskId}|$id");
-      }
+      // Stopping never checks or removes the task from the plan.
 
       // Cancel timer notification
       NotificationService.instance.cancelTimerNotification();
@@ -112,9 +110,7 @@ class TimerActions {
       newActiveTimers.remove(id);
       _provider.setProviderState(activeTimers: newActiveTimers);
 
-      if (timer.type == 'subtask') {
-        _provider.taskActions.removeFromDayPlan("${timer.mainTaskId}|$id");
-      }
+      // Stopping never checks or removes the task from the plan.
 
       // Cancel timer notification
       NotificationService.instance.cancelTimerNotification();

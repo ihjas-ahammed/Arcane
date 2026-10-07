@@ -1,4 +1,8 @@
-# ⚡ Arcane System Upgrade // v2026.10.7 (Build #2126100703)
+# ⚡ Arcane System Upgrade // v2026.10.7 (Build #2126100704)
+
+### ✅ No more surprise checking
+- Stopping a timer never checks a task or takes it off the day plan any more.
+- The tick in the planner (and on the plan widget) only checks a recurring daily task. For any other task it just takes it off today's plan and leaves it open. Checkpoint ticks are unchanged.
 
 ### 🎯 Floating task button
 - It now exists only while a timer is running; no more permanent play button. When nothing is running, a notification offers "Continue: <plan task>" with an ENGAGE action.

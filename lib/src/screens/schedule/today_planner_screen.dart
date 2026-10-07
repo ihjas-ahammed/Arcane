@@ -223,12 +223,19 @@ class _TodayPlannerScreenState extends State<TodayPlannerScreen> {
       provider.taskActions.completeSubSubtask(mainTaskId, subTaskId, parts[2]);
       showGlobalToast('✓ Checked: checkpoint completed');
     } else {
-      final ok = provider.taskActions.completeSubtask(mainTaskId, subTaskId);
+      final sub = provider.mainTasks
+          .firstWhereOrNull((t) => t.id == mainTaskId)
+          ?.subTasks
+          .firstWhereOrNull((s) => s.id == subTaskId);
+      final recurring = sub?.isRecurring == true;
+      final ok = provider.taskActions.tickPlanSubtask(mainTaskId, subTaskId);
       if (!ok) {
         showGlobalToast('Can\'t complete yet — checkpoints, count or time still pending');
         return;
       }
-      showGlobalToast('✓ Completed: subtask completed');
+      showGlobalToast(recurring ? '✓ Completed: daily task checked' : 'Taken off today\'s plan (task stays open)');
+      _startLeave(entry, recurring ? _LeaveKind.completed : _LeaveKind.removed);
+      return;
     }
     _startLeave(entry, _LeaveKind.completed);
   }

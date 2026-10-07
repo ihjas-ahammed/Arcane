@@ -1113,6 +1113,19 @@ class TaskActions {
     updateSubtask(mainTaskId, subtaskId, {'depth': depth});
   }
 
+  /// The tick on a planner row. Only a recurring (daily) task is actually checked; any other task
+  /// is just taken off today's plan and stays open. Returns whether the row should leave the plan.
+  bool tickPlanSubtask(String mainTaskId, String subtaskId) {
+    final sub = _provider.mainTasks
+        .firstWhereOrNull((t) => t.id == mainTaskId)
+        ?.subTasks
+        .firstWhereOrNull((s) => s.id == subtaskId);
+    if (sub == null) return true;
+    if (!sub.isRecurring) return true;
+    if (sub.completed) return true;
+    return completeSubtask(mainTaskId, subtaskId);
+  }
+
   bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) {
     MainTask? mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     if (mainTask == null) return false;

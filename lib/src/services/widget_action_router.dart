@@ -358,8 +358,14 @@ class WidgetActionRouter {
       provider.taskActions.completeSubSubtask(item.mainTaskId, item.subTaskId, item.targetCheckpointId!);
       showGlobalToast('✓ Checked: ${item.name}');
     } else {
-      provider.taskActions.completeSubtask(item.mainTaskId, item.subTaskId);
-      showGlobalToast('✓ Completed: ${item.name}');
+      final recurring = provider.mainTasks
+              .firstWhereOrNull((t) => t.id == item.mainTaskId)
+              ?.subTasks
+              .firstWhereOrNull((s) => s.id == item.subTaskId)
+              ?.isRecurring ==
+          true;
+      provider.taskActions.tickPlanSubtask(item.mainTaskId, item.subTaskId);
+      showGlobalToast(recurring ? '✓ Completed: ${item.name}' : 'Off today\'s plan: ${item.name}');
     }
     
     // Also remove from day plan

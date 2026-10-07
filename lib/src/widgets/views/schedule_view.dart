@@ -653,7 +653,7 @@ class _ScheduleViewState extends State<ScheduleView> {
             if (item.targetCheckpointId != null) {
               provider.taskActions.completeSubSubtask(item.mainTaskId, item.subTaskId, item.targetCheckpointId!);
             } else {
-              provider.taskActions.completeSubtask(item.mainTaskId, item.subTaskId);
+              provider.taskActions.tickPlanSubtask(item.mainTaskId, item.subTaskId);
             }
             final currentPlan = List<String>.from(provider.taskActions.getDayPlan(selectedDateStr));
             currentPlan.remove(item.compoundId);
@@ -663,7 +663,7 @@ class _ScheduleViewState extends State<ScheduleView> {
             if (item.targetCheckpointId != null) {
               provider.taskActions.completeSubSubtask(item.mainTaskId, item.subTaskId, item.targetCheckpointId!);
             } else {
-              provider.taskActions.completeSubtask(item.mainTaskId, item.subTaskId);
+              provider.taskActions.tickPlanSubtask(item.mainTaskId, item.subTaskId);
             }
             final currentPlan = List<String>.from(provider.taskActions.getDayPlan(selectedDateStr));
             currentPlan.remove(item.compoundId);
