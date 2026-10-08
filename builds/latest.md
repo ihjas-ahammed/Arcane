@@ -29,6 +29,8 @@
 - In the launcher, widgets are shown on their own: no frame, border or title bar, just like any other launcher.
 
 ### ⚡ Performance & data
+- Local data now lives in a SQLite database. Only the parts that changed are written on each save, so saves are much lighter.
+- Existing data is moved over automatically on first launch. The old JSON cache is kept, and the daily JSON backups still run.
 - Local saves are coalesced (one encode at a time) and flushed reliably when the app pauses.
 - Market data (websocket + polling) now starts only when you hold positions / pending orders, or open Trading.
 - Earlier in this release: realtime local saves, one-way retried cloud sync, desktop layout, Devices screen, nutrition removal, picker filters.
