@@ -10,6 +10,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
@@ -25,6 +26,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.telecom.TelecomManager
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -43,6 +45,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
     private var pendingPermissionResult: MethodChannel.Result? = null
     private var pendingStartListening = false
     private val PERMISSION_REQUEST_CODE = 2001
+    private val CALL_PERMISSION_REQUEST_CODE = 2002
     private var launcherBridge: LauncherBridge? = null
     private var devicesBridge: DevicesBridge? = null
     private var updateBridge: UpdateBridge? = null
@@ -129,6 +132,13 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         launcherBridge?.handlePinRequest(intent)
         registerDebugScoReceiver()
         registerDebugInputReplyReceiver()
+        val missingCallPermissions = arrayOf(
+            android.Manifest.permission.CALL_PHONE,
+            android.Manifest.permission.ANSWER_PHONE_CALLS
+        ).filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (missingCallPermissions.isNotEmpty()) {
+            requestPermissions(missingCallPermissions.toTypedArray(), CALL_PERMISSION_REQUEST_CODE)
+        }
     }
 
     private var debugInputReplyReceiver: android.content.BroadcastReceiver? = null
@@ -616,12 +626,45 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         if (isLocked && LauncherTakeoverService.hasUnlockGesture(this) && LauncherTakeoverService.activeInstance != null) {
             android.util.Log.i("MainActivity", "Lock screen active: executing Movement 1 (Unlock screen) before Movement 2 (Assistant launch + mic tap)")
             LauncherTakeoverService.activeInstance?.executeUnlockSequence {
-                proceedWithLaunch()
+                runAfterSelfCall { proceedWithLaunch() }
             }
         } else {
-            proceedWithLaunch()
+            runAfterSelfCall { proceedWithLaunch() }
         }
         return true
+    }
+
+    private fun runAfterSelfCall(then: () -> Unit) {
+        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val enabled = prefs.getBoolean("flutter.bluetooth_self_call_enabled", false)
+        val number = prefs.getString("flutter.bluetooth_self_call_number", "")?.trim().orEmpty()
+        if (!enabled || number.isEmpty()) {
+            then()
+            return
+        }
+        val canCall = checkSelfPermission(android.Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED
+        val canEnd = checkSelfPermission(android.Manifest.permission.ANSWER_PHONE_CALLS) == PackageManager.PERMISSION_GRANTED
+        val telecom = getSystemService(Context.TELECOM_SERVICE) as? TelecomManager
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P || !canCall || !canEnd || telecom == null) {
+            android.util.Log.w("MainActivity", "Self-call skipped: needs API 28+, CALL_PHONE and ANSWER_PHONE_CALLS")
+            then()
+            return
+        }
+        try {
+            telecom.placeCall(Uri.fromParts("tel", number, null), Bundle())
+        } catch (e: SecurityException) {
+            android.util.Log.w("MainActivity", "Self-call placeCall denied", e)
+            then()
+            return
+        }
+        Handler(Looper.getMainLooper()).postDelayed({
+            try {
+                telecom.endCall()
+            } catch (e: SecurityException) {
+                android.util.Log.w("MainActivity", "Self-call endCall denied", e)
+            }
+            then()
+        }, 1000L)
     }
 
     private fun initTts() {

@@ -282,6 +282,8 @@ class AppSettings {
   String bluetoothAssistantRedirectTarget;
   String bluetoothAssistantCustomPackage;
   String bluetoothAssistantCustomActivity;
+  bool bluetoothSelfCallEnabled;
+  String bluetoothSelfCallNumber;
   bool noraAutoSpeakTts;
   int micClickDelayMs;
   bool forceBluetoothScoCall;
@@ -362,6 +364,8 @@ class AppSettings {
     this.bluetoothAssistantRedirectTarget = 'nora',
     this.bluetoothAssistantCustomPackage = '',
     this.bluetoothAssistantCustomActivity = '',
+    this.bluetoothSelfCallEnabled = false,
+    this.bluetoothSelfCallNumber = '',
     this.noraAutoSpeakTts = true,
     this.micClickDelayMs = 1000,
     this.forceBluetoothScoCall = false,
@@ -514,6 +518,8 @@ class AppSettings {
       bluetoothAssistantRedirectTarget: json['bluetoothAssistantRedirectTarget'] as String? ?? 'nora',
       bluetoothAssistantCustomPackage: json['bluetoothAssistantCustomPackage'] as String? ?? '',
       bluetoothAssistantCustomActivity: json['bluetoothAssistantCustomActivity'] as String? ?? '',
+      bluetoothSelfCallEnabled: json['bluetoothSelfCallEnabled'] as bool? ?? false,
+      bluetoothSelfCallNumber: json['bluetoothSelfCallNumber'] as String? ?? '',
       noraAutoSpeakTts: json['noraAutoSpeakTts'] as bool? ?? true,
       micClickDelayMs: json['micClickDelayMs'] as int? ?? 1000,
       forceBluetoothScoCall: json['forceBluetoothScoCall'] as bool? ?? false,
@@ -575,6 +581,8 @@ class AppSettings {
       'bluetoothAssistantRedirectTarget': bluetoothAssistantRedirectTarget,
       'bluetoothAssistantCustomPackage': bluetoothAssistantCustomPackage,
       'bluetoothAssistantCustomActivity': bluetoothAssistantCustomActivity,
+      'bluetoothSelfCallEnabled': bluetoothSelfCallEnabled,
+      'bluetoothSelfCallNumber': bluetoothSelfCallNumber,
       'noraAutoSpeakTts': noraAutoSpeakTts,
       'micClickDelayMs': micClickDelayMs,
       'forceBluetoothScoCall': forceBluetoothScoCall,

@@ -1,24 +1,24 @@
 {
-  "version_code": 2126100705,
-  "version_name": "2026.10.7",
-  "published_at": "2026-10-07T14:49:48Z",
+  "version_code": 2126100801,
+  "version_name": "2026.10.8",
+  "published_at": "2026-10-08T14:33:17Z",
   "min_supported_version_code": 2026010101,
-  "apk_filename": "missions-v2026.10.7-b2126100705-arm64-v8a.apk",
-  "apk_url": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.7-b2126100705-arm64-v8a.apk",
+  "apk_filename": "missions-v2026.10.8-b2126100801-arm64-v8a.apk",
+  "apk_url": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.8-b2126100801-arm64-v8a.apk",
   "apk_arch_urls": {
-    "arm64-v8a": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.7-b2126100705-arm64-v8a.apk",
-    "armeabi-v7a": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.7-b2126100705-armeabi-v7a.apk",
-    "x86_64": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.7-b2126100705-x86_64.apk"
+    "arm64-v8a": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.8-b2126100801-arm64-v8a.apk",
+    "armeabi-v7a": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.8-b2126100801-armeabi-v7a.apk",
+    "x86_64": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.8-b2126100801-x86_64.apk"
   },
   "apk_arch_version_codes": {
-    "arm64-v8a": 2126102705,
-    "armeabi-v7a": 2126101705,
-    "x86_64": 2126104705
+    "arm64-v8a": 2126102801,
+    "armeabi-v7a": 2126101801,
+    "x86_64": 2126104801
   },
-  "linux_filename": "missions-v2026.10.7-b2126100705-linux-x86_64.tar.gz",
-  "linux_url": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.7-b2126100705-linux-x86_64.tar.gz",
+  "linux_filename": "missions-v2026.10.8-b2126100801-linux-x86_64.tar.gz",
+  "linux_url": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.8-b2126100801-linux-x86_64.tar.gz",
   "linux_arch_urls": {
-    "x86_64": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.7-b2126100705-linux-x86_64.tar.gz"
+    "x86_64": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/missions-v2026.10.8-b2126100801-linux-x86_64.tar.gz"
   },
   "changelog_url": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/latest.md"
 }

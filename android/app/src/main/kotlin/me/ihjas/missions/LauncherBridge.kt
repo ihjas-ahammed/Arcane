@@ -1451,8 +1451,9 @@ class LauncherBridge(
     private fun callNumber(number: String): Boolean {
         val clean = number.trim()
         if (clean.isEmpty()) return false
-        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(clean)}"))
-        return startSafely(intent)
+        val canCallDirectly = ContextCompat.checkSelfPermission(appContext, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED
+        val action = if (canCallDirectly) Intent.ACTION_CALL else Intent.ACTION_DIAL
+        return startSafely(Intent(action, Uri.parse("tel:${Uri.encode(clean)}")))
     }
 
     private fun messageNumber(number: String): Boolean {

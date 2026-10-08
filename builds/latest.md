@@ -1,4 +1,12 @@
-# ⚡ Arcane System Upgrade // v2026.10.7 (Build #2126100705)
+# ⚡ Arcane System Upgrade // v2026.10.8 (Build #2126100801)
+
+### 📞 Direct calls
+- The launcher search and number taps now place the call directly (no dialer screen). Falls back to the dialer if the call permission is not granted.
+- The app asks for phone permissions on start.
+
+### 🤖 External AI (Bluetooth) widget
+- The widget moved to the top of Advanced AI Settings.
+- New "Call myself before starting AI" option: place a call to your own number, end it after one second, then open the assistant. Intended for watches whose mic only works after a call.
 
 ### 🧭 "What the day needed" rebuilt
 - New framework of 12 distinct needs, each grounded in psychology and philosophy: Rest, Security (Maslow), Belonging, Self-Worth (Baumeister & Leary, Neff), Autonomy, Competence (Self-Determination Theory, Stoic sphere of choice), Growth (Ryff, Aristotle), Purpose, Integrity (Frankl, virtue ethics), Flow (Csikszentmihalyi), Equanimity (Stoic ataraxia, emotion regulation), Delight (Fredrickson).

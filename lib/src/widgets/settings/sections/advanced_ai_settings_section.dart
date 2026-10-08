@@ -150,6 +150,330 @@ class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
       icon: MdiIcons.keyVariant,
       title: 'Advanced AI Settings',
       children: [
+        if (appProvider.settings.bluetoothAssistantRedirectTarget != 'nora' &&
+            appProvider.settings.bluetoothAssistantRedirectTarget != 'system_assist') ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: JweTheme.isLight ? JweTheme.panel : AppTheme.fhBgDark,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withValues(alpha: 0.4),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      appProvider.settings.bluetoothAssistantRedirectTarget == 'custom'
+                          ? "CUSTOM ASSISTANT TARGET"
+                          : "EXTERNAL AI ASSISTANT",
+                      style: TextStyle(
+                        color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () async {
+                        final redirectTarget = appProvider.settings.bluetoothAssistantRedirectTarget;
+                        final targetPkg = switch (redirectTarget) {
+                          'chatgpt' => 'com.openai.chatgpt',
+                          'gemini' => 'com.google.android.apps.googleassistant',
+                          'claude' => 'com.anthropic.claude',
+                          'perplexity' => 'ai.perplexity.app',
+                          'copilot' => 'com.microsoft.copilot',
+                          _ => appProvider.settings.bluetoothAssistantCustomPackage,
+                        };
+                        final launched = await AssistantRoutingService.instance.launchVoiceMode(
+                          targetPkg,
+                          activity: appProvider.settings.bluetoothAssistantCustomActivity,
+                        );
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(launched ? 'Target launched in voice mode' : 'Failed to launch target'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.rocket_launch, size: 14, color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple),
+                          const SizedBox(width: 4),
+                          Text(
+                            "TEST",
+                            style: TextStyle(
+                              color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.apps,
+                      size: 20,
+                      color: JweTheme.isLight ? JweTheme.textMid : AppTheme.fhTextSecondary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            appProvider.settings.bluetoothAssistantRedirectTarget == 'custom'
+                                ? (appProvider.settings.bluetoothAssistantCustomPackage.isEmpty
+                                    ? "No application selected"
+                                    : appProvider.settings.bluetoothAssistantCustomPackage)
+                                : switch (appProvider.settings.bluetoothAssistantRedirectTarget) {
+                                    'chatgpt' => 'ChatGPT (com.openai.chatgpt)',
+                                    'gemini' => 'Google Gemini / Assistant',
+                                    'claude' => 'Claude (com.anthropic.claude)',
+                                    'perplexity' => 'Perplexity AI',
+                                    'copilot' => 'Microsoft Copilot',
+                                    _ => appProvider.settings.bluetoothAssistantRedirectTarget,
+                                  },
+                            style: TextStyle(
+                              color: JweTheme.isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            appProvider.settings.bluetoothAssistantCustomActivity.isEmpty
+                                ? "Two-Step Sequence: Auto-Unlock + Mic Tap"
+                                : "Activity: ${appProvider.settings.bluetoothAssistantCustomActivity}",
+                            style: TextStyle(
+                              color: JweTheme.isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
+                              fontSize: 10,
+                              fontFamily: 'RobotoMono',
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "MIC TAP DELAY",
+                      style: TextStyle(
+                        color: JweTheme.isLight ? JweTheme.textMid : AppTheme.fhTextSecondary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    Text(
+                      "${appProvider.settings.micClickDelayMs} ms",
+                      style: TextStyle(
+                        color: JweTheme.isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary,
+                        fontSize: 10.5,
+                        fontFamily: 'RobotoMono',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: appProvider.settings.micClickDelayMs.toDouble().clamp(200.0, 4000.0),
+                  min: 200.0,
+                  max: 4000.0,
+                  divisions: 38,
+                  activeColor: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+                  onChanged: (v) {
+                    setState(() {
+                      appProvider.settings.micClickDelayMs = v.round();
+                    });
+                  },
+                  onChangeEnd: (v) async {
+                    final d = v.round();
+                    await AssistantRoutingService.instance.setMicClickDelay(d);
+                    appProvider.setSettings(appProvider.settings);
+                  },
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: (JweTheme.isLight ? JweTheme.bgCanvas : Colors.black26),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: appProvider.settings.forceBluetoothScoCall
+                          ? (JweTheme.isLight ? const Color(0xFFD97706) : JweTheme.accentAmber)
+                          : (JweTheme.isLight ? JweTheme.border : Colors.white12),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "FORCE BLUETOOTH CALL SCO (EXPERIMENTAL)",
+                              style: TextStyle(
+                                color: appProvider.settings.forceBluetoothScoCall
+                                    ? (JweTheme.isLight ? const Color(0xFFD97706) : JweTheme.accentAmber)
+                                    : (JweTheme.isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary),
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              "Simulates call state to force audio/mic on call-only smartwatches. May fail on some devices.",
+                              style: TextStyle(
+                                color: JweTheme.isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
+                                fontSize: 9.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: appProvider.settings.forceBluetoothScoCall,
+                        activeColor: JweTheme.isLight ? const Color(0xFFD97706) : JweTheme.accentAmber,
+                        onChanged: (val) async {
+                          setState(() {
+                            appProvider.settings.forceBluetoothScoCall = val;
+                          });
+                          await AssistantRoutingService.instance.setForceBluetoothScoCallEnabled(val);
+                          appProvider.setSettings(appProvider.settings);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: (JweTheme.isLight ? JweTheme.bgCanvas : Colors.black26),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: appProvider.settings.bluetoothSelfCallEnabled
+                          ? (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple)
+                          : (JweTheme.isLight ? JweTheme.border : Colors.white12),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "CALL MYSELF BEFORE STARTING AI",
+                                  style: TextStyle(
+                                    color: appProvider.settings.bluetoothSelfCallEnabled
+                                        ? (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple)
+                                        : (JweTheme.isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary),
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  "Places a call to your number, hangs up after 1 second, then opens the assistant. Lets the watch mic work the way it does after a call.",
+                                  style: TextStyle(
+                                    color: JweTheme.isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
+                                    fontSize: 9.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: appProvider.settings.bluetoothSelfCallEnabled,
+                            activeColor: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+                            onChanged: (val) async {
+                              setState(() {
+                                appProvider.settings.bluetoothSelfCallEnabled = val;
+                              });
+                              final prefs = await SharedPreferences.getInstance();
+                              await prefs.setBool('bluetooth_self_call_enabled', val);
+                              appProvider.setSettings(appProvider.settings);
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        initialValue: appProvider.settings.bluetoothSelfCallNumber,
+                        keyboardType: TextInputType.phone,
+                        style: TextStyle(
+                          fontFamily: 'RobotoMono',
+                          fontSize: 12,
+                          color: JweTheme.isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: "MY NUMBER",
+                          hintText: "+15551234567",
+                          isDense: true,
+                          border: const OutlineInputBorder(),
+                        ),
+                        onChanged: (v) async {
+                          final number = v.trim();
+                          appProvider.settings.bluetoothSelfCallNumber = number;
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setString('bluetooth_self_call_number', number);
+                          appProvider.setSettings(appProvider.settings);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.tune, size: 16),
+                    label: const Text("CALIBRATE MIC & UNLOCK GESTURE"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withValues(alpha: 0.15),
+                      foregroundColor: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
+                      side: BorderSide(color: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withValues(alpha: 0.4)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1),
+                    ),
+                    onPressed: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CustomAssistantPickerScreen(),
+                        ),
+                      );
+                      setState(() {});
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
         Text(
           "AI Providers & API Keys",
           style: TextStyle(
@@ -449,247 +773,6 @@ class _AdvancedAiSettingsSectionState extends State<AdvancedAiSettingsSection> {
             );
           },
         ),
-        if (appProvider.settings.bluetoothAssistantRedirectTarget != 'nora' &&
-            appProvider.settings.bluetoothAssistantRedirectTarget != 'system_assist') ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: JweTheme.isLight ? JweTheme.panel : AppTheme.fhBgDark,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withValues(alpha: 0.4),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      appProvider.settings.bluetoothAssistantRedirectTarget == 'custom'
-                          ? "CUSTOM ASSISTANT TARGET"
-                          : "EXTERNAL AI ASSISTANT",
-                      style: TextStyle(
-                        color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    InkWell(
-                      onTap: () async {
-                        final redirectTarget = appProvider.settings.bluetoothAssistantRedirectTarget;
-                        final targetPkg = switch (redirectTarget) {
-                          'chatgpt' => 'com.openai.chatgpt',
-                          'gemini' => 'com.google.android.apps.googleassistant',
-                          'claude' => 'com.anthropic.claude',
-                          'perplexity' => 'ai.perplexity.app',
-                          'copilot' => 'com.microsoft.copilot',
-                          _ => appProvider.settings.bluetoothAssistantCustomPackage,
-                        };
-                        final launched = await AssistantRoutingService.instance.launchVoiceMode(
-                          targetPkg,
-                          activity: appProvider.settings.bluetoothAssistantCustomActivity,
-                        );
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(launched ? 'Target launched in voice mode' : 'Failed to launch target'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.rocket_launch, size: 14, color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple),
-                          const SizedBox(width: 4),
-                          Text(
-                            "TEST",
-                            style: TextStyle(
-                              color: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.apps,
-                      size: 20,
-                      color: JweTheme.isLight ? JweTheme.textMid : AppTheme.fhTextSecondary,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            appProvider.settings.bluetoothAssistantRedirectTarget == 'custom'
-                                ? (appProvider.settings.bluetoothAssistantCustomPackage.isEmpty
-                                    ? "No application selected"
-                                    : appProvider.settings.bluetoothAssistantCustomPackage)
-                                : switch (appProvider.settings.bluetoothAssistantRedirectTarget) {
-                                    'chatgpt' => 'ChatGPT (com.openai.chatgpt)',
-                                    'gemini' => 'Google Gemini / Assistant',
-                                    'claude' => 'Claude (com.anthropic.claude)',
-                                    'perplexity' => 'Perplexity AI',
-                                    'copilot' => 'Microsoft Copilot',
-                                    _ => appProvider.settings.bluetoothAssistantRedirectTarget,
-                                  },
-                            style: TextStyle(
-                              color: JweTheme.isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            appProvider.settings.bluetoothAssistantCustomActivity.isEmpty
-                                ? "Two-Step Sequence: Auto-Unlock + Mic Tap"
-                                : "Activity: ${appProvider.settings.bluetoothAssistantCustomActivity}",
-                            style: TextStyle(
-                              color: JweTheme.isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
-                              fontSize: 10,
-                              fontFamily: 'RobotoMono',
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "MIC TAP DELAY",
-                      style: TextStyle(
-                        color: JweTheme.isLight ? JweTheme.textMid : AppTheme.fhTextSecondary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    Text(
-                      "${appProvider.settings.micClickDelayMs} ms",
-                      style: TextStyle(
-                        color: JweTheme.isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary,
-                        fontSize: 10.5,
-                        fontFamily: 'RobotoMono',
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                Slider(
-                  value: appProvider.settings.micClickDelayMs.toDouble().clamp(200.0, 4000.0),
-                  min: 200.0,
-                  max: 4000.0,
-                  divisions: 38,
-                  activeColor: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
-                  onChanged: (v) {
-                    setState(() {
-                      appProvider.settings.micClickDelayMs = v.round();
-                    });
-                  },
-                  onChangeEnd: (v) async {
-                    final d = v.round();
-                    await AssistantRoutingService.instance.setMicClickDelay(d);
-                    appProvider.setSettings(appProvider.settings);
-                  },
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: (JweTheme.isLight ? JweTheme.bgCanvas : Colors.black26),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: appProvider.settings.forceBluetoothScoCall
-                          ? (JweTheme.isLight ? const Color(0xFFD97706) : JweTheme.accentAmber)
-                          : (JweTheme.isLight ? JweTheme.border : Colors.white12),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "FORCE BLUETOOTH CALL SCO (EXPERIMENTAL)",
-                              style: TextStyle(
-                                color: appProvider.settings.forceBluetoothScoCall
-                                    ? (JweTheme.isLight ? const Color(0xFFD97706) : JweTheme.accentAmber)
-                                    : (JweTheme.isLight ? JweTheme.textWhite : AppTheme.fhTextPrimary),
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              "Simulates call state to force audio/mic on call-only smartwatches. May fail on some devices.",
-                              style: TextStyle(
-                                color: JweTheme.isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
-                                fontSize: 9.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Switch(
-                        value: appProvider.settings.forceBluetoothScoCall,
-                        activeColor: JweTheme.isLight ? const Color(0xFFD97706) : JweTheme.accentAmber,
-                        onChanged: (val) async {
-                          setState(() {
-                            appProvider.settings.forceBluetoothScoCall = val;
-                          });
-                          await AssistantRoutingService.instance.setForceBluetoothScoCallEnabled(val);
-                          appProvider.setSettings(appProvider.settings);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.tune, size: 16),
-                    label: const Text("CALIBRATE MIC & UNLOCK GESTURE"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withValues(alpha: 0.15),
-                      foregroundColor: JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple,
-                      side: BorderSide(color: (JweTheme.isLight ? JweTheme.accentCyan : AppTheme.fhAccentPurple).withValues(alpha: 0.4)),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1),
-                    ),
-                    onPressed: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const CustomAssistantPickerScreen(),
-                        ),
-                      );
-                      setState(() {});
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
         const SizedBox(height: 14),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
