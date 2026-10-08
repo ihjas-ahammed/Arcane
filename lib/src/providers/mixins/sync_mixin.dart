@@ -120,12 +120,20 @@ mixin SyncMixin on ChangeNotifier {
     _dirtyCollections.add(collection);
     _hasUnsavedChanges = true;
     _editGeneration++;
-    // Local cache, near-realtime: a ~120ms trailing debounce only merges the burst of setters a
-    // single user action fires into one write. (It used to be 1s, which lost edits if Android
-    // killed the process in that window.)
-    _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 120), _saveLocalSnapshot);
     notifyListeners();
+  }
+
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+    _scheduleLocalSave();
+  }
+
+  // Every state change funnels through notifyListeners, so every change reaches the local cache.
+  // Bursts are merged inside _saveLocalSnapshot, so no timer is needed here.
+  void _scheduleLocalSave() {
+    if (_dataLoadInProgress || currentUser == null) return;
+    unawaited(_saveLocalSnapshot());
   }
 
   /// Kept for call-site compatibility: saves locally, never touches the network.

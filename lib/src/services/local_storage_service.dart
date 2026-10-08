@@ -3,12 +3,21 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:missions/src/services/state_database.dart';
 
 // Top-level function for isolate
 String _encodeJson(Map<String, dynamic> data) => jsonEncode(data);
 Map<String, dynamic> _decodeJson(String json) => jsonDecode(json);
+Map<String, String> _encodeCollections(Map<String, dynamic> data) =>
+    {for (final e in data.entries) e.key: jsonEncode(e.value)};
+Map<String, dynamic> _decodeCollections(Map<String, String> rows) =>
+    {for (final e in rows.entries) e.key: jsonDecode(e.value)};
 
 class LocalStorageService {
+  /// Last JSON text written per collection, so a save only rewrites collections that changed.
+  static final Map<String, Map<String, String>> _lastWritten = {};
+  static final Map<String, String> _lastDailyBackupDay = {};
+
   /// Saves run one at a time (across all instances). Overlapping saves used to share the same
   /// .tmp file: one save's rename would move the other's data, the second rename then failed
   /// ("Cannot rename file"), and an older snapshot could land after a newer one.
@@ -47,32 +56,25 @@ class LocalStorageService {
         await prefs.setString('arcane_local_cache_$userId', jsonString);
         return;
       }
-      final file = await _localFile(userId);
-      final backup = await _backupFile(userId);
-      final tempFile = File('${file.path}.tmp');
-
-      // Offload heavy JSON serialization to a background isolate
-      final jsonString = await compute(_encodeJson, state);
-
-      // 1. Atomic write: write complete data to .tmp and flush to disk
-      await tempFile.writeAsString(jsonString, flush: true);
-
-      // 2. Rotate previous valid cache into .bak for disaster recovery. A save that shrinks the
-      // cache drastically is suspicious (partial state, bad load): park the old copy separately so
-      // the next normal save can't rotate it away.
-      if (await file.exists()) {
-        try {
-          final oldLength = await file.length();
-          if (oldLength > 4096 && jsonString.length < oldLength * 0.6) {
-            await file.copy('${file.path}.shrink');
-            debugPrint("[LocalStorageService] Cache shrank ($oldLength -> ${jsonString.length} bytes); kept previous copy as .shrink");
-          }
-          await file.copy(backup.path);
-        } catch (_) {}
+      final encoded = await compute(_encodeCollections, state);
+      final previous = _lastWritten[userId] ?? const <String, String>{};
+      final changes = <String, String?>{};
+      for (final e in encoded.entries) {
+        if (previous[e.key] != e.value) changes[e.key] = e.value;
+      }
+      for (final key in previous.keys) {
+        if (!encoded.containsKey(key)) changes[key] = null;
+      }
+      if (changes.isNotEmpty) {
+        await StateDatabase.instance.writeCollections(userId, changes);
+        _lastWritten[userId] = encoded;
       }
 
-      // 3. Atomically replace the destination file
-      await tempFile.rename(file.path);
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      if (_lastDailyBackupDay[userId] != today) {
+        await performDailyBackup(userId, state);
+        _lastDailyBackupDay[userId] = today;
+      }
     } catch (e) {
       debugPrint("LocalStorage Save Error: $e");
       // Surface the failure so the caller can retry: a swallowed error here is silent data loss.
@@ -226,6 +228,22 @@ class LocalStorageService {
         if (contents == null || contents.isEmpty) return null;
         return jsonDecode(contents);
       }
+      final rows = await StateDatabase.instance.readCollections(userId);
+      if (rows.isNotEmpty) {
+        _lastWritten[userId] = rows;
+        return await compute(_decodeCollections, rows);
+      }
+      final legacy = await _loadLegacyJson(userId);
+      if (legacy != null) await _importLegacy(userId, legacy);
+      return legacy;
+    } catch (e) {
+      debugPrint("LocalStorage Load Error: $e");
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _loadLegacyJson(String userId) async {
+    try {
       final file = await _localFile(userId);
       if (await file.exists()) {
         try {
@@ -280,6 +298,26 @@ class LocalStorageService {
     return null;
   }
 
+  Future<void> _importLegacy(String userId, Map<String, dynamic> legacy) async {
+    try {
+      final encoded = await compute(_encodeCollections, legacy);
+      final recovery = File('${(await _backupDirectory()).path}/pre_sqlite_$userId.json');
+      if (!await recovery.exists()) {
+        await recovery.writeAsString(await compute(_encodeJson, legacy), flush: true);
+      }
+      await StateDatabase.instance.writeCollections(userId, encoded);
+      final verified = await StateDatabase.instance.readCollections(userId);
+      if (!mapEquals(verified, encoded)) {
+        throw StateError('SQLite import verification failed');
+      }
+      _lastWritten[userId] = verified;
+      debugPrint("[LocalStorageService] Imported legacy JSON cache into SQLite (${encoded.length} collections)");
+    } catch (e) {
+      // The JSON cache is untouched, so the import is retried on the next launch.
+      debugPrint("[LocalStorageService] Legacy import failed, will retry next launch: $e");
+    }
+  }
+
   Future<void> clearState(String userId) async {
     try {
       if (kIsWeb) {
@@ -287,6 +325,8 @@ class LocalStorageService {
         await prefs.remove('arcane_local_cache_$userId');
         return;
       }
+      _lastWritten.remove(userId);
+      await StateDatabase.instance.deleteUser(userId);
       final file = await _localFile(userId);
       if (await file.exists()) {
         await file.delete();
