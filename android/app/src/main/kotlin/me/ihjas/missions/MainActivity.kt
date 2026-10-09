@@ -626,45 +626,12 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         if (isLocked && LauncherTakeoverService.hasUnlockGesture(this) && LauncherTakeoverService.activeInstance != null) {
             android.util.Log.i("MainActivity", "Lock screen active: executing Movement 1 (Unlock screen) before Movement 2 (Assistant launch + mic tap)")
             LauncherTakeoverService.activeInstance?.executeUnlockSequence {
-                runAfterSelfCall { proceedWithLaunch() }
+                proceedWithLaunch()
             }
         } else {
-            runAfterSelfCall { proceedWithLaunch() }
+            proceedWithLaunch()
         }
         return true
-    }
-
-    private fun runAfterSelfCall(then: () -> Unit) {
-        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        val enabled = prefs.getBoolean("flutter.bluetooth_self_call_enabled", false)
-        val number = prefs.getString("flutter.bluetooth_self_call_number", "")?.trim().orEmpty()
-        if (!enabled || number.isEmpty()) {
-            then()
-            return
-        }
-        val canCall = checkSelfPermission(android.Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED
-        val canEnd = checkSelfPermission(android.Manifest.permission.ANSWER_PHONE_CALLS) == PackageManager.PERMISSION_GRANTED
-        val telecom = getSystemService(Context.TELECOM_SERVICE) as? TelecomManager
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P || !canCall || !canEnd || telecom == null) {
-            android.util.Log.w("MainActivity", "Self-call skipped: needs API 28+, CALL_PHONE and ANSWER_PHONE_CALLS")
-            then()
-            return
-        }
-        try {
-            telecom.placeCall(Uri.fromParts("tel", number, null), Bundle())
-        } catch (e: SecurityException) {
-            android.util.Log.w("MainActivity", "Self-call placeCall denied", e)
-            then()
-            return
-        }
-        Handler(Looper.getMainLooper()).postDelayed({
-            try {
-                telecom.endCall()
-            } catch (e: SecurityException) {
-                android.util.Log.w("MainActivity", "Self-call endCall denied", e)
-            }
-            then()
-        }, 1000L)
     }
 
     private fun initTts() {
