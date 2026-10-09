@@ -24,12 +24,13 @@ class TaskActions {
   }
 
   SubSubTask _markAllDescendantsUncompleted(SubSubTask node) {
-    return node.copyWith(
+    final copy = node.copyWith(
       completed: false,
-      completionTimestamp: null,
       currentCount: node.isCountable ? 0 : node.currentCount,
       substeps: node.substeps.map((child) => _markAllDescendantsUncompleted(child)).toList(),
     );
+    copy.completionTimestamp = null; // copyWith cannot clear a nullable field
+    return copy;
   }
 
   // --- Helper for SubSubTask Recursion ---

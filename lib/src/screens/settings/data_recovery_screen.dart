@@ -25,6 +25,7 @@ class DataRecoveryScreen extends StatefulWidget {
 class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
   List<File> _backupFiles =[];
   bool _isLoading = true;
+  bool _ledgerExpanded = false;
   final DataExportService _exportService = DataExportService();
 
   @override
@@ -603,6 +604,23 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
           style: TextStyle(color: JweTheme.textMuted, fontSize: 11, height: 1.3),
         ),
         const SizedBox(height: 12),
+        if (entries.isNotEmpty)
+          InkWell(
+            onTap: () => setState(() => _ledgerExpanded = !_ledgerExpanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  Icon(_ledgerExpanded ? Icons.expand_less : Icons.expand_more, size: 18, color: JweTheme.textMuted),
+                  const SizedBox(width: 6),
+                  Text(
+                    _ledgerExpanded ? "HIDE ENTRIES" : "SHOW ${entries.length} ENTRIES",
+                    style: GoogleFonts.rajdhani(color: JweTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1.1, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
         if (entries.isEmpty)
           Container(
             padding: const EdgeInsets.all(16),
@@ -618,7 +636,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
               ),
             ),
           )
-        else
+        else if (_ledgerExpanded)
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),

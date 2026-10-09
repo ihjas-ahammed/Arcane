@@ -428,33 +428,45 @@ mixin TaskMixin on ChangeNotifier {
     return (node: mergedNode, modified: nodeModified);
   }
 
+  /// A checkpoint and everything under it, unchecked. Used for incoming items that have no id match.
+  SubSubTask _uncheckedCheckpointCopy(SubSubTask node) {
+    final copy = node.copyWith(
+      completed: false,
+      currentCount: node.isCountable ? 0 : node.currentCount,
+      substeps: node.substeps.map(_uncheckedCheckpointCopy).toList(),
+    );
+    copy.completionTimestamp = null; // copyWith cannot clear a nullable field
+    return copy;
+  }
+
+  SubTask _uncheckedSubTaskCopy(SubTask st) {
+    final copy = st.copyWith(
+      completed: false,
+      subSubTasks: st.subSubTasks.map(_uncheckedCheckpointCopy).toList(),
+    );
+    copy.completedDate = null;
+    return copy;
+  }
+
   ({List<SubSubTask> checkpoints, bool modified}) _mergeCheckpointLists(List<SubSubTask> localList, List<SubSubTask> incList, bool isRecurring) {
     bool anyModified = false;
     final cpMap = <String, SubSubTask>{for (final cp in localList) cp.id: cp};
-    final cpTitleMap = <String, SubSubTask>{
-      for (final cp in localList)
-        if (cp.name.trim().isNotEmpty) cp.name.trim().toLowerCase(): cp
-    };
     final merged = List<SubSubTask>.from(localList);
 
     for (final incCp in incList) {
-      SubSubTask? match = cpMap[incCp.id];
-      if (match == null && incCp.name.trim().isNotEmpty) {
-        match = cpTitleMap[incCp.name.trim().toLowerCase()];
-      }
+      // Matched by id only. An incoming checkpoint with no id match is added unchecked.
+      final SubSubTask? match = cpMap[incCp.id];
 
       if (match == null) {
-        merged.add(incCp);
-        cpMap[incCp.id] = incCp;
-        if (incCp.name.trim().isNotEmpty) {
-          cpTitleMap[incCp.name.trim().toLowerCase()] = incCp;
-        }
+        final added = _uncheckedCheckpointCopy(incCp);
+        merged.add(added);
+        cpMap[added.id] = added;
         anyModified = true;
       } else {
         final nodeRes = _mergeCheckpointNodes(match, incCp, isRecurring);
         if (nodeRes.modified) {
           anyModified = true;
-          final idx = merged.indexWhere((c) => c.id == match!.id);
+          final idx = merged.indexWhere((c) => c.id == match.id);
           if (idx >= 0) {
             merged[idx] = nodeRes.node;
           }
@@ -714,25 +726,17 @@ mixin TaskMixin on ChangeNotifier {
 
           // 1. Deep merge subtasks
           final stMap = <String, SubTask>{for (final st in curTask.subTasks) st.id: st};
-          final stNameMap = <String, SubTask>{
-            for (final st in curTask.subTasks)
-              if (st.name.trim().isNotEmpty) st.name.trim().toLowerCase(): st
-          };
 
           final mergedSubtasks = List<SubTask>.from(curTask.subTasks);
 
           for (final incSt in incTask.subTasks) {
-            SubTask? match = stMap[incSt.id];
-            if (match == null && incSt.name.trim().isNotEmpty) {
-              match = stNameMap[incSt.name.trim().toLowerCase()];
-            }
+            // Matched by id only. An incoming item with no id match is added unchecked.
+            final SubTask? match = stMap[incSt.id];
 
             if (match == null) {
-              mergedSubtasks.add(incSt);
-              stMap[incSt.id] = incSt;
-              if (incSt.name.trim().isNotEmpty) {
-                stNameMap[incSt.name.trim().toLowerCase()] = incSt;
-              }
+              final added = _uncheckedSubTaskCopy(incSt);
+              mergedSubtasks.add(added);
+              stMap[added.id] = added;
               taskModified = true;
             } else {
               bool stModified = false;
@@ -810,7 +814,7 @@ mixin TaskMixin on ChangeNotifier {
               if (newTimeSpent != match.currentTimeSpent) stModified = true;
 
               if (stModified) {
-                final stIdx = mergedSubtasks.indexWhere((s) => s.id == match!.id);
+                final stIdx = mergedSubtasks.indexWhere((s) => s.id == match.id);
                 if (stIdx >= 0) {
                   mergedSubtasks[stIdx] = match.copyWith(
                     completed: newCompleted,

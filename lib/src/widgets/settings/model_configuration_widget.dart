@@ -24,6 +24,13 @@ class ModelConfigurationWidget extends StatefulWidget {
 }
 
 class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
+  /// Model sections (Lite / Pro / Live) start collapsed; tapping a header shows its list.
+  final Set<String> _openModelSections = {};
+  bool _modelSectionOpen(String key) => _openModelSections.contains(key);
+  void _toggleModelSection(String key) => setState(() {
+        if (!_openModelSections.add(key)) _openModelSections.remove(key);
+      });
+
   static const List<String> _popularSuggestions = [
     'gemini-3.8-flash',
     'gemini-3.8-flash-live-preview',
@@ -610,7 +617,9 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
             ),
 
             // --- Lite Models Section ---
-            Row(
+            InkWell(
+              onTap: () => _toggleModelSection("Lite"),
+              child:             Row(
               children: [
                 Icon(Icons.bolt_rounded, size: 18, color: AppTheme.fhAccentTeal),
                 const SizedBox(width: 6),
@@ -629,8 +638,12 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
                     color: isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
                   ),
                 ),
+                const Spacer(),
+                Icon(_modelSectionOpen("Lite") ? Icons.expand_less : Icons.expand_more, size: 20, color: isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary),
               ],
             ),
+            ),
+            if (_modelSectionOpen("Lite")) ...[
             const SizedBox(height: 2),
             Text(
               "Fast execution for sub-missions, chatbot replies, habit parsing & light fallbacks.",
@@ -649,10 +662,13 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
                 provider.setSettings(provider.settings..liteModels = newList);
               },
             ),
+            ],
             const SizedBox(height: 24),
 
             // --- Heavy / Pro Models Section ---
-            Row(
+            InkWell(
+              onTap: () => _toggleModelSection("Pro"),
+              child:             Row(
               children: [
                 Icon(Icons.psychology_rounded, size: 18, color: AppTheme.fhAccentPurple),
                 const SizedBox(width: 6),
@@ -671,8 +687,12 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
                     color: isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
                   ),
                 ),
+                const Spacer(),
+                Icon(_modelSectionOpen("Pro") ? Icons.expand_less : Icons.expand_more, size: 20, color: isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary),
               ],
             ),
+            ),
+            if (_modelSectionOpen("Pro")) ...[
             const SizedBox(height: 2),
             Text(
               "Deep reasoning for daily briefings, monthly reviews, and complex project synthesis.",
@@ -691,10 +711,13 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
                 provider.setSettings(provider.settings..heavyModels = newList);
               },
             ),
+            ],
             const SizedBox(height: 24),
 
             // --- Live Models Section ---
-            Row(
+            InkWell(
+              onTap: () => _toggleModelSection("Live"),
+              child:             Row(
               children: [
                 Icon(Icons.stream_rounded, size: 18, color: AppTheme.fhAccentOrange),
                 const SizedBox(width: 6),
@@ -713,8 +736,12 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
                     color: isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary,
                   ),
                 ),
+                const Spacer(),
+                Icon(_modelSectionOpen("Live") ? Icons.expand_less : Icons.expand_more, size: 20, color: isLight ? JweTheme.textMuted : AppTheme.fhTextSecondary),
               ],
             ),
+            ),
+            if (_modelSectionOpen("Live")) ...[
             const SizedBox(height: 2),
             Text(
               "Realtime streaming API for Nora AI conversational agent interactions.",
@@ -733,6 +760,7 @@ class _ModelConfigurationWidgetState extends State<ModelConfigurationWidget> {
                 provider.setSettings(provider.settings..liveModels = newList);
               },
             ),
+            ],
             const SizedBox(height: 20),
 
             // Refetch Button

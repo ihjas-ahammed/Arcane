@@ -1,9 +1,18 @@
-# ⚡ Arcane Update // v2026.10.9 (Build #2126100903)
+# ⚡ Arcane Update // v2026.10.9 (Build #2126100904)
+
+### 🔀 Merge and restore
+- Merging a backup no longer re-checks checkpoints or subtasks you unchecked. Items are matched by ID only. An incoming item with no ID match is added unchecked.
+- Unchecking a checkpoint now clears its completion time.
+
+### 🧾 Data Recovery
+- The action ledger list is collapsed by default. Tap "SHOW N ENTRIES" to open it.
+
+### 🤖 AI settings
+- Lite, Pro, and Live model lists are collapsed by default. Tap a section header to open it.
 
 ### 🎛️ Floating HUD
-- Pause and start are now explicit. A stale tap can no longer flip a running task into a start, or the reverse.
-- The widget refreshes right after each HUD or widget action.
-- A task you stopped from the HUD or the widget is not offered as "Continue" or as the next task until you start it again.
+- Pause and start are explicit. A stale tap can no longer reverse a stop.
+- A task stopped from the HUD or the widget is not offered as "Continue" until you start it again.
 
 ### 🐕 Watch app keep-alive
 - Every 10 minutes Arcane checks the running processes and starts the watch app only if it is not running.
