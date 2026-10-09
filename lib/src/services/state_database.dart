@@ -17,7 +17,16 @@ class StateDatabase {
 
   Future<Database> get _database => _opening ??= _open();
 
+  /// Closes the open database so the next call reopens it. Used by tests that remove the
+  /// database directory between cases.
+  Future<void> close() async {
+    final opening = _opening;
+    _opening = null;
+    if (opening != null) await (await opening).close();
+  }
+
   Future<Database> _open() async {
+    // Android and iOS use the platform sqflite plugin; only desktop needs the FFI factory.
     if (!kIsWeb && (Platform.isLinux || Platform.isWindows)) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
@@ -65,20 +74,34 @@ class StateDatabase {
           where: 'user_id = ? AND collection = ?',
           whereArgs: [userId, collection],
         );
-        if (json == null) return;
-        var part = 0;
-        for (var start = 0; start < json.length; start += _partChars) {
-          final end = start + _partChars > json.length ? json.length : start + _partChars;
-          batch.insert(_table, {
-            'user_id': userId,
-            'collection': collection,
-            'part': part++,
-            'data': json.substring(start, end),
-          });
-        }
+        if (json != null) _insertParts(batch, userId, collection, json);
       });
       await batch.commit(noResult: true);
     });
+  }
+
+  /// Replaces everything stored for [userId] with [collections], in one transaction.
+  Future<void> replaceUser(String userId, Map<String, String> collections) async {
+    final db = await _database;
+    await db.transaction((txn) async {
+      await txn.delete(_table, where: 'user_id = ?', whereArgs: [userId]);
+      final batch = txn.batch();
+      collections.forEach((collection, json) => _insertParts(batch, userId, collection, json));
+      await batch.commit(noResult: true);
+    });
+  }
+
+  void _insertParts(Batch batch, String userId, String collection, String json) {
+    var part = 0;
+    for (var start = 0; start < json.length; start += _partChars) {
+      final end = start + _partChars > json.length ? json.length : start + _partChars;
+      batch.insert(_table, {
+        'user_id': userId,
+        'collection': collection,
+        'part': part++,
+        'data': json.substring(start, end),
+      });
+    }
   }
 
   Future<void> deleteUser(String userId) async {

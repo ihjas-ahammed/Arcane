@@ -95,21 +95,14 @@ class DataExportService {
         final file = result.files.first;
         String content;
 
-        if (kIsWeb) {
-          // On web, bytes are available directly
-          if (file.bytes != null) {
-            content = utf8.decode(file.bytes!);
-          } else {
-            throw Exception("Failed to read file data on web.");
-          }
+        // withData: true gives the bytes on every platform. Android content:// picks often have no
+        // usable path, so the bytes are preferred; the path is only a fallback.
+        if (file.bytes != null) {
+          content = utf8.decode(file.bytes!);
+        } else if (!kIsWeb && file.path != null) {
+          content = await File(file.path!).readAsString();
         } else {
-          // On mobile/desktop, read from path
-          if (file.path != null) {
-            final ioFile = File(file.path!);
-            content = await ioFile.readAsString();
-          } else {
-             throw Exception("File path not available.");
-          }
+          throw Exception("Could not read the selected file.");
         }
 
         final dynamic decoded = jsonDecode(content);

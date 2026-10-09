@@ -11,6 +11,7 @@ import 'package:missions/src/widgets/ui/jwe_panel.dart';
 import 'package:missions/src/services/data_export_service.dart';
 import 'package:missions/src/widgets/dialogs/data_restore_progress_dialog.dart';
 import 'package:missions/src/services/app_action_ledger_service.dart';
+import 'package:missions/src/screens/settings/backup_explorer_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -188,6 +189,35 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Export failed: $e")));
       }
+    }
+  }
+
+  /// Replaces the stored state with a JSON file and reloads it. The old stored data is copied to backups/ first.
+  Future<void> _loadJsonIntoDatabase() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final provider = context.read<AppProvider>();
+    final data = await _exportService.importJson();
+    if (data == null || !mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Load JSON into database?"),
+        content: const Text(
+          "This replaces the data stored on this device with the file's contents. "
+          "The current stored data is copied to backups/ first.",
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Load")),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await provider.importLocalJson(data);
+      messenger.showSnackBar(const SnackBar(content: Text("JSON loaded into the database")));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text("Load failed: $e")));
     }
   }
 
@@ -384,6 +414,21 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const BackupExplorerScreen()),
+                          ),
+                          icon: Icon(Icons.travel_explore, size: 18, color: JweTheme.accentCyan),
+                          label: Text("EXPLORE BACKUP (READ-ONLY)", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, color: JweTheme.accentCyan, letterSpacing: 1.2)),
+                        ),
+                        const SizedBox(height: 6),
+                        OutlinedButton.icon(
+                          onPressed: _loadJsonIntoDatabase,
+                          icon: Icon(Icons.storage, size: 18, color: JweTheme.accentCyan),
+                          label: Text("LOAD JSON INTO DATABASE", style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, color: JweTheme.accentCyan, letterSpacing: 1.2)),
+                        ),
+                        const SizedBox(height: 6),
                         ElevatedButton.icon(
                           onPressed: _mergeImportData,
                           icon: Icon(MdiIcons.sourceMerge, size: 20, color: JweTheme.onAccent),

@@ -1,5 +1,7 @@
 import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
+import 'package:missions/src/services/local_storage_service.dart';
+import 'package:missions/src/screens/local_data_error_screen.dart';
 import 'package:missions/src/screens/home_screen.dart';
 import 'package:missions/src/screens/login_screen.dart';
 import 'package:missions/src/screens/onboarding/app_tour_screen.dart';
@@ -61,7 +63,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     // Only the fields the app shell actually uses. A plain Consumer here rebuilt the whole
     // MaterialApp (theme, launcher, navigator) on every AppProvider notification.
-    return Selector<AppProvider, (String, Color, bool, bool, bool, bool, bool)>(
+    return Selector<AppProvider, (String, Color, bool, bool, bool, bool, bool, LocalStateException?)>(
       selector: (_, p) => (
         p.settings.themeMode,
         p.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed,
@@ -70,10 +72,11 @@ class _MyAppState extends State<MyApp> {
         p.settings.hasCompletedTour,
         p.mainTasks.isNotEmpty,
         p.skills.isNotEmpty,
+        p.localLoadError,
       ),
       builder: (context, shell, child) {
         final appProvider = context.read<AppProvider>();
-        final (themeMode, currentTaskColor, _, _, hasCompletedTour, hasTasks, hasSkills) = shell;
+        final (themeMode, currentTaskColor, _, _, hasCompletedTour, hasTasks, hasSkills, localError) = shell;
         final isSystemDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
         final bool isLightTheme = themeMode == 'light' || (themeMode == 'system' && !isSystemDark);
 
@@ -100,6 +103,8 @@ class _MyAppState extends State<MyApp> {
                   ),
                 ),
               )
+            : localError != null
+                ? LocalDataErrorScreen(error: localError)
             : appProvider.currentUser == null
                 ? const LoginScreen()
                 : !isTourFinished

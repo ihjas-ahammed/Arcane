@@ -61,6 +61,11 @@ mixin SyncMixin on ChangeNotifier {
   /// real cloud data. Crash restarts made this window common.
   bool _dataLoadInProgress = false;
 
+  /// Set when the saved state could not be read. While it is set nothing is written to the local
+  /// database or the cloud, so the broken data stays as it is until the user fixes it.
+  LocalStateException? localLoadError;
+  bool _syncStarted = false;
+
   void beginDataLoad() {
     _dataLoadInProgress = true;
     _saveDebounce?.cancel();
@@ -84,6 +89,8 @@ mixin SyncMixin on ChangeNotifier {
   /// taps a manual sync button. This only wires up the "retry a failed end-of-day sync once we're
   /// back online" hook.
   void initSync() {
+    if (_syncStarted) return;
+    _syncStarted = true;
     SharedPreferences.getInstance().then((prefs) {
       _cloudSyncPending = prefs.getBool(_cloudSyncPendingKey) ?? false;
       // The app died (or was offline) mid-push last time: finish the job now.
@@ -151,7 +158,7 @@ mixin SyncMixin on ChangeNotifier {
   bool _localSaveAgain = false;
 
   Future<void> _saveLocalSnapshot({bool forceFlush = false, Map<String, dynamic>? precomputedState}) async {
-    if (currentUser == null || _dataLoadInProgress) return;
+    if (currentUser == null || _dataLoadInProgress || localLoadError != null) return;
     // One serialization pass at a time: edits that arrive meanwhile are folded into a single
     // follow-up save, so a burst of taps can't queue several multi-MB encodes behind each other.
     if (_localSaveRunning && precomputedState == null && !forceFlush) {
@@ -203,7 +210,7 @@ mixin SyncMixin on ChangeNotifier {
   /// local cache is not rewritten from the (possibly minutes-old) payload that was uploaded.
   /// Never throws; returns whether the cloud now holds the current local state.
   Future<bool> syncEndOfDay({bool showNotification = true, int? maxAttempts}) async {
-    if (currentUser == null || _dataLoadInProgress) return false;
+    if (currentUser == null || _dataLoadInProgress || localLoadError != null) return false;
     if (!settings.autoSaveEnabled) return false;
     if (_isSyncing) {
       // A push is already running: queue exactly one more so the newest state is also pushed.
@@ -329,6 +336,10 @@ mixin SyncMixin on ChangeNotifier {
 
   Future<bool> manuallySaveToCloud() async {
     if (currentUser == null) return false;
+    if (localLoadError != null) {
+      showGlobalToast("Local data could not be loaded, so nothing is uploaded until it is fixed.");
+      return false;
+    }
     if (_isSyncing) {
       _endOfDaySyncQueued = true;
       showGlobalToast("A cloud sync is already running");
@@ -365,7 +376,7 @@ mixin SyncMixin on ChangeNotifier {
     bool force = false,
     void Function(int done, int total, String label)? onProgress,
   }) async {
-    if (currentUser == null || _dataLoadInProgress) return false;
+    if (currentUser == null || _dataLoadInProgress || localLoadError != null) return false;
     try {
       final startGeneration = _editGeneration;
       // 1. Establish a single synchronized timestamp across all collections and RTDB

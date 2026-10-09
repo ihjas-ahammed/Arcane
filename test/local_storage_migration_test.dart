@@ -21,6 +21,7 @@ void main() {
   });
 
   tearDown(() async {
+    await StateDatabase.instance.close();
     await docs.delete(recursive: true);
   });
 
@@ -44,7 +45,6 @@ void main() {
 
     final rows = await StateDatabase.instance.readCollections(uid);
     expect(rows.keys.toSet(), legacy.keys.toSet());
-    expect(File('${docs.path}/backups/pre_sqlite_$uid.json').existsSync(), isTrue);
     expect(legacyFile.existsSync(), isTrue, reason: 'legacy JSON must be kept after import');
 
     final relaunched = await LocalStorageService().loadState(uid);

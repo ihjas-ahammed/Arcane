@@ -865,41 +865,63 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     });
   }
 
+  /// Loads the saved state for [uid] from this device only. The cloud is never used here.
+  /// A read failure is kept in [localLoadError] and shown to the user; nothing is saved until it is fixed.
+  Future<void> _loadLocalState(String uid) async {
+    // No saves or dirty-marking until the user's real data is in memory (see beginDataLoad).
+    beginDataLoad();
+    try {
+      final localData = await _localStorage.loadState(uid);
+      localLoadError = null;
+      if (localData != null) {
+        loadStateFromMap(localData);
+      } else {
+        // Nothing saved on this device yet: start from the defaults.
+        await _resetToInitialState();
+      }
+    } on LocalStateException catch (e) {
+      localLoadError = e;
+    } catch (e, stack) {
+      localLoadError = LocalStateException('Unexpected error while loading local data.', '$e\n$stack');
+    } finally {
+      endDataLoad();
+      notifyListeners();
+    }
+  }
+
+  /// Tries the local load again, e.g. after the user fixed the saved data.
+  Future<void> retryLocalLoad() async {
+    final user = currentUser;
+    if (user == null) return;
+    await _loadLocalState(user.uid);
+    if (localLoadError == null) initSync();
+  }
+
+  /// "Load JSON into database": replaces the stored state for the current user with [data]
+  /// and loads it. The previous rows are kept in backups/ first.
+  Future<void> importLocalJson(Map<String, dynamic> data) async {
+    final user = currentUser;
+    if (user == null) throw StateError('Sign in before loading data.');
+    try {
+      await _localStorage.importStateIntoDatabase(user.uid, normalizeImportedData(data));
+    } on LocalStateException catch (e) {
+      localLoadError = e;
+      notifyListeners();
+      return;
+    }
+    await _loadLocalState(user.uid);
+    if (localLoadError == null) initSync();
+  }
+
   Future<void> _onAuthStateChanged(AppUser? user) async {
     try {
       if (user != null) {
         final isDifferentUser = currentUser == null || currentUser!.uid != user.uid;
         if (isDifferentUser) {
-          // No saves or dirty-marking until the user's real data is in memory (see beginDataLoad).
-          beginDataLoad();
-          Map<String, dynamic>? localData;
-          var loadedFromCloud = false;
-          try {
-            setCurrentUser(user);
-            unawaited(AppActionLedgerService.instance.init(user.uid));
-            localData = await _localStorage.loadState(user.uid);
-            if (localData != null) {
-              loadStateFromMap(localData);
-            } else {
-              // Auto load from cloud if local state is missing, with timeout to prevent startup lag
-              await _resetToInitialState();
-              try {
-                loadedFromCloud = await manuallyLoadFromCloud().timeout(
-                  const Duration(seconds: 3),
-                  onTimeout: () => false,
-                );
-              } catch (e) {
-                debugPrint("Failed to load initial state from cloud: $e");
-              }
-            }
-          } catch (e, stack) {
-            debugPrint("Error loading user data on auth change: $e\n$stack");
-          } finally {
-            endDataLoad();
-          }
-
-          if (loadedFromCloud) unawaited(forceLocalBackup());
-          initSync();
+          setCurrentUser(user);
+          unawaited(AppActionLedgerService.instance.init(user.uid));
+          await _loadLocalState(user.uid);
+          if (localLoadError == null) initSync();
         }
 
         // Release loading screen immediately so there is zero UI startup lag
@@ -1796,6 +1818,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     if (currentUser == null) return;
     await _cloudStorage.deleteUserData(currentUser!.uid);
     await _localStorage.clearState(currentUser!.uid);
+    localLoadError = null;
     await _resetToInitialState();
     markAllDirty();
   }

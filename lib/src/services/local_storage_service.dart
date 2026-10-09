@@ -13,6 +13,18 @@ Map<String, String> _encodeCollections(Map<String, dynamic> data) =>
 Map<String, dynamic> _decodeCollections(Map<String, String> rows) =>
     {for (final e in rows.entries) e.key: jsonDecode(e.value)};
 
+/// A local save could not be read or written. [details] holds the raw error and stack trace so
+/// the user can copy it.
+class LocalStateException implements Exception {
+  const LocalStateException(this.message, this.details);
+
+  final String message;
+  final String details;
+
+  @override
+  String toString() => '$message\n\n$details';
+}
+
 class LocalStorageService {
   /// Last JSON text written per collection, so a save only rewrites collections that changed.
   static final Map<String, Map<String, String>> _lastWritten = {};
@@ -220,101 +232,84 @@ class LocalStorageService {
     }
   }
 
+  /// Loads the saved state for [userId]. Returns null only when nothing is saved yet.
+  ///
+  /// Read or parse failures throw [LocalStateException]. There is deliberately no fallback to
+  /// the older .bak file, the daily backups, or the cloud: those can be hours old, and loading
+  /// them silently is what replaced recent data. The caller shows the error so it can be fixed.
   Future<Map<String, dynamic>?> loadState(String userId) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final contents = prefs.getString('arcane_local_cache_$userId');
+      if (contents == null || contents.isEmpty) return null;
+      return _decodeOrThrow(contents, 'browser cache');
+    }
+
+    Map<String, String> rows;
     try {
-      if (kIsWeb) {
-        final prefs = await SharedPreferences.getInstance();
-        final contents = prefs.getString('arcane_local_cache_$userId');
-        if (contents == null || contents.isEmpty) return null;
-        return jsonDecode(contents);
-      }
-      final rows = await StateDatabase.instance.readCollections(userId);
-      if (rows.isNotEmpty) {
-        _lastWritten[userId] = rows;
+      rows = await StateDatabase.instance.readCollections(userId);
+    } catch (e, stack) {
+      throw LocalStateException('The local database could not be read.', '$e\n$stack');
+    }
+    if (rows.isNotEmpty) {
+      _lastWritten[userId] = rows;
+      try {
         return await compute(_decodeCollections, rows);
+      } catch (e, stack) {
+        throw LocalStateException('A collection in the local database is not valid JSON.', '$e\n$stack');
       }
-      final legacy = await _loadLegacyJson(userId);
-      if (legacy != null) await _importLegacy(userId, legacy);
-      return legacy;
-    } catch (e) {
-      debugPrint("LocalStorage Load Error: $e");
-      return null;
+    }
+
+    final file = await _localFile(userId);
+    if (!await file.exists()) return null;
+    final String contents;
+    try {
+      contents = await file.readAsString();
+    } catch (e, stack) {
+      throw LocalStateException('The JSON cache file could not be read: ${file.path}', '$e\n$stack');
+    }
+    final legacy = await _decodeOrThrow(contents, file.path);
+    await importStateIntoDatabase(userId, legacy);
+    return legacy;
+  }
+
+  Future<Map<String, dynamic>> _decodeOrThrow(String text, String source) async {
+    if (text.trim().isEmpty) {
+      throw LocalStateException('The JSON file is empty.', source);
+    }
+    try {
+      return await compute(_decodeJson, text);
+    } catch (e, stack) {
+      throw LocalStateException('The JSON file could not be parsed ($source).', '$e\n$stack');
     }
   }
 
-  Future<Map<String, dynamic>?> _loadLegacyJson(String userId) async {
+  /// Replaces everything stored for [userId] with [data]. Used on first launch after the SQLite
+  /// switch, and by "Load JSON into database". The previous rows are copied to backups/ first.
+  /// If the stored copy does not read back identically, the new rows are removed again and
+  /// [LocalStateException] is thrown.
+  Future<void> importStateIntoDatabase(String userId, Map<String, dynamic> data) async {
+    final encoded = await compute(_encodeCollections, data);
     try {
-      final file = await _localFile(userId);
-      if (await file.exists()) {
-        try {
-          final contents = await file.readAsString();
-          if (contents.isNotEmpty) {
-            return await compute(_decodeJson, contents);
-          }
-        } catch (e) {
-          debugPrint("LocalStorage Primary Load Error: $e — Attempting backup recovery");
-        }
+      final backups = await _backupDirectory();
+      final previous = await StateDatabase.instance.readCollections(userId);
+      if (previous.isNotEmpty) {
+        final stamp = DateTime.now().millisecondsSinceEpoch;
+        final preserved = File('${backups.path}/before_import_${userId}_$stamp.json');
+        final previousJson = '{${previous.entries.map((e) => '"${e.key}":${e.value}').join(',')}}';
+        await preserved.writeAsString(previousJson, flush: true);
       }
-
-      // Fallback 1: If primary file is missing or corrupted, attempt recovery from .bak
-      final backup = await _backupFile(userId);
-      if (await backup.exists()) {
-        try {
-          final bakContents = await backup.readAsString();
-          if (bakContents.isNotEmpty) {
-            final data = await compute(_decodeJson, bakContents);
-            debugPrint("Successfully recovered state from backup!");
-            // Restore primary from backup
-            try {
-              await backup.copy(file.path);
-            } catch (_) {}
-            return data;
-          }
-        } catch (bakError) {
-          debugPrint("LocalStorage Backup Recovery Error: $bakError");
-        }
-      }
-
-      // Fallback 2: If primary and .bak are missing or corrupt, attempt recovery from latest daily backup
-      final dailyBackup = await getLatestDailyBackup(userId);
-      if (dailyBackup != null && await dailyBackup.exists()) {
-        try {
-          final dailyContents = await dailyBackup.readAsString();
-          if (dailyContents.isNotEmpty) {
-            final data = await compute(_decodeJson, dailyContents);
-            debugPrint("Successfully recovered state from daily backup (${dailyBackup.path})!");
-            try {
-              await dailyBackup.copy(file.path);
-            } catch (_) {}
-            return data;
-          }
-        } catch (dailyError) {
-          debugPrint("LocalStorage Daily Backup Recovery Error: $dailyError");
-        }
-      }
-    } catch (e) {
-      debugPrint("LocalStorage Load Error: $e");
-    }
-    return null;
-  }
-
-  Future<void> _importLegacy(String userId, Map<String, dynamic> legacy) async {
-    try {
-      final encoded = await compute(_encodeCollections, legacy);
-      final recovery = File('${(await _backupDirectory()).path}/pre_sqlite_$userId.json');
-      if (!await recovery.exists()) {
-        await recovery.writeAsString(await compute(_encodeJson, legacy), flush: true);
-      }
-      await StateDatabase.instance.writeCollections(userId, encoded);
+      await StateDatabase.instance.replaceUser(userId, encoded);
       final verified = await StateDatabase.instance.readCollections(userId);
       if (!mapEquals(verified, encoded)) {
-        throw StateError('SQLite import verification failed');
+        throw StateError('stored copy does not match the imported data');
       }
       _lastWritten[userId] = verified;
-      debugPrint("[LocalStorageService] Imported legacy JSON cache into SQLite (${encoded.length} collections)");
-    } catch (e) {
-      // The JSON cache is untouched, so the import is retried on the next launch.
-      debugPrint("[LocalStorageService] Legacy import failed, will retry next launch: $e");
+      debugPrint("[LocalStorageService] Imported ${encoded.length} collections into the local database");
+    } catch (e, stack) {
+      await StateDatabase.instance.deleteUser(userId);
+      _lastWritten.remove(userId);
+      throw LocalStateException('Importing the data into the local database failed.', '$e\n$stack');
     }
   }
 
