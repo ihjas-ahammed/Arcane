@@ -2,6 +2,7 @@ package me.ihjas.missions
 
 import android.Manifest
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -46,6 +47,16 @@ class DevicesBridge(
         return true
     }
 
+    /** Usage access (PACKAGE_USAGE_STATS) is granted in Settings, not by a runtime prompt. */
+    private fun usageAccessAllowed(ctx: Context): Boolean {
+        val ops = ctx.getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager
+        @Suppress("DEPRECATION")
+        val mode = ops.checkOpNoThrow(
+            android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), ctx.packageName,
+        )
+        return mode == android.app.AppOpsManager.MODE_ALLOWED
+    }
+
     private fun listenerEnabled(): Boolean {
         val flat = Settings.Secure.getString(activity.contentResolver, "enabled_notification_listeners") ?: return false
         return flat.contains(activity.packageName)
@@ -60,6 +71,7 @@ class DevicesBridge(
                 "scanPermission" to DeviceMonitor.hasScanPermission(ctx),
                 "listenerEnabled" to listenerEnabled(),
                 "overlayAllowed" to Settings.canDrawOverlays(ctx),
+                "usageAccessAllowed" to usageAccessAllowed(ctx),
                 "connected" to DeviceMonitor.connectedAddresses(),
                 "watch" to WatchKeepAlive.status(ctx),
             ))
@@ -95,6 +107,9 @@ class DevicesBridge(
             } catch (_: Exception) { false })
             "openOverlaySettings" -> result.success(try {
                 activity.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${activity.packageName}"))); true
+            } catch (_: Exception) { false })
+            "openUsageAccess" -> result.success(try {
+                activity.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)); true
             } catch (_: Exception) { false })
             "openBatterySettings" -> result.success(try {
                 activity.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)); true

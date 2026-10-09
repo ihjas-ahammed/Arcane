@@ -188,6 +188,7 @@ class DevicesService extends ChangeNotifier {
   Future<void> openListenerSettings() => _call<bool>('openListenerSettings');
   Future<void> openOverlaySettings() => _call<bool>('openOverlaySettings');
   Future<void> openBatterySettings() => _call<bool>('openBatterySettings');
+  Future<void> openUsageAccess() => _call<bool>('openUsageAccess');
   Future<void> openAppSettings(String package) => _call<bool>('openAppSettings', {'package': package});
 
   /// The whole log as JSON lines, for sharing / pasting.

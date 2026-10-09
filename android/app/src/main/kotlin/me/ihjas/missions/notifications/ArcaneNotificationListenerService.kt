@@ -101,8 +101,8 @@ class ArcaneNotificationListenerService : NotificationListenerService() {
     private val beat = Handler(Looper.getMainLooper())
     private val beatRunnable = object : Runnable {
         override fun run() {
-            try { WatchKeepAlive.heartbeat(this@ArcaneNotificationListenerService, force = false) } catch (_: Exception) {}
-            beat.postDelayed(this, WatchKeepAlive.HEARTBEAT_MS)
+            try { WatchKeepAlive.heartbeat(this@ArcaneNotificationListenerService) } catch (_: Exception) {}
+            beat.postDelayed(this, WatchKeepAlive.CHECK_MS)
         }
     }
 
@@ -111,18 +111,13 @@ class ArcaneNotificationListenerService : NotificationListenerService() {
         instance = this
         DeviceMonitor.start(applicationContext)
         beat.removeCallbacks(beatRunnable)
-        beat.postDelayed(beatRunnable, WatchKeepAlive.HEARTBEAT_MS)
+        beat.postDelayed(beatRunnable, WatchKeepAlive.CHECK_MS)
     }
 
     override fun onListenerDisconnected() {
         if (instance == this) instance = null
         beat.removeCallbacks(beatRunnable)
         super.onListenerDisconnected()
-    }
-
-    override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        super.onNotificationRemoved(sbn)
-        if (sbn != null) try { WatchKeepAlive.onRemoved(this, sbn) } catch (_: Exception) {}
     }
 
     override fun onDestroy() {

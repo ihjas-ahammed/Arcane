@@ -11,6 +11,7 @@ import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
 import 'package:missions/src/screens/settings/widgets_studio/widgets_studio_resolvers.dart';
 import 'package:missions/src/services/bus_location_service.dart';
+import 'package:missions/src/services/stopped_task_memory.dart';
 import 'package:missions/src/services/home_widget_service.dart';
 import 'package:missions/src/utils/day_budget_helper.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
@@ -164,6 +165,7 @@ class HomeWidgetPublisher {
             cp = s.findCheckpoint(parts[2]);
           }
         }
+        StoppedTaskMemory.subTaskId = null;
         return (
           mainTask: m,
           subTask: s,
@@ -184,6 +186,7 @@ class HomeWidgetPublisher {
         (st) => st.id == parts[1] && !st.isDeleted,
       );
       if (m == null || s == null || s.completed) continue;
+      if (s.id == StoppedTaskMemory.subTaskId) continue;
       if (parts.length == 3) {
         final cp = s.findCheckpoint(parts[2]);
         if (cp == null || cp.completed) continue;

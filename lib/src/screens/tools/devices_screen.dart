@@ -127,7 +127,7 @@ class _DevicesScreenState extends State<DevicesScreen> with WidgetsBindingObserv
                       activeThumbColor: JweTheme.accentTeal,
                       title: Text('Keep it running', style: GoogleFonts.chakraPetch(color: JweTheme.textWhite, fontSize: 13)),
                       subtitle: Text(
-                        'If the app gets killed, Arcane starts it again. Arcane notices because the app\'s ongoing notification disappears.',
+                        'Every 10 minutes Arcane checks the running processes and starts the app if it is not running.',
                         style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 10),
                       ),
                       value: watch['enabled'] == true,
@@ -139,6 +139,9 @@ class _DevicesScreenState extends State<DevicesScreen> with WidgetsBindingObserv
                     _row(MdiIcons.layersOutline, 'Show over other apps', s['overlayAllowed'] == true ? 'ON' : 'RECOMMENDED',
                         s['overlayAllowed'] == true ? JweTheme.accentTeal : JweTheme.accentAmber,
                         action: s['overlayAllowed'] == true ? null : ('ALLOW', _svc.openOverlaySettings)),
+                    _row(MdiIcons.chartBar, 'Usage access', s['usageAccessAllowed'] == true ? 'ON' : 'NOT GRANTED',
+                        s['usageAccessAllowed'] == true ? JweTheme.accentTeal : JweTheme.accentAmber,
+                        action: s['usageAccessAllowed'] == true ? null : ('ALLOW', _svc.openUsageAccess)),
                     _row(MdiIcons.history, 'Restarted by Arcane', '${watch['restarts'] ?? 0}x', JweTheme.textMid),
                     const SizedBox(height: 6),
                     Wrap(spacing: 8, runSpacing: 4, children: [
@@ -152,7 +155,7 @@ class _DevicesScreenState extends State<DevicesScreen> with WidgetsBindingObserv
                     ]),
                     const SizedBox(height: 4),
                     Text(
-                      'Tip: also set the watch app to "No restrictions" / autostart in battery settings so the system does not kill it first. Detection needs the app to show a persistent notification while connected.',
+                      'Tip: also set the watch app to "No restrictions" / autostart in battery settings so the system does not kill it first.',
                       style: GoogleFonts.jetBrainsMono(color: JweTheme.textMuted, fontSize: 9.5),
                     ),
                   ],

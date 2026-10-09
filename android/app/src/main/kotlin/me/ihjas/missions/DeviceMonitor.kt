@@ -1,6 +1,7 @@
 package me.ihjas.missions
 
 import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
@@ -416,19 +417,18 @@ object DeviceMonitor {
 }
 
 /**
- * Keeps the user's watch companion app (Mi Fitness, Zepp, Galaxy Wearable, …) running. Such apps
- * show a persistent notification while they are alive, so the notification listener (a system-bound
- * service that survives Arcane's UI being closed) watches for it to vanish and then restarts the app.
+ * Keeps the user's watch companion app (Mi Fitness, Zepp, Galaxy Wearable, …) running. Every
+ * [CHECK_MS] the process list is read, and the app is started only when its process is not in it.
+ * The check is driven by the notification listener service, which the system keeps bound.
  */
 object WatchKeepAlive {
     private const val PREFS = "arcane_devices"
     private const val K_PKG = "watch_pkg"
     private const val K_ON = "watch_keepalive"
-    private const val K_ALIVE = "watch_last_alive"
+    private const val K_LAST_CHECK = "watch_last_check"
     private const val K_RESTARTS = "watch_restarts"
     private const val K_LAST_RESTART = "watch_last_restart"
-    private const val K_ATTEMPTS = "watch_attempts"
-    const val HEARTBEAT_MS = 60_000L
+    const val CHECK_MS = 10 * 60_000L
 
     private fun prefs(c: Context) = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     fun pkg(c: Context): String = prefs(c).getString(K_PKG, "") ?: ""
@@ -436,7 +436,7 @@ object WatchKeepAlive {
 
     fun set(c: Context, pkg: String?, enabled: Boolean?) {
         val e = prefs(c).edit()
-        if (pkg != null) e.putString(K_PKG, pkg).putLong(K_ALIVE, 0L).putInt(K_ATTEMPTS, 0)
+        if (pkg != null) e.putString(K_PKG, pkg)
         if (enabled != null) e.putBoolean(K_ON, enabled)
         e.apply()
     }
@@ -445,19 +445,40 @@ object WatchKeepAlive {
         val p = prefs(c)
         return mapOf(
             "package" to pkg(c), "enabled" to enabled(c),
-            "lastAlive" to p.getLong(K_ALIVE, 0L), "restarts" to p.getInt(K_RESTARTS, 0),
+            "lastCheck" to p.getLong(K_LAST_CHECK, 0L), "restarts" to p.getInt(K_RESTARTS, 0),
             "lastRestart" to p.getLong(K_LAST_RESTART, 0L),
         )
     }
 
-    private fun isAlive(svc: android.service.notification.NotificationListenerService, pkg: String): Boolean =
-        try { svc.activeNotifications.any { it.packageName == pkg } } catch (_: Exception) { true }
+    /**
+     * true when the watch app's process is listed, false when it is not, and null when the list
+     * cannot answer. From Android 5 a normal app only sees its own processes, so if nothing else is
+     * listed the answer is null and the app is left alone rather than started again and again.
+     */
+    fun isRunning(c: Context, pkg: String): Boolean? {
+        val am = c.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return null
+        val procs = try { am.runningAppProcesses } catch (_: Exception) { null } ?: return null
+        if (procs.none { !it.processName.startsWith(c.packageName) }) return null
+        return procs.any { it.processName == pkg || it.processName.startsWith("$pkg:") }
+    }
 
-    /** Called by the notification listener for every notification of any app. */
+    /** One check: starts the watch app only if its process is not running. Called every [CHECK_MS]. */
+    fun heartbeat(c: Context) {
+        val pkg = pkg(c)
+        if (pkg.isEmpty() || !enabled(c)) return
+        prefs(c).edit().putLong(K_LAST_CHECK, System.currentTimeMillis()).apply()
+        when (isRunning(c, pkg)) {
+            true -> Unit
+            false -> restart(c, "process not running")
+            null -> DeviceEventLog.append(c, "keepalive", pkg, "unknown",
+                mapOf("reason" to "process list not readable for other apps"))
+        }
+    }
+
+    /** Watch-app notifications are kept for the Devices screen. They no longer drive the keep-alive. */
     fun onPosted(svc: android.service.notification.NotificationListenerService, sbn: android.service.notification.StatusBarNotification) {
         val pkg = pkg(svc)
         if (pkg.isEmpty() || sbn.packageName != pkg) return
-        prefs(svc).edit().putLong(K_ALIVE, System.currentTimeMillis()).putInt(K_ATTEMPTS, 0).apply()
         val ex = sbn.notification?.extras ?: return
         val title = ex.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString()
         val text = ex.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString()
@@ -472,30 +493,6 @@ object WatchKeepAlive {
 
     private val lastSig = HashMap<Int, String>()
 
-    fun onRemoved(svc: android.service.notification.NotificationListenerService, sbn: android.service.notification.StatusBarNotification) {
-        val pkg = pkg(svc)
-        if (pkg.isEmpty() || sbn.packageName != pkg || !enabled(svc)) return
-        lastSig.remove(sbn.id)
-        // Give a normal notification swap a moment before deciding the app is gone.
-        Handler(Looper.getMainLooper()).postDelayed({ heartbeat(svc, force = false) }, 6_000)
-    }
-
-    /** Periodic check; restarts the app when it was seen alive before but its notification is gone. */
-    fun heartbeat(svc: android.service.notification.NotificationListenerService, force: Boolean) {
-        val pkg = pkg(svc)
-        if (pkg.isEmpty() || !enabled(svc)) return
-        val p = prefs(svc)
-        if (isAlive(svc, pkg)) {
-            p.edit().putLong(K_ALIVE, System.currentTimeMillis()).putInt(K_ATTEMPTS, 0).apply()
-            return
-        }
-        if (!force && p.getLong(K_ALIVE, 0L) == 0L) return // never seen alive: don't launch blindly
-        val attempts = p.getInt(K_ATTEMPTS, 0)
-        val wait = minOf(120_000L * (attempts + 1), 30 * 60_000L)
-        if (!force && System.currentTimeMillis() - p.getLong(K_LAST_RESTART, 0L) < wait) return
-        restart(svc, "notification gone")
-    }
-
     fun restart(context: Context, reason: String): Boolean {
         val pkg = pkg(context)
         if (pkg.isEmpty()) return false
@@ -504,7 +501,6 @@ object WatchKeepAlive {
         return try {
             context.startActivity(intent)
             p.edit().putInt(K_RESTARTS, p.getInt(K_RESTARTS, 0) + 1)
-                .putInt(K_ATTEMPTS, p.getInt(K_ATTEMPTS, 0) + 1)
                 .putLong(K_LAST_RESTART, System.currentTimeMillis()).apply()
             DeviceEventLog.append(context, "keepalive", pkg, "restart", mapOf("reason" to reason))
             true

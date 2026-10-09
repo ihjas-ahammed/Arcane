@@ -14,6 +14,7 @@ import 'package:missions/src/screens/reflections_archive_screen.dart';
 import 'package:missions/src/screens/settings/widgets_studio/widgets_studio_resolvers.dart';
 import 'package:missions/src/services/bus_location_service.dart';
 import 'package:missions/src/services/home_widget_publisher.dart';
+import 'package:missions/src/services/stopped_task_memory.dart';
 import 'package:missions/src/widgets/dialogs/add_transaction_dialog.dart';
 import 'package:missions/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
@@ -121,6 +122,12 @@ class WidgetActionRouter {
       case 'task_finish':
         _taskFinish(provider);
         if (!silent) _gotoTab(HomeTab.schedule);
+        break;
+      case 'task_pause':
+        _taskPause(provider);
+        break;
+      case 'task_start':
+        _taskStart(provider);
         break;
       case 'task_check_next':
         _taskCheckNext(provider);
@@ -293,12 +300,36 @@ class WidgetActionRouter {
     }
   }
 
+  /// HUD and notification "pause". Only acts when a task is running, so a stale tap cannot start it.
+  void _taskPause(AppProvider provider) {
+    final r = _resolveActive(provider);
+    final s = r.subTask;
+    if (!r.isRunning || s == null) return;
+    StoppedTaskMemory.subTaskId = s.id;
+    provider.pauseTimer(s.id);
+    provider.logTimerAndReset(s.id);
+    HomeWidgetPublisher.republishNow();
+  }
+
+  /// HUD and notification "start". Starts the next planned task that was not just stopped, and only
+  /// when nothing is running, so a stale tap cannot pause a running task.
+  void _taskStart(AppProvider provider) {
+    final r = _resolveActive(provider, skipStopped: true);
+    final m = r.mainTask;
+    final s = r.subTask;
+    if (r.isRunning || m == null || s == null) return;
+    StoppedTaskMemory.subTaskId = null;
+    provider.startTimer(s.id, 'subtask', m.id);
+    HomeWidgetPublisher.republishNow();
+  }
+
   void _taskToggle(AppProvider provider) {
     final r = _resolveActive(provider);
     final m = r.mainTask;
     final s = r.subTask;
     if (m == null || s == null) return;
     if (r.isRunning) {
+      StoppedTaskMemory.subTaskId = s.id;
       provider.pauseTimer(s.id);
       provider.logTimerAndReset(s.id);
     } else {
@@ -414,7 +445,7 @@ class WidgetActionRouter {
     SubSubTask? checkpoint,
     bool isRunning,
     String? queueId,
-  }) _resolveActive(AppProvider provider) {
+  }) _resolveActive(AppProvider provider, {bool skipStopped = false}) {
     final today = helper.getTodayDateString();
     final plan = List<String>.from(provider.taskActions.getDayPlan(today));
 
@@ -455,6 +486,7 @@ class WidgetActionRouter {
         (st) => st.id == parts[1] && !st.isDeleted,
       );
       if (m == null || s == null || s.completed) continue;
+      if (skipStopped && s.id == StoppedTaskMemory.subTaskId) continue;
       if (parts.length == 3) {
         final cp = s.findCheckpoint(parts[2]);
         if (cp == null || cp.completed) continue;

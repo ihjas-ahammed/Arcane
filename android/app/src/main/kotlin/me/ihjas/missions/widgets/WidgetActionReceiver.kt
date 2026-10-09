@@ -53,6 +53,8 @@ class WidgetActionReceiver : BroadcastReceiver() {
                         val isRunning = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isRunning", false)
                         views.setTextViewText(R.id.widget_btn_engage, if (isRunning) "HALTING..." else "ENGAGING...")
                     }
+                    "task_pause" -> views.setTextViewText(R.id.widget_btn_engage, "HALTING...")
+                    "task_start" -> views.setTextViewText(R.id.widget_btn_engage, "ENGAGING...")
                     "task_check_next" -> views.setTextViewText(R.id.widget_btn_check, "CHECKING...")
                     "task_finish" -> views.setTextViewText(R.id.widget_btn_finish, "FINISHING...")
                 }

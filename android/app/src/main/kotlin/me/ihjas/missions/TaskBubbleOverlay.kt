@@ -242,7 +242,7 @@ class TaskBubbleOverlay(private val context: Context) {
                 context, 4002,
                 Intent(context, WidgetActionReceiver::class.java).apply {
                     action = "me.ihjas.missions.WIDGET_ACTION"
-                    data = actionUri("task_toggle")
+                    data = actionUri("task_start")
                 }, flags,
             )
             val open = android.app.PendingIntent.getActivity(
@@ -477,7 +477,7 @@ class TaskBubbleOverlay(private val context: Context) {
         if (hasTask()) {
             bubble?.pending = true
             bubble?.invalidate()
-            sendAction("task_toggle")
+            sendAction(if (isRunning()) "task_pause" else "task_start")
             handler.postDelayed({ bubble?.pending = false; bubble?.invalidate() }, 1200)
         } else {
             openApp("task_open_plan")
@@ -504,9 +504,9 @@ class TaskBubbleOverlay(private val context: Context) {
         val items = mutableListOf<RadialItem>()
         if (hasTask()) {
             if (isRunning()) {
-                items.add(RadialItem("toggle", "HALT", "❚❚", RED) { sendAction("task_toggle") })
+                items.add(RadialItem("toggle", "HALT", "❚❚", RED) { sendAction("task_pause") })
             } else {
-                items.add(RadialItem("toggle", "ENGAGE", "▶", AMBER) { sendAction("task_toggle") })
+                items.add(RadialItem("toggle", "ENGAGE", "▶", AMBER) { sendAction("task_start") })
             }
             items.add(RadialItem("check", "CHECK", "✓", CYAN) { sendAction("task_check_next") })
             items.add(RadialItem("add", "ADD +", "＋", CYAN) { showCheckpointDialog() })
@@ -650,7 +650,7 @@ class TaskBubbleOverlay(private val context: Context) {
 
     private fun temporarilyHideBubble() {
         if (isRunning()) {
-            sendAction("task_toggle")
+            sendAction("task_pause")
         }
         temporarilyHidden = true
         lastHiddenTaskTitle = widgetPrefs.getString("arcane.task.title", "") ?: ""
