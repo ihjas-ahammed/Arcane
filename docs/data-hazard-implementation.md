@@ -116,3 +116,17 @@ Built and published with `build.sh` on 2026-10-11 10:10:25 (UTC). Tag: [v2026.10
 | `missions-v2026.10.11-b2126101104-linux-x86_64.tar.gz` | `86b0b2a4e00a1c9e24799252e54db76bf324af961761c063644ec55078c8a7e2` |
 
 Firebase update pointer: not switched (blocked).
+
+
+## Release run: 2026.10.11+2126101104
+
+Built and published with `build.sh` on 2026-10-11 10:51:25 (UTC). Tag: [v2026.10.11-b2126101104](https://github.com/ihjas-ahammed/Arcane/releases/tag/v2026.10.11-b2126101104).
+
+| Verified downloadable package | SHA-256 |
+| --- | --- |
+| `missions-v2026.10.11-b2126101104-arm64-v8a.apk` | `74f9c01ad1c0b96af715a8f28f74d6a73adcc7c6f4dfec6f56e8ac199ca1b61e` |
+| `missions-v2026.10.11-b2126101104-armeabi-v7a.apk` | `0deaec5e81ec3b73fb5029cb12b5399cb01a9397d872fe8a4a9c8348cf81491f` |
+| `missions-v2026.10.11-b2126101104-x86_64.apk` | `d29423b068e5cf4a09d6b4d1c8aec0f77f7304c41078cbdad5a456b59e8de924` |
+| `missions-v2026.10.11-b2126101104-linux-x86_64.tar.gz` | `86b0b2a4e00a1c9e24799252e54db76bf324af961761c063644ec55078c8a7e2` |
+
+Firebase update pointer: switched to 2126101104.
