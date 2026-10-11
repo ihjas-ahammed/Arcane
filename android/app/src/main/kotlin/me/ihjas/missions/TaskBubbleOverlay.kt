@@ -221,7 +221,7 @@ class TaskBubbleOverlay(private val context: Context) {
         scheduleIdle()
     }
 
-    private val syncRunnable = Runnable {
+    private val syncRunnable: Runnable = Runnable {
         val enabled = isEnabled(context)
         val running = isRunning()
         val taskPresent = hasTask()
