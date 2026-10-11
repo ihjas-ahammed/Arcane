@@ -124,7 +124,7 @@ class BusSubStop {
         latitude: (json['latitude'] as num?)?.toDouble() ?? 11.2325,
         longitude: (json['longitude'] as num?)?.toDouble() ?? 75.9961,
         distanceFromOriginKm: (json['distanceFromOriginKm'] as num?)?.toDouble() ?? 0.0,
-        timeOffsetMinutes: json['timeOffsetMinutes'] as int? ?? 0,
+        timeOffsetMinutes: (json['timeOffsetMinutes'] as num?)?.toInt() ?? 0,
       );
 }
 
@@ -202,7 +202,7 @@ class BusRoute {
       destinationId: destId,
       name: formattedName.isNotEmpty ? formattedName : '${DefaultBusNetwork.formatPlaceName(origId)} → ${DefaultBusNetwork.formatPlaceName(destId)}',
       distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 10.0,
-      baseDurationMinutes: json['baseDurationMinutes'] as int? ?? 25,
+      baseDurationMinutes: (json['baseDurationMinutes'] as num?)?.toInt() ?? 25,
       speedKmh: (json['speedKmh'] as num?)?.toDouble() ?? DefaultBusNetwork.defaultSpeedKmh,
       subStops: (json['subStops'] as List<dynamic>?)
               ?.map((e) => BusSubStop.fromJson(Map<String, dynamic>.from(e as Map)))

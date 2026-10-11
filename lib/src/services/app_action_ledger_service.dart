@@ -1,7 +1,8 @@
 import 'dart:convert';
+import 'package:missions/src/services/web_state_store.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:missions/src/services/app_storage_paths.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/models/task_models.dart';
@@ -121,16 +122,30 @@ class AppActionLedgerService {
   List<DbActionEntry> _entries = [];
   bool _loaded = false;
   String? _currentUserId;
+  Future<void> _writeQueue = Future.value();
+  String? loadError;
 
   List<DbActionEntry> get entries => List.unmodifiable(_entries);
 
   Future<void> init(String userId) async {
+    await _writeQueue;
     _currentUserId = userId;
+    _entries = [];
+    _loaded = false;
+    loadError = null;
     await _loadFromDisk();
   }
 
+  Future<void> detachAccount() async {
+    await _writeQueue;
+    _currentUserId = null;
+    _entries = [];
+    _loaded = false;
+    loadError = null;
+  }
+
   Future<File> _getFile(String userId) async {
-    final docsDir = await getApplicationDocumentsDirectory();
+    final docsDir = await AppStoragePaths.directory();
     final ledgerDir = Directory('${docsDir.path}/ledger');
     if (!await ledgerDir.exists()) {
       await ledgerDir.create(recursive: true);
@@ -139,28 +154,61 @@ class AppActionLedgerService {
   }
 
   Future<void> _loadFromDisk() async {
-    if (_currentUserId == null) return;
+    final uid = _currentUserId;
+    if (uid == null) return;
     try {
+      final recovered = <String, DbActionEntry>{};
       if (kIsWeb) {
         final prefs = await SharedPreferences.getInstance();
-        final raw = prefs.getString('db_action_ledger_$_currentUserId');
+        final raw = await WebStateStore.read('ledger_$uid') ?? prefs.getString('db_action_ledger_$uid');
         if (raw != null) {
-          final list = jsonDecode(raw) as List;
-          _entries = list.map((e) => DbActionEntry.fromJson(Map<String, dynamic>.from(e))).toList();
+          for (final e in jsonDecode(raw) as List) {
+            final entry = DbActionEntry.fromJson(Map<String, dynamic>.from(e));
+            recovered[entry.id] = entry;
+          }
         }
       } else {
-        final file = await _getFile(_currentUserId!);
-        if (await file.exists()) {
-          final raw = await file.readAsString();
-          final list = jsonDecode(raw) as List;
-          _entries = list.map((e) => DbActionEntry.fromJson(Map<String, dynamic>.from(e))).toList();
+        final legacy = await _getFile(uid);
+        if (await legacy.exists()) {
+          try {
+            for (final e in jsonDecode(await legacy.readAsString()) as List) {
+              final entry = DbActionEntry.fromJson(Map<String, dynamic>.from(e));
+              recovered[entry.id] = entry;
+            }
+          } catch (_) {
+            await legacy.rename('${legacy.path}.corrupt-${DateTime.now().microsecondsSinceEpoch}');
+          }
+        }
+        final journals = (await legacy.parent.list().toList()).whereType<File>().where((f) => f.uri.pathSegments.last.startsWith('db_action_ledger_${uid}_') && f.path.endsWith('.jsonl')).toList()..sort((a,b) => a.path.compareTo(b.path));
+        for (final file in journals) {
+          var corrupt = false;
+          final validLines = <String>[];
+          for (final line in await file.readAsLines()) {
+            if (line.trim().isEmpty) continue;
+            try {
+              final record = Map<String, dynamic>.from(jsonDecode(line));
+              validLines.add(line);
+              if (record['_clear'] == true) { recovered.clear(); continue; }
+              final entry = DbActionEntry.fromJson(record);
+              recovered[entry.id] = entry;
+            } catch (_) { corrupt = true; }
+          }
+          if (corrupt) {
+            final tmp = File('${file.path}.recovered.tmp');
+            await tmp.writeAsString('${validLines.join('\n')}\n', flush: true);
+            await file.rename('${file.path}.corrupt-${DateTime.now().microsecondsSinceEpoch}');
+            await tmp.rename(file.path);
+          }
         }
       }
+      if (_currentUserId != uid) return;
+      _entries = recovered.values.toList()..sort((a,b) => b.timestamp.compareTo(a.timestamp));
       _pruneOldEntries();
       _loaded = true;
     } catch (e) {
-      debugPrint('[ActionLedger] Error loading ledger: $e');
-      _entries = [];
+      loadError = '$e';
+      debugPrint('[ActionLedger] Load failed; original files preserved: $e');
+      rethrow;
     }
   }
 
@@ -169,25 +217,29 @@ class AppActionLedgerService {
     _entries.removeWhere((e) => e.timestamp.isBefore(cutoff));
   }
 
-  Future<void> _flushToDisk() async {
-    if (_currentUserId == null) return;
-    _pruneOldEntries();
-    try {
-      final jsonStr = jsonEncode(_entries.map((e) => e.toJson()).toList());
+  Future<void> _appendRecord(Map<String, dynamic> record) {
+    final uid = _currentUserId;
+    if (uid == null) return Future.value();
+    final webSnapshot = kIsWeb ? jsonEncode(_entries.map((e) => e.toJson()).toList()) : null;
+    final line = '${jsonEncode(record)}\n';
+    final run = _writeQueue.then((_) async {
       if (kIsWeb) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('db_action_ledger_$_currentUserId', jsonStr);
-      } else {
-        final file = await _getFile(_currentUserId!);
-        final tmp = File('${file.path}.tmp');
-        await tmp.writeAsString(jsonStr, flush: true);
-        if (await tmp.exists()) {
-          await tmp.rename(file.path);
-        }
+        await WebStateStore.write('ledger_$uid', webSnapshot!);
+        return;
       }
-    } catch (e) {
-      debugPrint('[ActionLedger] Error saving ledger: $e');
-    }
+      final legacy = await _getFile(uid);
+      final day = DateTime.now().toIso8601String().substring(0,10);
+      final file = File('${legacy.parent.path}/db_action_ledger_${uid}_$day.jsonl');
+      await file.writeAsString(line, mode: FileMode.append, flush: true);
+      final cutoff = DateTime.now().subtract(const Duration(days: 2)).toIso8601String().substring(0,10);
+      for (final old in (await legacy.parent.list().toList()).whereType<File>()) {
+        final name = old.uri.pathSegments.last;
+        final prefix = 'db_action_ledger_${uid}_';
+        if (name.startsWith(prefix) && name.endsWith('.jsonl') && name.substring(prefix.length, name.length-6).compareTo(cutoff) < 0) await old.delete();
+      }
+    });
+    _writeQueue = run.catchError((_) {});
+    return run;
   }
 
   /// Records a live DB mutation in the 24-hour action ledger with before/after diffs.
@@ -221,7 +273,7 @@ class AppActionLedgerService {
     _entries.insert(0, entry);
     // Prune entries older than 24h
     _pruneOldEntries();
-    await _flushToDisk();
+    await _appendRecord(entry.toJson());
   }
 
   static List<FieldDiff> _computeDiff(Map<String, dynamic>? before, Map<String, dynamic>? after) {
@@ -350,6 +402,6 @@ class AppActionLedgerService {
   /// Clears the ledger
   Future<void> clear() async {
     _entries.clear();
-    await _flushToDisk();
+    await _appendRecord({'_clear': true, 'timestamp': DateTime.now().toIso8601String()});
   }
 }

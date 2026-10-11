@@ -151,7 +151,7 @@ class ProjectNote {
       id: json['id'] as String? ?? const Uuid().v4(),
       title: json['title'] as String? ?? '',
       content: json['content'] as String? ?? '',
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'] as String) : DateTime.now(),
+      createdAt: json['createdAt'] != null ? (DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0)) : DateTime.now(),
     );
   }
 
@@ -183,7 +183,7 @@ class ProjectFile {
       id: json['id'] as String? ?? const Uuid().v4(),
       name: json['name'] as String? ?? '',
       content: json['content'] as String? ?? '',
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'] as String) : DateTime.now(),
+      createdAt: json['createdAt'] != null ? (DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0)) : DateTime.now(),
     );
   }
 

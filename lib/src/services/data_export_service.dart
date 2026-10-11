@@ -1,19 +1,21 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, compute;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:intl/intl.dart';
 
+String _encodeExport(Map<String, dynamic> data) => jsonEncode(data);
+
 class DataExportService {
   /// Exports a Map to a JSON file.
-  /// 
+  ///
   /// On Web: Triggers a browser download.
   /// On Mobile: Saves to temporary storage and opens the Share sheet.
   Future<void> exportJson(Map<String, dynamic> data, String baseFilename) async {
-    final jsonStr = jsonEncode(data);
+    final jsonStr = await compute(_encodeExport, data);
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
     final filename = '${baseFilename}_$timestamp.json';
 
@@ -32,8 +34,10 @@ class DataExportService {
     } else {
       final directory = await getTemporaryDirectory();
       final file = File('${directory.path}/$filename');
-      await file.writeAsString(jsonStr);
-      
+      final tmp = File('${file.path}.tmp');
+      await tmp.writeAsString(jsonStr, flush: true);
+      await tmp.rename(file.path);
+
       // Use Share Plus to export
       await Share.shareXFiles(
         [XFile(file.path)],
@@ -50,7 +54,7 @@ class DataExportService {
     String? subject,
     String? text,
   }) async {
-    final jsonStr = const JsonEncoder.withIndent('  ').convert(data);
+    final jsonStr = await compute(_encodeExport, data);
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
     final filename = '${baseFilename}_$timestamp.json';
 
@@ -69,7 +73,9 @@ class DataExportService {
     } else {
       final directory = await getTemporaryDirectory();
       final file = File('${directory.path}/$filename');
-      await file.writeAsString(jsonStr);
+      final tmp = File('${file.path}.tmp');
+      await tmp.writeAsString(jsonStr, flush: true);
+      await tmp.rename(file.path);
 
       // ignore: deprecated_member_use
       await Share.shareXFiles(
@@ -81,7 +87,7 @@ class DataExportService {
   }
 
   /// Imports a JSON file and returns the parsed Map.
-  /// 
+  ///
   /// Triggers a file picker dialog.
   Future<Map<String, dynamic>?> importJson() async {
     try {

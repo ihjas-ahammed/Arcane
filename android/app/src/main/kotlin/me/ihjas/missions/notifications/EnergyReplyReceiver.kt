@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.RemoteInput
 import me.ihjas.missions.MainActivity
-import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -24,22 +23,19 @@ class EnergyReplyReceiver : BroadcastReceiver() {
         // 1. Android 14 instant visual feedback: immediately update notification to acknowledge
         EnergyNotificationHelper.postReplyConfirmationNotification(context, notificationId, replyText)
 
-        // 2. Dispatch to running Flutter isolate if MainActivity is alive
-        val dispatched = MainActivity.dispatchEnergyReply(replyText, notificationId)
-
-        // 3. Persist pending log to SharedPreferences so Flutter drains it on resume/launch
+        // Persist before dispatch so both paths acknowledge the same durable record.
         val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        val existingLogsJson = prefs.getString("flutter.pending_energy_logs", "[]") ?: "[]"
-        try {
-            val array = JSONArray(existingLogsJson)
-            val logObj = JSONObject().apply {
+        val id = java.util.UUID.randomUUID().toString()
+        val saved = try {
+            val log = JSONObject().apply {
+                put("id", id)
                 put("reply", replyText)
+                put("userId", prefs.getString("flutter.active_energy_user", null))
                 put("timestamp", System.currentTimeMillis())
-                put("notificationId", notificationId)
             }
-            array.put(logObj)
-            prefs.edit().putString("flutter.pending_energy_logs", array.toString()).apply()
-        } catch (_: Exception) {}
+            prefs.edit().putString("flutter.pending_energy_log_$id", log.toString()).commit()
+        } catch (_: Exception) { false }
+        val dispatched = MainActivity.dispatchEnergyReply(replyText, notificationId, if (saved) id else null)
 
         // 4. Fallback: If app was terminated, post immediate tactical AI advice
         if (!dispatched) {

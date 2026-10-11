@@ -28,6 +28,7 @@ abstract class AuthService {
   Future<void> changePassword(String newPassword);
   Future<void> updateDisplayName(String name);
   Future<void> reload();
+  Future<String?> getIdToken();
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -69,6 +70,9 @@ class _FlutterFireAuthService implements AuthService {
       throw AuthFailure(code: e.code, message: e.message);
     }
   }
+
+  @override
+  Future<String?> getIdToken() async => _auth.currentUser?.getIdToken();
 
   @override
   Future<void> signOut() => _auth.signOut();
@@ -146,6 +150,9 @@ class _LinuxAuthService implements AuthService {
       throw AuthFailure(code: e.code, message: e.message);
     }
   }
+
+  @override
+  Future<String?> getIdToken() async => _auth.currentUser?.getIdToken();
 
   @override
   Future<void> signOut() => _auth.signOut();

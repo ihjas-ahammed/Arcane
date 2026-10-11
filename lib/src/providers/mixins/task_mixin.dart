@@ -26,6 +26,18 @@ mixin TaskMixin on ChangeNotifier {
   List<GoalModel> _goals = [];
   List<GoalPlace> _goalPlaces = List.from(GoalPlace.defaultPlaces);
 
+  void resetTaskState() {
+    _mainTasks = initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
+    _completedByDay = {};
+    _selectedTaskId = null;
+    _activeTimers = {};
+    _projects = [];
+    _activeProjectId = null;
+    _routineLists = [];
+    _goals = [];
+    _goalPlaces = List.from(GoalPlace.defaultPlaces);
+  }
+
   // --- Getters ---
   List<MainTask> get mainTasks => _mainTasks;
   Map<String, dynamic> get completedByDay => _completedByDay;
@@ -41,7 +53,7 @@ mixin TaskMixin on ChangeNotifier {
   SyncMixin get sync => this as SyncMixin;
 
   // --- Setters / Mutators ---
-  
+
   void setMainTasks(List<MainTask> tasks) {
     _mainTasks = List.from(tasks);
     sync.markDirty('tasks');
@@ -62,7 +74,7 @@ mixin TaskMixin on ChangeNotifier {
   void setActiveTimers(Map<String, dynamic> timers) {
     // Handle both Map (from JSON) and ActiveTimerInfo (from Runtime) values
     final Map<String, ActiveTimerInfo> newTimers = {};
-    
+
     timers.forEach((key, value) {
       if (value is ActiveTimerInfo) {
         newTimers[key] = value;
@@ -613,10 +625,7 @@ mixin TaskMixin on ChangeNotifier {
   // --- Data Loading Helper ---
   void loadTaskState(Map<String, dynamic> data) {
     if (data['mainTasks'] != null) {
-      final incoming = (data['mainTasks'] as List)
-          .whereType<Map>()
-          .map((e) => MainTask.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      final incoming = sync.parseItems('mainTasks', data['mainTasks'], MainTask.fromJson);
       _mainTasks = incoming;
     } else if (_mainTasks.isEmpty) {
       _mainTasks = initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList();
@@ -654,9 +663,9 @@ mixin TaskMixin on ChangeNotifier {
     final currentCompleted = Map<String, dynamic>.from(_completedByDay);
     _crossSyncTasksAndHistory(currentCompleted);
     _completedByDay = currentCompleted;
-        
+
     _selectedTaskId = data['selectedTaskId'] as String? ?? (_mainTasks.isNotEmpty ? _mainTasks.first.id : null);
-    
+
     if (data['activeTimers'] != null) {
       final raw = Map<String, dynamic>.from(data['activeTimers']);
       _activeTimers = raw.map((k, v) => MapEntry(k, ActiveTimerInfo.fromJson(Map<String, dynamic>.from(v))));
@@ -665,32 +674,20 @@ mixin TaskMixin on ChangeNotifier {
     }
 
     if (data['projects'] != null) {
-      _projects = (data['projects'] as List)
-          .whereType<Map>()
-          .map((e) => Project.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      _projects = sync.parseItems('projects', data['projects'], Project.fromJson);
     }
 
     if (data['routineLists'] != null) {
-      _routineLists = (data['routineLists'] as List)
-          .whereType<Map>()
-          .map((e) => RoutineList.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      _routineLists = sync.parseItems('routineLists', data['routineLists'], RoutineList.fromJson);
     }
 
     if (data['goals'] != null) {
-      _goals = (data['goals'] as List)
-          .whereType<Map>()
-          .map((e) => GoalModel.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      _goals = sync.parseItems('goals', data['goals'], GoalModel.fromJson);
       NotificationService.instance.scheduleAllGoalContemplationReminders(_goals);
     }
 
     if (data['goalPlaces'] != null) {
-      _goalPlaces = (data['goalPlaces'] as List)
-          .whereType<Map>()
-          .map((e) => GoalPlace.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      _goalPlaces = sync.parseItems('goalPlaces', data['goalPlaces'], GoalPlace.fromJson);
     } else {
       _goalPlaces = List.from(GoalPlace.defaultPlaces);
     }
@@ -705,10 +702,7 @@ mixin TaskMixin on ChangeNotifier {
     int addedGoals = 0;
 
     if (data['mainTasks'] != null) {
-      final incoming = (data['mainTasks'] as List)
-          .whereType<Map>()
-          .map((e) => MainTask.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      final incoming = sync.parseItems('mainTasks', data['mainTasks'], MainTask.fromJson);
       final tMap = <String, MainTask>{for (final t in _mainTasks) t.id: t};
       for (final incTask in incoming) {
         if (!tMap.containsKey(incTask.id)) {
@@ -716,11 +710,12 @@ mixin TaskMixin on ChangeNotifier {
           addedTasks++;
         } else {
           final curTask = tMap[incTask.id]!;
+          if (curTask.name != incTask.name || curTask.description != incTask.description || curTask.theme != incTask.theme) sync.preserveMergeConflict('mainTasks', incTask.id, curTask.toJson(), incTask.toJson());
           bool taskModified = false;
 
           bool curIsDeleted = curTask.isDeleted;
-          if (curIsDeleted && !incTask.isDeleted) {
-            curIsDeleted = false;
+          if (!curIsDeleted && incTask.isDeleted) {
+            curIsDeleted = true;
             taskModified = true;
           }
 
@@ -755,8 +750,8 @@ mixin TaskMixin on ChangeNotifier {
               }
 
               bool newIsDeleted = match.isDeleted;
-              if (newIsDeleted && !incSt.isDeleted) {
-                newIsDeleted = false;
+              if (incSt.updatedAt.isAfter(match.updatedAt) && newIsDeleted != incSt.isDeleted) {
+                newIsDeleted = incSt.isDeleted;
                 stModified = true;
               }
 
@@ -1091,10 +1086,7 @@ mixin TaskMixin on ChangeNotifier {
     }
 
     if (data['projects'] != null) {
-      final incoming = (data['projects'] as List)
-          .whereType<Map>()
-          .map((e) => Project.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      final incoming = sync.parseItems('projects', data['projects'], Project.fromJson);
       final pMap = <String, Project>{for (final p in _projects) p.id: p};
       for (final p in incoming) {
         if (!pMap.containsKey(p.id)) {
@@ -1107,10 +1099,7 @@ mixin TaskMixin on ChangeNotifier {
     }
 
     if (data['routineLists'] != null) {
-      final incoming = (data['routineLists'] as List)
-          .whereType<Map>()
-          .map((e) => RoutineList.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      final incoming = sync.parseItems('routineLists', data['routineLists'], RoutineList.fromJson);
       final rMap = <String, RoutineList>{for (final r in _routineLists) r.id: r};
       for (final r in incoming) {
         rMap.putIfAbsent(r.id, () => r);
@@ -1120,10 +1109,7 @@ mixin TaskMixin on ChangeNotifier {
     }
 
     if (data['goals'] != null) {
-      final incoming = (data['goals'] as List)
-          .whereType<Map>()
-          .map((e) => GoalModel.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      final incoming = sync.parseItems('goals', data['goals'], GoalModel.fromJson);
       final gMap = <String, GoalModel>{for (final g in _goals) g.id: g};
       for (final g in incoming) {
         if (!gMap.containsKey(g.id)) {
@@ -1137,10 +1123,7 @@ mixin TaskMixin on ChangeNotifier {
     }
 
     if (data['goalPlaces'] != null) {
-      final incoming = (data['goalPlaces'] as List)
-          .whereType<Map>()
-          .map((e) => GoalPlace.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      final incoming = sync.parseItems('goalPlaces', data['goalPlaces'], GoalPlace.fromJson);
       final gpMap = <String, GoalPlace>{for (final gp in _goalPlaces) gp.id: gp};
       for (final gp in incoming) {
         gpMap.putIfAbsent(gp.id, () => gp);
@@ -1173,6 +1156,9 @@ mixin TaskMixin on ChangeNotifier {
       addedGoals: addedGoals,
     );
   }
+
+  Map<String, dynamic> getTaskSessionStateMap() => {'selectedTaskId': _selectedTaskId, 'activeTimers': _activeTimers.map((k,v) => MapEntry(k,v.toJson()))};
+  Map<String, dynamic> getHistoryStateMap() => {'completedByDay': _completedByDay};
 
   Map<String, dynamic> getTaskStateMap() {
     return {

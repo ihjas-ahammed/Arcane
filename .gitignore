@@ -104,3 +104,9 @@ lib/firebase_options.dart.superpowers/
 graphify-out/cache/
 graphify-out/2026-*/
 backups/
+
+# Private release keys and published binary artifacts
+.release_keys/
+debug.keystore
+builds/*.apk
+builds/*.tar.gz

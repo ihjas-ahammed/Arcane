@@ -15,6 +15,8 @@ class UpdateModel {
   final String? linuxUrl;
   final String? linuxFilename;
   final Map<String, String> linuxArchUrls;
+  final Map<String, String> packageHashes;
+  final Map<String, String> packageSignatures;
 
   const UpdateModel({
     required this.versionCode,
@@ -30,6 +32,8 @@ class UpdateModel {
     this.linuxUrl,
     this.linuxFilename,
     this.linuxArchUrls = const {},
+    this.packageHashes = const {},
+    this.packageSignatures = const {},
   });
 
   bool isForceUpdate(int currentVersionCode) {
@@ -70,10 +74,10 @@ class UpdateModel {
     }
 
     return UpdateModel(
-      versionCode: json['version_code'] as int? ?? 0,
+      versionCode: (json['version_code'] as num?)?.toInt() ?? 0,
       versionName: json['version_name'] as String? ?? 'Unknown',
       publishedAt: json['published_at'] as String?,
-      minSupportedVersionCode: json['min_supported_version_code'] as int?,
+      minSupportedVersionCode: (json['min_supported_version_code'] as num?)?.toInt(),
       apkFilename: json['apk_filename'] as String? ?? 'Arcane.apk',
       apkUrl: json['apk_url'] as String? ?? '',
       apkArchUrls: archMap,
@@ -83,6 +87,8 @@ class UpdateModel {
       linuxUrl: json['linux_url'] as String?,
       linuxFilename: json['linux_filename'] as String?,
       linuxArchUrls: linuxArchMap,
+      packageHashes: (json['package_sha256'] as Map? ?? {}).map((k, v) => MapEntry(k.toString(), v.toString())),
+      packageSignatures: (json['package_signatures'] as Map? ?? {}).map((k, v) => MapEntry(k.toString(), v.toString())),
     );
   }
 
@@ -121,6 +127,8 @@ class UpdateModel {
       linuxUrl: linuxUrl ?? this.linuxUrl,
       linuxFilename: linuxFilename ?? this.linuxFilename,
       linuxArchUrls: linuxArchUrls ?? this.linuxArchUrls,
+      packageHashes: packageHashes,
+      packageSignatures: packageSignatures,
     );
   }
 }

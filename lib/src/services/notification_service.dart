@@ -1272,14 +1272,15 @@ class NotificationService {
     // 3. Save pending energy log to SharedPreferences for sync when app wakes
     try {
       final prefs = await SharedPreferences.getInstance();
-      final list = prefs.getStringList('pending_energy_logs_v2') ?? [];
+      final id = DateTime.now().microsecondsSinceEpoch.toString();
       final logJson = jsonEncode({
+        'id': id,
         'reply': reply,
+        'userId': prefs.getString('active_energy_user'),
         'level': level,
         'timestamp': DateTime.now().toIso8601String(),
       });
-      list.add(logJson);
-      await prefs.setStringList('pending_energy_logs_v2', list);
+      await prefs.setString('pending_energy_log_$id', logJson);
     } catch (_) {}
 
     // 4. Generate AI response (attempt Gemini via HTTP if key is saved)

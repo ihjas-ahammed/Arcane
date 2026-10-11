@@ -87,8 +87,8 @@ class MealLog {
     return MealLog(
       id: json['id'] as String? ?? const Uuid().v4(),
       foodItemId: json['foodItemId'] as String? ?? '',
-      timestamp: json['timestamp'] != null 
-          ? DateTime.parse(json['timestamp']) 
+      timestamp: json['timestamp'] != null
+          ? (DateTime.tryParse(json['timestamp']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
           : DateTime.now(),
     );
   }
@@ -129,13 +129,13 @@ class SleepLog {
     if (json['startTime'] != null && json['endTime'] != null) {
       return SleepLog(
         id: json['id'] as String? ?? const Uuid().v4(),
-        startTime: DateTime.parse(json['startTime']),
-        endTime: DateTime.parse(json['endTime']),
+        startTime: (DateTime.tryParse(json['startTime']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0)),
+        endTime: (DateTime.tryParse(json['endTime']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0)),
         isNapExplicit: explicitNap,
       );
     } else {
       // Legacy migration from 'minutes' and 'timestamp'
-      final end = json['timestamp'] != null ? DateTime.parse(json['timestamp']) : DateTime.now();
+      final end = json['timestamp'] != null ? (DateTime.tryParse(json['timestamp']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0)) : DateTime.now();
       final mins = (json['minutes'] as num? ?? 0).toInt();
       final start = end.subtract(Duration(minutes: mins));
       return SleepLog(
@@ -175,8 +175,8 @@ class ActivityLog {
       id: json['id'] as String? ?? const Uuid().v4(),
       walkDistanceKm: (json['walkDistanceKm'] as num? ?? 0.0).toDouble(),
       workoutMinutes: (json['workoutMinutes'] as num? ?? 0).toInt(),
-      timestamp: json['timestamp'] != null 
-          ? DateTime.parse(json['timestamp']) 
+      timestamp: json['timestamp'] != null
+          ? (DateTime.tryParse(json['timestamp']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
           : DateTime.now(),
     );
   }
@@ -209,7 +209,7 @@ class EnergyLog {
       id: json['id'] as String? ?? const Uuid().v4(),
       level: (json['level'] as num? ?? 5).toInt().clamp(1, 10),
       timestamp: json['timestamp'] != null
-          ? DateTime.parse(json['timestamp'])
+          ? (DateTime.tryParse(json['timestamp']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
           : DateTime.now(),
       note: json['note'] as String?,
     );
@@ -254,7 +254,7 @@ class DailyHealthLog {
     List<SleepLog> parsedSleep = (json['sleepLogs'] as List<dynamic>?)
             ?.map((e) => SleepLog.fromJson(e as Map<String, dynamic>))
             .toList() ?? [];
-    
+
     if (parsedSleep.isEmpty && legacySleep > 0) {
       final end = DateTime.now();
       parsedSleep.add(SleepLog(id: const Uuid().v4(), startTime: end.subtract(Duration(minutes: legacySleep)), endTime: end));
@@ -263,7 +263,7 @@ class DailyHealthLog {
     List<ActivityLog> parsedActivity = (json['activityLogs'] as List<dynamic>?)
             ?.map((e) => ActivityLog.fromJson(e as Map<String, dynamic>))
             .toList() ?? [];
-            
+
     if (parsedActivity.isEmpty && (legacyWalk > 0 || legacyWorkout > 0)) {
       parsedActivity.add(ActivityLog(id: const Uuid().v4(), walkDistanceKm: legacyWalk, workoutMinutes: legacyWorkout, timestamp: DateTime.now()));
     }

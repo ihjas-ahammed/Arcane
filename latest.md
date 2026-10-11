@@ -1,30 +1,13 @@
-# ⚡ Arcane Update // v2026.10.9 (Build #2126100904)
+# Missions 2026.10.11
 
-### 🔀 Merge and restore
-- Merging a backup no longer re-checks checkpoints or subtasks you unchecked. Items are matched by ID only. An incoming item with no ID match is added unchecked.
-- Unchecking a checkpoint now clears its completion time.
+- Imports and replacements verify SQLite data before committing; failed backups or imports preserve the previous database.
+- Emoji and large collections survive storage boundaries, with checksums and recovery guards for unreadable records.
+- Existing cloud data must be restored or merged before a new device can upload. Snapshot commits are atomic, older versions remain recoverable, and large deletions need confirmation.
+- Cloud Sync now offers dated restores, conflict review, manual backup while auto-backup is disabled, and six-hour automatic backups, including Android background jobs when charging on unmetered networks.
+- Local backups retain daily, weekly, and monthly snapshots. Weekly offsite backups are uploaded and verified in Firebase Storage, with a visible error if unavailable.
+- Restores, database edits, NORA edits, and purge operations preserve recovery snapshots. Purge exports a final backup and retains cloud recovery trash for 30 days.
+- Account switching clears account-specific state. Pending energy replies are saved on their original dates before their queue entries are removed.
+- Local saves are debounced and limited to changed collections; history and reflections use individual records. Desktop data migrates to the application support directory; browser data migrates to IndexedDB.
+- Update packages require SHA-256 checksums and trusted Ed25519 signatures, and pending saves are flushed before installation. Shared AI keys are no longer distributed; configure personal provider keys in Settings.
 
-### 🧾 Data Recovery
-- The action ledger list is collapsed by default. Tap "SHOW N ENTRIES" to open it.
-
-### 🤖 AI settings
-- Lite, Pro, and Live model lists are collapsed by default. Tap a section header to open it.
-
-### 🎛️ Floating HUD
-- Pause and start are explicit. A stale tap can no longer reverse a stop.
-- A task stopped from the HUD or the widget is not offered as "Continue" until you start it again.
-
-### 🐕 Watch app keep-alive
-- Every 10 minutes Arcane checks the running processes and starts the watch app only if it is not running.
-- On most phones Android hides other apps' processes, so the check reports "unknown" and does not restart the app.
-
-### 🔐 Usage access
-- Devices screen shows Usage access, with an ALLOW button that opens the Settings page.
-
-### 🛟 Safer local data
-- If the saved data on this device can't be read, the app shows the error with a COPY ERROR button. It no longer loads older copies or the cloud.
-- LOAD JSON INTO DATABASE replaces the stored data from a JSON file, on Android too. The previous data is copied to backups/ first.
-- EXPLORE BACKUPS (READ-ONLY) previews a backup or JSON file without loading it.
-
-### 🗑️ Removed "Call myself before starting AI"
-- The option under Advanced AI Settings is gone, since it didn't work reliably.
+Administrator deployment of Firebase privacy and Storage rules, plus authenticated publication of instant-update metadata, requires access to the task-dominion project. The configured Firebase CLI account cannot access this project. The anonymous shallow root check confirmed public database reads; this exposure remains unresolved until the reviewed rules are deployed. See docs/data-hazard-implementation.md for verification results and remaining operational work.

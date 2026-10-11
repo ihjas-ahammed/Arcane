@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:missions/src/services/local_storage_service.dart';
+import 'package:missions/src/services/state_database.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
@@ -10,6 +11,9 @@ class MockPathProviderPlatform extends Fake
     implements PathProviderPlatform {
   final Directory tempDir;
   MockPathProviderPlatform(this.tempDir);
+
+  @override
+  Future<String?> getApplicationSupportPath() async => tempDir.path;
 
   @override
   Future<String?> getApplicationDocumentsPath() async {
@@ -30,13 +34,14 @@ void main() {
   });
 
   tearDown(() async {
+    await StateDatabase.instance.close();
     if (await testDocsDir.exists()) {
       await testDocsDir.delete(recursive: true);
     }
   });
 
   group('LocalStorageService Daily Backup & Recovery Tests', () {
-    test('saves state atomically without auto daily backup, and supports explicit backup', () async {
+    test('saves state atomically to SQLite and creates a daily backup', () async {
       final sampleState = {
         'tasks': [{'id': 't1', 'title': 'Test Mission'}],
         'lastModified': 123456789,
@@ -45,12 +50,12 @@ void main() {
       await storageService.saveState(userId, sampleState);
 
       // Verify primary cache exists
-      final primaryFile = File('${testDocsDir.path}/arcane_local_cache_$userId.json');
+      final primaryFile = File('${testDocsDir.path}/arcane_state.db');
       expect(await primaryFile.exists(), isTrue);
 
-      // Verify auto daily backup is disabled (no backups dir created automatically)
+      // Every successful first save also creates a recovery snapshot.
       final autoBackups = await storageService.getDailyBackupFiles(userId);
-      expect(autoBackups.isEmpty, isTrue);
+      expect(autoBackups.length, 1);
 
       // Explicit manual backup creates snapshot
       await storageService.performDailyBackup(userId, sampleState);
@@ -94,7 +99,7 @@ void main() {
       expect(await File('${backupDir.path}/daily_backup_${userId}_2026-09-03.json').exists(), isFalse);
     });
 
-    test('recovers state from latest daily backup when primary and .bak are missing', () async {
+    test('never silently replaces missing primary state with an older daily backup', () async {
       final backupDir = Directory('${testDocsDir.path}/backups');
       await backupDir.create(recursive: true);
 
@@ -111,11 +116,10 @@ void main() {
       expect(await primaryFile.exists(), isFalse);
       expect(await bakFile.exists(), isFalse);
 
-      // loadState should fallback to daily backup and restore primary
       final loaded = await storageService.loadState(userId);
-      expect(loaded, isNotNull);
-      expect(loaded!['recovered'], isTrue);
-      expect(await primaryFile.exists(), isTrue);
+      expect(loaded, isNull);
+      expect(await primaryFile.exists(), isFalse);
+      expect(jsonDecode(await backupFile.readAsString()), backupData);
     });
 
     test('updates daily backup with richer state but protects against shrunken partial overwrite', () async {

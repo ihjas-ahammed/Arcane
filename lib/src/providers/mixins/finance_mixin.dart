@@ -8,6 +8,13 @@ mixin FinanceMixin on ChangeNotifier {
   List<SavingsGoal> _savingsGoals = [];
   List<FinanceAccount> _accounts = [];
 
+  void resetFinanceState() {
+    _transactions = [];
+    _categories = [];
+    _savingsGoals = [];
+    _accounts = [];
+  }
+
   List<FinanceTransaction> get transactions => _transactions;
   List<FinanceCategory> get categories => _categories;
   List<SavingsGoal> get savingsGoals => _savingsGoals;
@@ -17,6 +24,7 @@ mixin FinanceMixin on ChangeNotifier {
   SyncMixin get sync => this as SyncMixin;
 
   void setTransactions(List<FinanceTransaction> list) {
+    sync.recordDeletions('transactions', _transactions.map((e) => e.id), list.map((e) => e.id));
     _transactions = List.from(list);
     sync.markDirty('finance');
   }
@@ -50,51 +58,32 @@ mixin FinanceMixin on ChangeNotifier {
 
   void loadFinanceState(Map<String, dynamic> data) {
     if (data['transactions'] != null) {
-      final incoming = (data['transactions'] as List).map((e) => FinanceTransaction.fromJson(e)).toList();
-      final txMap = <String, FinanceTransaction>{for (final tx in _transactions) tx.id: tx};
-      for (final tx in incoming) {
-        txMap.putIfAbsent(tx.id, () => tx);
-      }
-      _transactions = txMap.values.toList();
+      _transactions = sync.parseItems('transactions', data['transactions'], FinanceTransaction.fromJson);
     }
     if (data['categories'] != null) {
-      final incoming = (data['categories'] as List).map((e) => FinanceCategory.fromJson(e)).toList();
-      final catMap = <String, FinanceCategory>{for (final c in _categories) c.id: c};
-      for (final c in incoming) {
-        catMap.putIfAbsent(c.id, () => c);
-      }
-      _categories = catMap.values.toList();
+      _categories = sync.parseItems('categories', data['categories'], FinanceCategory.fromJson);
     }
-    if (_categories.isEmpty) initializeDefaultFinanceCategories();
+    if (data['categories'] == null && _categories.isEmpty) initializeDefaultFinanceCategories();
 
     if (data['savingsGoals'] != null) {
-      final incoming = (data['savingsGoals'] as List).map((e) => SavingsGoal.fromJson(e)).toList();
-      final sgMap = <String, SavingsGoal>{for (final sg in _savingsGoals) sg.id: sg};
-      for (final sg in incoming) {
-        sgMap.putIfAbsent(sg.id, () => sg);
-      }
-      _savingsGoals = sgMap.values.toList();
+      _savingsGoals = sync.parseItems('savingsGoals', data['savingsGoals'], SavingsGoal.fromJson);
     }
     if (data['accounts'] != null) {
-      final incoming = (data['accounts'] as List).map((e) => FinanceAccount.fromJson(e)).toList();
-      final accMap = <String, FinanceAccount>{for (final a in _accounts) a.id: a};
-      for (final a in incoming) {
-        accMap.putIfAbsent(a.id, () => a);
-      }
-      _accounts = accMap.values.toList();
+      _accounts = sync.parseItems('accounts', data['accounts'], FinanceAccount.fromJson);
     }
   }
 
   /// Non-destructively merges financial transactions, categories, goals, and accounts.
   int mergeFinanceState(Map<String, dynamic> data) {
+    sync.mergeRemoteTombstones(data);
+    _transactions.removeWhere((e) => sync.isDeletedRecord('transactions', e.id));
     int addedTransactions = 0;
     if (data['transactions'] != null) {
-      final incoming = (data['transactions'] as List)
-          .whereType<Map>()
-          .map((e) => FinanceTransaction.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      final incoming = sync.parseItems('transactions', data['transactions'], FinanceTransaction.fromJson);
       final txMap = <String, FinanceTransaction>{for (final tx in _transactions) tx.id: tx};
       for (final tx in incoming) {
+        if (sync.isDeletedRecord('transactions', tx.id)) continue;
+        if (txMap.containsKey(tx.id)) sync.preserveMergeConflict('transactions', tx.id, txMap[tx.id]!.toJson(), tx.toJson());
         if (!txMap.containsKey(tx.id)) {
           txMap[tx.id] = tx;
           addedTransactions++;
@@ -104,12 +93,10 @@ mixin FinanceMixin on ChangeNotifier {
       sync.markDirty('finance');
     }
     if (data['categories'] != null) {
-      final incoming = (data['categories'] as List)
-          .whereType<Map>()
-          .map((e) => FinanceCategory.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      final incoming = sync.parseItems('categories', data['categories'], FinanceCategory.fromJson);
       final catMap = <String, FinanceCategory>{for (final c in _categories) c.id: c};
       for (final c in incoming) {
+        if (catMap.containsKey(c.id)) sync.preserveMergeConflict('categories', c.id, catMap[c.id]!.toJson(), c.toJson());
         catMap.putIfAbsent(c.id, () => c);
       }
       _categories = catMap.values.toList();
@@ -118,24 +105,20 @@ mixin FinanceMixin on ChangeNotifier {
     if (_categories.isEmpty) initializeDefaultFinanceCategories();
 
     if (data['savingsGoals'] != null) {
-      final incoming = (data['savingsGoals'] as List)
-          .whereType<Map>()
-          .map((e) => SavingsGoal.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      final incoming = sync.parseItems('savingsGoals', data['savingsGoals'], SavingsGoal.fromJson);
       final sgMap = <String, SavingsGoal>{for (final sg in _savingsGoals) sg.id: sg};
       for (final sg in incoming) {
+        if (sgMap.containsKey(sg.id)) sync.preserveMergeConflict('savingsGoals', sg.id, sgMap[sg.id]!.toJson(), sg.toJson());
         sgMap.putIfAbsent(sg.id, () => sg);
       }
       _savingsGoals = sgMap.values.toList();
       sync.markDirty('finance');
     }
     if (data['accounts'] != null) {
-      final incoming = (data['accounts'] as List)
-          .whereType<Map>()
-          .map((e) => FinanceAccount.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      final incoming = sync.parseItems('accounts', data['accounts'], FinanceAccount.fromJson);
       final accMap = <String, FinanceAccount>{for (final a in _accounts) a.id: a};
       for (final a in incoming) {
+        if (accMap.containsKey(a.id)) sync.preserveMergeConflict('accounts', a.id, accMap[a.id]!.toJson(), a.toJson());
         accMap.putIfAbsent(a.id, () => a);
       }
       _accounts = accMap.values.toList();

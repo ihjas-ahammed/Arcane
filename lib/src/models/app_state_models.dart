@@ -29,7 +29,7 @@ class ReflectionDraft {
         action: json['action'] as String? ?? '',
         energyLevel: (json['energyLevel'] as num? ?? 5).toDouble(),
         savedAt: json['savedAt'] != null
-            ? DateTime.parse(json['savedAt'] as String)
+            ? (DateTime.tryParse(json['savedAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
             : DateTime.now(),
       );
 
@@ -58,8 +58,8 @@ class SomedayItem {
     return SomedayItem(
       id: json['id'] as String? ?? const Uuid().v4(),
       title: json['title'] as String? ?? 'Untitled Idea',
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt'] as String) 
+      createdAt: json['createdAt'] != null
+          ? (DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
           : DateTime.now(),
     );
   }
@@ -176,8 +176,8 @@ class ScheduledReminder {
       type: json['type'] as String? ?? 'custom',
       repeat: json['repeat'] as String? ?? 'once',
       time: json['time'] != null ? DateTime.tryParse(json['time'] as String) : null,
-      hour: json['hour'] as int? ?? 9,
-      minute: json['minute'] as int? ?? 0,
+      hour: (json['hour'] as num?)?.toInt() ?? 9,
+      minute: (json['minute'] as num?)?.toInt() ?? 0,
       enabled: json['enabled'] as bool? ?? true,
       mainTaskId: json['mainTaskId'] as String?,
       subtaskId: json['subtaskId'] as String?,
@@ -218,8 +218,8 @@ class AppSettings {
   List<String> savedPrompts;
   int startOfWeek;
   int dataVersion;
-  int lastModified; 
-  
+  int lastModified;
+
   // Security and Nora AI Settings
   String? journalPin;
   bool noraAccessSessions;
@@ -227,7 +227,7 @@ class AppSettings {
 
   // Habit / Override Framework
   List<HabitRule> habitRules;
-  
+
   // Someday / Maybe List
   List<SomedayItem> somedayList;
 
@@ -397,8 +397,8 @@ class AppSettings {
           true,
       autoSaveEnabled: json['autoSaveEnabled'] as bool? ?? true,
       dayPlannerWidgetCheckable: json['dayPlannerWidgetCheckable'] as bool? ?? false,
-      wakeupTimeHour: json['wakeupTimeHour'] as int? ?? 7,
-      wakeupTimeMinute: json['wakeupTimeMinute'] as int? ?? 0,
+      wakeupTimeHour: (json['wakeupTimeHour'] as num?)?.toInt() ?? 7,
+      wakeupTimeMinute: (json['wakeupTimeMinute'] as num?)?.toInt() ?? 0,
       liteModels: () {
         final parsed = (json['liteModels'] as List<dynamic>?)
             ?.map((e) => (e as String).trim())
@@ -442,9 +442,9 @@ class AppSettings {
               ?.map((e) => e as String)
               .toList() ??
           [],
-      startOfWeek: json['startOfWeek'] as int? ?? 1,
-      dataVersion: json['dataVersion'] as int? ?? 0,
-      lastModified: json['lastModified'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+      startOfWeek: (json['startOfWeek'] as num?)?.toInt() ?? 1,
+      dataVersion: (json['dataVersion'] as num?)?.toInt() ?? 0,
+      lastModified: (json['lastModified'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
       journalPin: json['journalPin'] as String?,
       noraAccessSessions: json['noraAccessSessions'] as bool? ?? false,
       noraAccessFinance: json['noraAccessFinance'] as bool? ?? false,
@@ -459,17 +459,17 @@ class AppSettings {
           ? ReflectionDraft.fromJson(json['reflectionDraft'] as Map<String, dynamic>)
           : null,
       reflectionReminderEnabled: json['reflectionReminderEnabled'] as bool? ?? false,
-      reflectionReminderHour: json['reflectionReminderHour'] as int? ?? 20,
-      reflectionReminderMinute: json['reflectionReminderMinute'] as int? ?? 0,
+      reflectionReminderHour: (json['reflectionReminderHour'] as num?)?.toInt() ?? 20,
+      reflectionReminderMinute: (json['reflectionReminderMinute'] as num?)?.toInt() ?? 0,
       submissionReminderEnabled: json['submissionReminderEnabled'] as bool? ?? false,
-      submissionReminderHour: json['submissionReminderHour'] as int? ?? 9,
-      submissionReminderMinute: json['submissionReminderMinute'] as int? ?? 0,
+      submissionReminderHour: (json['submissionReminderHour'] as num?)?.toInt() ?? 9,
+      submissionReminderMinute: (json['submissionReminderMinute'] as num?)?.toInt() ?? 0,
       financeReminderEnabled: json['financeReminderEnabled'] as bool? ?? false,
-      financeReminderHour: json['financeReminderHour'] as int? ?? 18,
-      financeReminderMinute: json['financeReminderMinute'] as int? ?? 0,
+      financeReminderHour: (json['financeReminderHour'] as num?)?.toInt() ?? 18,
+      financeReminderMinute: (json['financeReminderMinute'] as num?)?.toInt() ?? 0,
       healthReminderEnabled: json['healthReminderEnabled'] as bool? ?? false,
-      healthReminderHour: json['healthReminderHour'] as int? ?? 21,
-      healthReminderMinute: json['healthReminderMinute'] as int? ?? 0,
+      healthReminderHour: (json['healthReminderHour'] as num?)?.toInt() ?? 21,
+      healthReminderMinute: (json['healthReminderMinute'] as num?)?.toInt() ?? 0,
       energyNotificationsEnabled: json['energyNotificationsEnabled'] as bool? ?? true,
       energyNotificationTitle: json['energyNotificationTitle'] as String? ?? 'ENERGY CHECK',
       energyNotificationBody: json['energyNotificationBody'] as String? ?? 'Are you feeling tired or low on energy right now?',
@@ -515,11 +515,11 @@ class AppSettings {
       bluetoothAssistantCustomPackage: json['bluetoothAssistantCustomPackage'] as String? ?? '',
       bluetoothAssistantCustomActivity: json['bluetoothAssistantCustomActivity'] as String? ?? '',
       noraAutoSpeakTts: json['noraAutoSpeakTts'] as bool? ?? true,
-      micClickDelayMs: json['micClickDelayMs'] as int? ?? 1000,
+      micClickDelayMs: (json['micClickDelayMs'] as num?)?.toInt() ?? 1000,
       forceBluetoothScoCall: json['forceBluetoothScoCall'] as bool? ?? false,
     );
   }
-  
+
   Map<String, dynamic> toJson() {
     return {
       'descriptionsVisible': descriptionsVisible,
@@ -603,7 +603,7 @@ class ActiveTimerInfo {
 
   factory ActiveTimerInfo.fromJson(Map<String, dynamic> json) {
     return ActiveTimerInfo(
-      startTime: DateTime.parse(json['startTime'] as String),
+      startTime: (DateTime.tryParse(json['startTime']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0)),
       accumulatedDisplayTime:
           (json['accumulatedDisplayTime'] as num? ?? 0).toDouble(),
       isRunning: json['isRunning'] as bool? ?? false,

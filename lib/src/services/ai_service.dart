@@ -7,7 +7,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:intl/intl.dart';
 import 'package:missions/src/models/skill_models.dart';
-import 'package:missions/src/config/api_keys.dart';
+import 'package:missions/src/config/api_defaults.dart';
 import 'package:missions/src/services/secrets_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:missions/src/utils/json_utils.dart';
@@ -498,8 +498,8 @@ class AIService {
           }
           final bool hasMoreKeys = i < apiKeysToTry.length - 1;
           final bool hasMoreModels = modelIdx < modelsToTry.length - 1;
-          String nextStepHint = hasMoreKeys 
-              ? "trying next key..." 
+          String nextStepHint = hasMoreKeys
+              ? "trying next key..."
               : (hasMoreModels ? "rolling to next fallback model..." : "exhausted all Gemini models.");
           onLog(
               "<span style=\"color:var(--fh-accent-orange);\">$roleLabel [$model] + Key $effectiveIndex failed: ${e.toString()} ($nextStepHint)</span>");
@@ -527,8 +527,8 @@ class AIService {
   }
 
   Future<Map<String, dynamic>> makeAICall({
-    String? prompt, 
-    List<genai.Part>? parts, 
+    String? prompt,
+    List<genai.Part>? parts,
     required List<String> modelCandidates,
     List<String>? customApiKeys,
     required int currentApiKeyIndex,
@@ -577,7 +577,7 @@ class AIService {
   }
 
   /// Executes AI generation specifically calibrated for tactical briefings and reports.
-  /// 
+  ///
   /// 1. Tries Pro/Heavy models with [proTimeout].
   /// 2. If Pro models time out or encounter an error, immediately catches the error,
   ///    notifies [onStatusUpdate], logs the event, and retries with Lite/Flash models.
@@ -677,7 +677,7 @@ class AIService {
     final prompt = """
     $logsContext
     $systemStyle
-    
+
     USER: "$query"
 
     RULES:
@@ -856,16 +856,16 @@ ENSURE VALID JSON. NO MARKDOWN FENCES.
   }) async {
     final prompt = """
     Analyze the following Task context and select the most appropriate IDs from the provided Asset List that are required or helpful to complete this task.
-    
+
     TASK CONTEXT:
     $taskContext
-    
+
     ASSET LIST (Format: ID | Name | Type | Why | What):
     $assetsList
-    
+
     Task:
     Match the task requirements with the asset list. Select the IDs of the assets that fit.
-    
+
     Output JSON ONLY with an array of IDs:
     {
       "asset_ids": ["id_1", "id_2"]
@@ -896,16 +896,16 @@ ENSURE VALID JSON. NO MARKDOWN FENCES.
   }) async {
     final prompt = """
     Create a tactical action plan (How) and expected outcome (What) for the following objective:
-    
+
     OBJECTIVE: $taskName
     STRATEGIC INTENT (WHY): $why
     USER SPECIFIC REQUEST: $userPrompt
-    
+
     Task:
     1. Break down the execution into concrete, actionable steps ("How"). Keep them concise. Incorporate user request.
     2. You can create nested sub-steps of any depth (any-level nested tasks) under any step if it requires more detailed execution.
     3. Define the expected result/reward ("What") upon completion.
-    
+
     Output JSON ONLY:
     {
       "steps":[
@@ -1034,10 +1034,10 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
   }
 
   Future<List<Map<String, dynamic>>> generateSchedulePrediction({
-    required String sessionHistory, 
+    required String sessionHistory,
     required String currentTime,
     String? targetDate,
-    required String availableTasksContext, 
+    required String availableTasksContext,
     required String reflectionLogsContext,
     required String uncompletedPlanContext,
     required List<String> modelCandidates,
@@ -1050,19 +1050,19 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     final prompt = """
     You are an intelligent schedule predictor and tactical planner for Arcane.
     Based on the user's recent session history, reflection logs, and uncompleted plan items, predict and plan a realistic schedule for $dateLabel starting from reference time $currentTime onward.
-    
+
     HISTORICAL SESSIONS (Last 14 days):
     $sessionHistory
-    
+
     RECENT REFLECTION LOGS (Last 30 days):
     $reflectionLogsContext
-    
+
     REMAINING UNCOMPLETED PLAN:
     $uncompletedPlanContext
 
     AVAILABLE ACTIVE TASKS & PROTOCOLS:
     $availableTasksContext
-    
+
     INSTRUCTIONS:
     1. Analyze user habits, energy patterns, reflection logs, and remaining plan items.
     2. PRIORITIZE scheduling remaining uncompleted plan items during realistic available time slots on $dateLabel.
@@ -1070,12 +1070,12 @@ ENSURE VALID JSON. NO TRAILING COMMAS.
     4. Provide explicit start and end times in 24-hour "HH:mm" format.
     5. Do not predict past midnight (23:59). Respect regular sleep time.
     6. CONFIDENTIALITY: Do not use specific names of real people.
-    
+
     CRITICAL OUTPUT FORMATTING:
     - Return ONLY valid JSON.
     - Do NOT wrap in markdown code blocks (e.g. ```json ... ```).
     - Do NOT include comments or trailing commas.
-    
+
     OUTPUT JSON ARRAY STRUCTURE:
     [
       {
@@ -1235,7 +1235,7 @@ ${_needsJsonShape()}
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
-    
+
     return await makeAICall(
         prompt: prompt,
         modelCandidates: modelCandidates,
@@ -1283,7 +1283,7 @@ ${_needsJsonShape('            ')}
         currentApiKeyIndex: currentApiKeyIndex,
         onNewApiKeyIndex: onNewApiKeyIndex,
         onLog: onLog);
-        
+
     return (result['updates'] as List?)?.map((e) => e as Map<String, dynamic>).toList() ??[];
   }
 
@@ -1395,7 +1395,7 @@ ${_needsJsonShape('            ')}
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
-    
+
     return await makeBriefingAICall(
       prompt: prompt,
       proModels: modelCandidates,
@@ -1608,7 +1608,7 @@ ${_needsJsonShape('            ')}
 
   Future<List<String>> fetchAvailableModels({String? customApiKey}) async {
     final apiKey = customApiKey ?? (geminiApiKeys.isNotEmpty ? geminiApiKeys.first : null);
-    
+
     if (apiKey == null || apiKey.startsWith('YOUR_GEMINI')) {
       throw Exception("No valid API Key found to fetch models.");
     }
@@ -1720,14 +1720,14 @@ ${_needsJsonShape('            ')}
     required Function(String) onLog,
   }) async {
     final prompt = """
-    Analyze the following reflection logs and extract a list of specific people mentioned by the user with name. 
+    Analyze the following reflection logs and extract a list of specific people mentioned by the user with name.
     For each person, infer their relationship to the user (e.g., Friend, Boss, Partner, Colleague).
     Also, extract the short sentence or snippet from the logs where the person was mentioned (context).
     Create a list of upto 50 people
-    
+
     Logs:
     $logsText
-    
+
     Output JSON ONLY:
     {
       "people":[
@@ -1762,10 +1762,10 @@ ${_needsJsonShape('            ')}
     final prompt = """
     Analyze the following reflection logs and extract a list of specific assets (resources, skills, objects, routines) the user relies on or is grateful for.
     Create a comprehensive list based purely on the logs.
-    
+
     Logs:
     $logsText
-    
+
     Output JSON ONLY:
     {
       "assets":[
@@ -1801,9 +1801,9 @@ ${_needsJsonShape('            ')}
     final aiPrompt = """
     Analyze the following food description and estimate the nutritional value per serving.
     If multiple distinct items are mentioned, separate them.
-    
+
     Description: $prompt
-    
+
     Output JSON ONLY:
     {
       "items":[
@@ -1818,7 +1818,7 @@ ${_needsJsonShape('            ')}
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
-    
+
     final result = await makeAICall(
         prompt: aiPrompt,
         modelCandidates: modelCandidates,
@@ -1840,7 +1840,7 @@ ${_needsJsonShape('            ')}
   }) async {
     final prompt = """
     Provide a detailed but concise nutritional breakdown and health benefits of the meal: '$mealName'.
-    
+
     Output JSON ONLY:
     {
       "description": "Short description of the meal and its general profile",
@@ -1871,10 +1871,10 @@ ${_needsJsonShape('            ')}
     final prompt = """
     Analyze the reflection logs focusing specifically on interactions or feelings involving '$personName'.
     Provide a psychological profile, interaction history summary, and communication tips for the user dealing with this person.
-    
+
     Logs:
     $logsText
-    
+
     Output JSON ONLY with exactly this structure (no markdown formatting, no trailing commas):
     {
       "title": "A short alias/title for them (e.g. 'The Realist' or 'The Mentor')",
@@ -1913,7 +1913,7 @@ ${_needsJsonShape('            ')}
     required Function(int) onNewApiKeyIndex,
     required Function(String) onLog,
   }) async {
-    final commsDirective = requestComms 
+    final commsDirective = requestComms
         ? "2. Review the 'Known People' list and suggest ONE person the user should talk to about this. If no one fits, return null. If a person is suggested, provide a brief 'conversation map' (3-4 steps) on how to approach the conversation."
         : "2. Do NOT suggest any person to contact, and return null for suggested_person and an empty list for conversation_map.";
 
@@ -1922,14 +1922,14 @@ ${_needsJsonShape('            ')}
     Current Situation / Reason: $reason
     Current Feeling: $feeling
     Planned Action: $action
-    
+
     Past Context (Reflections): $logsText
     Known People: $peopleContext
-    
+
     Task:
     1. Provide a concise, empathetic, and tactical action plan for right now.
     $commsDirective
-    
+
     Output JSON ONLY:
     {
       "action_plan": "string",
@@ -1958,14 +1958,14 @@ ${_needsJsonShape('            ')}
   }) async {
     final prompt = """
     The user wants to simulate a future situation based on their past behavioral and psychological patterns.
-    
+
     Proposed Situation: $situation
-    
+
     Past Context (Reflections): $logsText
-    
+
     Task:
     Write a highly plausible scenario note (2-3 paragraphs) of what might happen, how the user might feel, and potential pitfalls based on their history. Keep it realistic but constructive.
-    
+
     Output JSON ONLY:
     {
       "simulation": "string"
@@ -2021,7 +2021,7 @@ ${_needsJsonShape('            ')}
     Analyze the following reflection logs and extract a list of specific people mentioned by the user with name.
     For each person, infer their relationship to the user (e.g., Friend, Boss, Partner, Colleague).
     Also, extract the short sentence or snippet from the logs where the person was mentioned (context).
-    
+
     Here is a list of already identified people in the user's database:
     ${jsonEncode(existingLabels)}
 
@@ -2031,7 +2031,7 @@ ${_needsJsonShape('            ')}
 
     Logs:
     $logsText
-    
+
     Output JSON ONLY:
     {
       "people":[

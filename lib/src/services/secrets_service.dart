@@ -1,9 +1,5 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firedart/firedart.dart' as firedart;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Runtime fetcher for the app's shared AI credentials. These live in the
@@ -26,39 +22,10 @@ class SecretsService {
   SecretsService._();
   static final SecretsService instance = SecretsService._();
 
-  Map<String, dynamic>? _doc;
-  bool _fetchFailed = false;
 
-  Future<Map<String, dynamic>?> _load() async {
-    if (_doc != null) return _doc;
-    if (_fetchFailed) return null; // don't hammer Firestore when offline/denied
-    try {
-      Map<String, dynamic>? data;
-      if (!kIsWeb && Platform.isLinux) {
-        // Pure-Dart backend used on the Linux dev target.
-        final snap = await firedart.Firestore.instance
-            .collection('secrets')
-            .document('apikeys')
-            .get();
-        data = Map<String, dynamic>.from(snap.map);
-      } else {
-        final snap = await FirebaseFirestore.instance
-            .collection('secrets')
-            .doc('apikeys')
-            .get();
-        if (snap.exists) data = snap.data();
-      }
-      if (data != null) {
-        _doc = data;
-        return _doc;
-      }
-      _fetchFailed = true;
-    } catch (e) {
-      debugPrint('[SecretsService] Failed to fetch shared secrets: $e');
-      _fetchFailed = true;
-    }
-    return null;
-  }
+  // Shared provider credentials are administrator-only. They must never be
+  // distributed to clients; user-supplied keys remain supported below.
+  Future<Map<String, dynamic>?> _load() async => null;
 
   List<String> _parseKeys(dynamic raw) {
     if (raw is List) {
@@ -117,7 +84,6 @@ class SecretsService {
   /// Drops cached secrets (call on sign-out) and allows a fresh fetch on the
   /// next request (e.g. after signing back in).
   void clear() {
-    _doc = null;
-    _fetchFailed = false;
+
   }
 }

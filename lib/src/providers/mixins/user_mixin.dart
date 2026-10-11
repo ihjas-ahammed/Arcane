@@ -20,15 +20,30 @@ mixin UserMixin on ChangeNotifier {
   // Settings & Profile
   AppSettings _settings = AppSettings();
   List<Skill> _skills = [];
+  List<Map<String, dynamic>> _legacySkillRecords = [];
   List<TrackedSkill> _trackedSkills = [];
   List<ReflectionLog> _reflectionLogs = [];
   List<SopModel> _sops = [];
   SopSessionState? _activeSopSession;
   SopSessionState? get activeSopSession => _activeSopSession;
-  
+
   // AI Memory
   ChatbotMemory _chatbotMemory = ChatbotMemory();
   int _apiKeyIndex = 0;
+
+  void resetUserState() {
+    _lastLoginDate = null;
+    _settings = AppSettings(lastModified: 0);
+    _skills = [];
+    _legacySkillRecords = [];
+    _trackedSkills = [];
+    _reflectionLogs = [];
+    _sops = [];
+    _activeSopSession = null;
+    _chatbotMemory = ChatbotMemory();
+    _apiKeyIndex = 0;
+    _isUsernameMissing = false;
+  }
 
   // Getters
   AppUser? get currentUser => _currentUser;
@@ -101,13 +116,14 @@ mixin UserMixin on ChangeNotifier {
   }
 
   void setReflectionLogs(List<ReflectionLog> l) {
+    sync.recordDeletions('reflectionLogs', _reflectionLogs.map((e) => e.id), l.map((e) => e.id));
     _reflectionLogs = l;
     sync.markDirty('reflections');
   }
 
   void setChatbotMemory(ChatbotMemory m) {
     _chatbotMemory = m;
-    sync.markDirty('settings'); 
+    sync.markDirty('settings');
   }
 
   void setApiKeyIndex(int i) {
@@ -128,11 +144,13 @@ mixin UserMixin on ChangeNotifier {
   }
 
   void initializeSkills() {
-    // Anything that isn't the current set of needs (older virtue / well-being lists) is replaced.
-    bool hasLegacy = _skills.length != WellbeingTheme.needNames.length ||
-        !_skills.every((s) => WellbeingTheme.needNames.contains(s.name));
-    if (_skills.isEmpty || hasLegacy) {
+    if (_skills.isEmpty) {
       _skills = getBaseWellbeingSkills();
+    } else {
+      // Keep XP and legacy names. Add new needs without replacing existing records.
+      final ids = _skills.map((s) => s.id).toSet();
+      final names = _skills.map((s) => s.name).toSet();
+      _skills = [..._skills, ...getBaseWellbeingSkills().where((s) => !ids.contains(s.id) && !names.contains(s.name))];
     }
     if (_trackedSkills.isEmpty) {
       _trackedSkills = TrackedSkill.defaultSkills();
@@ -144,7 +162,7 @@ mixin UserMixin on ChangeNotifier {
     final newRules = List<HabitRule>.from(_settings.habitRules)..add(rule);
     setSettings(_settings..habitRules = newRules);
   }
-  
+
   void updateHabitRule(HabitRule rule) {
     final newRules = _settings.habitRules.map((r) => r.id == rule.id ? rule : r).toList();
     setSettings(_settings..habitRules = newRules);
@@ -361,6 +379,12 @@ mixin UserMixin on ChangeNotifier {
   }
 
   void loadUserState(Map<String, dynamic> data) {
+    if (data['mergeConflicts'] is List) sync.mergeConflicts.addAll((data['mergeConflicts'] as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)));
+    if (data['tombstones'] is Map) {
+      for (final e in (data['tombstones'] as Map).entries) {
+        sync.tombstones[e.key.toString()] = (e.value as Map).map((k,v) => MapEntry(k.toString(), (v as num).toInt()));
+      }
+    }
     _lastLoginDate = data['lastLoginDate'];
     if (data['settings'] != null) {
       _settings = AppSettings.fromJson(data['settings']);
@@ -368,91 +392,49 @@ mixin UserMixin on ChangeNotifier {
     if (!_settings.hasCompletedTour && (data['mainTasks'] != null || data['skills'] != null)) {
       _settings.hasCompletedTour = true;
     }
-    
+
+    if (data['legacySkills'] is List) _legacySkillRecords = (data['legacySkills'] as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    if (data['skills'] is List) {
+      _legacySkillRecords.addAll((data['skills'] as List).whereType<Map>().where((e) => !WellbeingTheme.needNames.contains(e['name'])).map((e) => Map<String, dynamic>.from(e)));
+    }
     if (data['skills'] != null) {
-      _skills = (data['skills'] as List).map((e) => Skill.fromJson(e)).toList();
+      _skills = sync.parseItems('skills', data['skills'], Skill.fromJson);
     }
     initializeSkills();
 
     if (data['trackedSkills'] != null) {
-      final incoming = (data['trackedSkills'] as List)
-          .map((e) => TrackedSkill.fromJson(Map<String, dynamic>.from(e as Map)))
-          .toList();
-      final skillMap = <String, TrackedSkill>{
-        for (final s in _trackedSkills) s.id: s,
-      };
-      for (final s in incoming) {
-        if (!skillMap.containsKey(s.id)) {
-          skillMap[s.id] = s;
-        } else {
-          final existing = skillMap[s.id]!;
-          final logMap = <String, SkillTrainingLog>{
-            for (final l in existing.logs) l.id: l,
-          };
-          for (final l in s.logs) {
-            logMap[l.id] = l;
-          }
-          final mergedLogs = logMap.values.toList()
-            ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-          final latestVal = mergedLogs.isNotEmpty ? mergedLogs.first.value : existing.currentValue;
-          skillMap[s.id] = existing.copyWith(
-            currentValue: latestVal,
-            logs: mergedLogs,
-          );
-        }
-      }
-      _trackedSkills = skillMap.values.toList();
+      _trackedSkills = sync.parseItems('trackedSkills', data['trackedSkills'], TrackedSkill.fromJson);
     }
-    if (_trackedSkills.isEmpty) {
-      _trackedSkills = TrackedSkill.defaultSkills();
-    }
-
     if (data['reflectionLogs'] != null) {
-      final incoming = (data['reflectionLogs'] as List).map((e) => ReflectionLog.fromJson(e)).toList();
-      final logMap = <String, ReflectionLog>{
-        for (final l in _reflectionLogs) l.id: l,
-      };
-      for (final l in incoming) {
-        logMap.putIfAbsent(l.id, () => l);
-      }
-      final merged = logMap.values.toList()
+      _reflectionLogs = sync.parseItems('reflectionLogs', data['reflectionLogs'], ReflectionLog.fromJson)
         ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-      _reflectionLogs = merged;
+    }
+    if (data['sops'] != null) {
+      _sops = sync.parseItems('sops', data['sops'], SopModel.fromJson);
     }
 
-    if (data['sops'] != null) {
-      final incoming = (data['sops'] as List)
-          .map((e) => SopModel.fromJson(e as Map<String, dynamic>))
-          .toList();
-      final sopMap = <String, SopModel>{
-        for (final s in _sops) s.id: s,
-      };
-      for (final s in incoming) {
-        sopMap.putIfAbsent(s.id, () => s);
-      }
-      _sops = sopMap.values.toList();
-    }
-    
     if (data['chatbotMemory'] != null) {
       _chatbotMemory = ChatbotMemory.fromJson(data['chatbotMemory']);
     }
-    
+
     _apiKeyIndex = data['apiKeyIndex'] as int? ?? 0;
   }
 
   /// Merges user state non-destructively: restores past reflections, skills, and SOPs
   /// without replacing what the user logged in the last few days.
   int mergeUserState(Map<String, dynamic> data) {
+    sync.mergeRemoteTombstones(data);
+    _reflectionLogs.removeWhere((e) => sync.isDeletedRecord('reflectionLogs', e.id));
+    if (data['settings'] is Map) sync.preserveMergeConflict('settings', 'settings', _settings.toJson(), Map<String, dynamic>.from(data['settings']));
     int restoredReflections = 0;
     if (data['reflectionLogs'] != null) {
-      final incoming = (data['reflectionLogs'] as List)
-          .whereType<Map>()
-          .map((e) => ReflectionLog.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      final incoming = sync.parseItems('reflectionLogs', data['reflectionLogs'], ReflectionLog.fromJson);
       final logMap = <String, ReflectionLog>{
         for (final l in _reflectionLogs) l.id: l,
       };
       for (final l in incoming) {
+        if (sync.isDeletedRecord('reflectionLogs', l.id)) continue;
+        if (logMap.containsKey(l.id)) sync.preserveMergeConflict('reflectionLogs', l.id, logMap[l.id]!.toJson(), l.toJson());
         if (!logMap.containsKey(l.id)) {
           logMap[l.id] = l;
           restoredReflections++;
@@ -465,10 +447,7 @@ mixin UserMixin on ChangeNotifier {
     }
 
     if (data['trackedSkills'] != null) {
-      final incoming = (data['trackedSkills'] as List)
-          .whereType<Map>()
-          .map((e) => TrackedSkill.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      final incoming = sync.parseItems('trackedSkills', data['trackedSkills'], TrackedSkill.fromJson);
       final skillMap = <String, TrackedSkill>{
         for (final s in _trackedSkills) s.id: s,
       };
@@ -496,15 +475,16 @@ mixin UserMixin on ChangeNotifier {
     }
 
     if (data['sops'] != null) {
-      final incoming = (data['sops'] as List)
-          .whereType<Map>()
-          .map((e) => SopModel.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      final incoming = sync.parseItems('sops', data['sops'], SopModel.fromJson);
       final sopMap = <String, SopModel>{
         for (final s in _sops) s.id: s,
       };
       for (final s in incoming) {
-        sopMap.putIfAbsent(s.id, () => s);
+        final current = sopMap[s.id];
+        if (current != null) {
+          sync.preserveMergeConflict('sops', s.id, current.toJson(), s.toJson());
+          if (s.updatedAt.isAfter(current.updatedAt)) sopMap[s.id] = s;
+        } else { sopMap[s.id] = s; }
       }
       _sops = sopMap.values.toList();
     }
@@ -527,13 +507,16 @@ mixin UserMixin on ChangeNotifier {
     return restoredReflections;
   }
 
-  Map<String, dynamic> getUserStateMap() {
+  Map<String, dynamic> getUserStateMap({bool includeReflections = true}) {
     return {
       'lastLoginDate': _lastLoginDate,
+      'mergeConflicts': List.from(sync.mergeConflicts),
+      'tombstones': sync.tombstones.map((k,v) => MapEntry(k, Map<String,int>.from(v))),
       'settings': _settings.toJson(),
       'skills': _skills.map((e) => e.toJson()).toList(),
+      'legacySkills': _legacySkillRecords,
       'trackedSkills': _trackedSkills.map((e) => e.toJson()).toList(),
-      'reflectionLogs': _reflectionLogs.map((e) => e.toJson()).toList(),
+      if (includeReflections) 'reflectionLogs': _reflectionLogs.map((e) => e.toJson()).toList(),
       'sops': _sops.map((e) => e.toJson()).toList(),
       'chatbotMemory': _chatbotMemory.toJson(),
       'apiKeyIndex': _apiKeyIndex,

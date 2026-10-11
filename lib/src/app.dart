@@ -67,7 +67,7 @@ class _MyAppState extends State<MyApp> {
       selector: (_, p) => (
         p.settings.themeMode,
         p.getSelectedTask()?.taskColor ?? AppTheme.fhAccentTealFixed,
-        p.authLoading,
+        p.authLoading || p.isDataLoadingAfterLogin,
         p.currentUser == null,
         p.settings.hasCompletedTour,
         p.mainTasks.isNotEmpty,
@@ -76,7 +76,7 @@ class _MyAppState extends State<MyApp> {
       ),
       builder: (context, shell, child) {
         final appProvider = context.read<AppProvider>();
-        final (themeMode, currentTaskColor, _, _, hasCompletedTour, hasTasks, hasSkills, localError) = shell;
+        final (themeMode, currentTaskColor, isLoading, _, hasCompletedTour, hasTasks, hasSkills, localError) = shell;
         final isSystemDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
         final bool isLightTheme = themeMode == 'light' || (themeMode == 'system' && !isSystemDark);
 
@@ -94,7 +94,7 @@ class _MyAppState extends State<MyApp> {
 
         final bool isTourFinished = hasCompletedTour || hasTasks || hasSkills;
 
-        final Widget mainAppChild = appProvider.authLoading
+        final Widget mainAppChild = isLoading
             ? Scaffold(
                 backgroundColor: isLightTheme ? AppTheme.fhLightBgDeepDark : AppTheme.fhBgDeepDark,
                 body: Center(

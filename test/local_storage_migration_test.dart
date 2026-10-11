@@ -44,8 +44,11 @@ void main() {
     expect(const DeepCollectionEquality().equals(first, legacy), isTrue);
 
     final rows = await StateDatabase.instance.readCollections(uid);
-    expect(rows.keys.toSet(), legacy.keys.toSet());
-    expect(legacyFile.existsSync(), isTrue, reason: 'legacy JSON must be kept after import');
+    expect(rows.keys.toSet(), containsAll(legacy.keys));
+    expect(rows.keys.any((key) => key.startsWith('history:')), isTrue);
+    expect(legacyFile.existsSync(), isFalse);
+    final preserved = (await docs.list().toList()).whereType<File>().where((file) => file.path.startsWith('${legacyFile.path}.migrated-')).single;
+    expect(jsonDecode(await preserved.readAsString()), legacy, reason: 'Migration must preserve the original JSON for recovery');
 
     final relaunched = await LocalStorageService().loadState(uid);
     expect(const DeepCollectionEquality().equals(relaunched, legacy), isTrue);
@@ -63,6 +66,7 @@ void main() {
     await service.clearState(uid);
     expect(await StateDatabase.instance.readCollections(uid), isEmpty);
     expect(legacyFile.existsSync(), isFalse);
+    expect(await service.loadState(uid), isNull, reason: 'Clearing the DB must not resurrect the migrated JSON');
   });
 
   test('a user with no data loads null', () async {

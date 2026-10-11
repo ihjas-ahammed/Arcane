@@ -1267,6 +1267,7 @@ class LauncherService {
     if (map['stats'] is Map) {
       final rawStats = map['stats'] as Map;
       if (rawStats.isNotEmpty || forceReplace) {
+        if (forceReplace) _stats.clear();
         rawStats.forEach((k, v) {
           if (v is List && v.length == 2) {
             _stats[k.toString()] = [(v[0] as num).toInt(), (v[1] as num).toInt()];

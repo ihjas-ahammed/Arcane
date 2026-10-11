@@ -1,3 +1,4 @@
+import 'package:missions/src/models/state_decode_recovery.dart';
 // lib/src/models/task_models.dart
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/app_theme.dart';
@@ -17,8 +18,8 @@ class TaskSession {
   factory TaskSession.fromJson(Map<String, dynamic> json) {
     return TaskSession(
       id: json['id'] as String? ?? '',
-      startTime: DateTime.parse(json['startTime'] as String),
-      endTime: DateTime.parse(json['endTime'] as String),
+      startTime: (DateTime.tryParse(json['startTime']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0)),
+      endTime: (DateTime.tryParse(json['endTime']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0)),
     );
   }
 
@@ -42,7 +43,7 @@ class MainTask {
   String colorHex;
   int dailyTimeSpent;
   String? lastWorkedDate;
-  bool isActive; 
+  bool isActive;
   bool isDeleted; // Added soft delete
   Map<String, List<bool>> weeklyCompletionStatus;
   List<SubTask> subTasks;
@@ -112,21 +113,17 @@ class MainTask {
 
     return MainTask(
       id: json['id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String,
-      theme: json['theme'] as String,
+      name: (json['name']?.toString() ?? ''),
+      description: (json['description']?.toString() ?? ''),
+      theme: (json['theme']?.toString() ?? ''),
       colorHex: json['colorHex'] as String? ?? "FF00F8F8",
-      dailyTimeSpent: json['dailyTimeSpent'] as int? ?? 0,
+      dailyTimeSpent: (json['dailyTimeSpent'] as num?)?.toInt() ?? 0,
       lastWorkedDate: json['lastWorkedDate'] as String?,
       isActive: json['isActive'] as bool? ?? true,
       isDeleted: json['isDeleted'] as bool? ?? false,
       weeklyCompletionStatus:
           weeklyStatusFromJson?.cast<String, List<bool>>() ?? {},
-      subTasks: (json['subTasks'] as List<dynamic>?)
-              ?.map(
-                  (stJson) => SubTask.fromJson(stJson as Map<String, dynamic>))
-              .toList() ??
-          [],
+      subTasks: decodeNestedRecords(json['subTasks'], SubTask.fromJson, 'mainTasks/${json['id']}/subTasks'),
       phoenixSubTaskId: json['phoenixSubTaskId'] as String?,
     );
   }
@@ -171,9 +168,9 @@ class ProgressDataPoint {
   });
 
   factory ProgressDataPoint.fromJson(Map<String, dynamic> json) => ProgressDataPoint(
-        timestamp: DateTime.parse(json['timestamp'] as String),
+        timestamp: (DateTime.tryParse(json['timestamp']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0)),
         progress: (json['progress'] as num).toDouble(),
-        spentSeconds: json['spentSeconds'] as int? ?? 0,
+        spentSeconds: (json['spentSeconds'] as num?)?.toInt() ?? 0,
       );
 
   Map<String, dynamic> toJson() => {
@@ -197,7 +194,7 @@ class SubTaskTemplateSet {
   factory SubTaskTemplateSet.fromJson(Map<String, dynamic> json) {
     return SubTaskTemplateSet(
       id: json['id'] as String,
-      name: json['name'] as String,
+      name: (json['name']?.toString() ?? ''),
       subSubTasks: (json['subSubTasks'] as List<dynamic>?)
               ?.map((sssJson) =>
                   SubSubTask.fromJson(sssJson as Map<String, dynamic>))
@@ -359,28 +356,28 @@ class SubTask {
   factory SubTask.fromJson(Map<String, dynamic> json) {
     return SubTask(
       id: json['id'] as String,
-      name: json['name'] as String,
+      name: (json['name']?.toString() ?? ''),
       description: json['description'] as String? ?? '',
       completed: json['completed'] as bool? ?? false,
-      currentTimeSpent: json['currentTimeSpent'] as int? ?? 0,
+      currentTimeSpent: (json['currentTimeSpent'] as num?)?.toInt() ?? 0,
       completedDate: json['completedDate'] as String?,
       isCountable: json['isCountable'] as bool? ?? false,
-      targetCount: json['targetCount'] as int? ?? 0,
-      currentCount: json['currentCount'] as int? ?? 0,
+      targetCount: (json['targetCount'] as num?)?.toInt() ?? 0,
+      currentCount: (json['currentCount'] as num?)?.toInt() ?? 0,
       manualProgress: (json['manualProgress'] as num? ?? 0.0).toDouble(),
       why: json['why'] as String? ?? '',
       what: json['what'] as String? ?? '',
       resources: json['resources'] as String? ?? '',
       progressMode: json['progressMode'] as String? ?? 'auto',
       isRecurring: json['isRecurring'] as bool? ?? false,
-      lastCompletedDate: json['lastCompletedDate'] != null 
-          ? DateTime.parse(json['lastCompletedDate'] as String) 
+      lastCompletedDate: json['lastCompletedDate'] != null
+          ? (DateTime.tryParse(json['lastCompletedDate']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
           : null,
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt'] as String) 
+      createdAt: json['createdAt'] != null
+          ? (DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
           : DateTime.now(),
-      updatedAt: json['updatedAt'] != null 
-          ? DateTime.parse(json['updatedAt'] as String) 
+      updatedAt: json['updatedAt'] != null
+          ? (DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
           : DateTime.now(),
       isActive: json['isActive'] as bool? ?? true,
       isDeleted: json['isDeleted'] as bool? ?? false,
@@ -404,7 +401,7 @@ class SubTask {
               .toList() ??
           [],
       activeTemplateSetId: json['activeTemplateSetId'] as String?,
-      depth: json['depth'] as int?,
+      depth: (json['depth'] as num?)?.toInt(),
     );
   }
 
@@ -552,9 +549,9 @@ class SubSubTask {
   int targetCount;
   int currentCount;
   String? completionTimestamp;
-  String type; 
-  List<SubSubTask> substeps; 
-  
+  String type;
+  List<SubSubTask> substeps;
+
   String why;
   String what;
 
@@ -621,29 +618,26 @@ class SubSubTask {
   factory SubSubTask.fromJson(Map<String, dynamic> json) {
     return SubSubTask(
       id: json['id'] as String,
-      name: json['name'] as String,
+      name: (json['name']?.toString() ?? ''),
       completed: json['completed'] as bool? ?? false,
       isCountable: json['isCountable'] as bool? ?? false,
-      targetCount: json['targetCount'] as int? ?? 0,
-      currentCount: json['currentCount'] as int? ?? 0,
+      targetCount: (json['targetCount'] as num?)?.toInt() ?? 0,
+      currentCount: (json['currentCount'] as num?)?.toInt() ?? 0,
       completionTimestamp: json['completionTimestamp'] as String?,
       type: json['type'] as String? ?? 'check',
       why: json['why'] as String? ?? '',
       what: json['what'] as String? ?? '',
       isActive: json['isActive'] as bool? ?? true,
-      timeSpentMinutes: json['timeSpentMinutes'] as int? ?? 0,
-      substeps: (json['substeps'] as List<dynamic>?)
-              ?.map((e) => SubSubTask.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
+      timeSpentMinutes: (json['timeSpentMinutes'] as num?)?.toInt() ?? 0,
+      substeps: decodeNestedRecords(json['substeps'], SubSubTask.fromJson, 'mainTasks/substeps/${json['id']}'),
       progressDataPoints: (json['progressDataPoints'] as List<dynamic>?)
               ?.map((p) => ProgressDataPoint.fromJson(p as Map<String, dynamic>))
               .toList() ??
           [],
-      currentTimeSpent: json['currentTimeSpent'] as int? ?? 0,
+      currentTimeSpent: (json['currentTimeSpent'] as num?)?.toInt() ?? 0,
     );
   }
-  
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -663,7 +657,7 @@ class SubSubTask {
       'currentTimeSpent': currentTimeSpent,
     };
   }
-  
+
   bool get hasCheckableSubsteps => substeps.any((s) => s.isActive && s.type != 'info');
 
   double calculateProgress() {
@@ -675,7 +669,7 @@ class SubSubTask {
       total += sst.calculateProgress();
     }
     double prog = total / checkables.length;
-    completed = prog >= 1.0; 
+    completed = prog >= 1.0;
     return prog;
   }
 }
@@ -828,7 +822,7 @@ Map<String, dynamic> parseTaskOutline(String text) {
         final childBulletLine = line;
         final childIndent = bulletIndex;
         final childLines = <String>[childBulletLine.substring(childIndent + 1).trim()];
-        
+
         i++;
         while (i < lines.length) {
           final nextLine = lines[i];
@@ -840,7 +834,7 @@ Map<String, dynamic> parseTaskOutline(String text) {
             break;
           }
         }
-        
+
         final childText = childLines.join('\n');
         children.add(parseTaskOutline(childText));
       } else {

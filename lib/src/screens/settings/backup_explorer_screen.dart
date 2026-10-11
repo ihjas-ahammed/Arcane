@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:missions/src/services/app_storage_paths.dart';
 
 import 'package:missions/src/services/data_export_service.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
@@ -37,7 +37,7 @@ class _BackupExplorerScreenState extends State<BackupExplorerScreen> {
 
   Future<void> _listFiles() async {
     if (kIsWeb) return;
-    final docs = await getApplicationDocumentsDirectory();
+    final docs = await AppStoragePaths.directory();
     final found = <File>[];
     for (final dir in [Directory(docs.path), Directory('${docs.path}/backups')]) {
       if (!await dir.exists()) continue;

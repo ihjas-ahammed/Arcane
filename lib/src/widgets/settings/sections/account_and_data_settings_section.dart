@@ -209,7 +209,7 @@ class _AccountAndDataSettingsSectionState
           title: 'Data & System Reset',
           children: [
             Text(
-              'WARNING: The "Purge All Data" protocol will erase all your data from the cloud, including missions, sub-quests, and logs. This action is irreversible.',
+              'WARNING: The "Purge All Data" protocol will erase all your data from the cloud, including missions, sub-quests, and logs. A final backup is exported first; cloud data is retained in recovery trash for 30 days.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: AppTheme.fhTextSecondary,
                 height: 1.5,
@@ -220,6 +220,7 @@ class _AccountAndDataSettingsSectionState
               icon: Icon(MdiIcons.alertOctagonOutline, size: 18),
               label: const Text('PURGE ALL DATA'),
               onPressed: () async {
+                final purgeText = TextEditingController();
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
@@ -231,9 +232,10 @@ class _AccountAndDataSettingsSectionState
                         style: TextStyle(color: AppTheme.fhAccentRed),
                       ),
                     ]),
-                    content: const Text(
-                      'Are you absolutely certain you wish to erase all data? This operation cannot be undone and will result in total loss of progress.',
-                    ),
+                    content: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Text('A final backup will be exported before purging. Type PURGE to confirm.'),
+                      TextField(controller: purgeText, decoration: const InputDecoration(labelText: 'Type PURGE')),
+                    ]),
                     actionsAlignment: MainAxisAlignment.spaceBetween,
                     actions: [
                       TextButton(
@@ -241,7 +243,7 @@ class _AccountAndDataSettingsSectionState
                         child: const Text('CANCEL'),
                       ),
                       ElevatedButton(
-                        onPressed: () => Navigator.of(ctx).pop(true),
+                        onPressed: () => Navigator.of(ctx).pop(purgeText.text == 'PURGE'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.fhAccentRed,
                           foregroundColor: AppTheme.fhTextPrimary,
@@ -251,8 +253,12 @@ class _AccountAndDataSettingsSectionState
                     ],
                   ),
                 );
+                purgeText.dispose();
                 if (confirm == true) {
-                  appProvider.clearAllData();
+                  try { await appProvider.clearAllData(); } catch (e) {
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Purge failed: $e')));
+                    return;
+                  }
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

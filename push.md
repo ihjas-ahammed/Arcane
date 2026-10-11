@@ -1,20 +1,11 @@
-0: pull latest changes with git pull --rebase origin <branch> (sync upstream changes)
-0b: backup current firebase db json to backups/:
-    `mkdir -p backups && curl -s "https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app/.json" -o "backups/firebase_db_$(date +%Y%m%d_%H%M%S).json"`
-1: update version name to today (YYYY.M.D) in pubspec.yaml
-2: update version code (increment, also today: 21YYMMDDxx) in pubspec.yaml
-3: update latest.md with release notes
-4: clean and build release APKs and Linux x86_64 bundle locally:
-   - remove old APKs from builds/ (`rm -f builds/*.apk`)
-   - build split APKs: `flutter build apk --release --split-per-abi`
-   - copy APKs: copy each `build/app/outputs/flutter-apk/app-<abi>-release.apk` to `builds/missions-v${VERSION}-b${VCODE}-${ABI}.apk`
-   - build Linux x86_64: `flutter build linux --release`
-   - optimize and package Linux bundle:
-     `strip --strip-unneeded build/linux/x64/release/bundle/missions build/linux/x64/release/bundle/lib/*.so`
-     `cp linux/arcane.desktop build/linux/x64/release/bundle/`
-     `GZIP=-9 tar -czf "builds/missions-v${VERSION}-b${VCODE}-linux-x86_64.tar.gz" -C build/linux/x64/release/bundle .`
-5: update builds/update_info.json and builds/latest.json with version name, version code, published_at, APK URLs, and Linux URLs
-   - sync latest update metadata to Firebase Realtime Database for instant delivery:
-     `curl -s -X PUT -H "Content-Type: application/json" -d @builds/update_info.json "https://task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app/app_updates/latest.json"`
-6: copy latest.md to builds/latest.md (`cp latest.md builds/latest.md`)
-7: commit all changes and push (`git commit` and `git push origin HEAD:<branch>`)
+0. Sync the branch with `git pull --rebase origin <branch>` before starting a release.
+0b. Back up Firebase using an authorized administrator account. Use `firebase database:get / --project task-dominion --output backups/firebase_db_<UTC-stamp>.json`, gzip the verified JSON, and copy it to the configured external backup destination. Keep 30 dated backups. Do not use unauthenticated database writes.
+0c. Read and preserve the currently deployed RTDB and Firestore rules before deploying the rules in this repository. This Firebase project contains other applications: retain their existing access rules, deny root access, restrict `users/$uid` to its owner, deny client writes to `app_updates` and access to shared provider secrets. Deploy the reviewed rules with `firebase deploy --only database,firestore:rules,storage --project task-dominion`. Verify anonymous root reads and update writes are denied. Administrator access is required; never replace this step with a public write.
+1. Set the version name to today's YYYY.M.D and increment the version code using 21YYMMDDxx in pubspec.yaml.
+2. Write release notes in latest.md, including any operational steps that are still blocked.
+3. Run `scripts/release.sh prepare`. It cleans, analyzes, tests, builds all three split release APKs and the Linux x86_64 bundle, strips the Linux binaries, packages them, copies the changelog, and generates checksummed and Ed25519-signed metadata.
+   The private signing key lives at `.release_keys/update_signing.pem`. Keep a private off-device copy. Its public key is compiled into the updater. Never commit or publish the private key. Preserve the existing private Android signing certificate so installed users can upgrade.
+4. Commit source and metadata. Push the release tag for that commit first, publish and verify the GitHub assets with `scripts/release.sh publish-github`, then `git push origin HEAD:<branch>`. This keeps the branch's updater metadata from advertising unavailable download URLs. GitHub artifact publication can proceed independently when administrator access to Firebase is blocked; record the blocked administrator steps in the release notes.
+5. After steps 0b and 0c succeed, set `ARCANE_BACKUP_DESTINATION` to the off-device backup directory and run `scripts/release.sh publish` to publish signed update metadata through the authenticated Firebase CLI. It verifies an existing GitHub release, or creates and verifies one if needed. The metadata URLs must point to published, downloadable artifacts before the Firebase update pointer is changed.
+   APKs, tarballs, private signing keys, and database backups are ignored by Git; do not add them with `git add -f`. The existing Git history is preserved.
+6. Verify the published package hashes and Firebase metadata. Record the result in docs/data-hazard-implementation.md. Perform the restore drill in that document monthly.

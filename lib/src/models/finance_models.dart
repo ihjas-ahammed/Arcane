@@ -106,7 +106,7 @@ class FinanceTransaction {
       isIncome: json['isIncome'] as bool? ?? false,
       categoryId: json['categoryId'] as String? ?? '',
       timestamp: json['timestamp'] != null
-          ? DateTime.parse(json['timestamp'])
+          ? (DateTime.tryParse(json['timestamp']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
           : DateTime.now(),
       note: json['note'] as String? ?? '',
       accountId: json['accountId'] as String?,
@@ -141,8 +141,8 @@ class SavingsLog {
     return SavingsLog(
       id: json['id'] as String? ?? const Uuid().v4(),
       amount: (json['amount'] as num? ?? 0.0).toDouble(),
-      timestamp: json['timestamp'] != null 
-          ? DateTime.parse(json['timestamp']) 
+      timestamp: json['timestamp'] != null
+          ? (DateTime.tryParse(json['timestamp']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
           : DateTime.now(),
     );
   }
@@ -186,11 +186,11 @@ class SavingsGoal {
       description: json['description'] as String? ?? '',
       targetAmount: (json['targetAmount'] as num? ?? 100.0).toDouble(),
       currentAmount: (json['currentAmount'] as num? ?? 0.0).toDouble(),
-      targetDate: json['targetDate'] != null 
-          ? DateTime.parse(json['targetDate']) 
+      targetDate: json['targetDate'] != null
+          ? (DateTime.tryParse(json['targetDate']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
           : DateTime.now().add(const Duration(days: 30)),
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt']) 
+      createdAt: json['createdAt'] != null
+          ? (DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
           : DateTime.now(),
       iconName: json['iconName'] as String? ?? 'target',
       logs: (json['logs'] as List<dynamic>?)

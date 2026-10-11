@@ -49,7 +49,7 @@ class WidgetActionRouter {
 
   /// Buffer for actions that arrive before MaterialApp has a navigator
   /// (cold-start case). Flushed once `flushPending` is called.
-  String? _pending;
+  final List<String> _pending = [];
 
   /// Channel the native [WidgetActionReceiver] invokes when the app process is
   /// already alive, so quick widget actions apply silently instead of
@@ -65,9 +65,11 @@ class WidgetActionRouter {
         final args = call.arguments;
         String? reply;
         int? notifId;
+        String? pendingLogId;
         if (args is Map) {
           reply = args['reply'] as String?;
           notifId = args['notificationId'] as int?;
+          pendingLogId = args['pendingLogId'] as String?;
         } else if (args is String) {
           reply = args;
         }
@@ -75,7 +77,7 @@ class WidgetActionRouter {
           final ctx = navigatorKey.currentContext;
           if (ctx != null) {
             final provider = Provider.of<AppProvider>(ctx, listen: false);
-            provider.handleEnergyReply(reply, notificationId: notifId);
+            provider.handleEnergyReply(reply, notificationId: notifId, pendingLogId: pendingLogId);
           }
         }
       } else if (call.method == 'onBackPressed') {
@@ -91,7 +93,7 @@ class WidgetActionRouter {
     final ctx = navigatorKey.currentContext;
     if (ctx == null) {
       // App hasn't built MaterialApp yet — stash for later.
-      _pending = action;
+      _pending.add(action);
       return;
     }
     _dispatch(ctx, action, silent: silent);
@@ -99,16 +101,19 @@ class WidgetActionRouter {
 
   /// Call after MaterialApp builds to drain any cold-start action.
   void flushPending() {
-    final p = _pending;
-    if (p == null) return;
-    _pending = null;
     final ctx = navigatorKey.currentContext;
     if (ctx == null) return;
-    _dispatch(ctx, p);
+    final pending = List<String>.from(_pending);
+    _pending.clear();
+    for (final action in pending) { _dispatch(ctx, action); }
   }
 
   void _dispatch(BuildContext ctx, String action, {bool silent = false}) {
     final provider = Provider.of<AppProvider>(ctx, listen: false);
+    if (provider.authLoading || provider.dataLoadInProgress || provider.currentUser == null || provider.localLoadError != null || provider.cloudAttachRequired) {
+      _pending.add(action);
+      return;
+    }
     // Floating task button double-tap: "task_check_add:<new checkpoint name>".
     if (action.startsWith(_checkAddPrefix)) {
       _taskCheckAndAdd(provider, action.substring(_checkAddPrefix.length));
@@ -398,7 +403,7 @@ class WidgetActionRouter {
       provider.taskActions.tickPlanSubtask(item.mainTaskId, item.subTaskId);
       showGlobalToast(recurring ? '✓ Completed: ${item.name}' : 'Off today\'s plan: ${item.name}');
     }
-    
+
     // Also remove from day plan
     final currentPlan = List<String>.from(provider.taskActions.getDayPlan(today));
     currentPlan.remove(item.compoundId);

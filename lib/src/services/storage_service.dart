@@ -1,16 +1,18 @@
 import 'dart:async';
+import 'package:http/http.dart' as http;
+import 'package:missions/src/services/auth_service.dart';
+import 'package:firebase_storage/firebase_storage.dart' as fs;
+import 'package:missions/src/services/cloud_snapshot_store.dart';
 import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_dart/firebase_dart.dart' as fd;
 import 'package:firedart/firedart.dart' as firedart;
 
 const String _userCollection = 'users';
-const String _userSubcollectionDocId = 'data';
-const String _gameStateDocId = 'gameState';
 
 const String _docTasks = 'tasks';
 const String _docSettings = 'settings';
@@ -81,6 +83,12 @@ abstract class StorageService {
       ? _LinuxStorageService()
       : _FlutterFireStorageService();
 
+  CloudSnapshotStore get snapshots;
+  Future<void> saveOffsiteSnapshot(String userId, Uint8List bytes, String period);
+  Future<Map<String, dynamic>> saveSnapshot(String userId, Map<String, dynamic> collections, {required int baseline, String? baselineVersion, required String deviceId, bool allowShrink = false});
+  Future<List<Map<String, dynamic>>> getCloudVersions(String userId);
+  Future<Map<String, dynamic>> getCloudVersion(String userId, String version);
+  Future<Map<String, dynamic>?> getUserSnapshot(String userId);
   Future<Map<String, dynamic>?> getUserData(String userId);
   Future<int> getLastModified(String userId);
   Future<void> setLastModified(String userId, int timestamp);
@@ -109,6 +117,16 @@ abstract class StorageService {
   Future<List<Map<String, dynamic>>> fetchMonthlyReports(String userId);
 }
 
+Future<List<String>> _cloudKeys(String path) async {
+  final token = await AuthService.instance.getIdToken();
+  if (token == null) throw StateError('Sign in to read the cloud index');
+  final uri = Uri.https('task-dominion-default-rtdb.asia-southeast1.firebasedatabase.app', '/$path.json', {'shallow': 'true', 'auth': token});
+  final response = await http.get(uri).timeout(const Duration(seconds: 30));
+  if (response.statusCode != 200) throw StateError('Cloud index request failed (${response.statusCode})');
+  final value = jsonDecode(response.body);
+  return value is Map ? value.keys.map((k) => k.toString()).toList() : [];
+}
+
 // Shared helper — collapses the RTDB chunk JSON back into one flat state map.
 Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
   Map<String, dynamic> fullData = {};
@@ -126,7 +144,7 @@ Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
         decoded.remove('completedByDay');
         fullData.addAll(decoded);
       } catch (_) {
-        fullData.addAll(jsonDecode(raw[_docTasks] as String));
+        rethrow;
       }
     } else if (raw[_docTasks] is Map) {
       final decoded = Map<String, dynamic>.from(raw[_docTasks] as Map);
@@ -234,7 +252,7 @@ Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
         try {
           final decoded = jsonDecode(val);
           if (decoded is Map) {
-            fullData.addAll(Map<String, dynamic>.from(decoded));
+            fullData[k] = Map<String, dynamic>.from(decoded);
           } else {
             fullData[k] = decoded;
           }
@@ -257,6 +275,45 @@ Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
 // Identical behavior to the pre-refactor StorageService.
 // ─────────────────────────────────────────────────────────────────────────
 class _FlutterFireStorageService implements StorageService {
+  @override
+  Future<void> saveOffsiteSnapshot(String userId, Uint8List bytes, String period) async {
+    final ref = fs.FirebaseStorage.instance.ref('backups/$userId/$period.json.gz');
+    await ref.putData(bytes, fs.SettableMetadata(contentType: 'application/gzip')).timeout(const Duration(minutes: 2));
+    final restored = await ref.getData(bytes.length + 1).timeout(const Duration(seconds: 60));
+    if (!listEquals(restored, bytes)) throw StateError('Offsite snapshot verification failed');
+  }
+
+  @override
+  late final CloudSnapshotStore snapshots = CloudSnapshotStore(
+    read: (path) async => (await _rtdb.ref(path).get().timeout(_rtdbTimeout)).value,
+    write: (path, value) => _withRetry(() => _rtdb.ref(path).set(value).timeout(_rtdbTimeout)),
+    listKeys: _cloudKeys,
+    removeOldParts: (path, cutoff) async {
+      await _rtdb.ref(path).runTransaction((current) {
+        if (current is! Map || (current['_uploadedAt'] as num? ?? double.infinity) >= cutoff) return Transaction.abort();
+        return Transaction.success(null);
+      }, applyLocally: false);
+    },
+    commit: (path, expected, head) async { final result = await _rtdb.ref(path).runTransaction((current) {
+        if ((current is Map ? current['version']?.toString() : null) != expected) return Transaction.abort();
+        return Transaction.success(head);
+      }, applyLocally: false);
+      return result.committed; },
+  );
+
+  @override
+  Future<Map<String, dynamic>> saveSnapshot(String userId, Map<String, dynamic> collections, {required int baseline, String? baselineVersion, required String deviceId, bool allowShrink = false}) => snapshots.save(userId, collections, baseline: baseline, baselineVersion: baselineVersion, deviceId: deviceId, allowShrink: allowShrink);
+
+  @override
+  Future<List<Map<String, dynamic>>> getCloudVersions(String userId) => snapshots.versions(userId);
+
+  @override
+  Future<Map<String, dynamic>> getCloudVersion(String userId, String version) async {
+    final available = await getCloudVersions(userId);
+    final snapshot = available.firstWhere((v) => v['version'] == version);
+    return _parseRtdbData(await snapshots.resolveData(userId, snapshot['data'] as Map));
+  }
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseDatabase _rtdb = FirebaseDatabase.instance;
   static const Duration _rtdbTimeout = Duration(seconds: 15);
@@ -265,60 +322,27 @@ class _FlutterFireStorageService implements StorageService {
       _rtdb.ref('users/$userId/data/$chunk');
 
   @override
+  Future<Map<String, dynamic>?> getUserSnapshot(String userId) async {
+    if (userId.isEmpty) throw ArgumentError('Missing user id');
+    final snapshot = await snapshots.current(userId);
+    if (snapshot == null) return null;
+    return {...snapshot, 'state': _parseRtdbData(snapshot['data'] as Map)};
+  }
+
+  @override
   Future<Map<String, dynamic>?> getUserData(String userId) async {
-    if (userId.isEmpty) return null;
-
-    try {
-      final baseRef = _rtdb.ref('users/$userId/data');
-
-      // Fetch lightweight chunks concurrently first
-      final lightSnaps = await Future.wait([
-        baseRef.child(_docSettings).get().timeout(_rtdbTimeout),
-        baseRef.child(_docFinance).get().timeout(_rtdbTimeout),
-        baseRef.child(_docHealth).get().timeout(_rtdbTimeout),
-        baseRef.child(_docTrading).get().timeout(_rtdbTimeout),
-        baseRef.child(_docLauncher).get().timeout(_rtdbTimeout),
-      ]);
-
-      Map<dynamic, dynamic> rawData = {};
-
-      if (lightSnaps[0].exists) rawData[_docSettings] = await _readChunk(userId, _docSettings, lightSnaps[0].value);
-      if (lightSnaps[1].exists) rawData[_docFinance] = await _readChunk(userId, _docFinance, lightSnaps[1].value);
-      if (lightSnaps[2].exists) rawData[_docHealth] = await _readChunk(userId, _docHealth, lightSnaps[2].value);
-      if (lightSnaps[3].exists) rawData[_docTrading] = await _readChunk(userId, _docTrading, lightSnaps[3].value);
-      if (lightSnaps[4].exists) rawData[_docLauncher] = await _readChunk(userId, _docLauncher, lightSnaps[4].value);
-
-      // Fetch heavy chunks sequentially so their large JSON payloads don't peak heap simultaneously
-      final tasksSnap = await baseRef.child(_docTasks).get().timeout(_rtdbTimeout);
-      if (tasksSnap.exists) rawData[_docTasks] = await _readChunk(userId, _docTasks, tasksSnap.value);
-
-      final historySnap = await baseRef.child('history').get().timeout(_rtdbTimeout);
-      if (historySnap.exists) rawData['history'] = historySnap.value;
-
-      final reflectionsSnap = await baseRef.child('reflections').get().timeout(_rtdbTimeout);
-      if (reflectionsSnap.exists) rawData['reflections'] = reflectionsSnap.value;
-
-      if (rawData.isNotEmpty) {
-        return _parseRtdbData(rawData);
-      } else {
-        return null;
-      }
-    } catch (e, stack) {
-      debugPrint('[StorageService.getUserData] $e\n$stack');
-      return null;
-    }
+    if (userId.isEmpty) throw ArgumentError('Missing user id');
+    final snapshot = await getUserSnapshot(userId);
+    return snapshot?['state'] as Map<String, dynamic>?;
   }
 
   @override
   Future<int> getLastModified(String userId) async {
-    if (userId.isEmpty) return 0;
-    try {
-      final snap = await _rtdb.ref('users/$userId/lastModified').get().timeout(_rtdbTimeout);
-      return (snap.value as num?)?.toInt() ?? 0;
-    } catch (e, stack) {
-      debugPrint('[StorageService.getLastModified] $e\n$stack');
-      return 0;
-    }
+    if (userId.isEmpty) throw ArgumentError('Missing user id');
+    final head = await snapshots.read('users/$userId/head');
+    final legacy = (await snapshots.read('users/$userId/lastModified') as num?)?.toInt() ?? 0;
+    final current = head is Map ? (head['lastModified'] as num?)?.toInt() ?? 0 : 0;
+    return current > legacy ? current : legacy;
   }
 
   @override
@@ -385,11 +409,7 @@ class _FlutterFireStorageService implements StorageService {
     final partsRef = _rtdb.ref('users/$userId/chunks/$chunk');
     try {
       final parts = _splitJsonParts(jsonEncode(data));
-      int? oldVer;
-      try {
-        final v = await _rtdbRef(userId, chunk).child('ver').get().timeout(_rtdbTimeout);
-        oldVer = (v.value as num?)?.toInt();
-      } catch (_) {}
+
       for (var i = 0; i < parts.length; i++) {
         await _withRetry(() => partsRef.child('$ver/${_partKey(i)}').set(parts[i]).timeout(_rtdbTimeout));
         await Future.delayed(_partPause);
@@ -402,17 +422,11 @@ class _FlutterFireStorageService implements StorageService {
       // Only now flip the pointer, so a half-finished upload never replaces good data.
       await _withRetry(() => _rtdbRef(userId, chunk)
           .set({'_chunked': true, 'ver': ver, 'n': parts.length}).timeout(_rtdbTimeout));
-      if (oldVer != null && oldVer != ver) {
-        try {
-          await partsRef.child('$oldVer').remove().timeout(_rtdbTimeout);
-        } catch (_) {}
-      }
+
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService._saveChunkToRTDB:$chunk] $e\n$stack');
-      try {
-        await partsRef.child('$ver').remove().timeout(_rtdbTimeout);
-      } catch (_) {}
+
       return false;
     }
   }
@@ -513,24 +527,37 @@ class _FlutterFireStorageService implements StorageService {
   Future<bool> deleteUserData(String userId) async {
     if (userId.isEmpty) return false;
     try {
-      await _rtdb.ref('users/$userId').remove();
-
-      final batch = _firestore.batch();
-      batch.delete(_firestore
-          .collection(_userCollection)
-          .doc(userId)
-          .collection(_userSubcollectionDocId)
-          .doc(_gameStateDocId));
-      batch.delete(_firestore
-          .collection(_userCollection)
-          .doc(userId)
-          .collection(_userSubcollectionDocId)
-          .doc('base_state'));
-      await batch.commit();
-
+      final stamp = DateTime.now().millisecondsSinceEpoch;
+      final root = 'users/$userId';
+      final reports = <String, dynamic>{};
+      final removals = <Future<void> Function()>[];
+      for (final kind in ['daily', 'weekly', 'monthly', 'data']) {
+        final collection = _firestore.collection(_userCollection).doc(userId).collection(kind);
+        final docs = await collection.get();
+        reports[kind] = {for (final doc in docs.docs) doc.id: doc.data()};
+        for (final doc in docs.docs) { removals.add(() => doc.reference.delete()); }
+      }
+      final archive = {
+        'data': await snapshots.read('$root/data'),
+        'head': await snapshots.read('$root/head'),
+        'firestore': jsonEncode(reports, toEncodable: (value) {
+          if (value is Timestamp) return {'_firestoreTimestamp': {'seconds': value.seconds, 'nanoseconds': value.nanoseconds}};
+          if (value is DateTime) return {'_dateTime': value.toUtc().toIso8601String()};
+          if (value is GeoPoint) return {'_geoPoint': {'latitude': value.latitude, 'longitude': value.longitude}};
+          if (value is DocumentReference) return {'_documentReference': value.path};
+          throw StateError('Unsupported Firestore recovery value: ${value.runtimeType}');
+        }),
+        'expiresAt': stamp + const Duration(days: 30).inMilliseconds,
+      };
+      await snapshots.write('$root/trash/$stamp', archive);
+      final verified = await snapshots.read('$root/trash/$stamp');
+      // Verify every recovery field before deleting either database's live data.
+      if (!cloudRecoveryMatches(archive, verified)) throw StateError('Purge backup verification failed');
+      for (final remove in removals) { await remove(); }
+      await _rtdb.ref('users/$userId').update({'head': null, 'data': null, 'manifest': null, 'lastModified': null, 'purgedAt': stamp}).timeout(_rtdbTimeout);
       return true;
     } catch (e, stack) {
-      debugPrint('[StorageService.deleteUserData] $e\n$stack');
+      debugPrint('[StorageService.softDeleteUserData] $e\n$stack');
       return false;
     }
   }
@@ -566,6 +593,8 @@ class _FlutterFireStorageService implements StorageService {
           .collection(_userCollection)
           .doc(userId)
           .collection('daily')
+          .orderBy(FieldPath.documentId, descending: true)
+          .limit(days)
           .get();
 
       final docs = snap.docs.toList()
@@ -611,6 +640,7 @@ class _FlutterFireStorageService implements StorageService {
           .doc(userId)
           .collection('weekly')
           .orderBy('updatedAt', descending: true)
+          .limit(60)
           .get();
 
       return snap.docs.map((doc) {
@@ -655,6 +685,7 @@ class _FlutterFireStorageService implements StorageService {
           .doc(userId)
           .collection('monthly')
           .orderBy('updatedAt', descending: true)
+          .limit(60)
           .get();
 
       return snap.docs.map((doc) {
@@ -677,6 +708,50 @@ class _FlutterFireStorageService implements StorageService {
 // deletes. Server-timestamp writes use a client-side timestamp instead.
 // ─────────────────────────────────────────────────────────────────────────
 class _LinuxStorageService implements StorageService {
+  @override
+  Future<void> saveOffsiteSnapshot(String userId, Uint8List bytes, String period) async {
+    final ref = fd.FirebaseStorage.instance.ref('backups/$userId/$period.json.gz');
+    await ref.putData(bytes, fd.SettableMetadata(contentType: 'application/gzip')).timeout(const Duration(minutes: 2));
+    final restored = await ref.getData(bytes.length + 1).timeout(const Duration(seconds: 60));
+    if (!listEquals(restored, bytes)) throw StateError('Offsite snapshot verification failed');
+  }
+
+  @override
+  late final CloudSnapshotStore snapshots = CloudSnapshotStore(
+    read: (path) async => (await _rtdb.reference().child(path).once().timeout(_rtdbTimeout)).value,
+    write: (path, value) => _withRetry(() => _rtdb.reference().child(path).set(value).timeout(_rtdbTimeout)),
+    listKeys: _cloudKeys,
+    removeOldParts: (path, cutoff) async {
+      await _rtdb.reference().child(path).runTransaction((mutable) {
+        final current = mutable.value;
+        if (current is! Map || (current['_uploadedAt'] as num? ?? double.infinity) >= cutoff) return null;
+        mutable.value = null;
+        return mutable;
+      }, timeout: const Duration(seconds: 30));
+    },
+    commit: (path, expected, head) async { final result = await _rtdb.reference().child(path).runTransaction((mutable) {
+        final current = mutable.value;
+        if ((current is Map ? current['version']?.toString() : null) != expected) return null;
+        mutable.value = head;
+        return mutable;
+      }, timeout: const Duration(seconds: 30));
+      if (result.error != null) throw result.error!;
+      return result.committed; },
+  );
+
+  @override
+  Future<Map<String, dynamic>> saveSnapshot(String userId, Map<String, dynamic> collections, {required int baseline, String? baselineVersion, required String deviceId, bool allowShrink = false}) => snapshots.save(userId, collections, baseline: baseline, baselineVersion: baselineVersion, deviceId: deviceId, allowShrink: allowShrink);
+
+  @override
+  Future<List<Map<String, dynamic>>> getCloudVersions(String userId) => snapshots.versions(userId);
+
+  @override
+  Future<Map<String, dynamic>> getCloudVersion(String userId, String version) async {
+    final available = await getCloudVersions(userId);
+    final snapshot = available.firstWhere((v) => v['version'] == version);
+    return _parseRtdbData(await snapshots.resolveData(userId, snapshot['data'] as Map));
+  }
+
   fd.FirebaseDatabase get _rtdb => fd.FirebaseDatabase(app: fd.Firebase.app());
   firedart.Firestore get _firestore => firedart.Firestore.instance;
 
@@ -686,58 +761,27 @@ class _LinuxStorageService implements StorageService {
       _rtdb.reference().child('users/$userId/data/$chunk');
 
   @override
+  Future<Map<String, dynamic>?> getUserSnapshot(String userId) async {
+    if (userId.isEmpty) throw ArgumentError('Missing user id');
+    final snapshot = await snapshots.current(userId);
+    if (snapshot == null) return null;
+    return {...snapshot, 'state': _parseRtdbData(snapshot['data'] as Map)};
+  }
+
+  @override
   Future<Map<String, dynamic>?> getUserData(String userId) async {
-    if (userId.isEmpty) return null;
-    try {
-      final baseRef = _rtdb.reference().child('users/$userId/data');
-
-      // Fetch lightweight chunks concurrently first
-      final lightSnaps = await Future.wait([
-        baseRef.child(_docSettings).once().timeout(_rtdbTimeout),
-        baseRef.child(_docFinance).once().timeout(_rtdbTimeout),
-        baseRef.child(_docHealth).once().timeout(_rtdbTimeout),
-        baseRef.child(_docTrading).once().timeout(_rtdbTimeout),
-        baseRef.child(_docLauncher).once().timeout(_rtdbTimeout),
-      ]);
-
-      Map<dynamic, dynamic> rawData = {};
-      if (lightSnaps[0].value != null) rawData[_docSettings] = await _readChunk(userId, _docSettings, lightSnaps[0].value);
-      if (lightSnaps[1].value != null) rawData[_docFinance] = await _readChunk(userId, _docFinance, lightSnaps[1].value);
-      if (lightSnaps[2].value != null) rawData[_docHealth] = await _readChunk(userId, _docHealth, lightSnaps[2].value);
-      if (lightSnaps[3].value != null) rawData[_docTrading] = await _readChunk(userId, _docTrading, lightSnaps[3].value);
-      if (lightSnaps[4].value != null) rawData[_docLauncher] = await _readChunk(userId, _docLauncher, lightSnaps[4].value);
-
-      // Fetch heavy chunks sequentially
-      final tasksSnap = await baseRef.child(_docTasks).once().timeout(_rtdbTimeout);
-      if (tasksSnap.value != null) rawData[_docTasks] = await _readChunk(userId, _docTasks, tasksSnap.value);
-
-      final historySnap = await baseRef.child('history').once().timeout(_rtdbTimeout);
-      if (historySnap.value != null) rawData['history'] = historySnap.value;
-
-      final reflectionsSnap = await baseRef.child('reflections').once().timeout(_rtdbTimeout);
-      if (reflectionsSnap.value != null) {
-        rawData['reflections'] = reflectionsSnap.value;
-      }
-
-      if (rawData.isNotEmpty) return _parseRtdbData(rawData);
-      return null;
-    } catch (e, stack) {
-      debugPrint('[StorageService.getUserData/linux] $e\n$stack');
-      return null;
-    }
+    if (userId.isEmpty) throw ArgumentError('Missing user id');
+    final snapshot = await getUserSnapshot(userId);
+    return snapshot?['state'] as Map<String, dynamic>?;
   }
 
   @override
   Future<int> getLastModified(String userId) async {
-    if (userId.isEmpty) return 0;
-    try {
-      final snap =
-          await _rtdb.reference().child('users/$userId/lastModified').once().timeout(_rtdbTimeout);
-      return (snap.value as num?)?.toInt() ?? 0;
-    } catch (e, stack) {
-      debugPrint('[StorageService.getLastModified/linux] $e\n$stack');
-      return 0;
-    }
+    if (userId.isEmpty) throw ArgumentError('Missing user id');
+    final head = await snapshots.read('users/$userId/head');
+    final legacy = (await snapshots.read('users/$userId/lastModified') as num?)?.toInt() ?? 0;
+    final current = head is Map ? (head['lastModified'] as num?)?.toInt() ?? 0 : 0;
+    return current > legacy ? current : legacy;
   }
 
   @override
@@ -806,11 +850,7 @@ class _LinuxStorageService implements StorageService {
     final partsRef = _rtdb.reference().child('users/$userId/chunks/$chunk');
     try {
       final parts = _splitJsonParts(jsonEncode(data));
-      int? oldVer;
-      try {
-        final v = await _rtdbRef(userId, chunk).child('ver').once().timeout(_rtdbTimeout);
-        oldVer = (v.value as num?)?.toInt();
-      } catch (_) {}
+
       for (var i = 0; i < parts.length; i++) {
         await _withRetry(() => partsRef.child('$ver/${_partKey(i)}').set(parts[i]).timeout(_rtdbTimeout));
         await Future.delayed(_partPause);
@@ -823,17 +863,11 @@ class _LinuxStorageService implements StorageService {
       // Only now flip the pointer, so a half-finished upload never replaces good data.
       await _withRetry(() => _rtdbRef(userId, chunk)
           .set({'_chunked': true, 'ver': ver, 'n': parts.length}).timeout(_rtdbTimeout));
-      if (oldVer != null && oldVer != ver) {
-        try {
-          await partsRef.child('$oldVer').remove().timeout(_rtdbTimeout);
-        } catch (_) {}
-      }
+
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService._saveChunkToRTDB:$chunk/linux] $e\n$stack');
-      try {
-        await partsRef.child('$ver').remove().timeout(_rtdbTimeout);
-      } catch (_) {}
+
       return false;
     }
   }
@@ -946,25 +980,38 @@ class _LinuxStorageService implements StorageService {
   Future<bool> deleteUserData(String userId) async {
     if (userId.isEmpty) return false;
     try {
-      await _rtdb.reference().child('users/$userId').remove();
-
-      // firedart has no batch writes; delete sequentially.
-      try {
-        await _firestore
-            .collection('$_userCollection/$userId/$_userSubcollectionDocId')
-            .document(_gameStateDocId)
-            .delete();
-      } catch (_) {}
-      try {
-        await _firestore
-            .collection('$_userCollection/$userId/$_userSubcollectionDocId')
-            .document('base_state')
-            .delete();
-      } catch (_) {}
-
+      final stamp = DateTime.now().millisecondsSinceEpoch;
+      final root = 'users/$userId';
+      final reports = <String, dynamic>{};
+      final removals = <Future<void> Function()>[];
+      for (final kind in ['daily', 'weekly', 'monthly', 'data']) {
+        final collection = _firestore.collection('$_userCollection/$userId/$kind');
+        final docs = await collection.get();
+        final entries = docs.toList();
+        reports[kind] = {for (final doc in entries) doc.id: doc.map};
+        for (final doc in entries) { removals.add(() => collection.document(doc.id).delete()); }
+      }
+      final archive = {
+        'data': await snapshots.read('$root/data'),
+        'head': await snapshots.read('$root/head'),
+        'firestore': jsonEncode(reports, toEncodable: (value) {
+          if (value is Timestamp) return {'_firestoreTimestamp': {'seconds': value.seconds, 'nanoseconds': value.nanoseconds}};
+          if (value is DateTime) return {'_dateTime': value.toUtc().toIso8601String()};
+          if (value is GeoPoint) return {'_geoPoint': {'latitude': value.latitude, 'longitude': value.longitude}};
+          if (value is DocumentReference) return {'_documentReference': value.path};
+          throw StateError('Unsupported Firestore recovery value: ${value.runtimeType}');
+        }),
+        'expiresAt': stamp + const Duration(days: 30).inMilliseconds,
+      };
+      await snapshots.write('$root/trash/$stamp', archive);
+      final verified = await snapshots.read('$root/trash/$stamp');
+      // Verify every recovery field before deleting either database's live data.
+      if (!cloudRecoveryMatches(archive, verified)) throw StateError('Purge backup verification failed');
+      for (final remove in removals) { await remove(); }
+      await _rtdb.reference().child('users/$userId').update({'head': null, 'data': null, 'manifest': null, 'lastModified': null, 'purgedAt': stamp}).timeout(_rtdbTimeout);
       return true;
     } catch (e, stack) {
-      debugPrint('[StorageService.deleteUserData/linux] $e\n$stack');
+      debugPrint('[StorageService.softDeleteUserData] $e\n$stack');
       return false;
     }
   }
@@ -978,17 +1025,7 @@ class _LinuxStorageService implements StorageService {
           .collection('$_userCollection/$userId/daily')
           .document(date);
 
-      // Manual merge: read existing, overlay, write back.
-      Map<String, dynamic> existing = {};
-      try {
-        final snap = await docRef.get();
-        existing = Map<String, dynamic>.from(snap.map);
-      } catch (_) {}
-
-      existing[type] = data;
-      existing['updatedAt'] = DateTime.now().toUtc().toIso8601String();
-
-      await docRef.set(existing);
+      await docRef.update({type: data, 'updatedAt': DateTime.now().toUtc().toIso8601String()});
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService.saveDailyData/linux] $e\n$stack');
@@ -1001,10 +1038,11 @@ class _LinuxStorageService implements StorageService {
       String userId, int days) async {
     if (userId.isEmpty) return {};
     try {
-      // firedart's Query doesn't expose FieldPath.documentId ordering; fetch
-      // everything and sort by document id (date string) in Dart.
+      // Firestore's __name__ field orders document ids before applying the limit.
       final docs = await _firestore
           .collection('$_userCollection/$userId/daily')
+          .orderBy('__name__', descending: true)
+          .limit(days)
           .get();
 
       final entries = docs.toList()
@@ -1030,16 +1068,7 @@ class _LinuxStorageService implements StorageService {
           .collection('$_userCollection/$userId/weekly')
           .document(date);
 
-      Map<String, dynamic> existing = {};
-      try {
-        final snap = await docRef.get();
-        existing = Map<String, dynamic>.from(snap.map);
-      } catch (_) {}
-
-      existing['report'] = data;
-      existing['updatedAt'] = DateTime.now().toUtc().toIso8601String();
-
-      await docRef.set(existing);
+      await docRef.update({'report': data, 'updatedAt': DateTime.now().toUtc().toIso8601String()});
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService.saveWeeklyReport/linux] $e\n$stack');
@@ -1053,6 +1082,8 @@ class _LinuxStorageService implements StorageService {
     try {
       final docs = await _firestore
           .collection('$_userCollection/$userId/weekly')
+          .orderBy('__name__', descending: true)
+          .limit(60)
           .get();
 
       final entries = docs.toList()
@@ -1083,16 +1114,7 @@ class _LinuxStorageService implements StorageService {
           .collection('$_userCollection/$userId/monthly')
           .document(date);
 
-      Map<String, dynamic> existing = {};
-      try {
-        final snap = await docRef.get();
-        existing = Map<String, dynamic>.from(snap.map);
-      } catch (_) {}
-
-      existing['report'] = data;
-      existing['updatedAt'] = DateTime.now().toUtc().toIso8601String();
-
-      await docRef.set(existing);
+      await docRef.update({'report': data, 'updatedAt': DateTime.now().toUtc().toIso8601String()});
       return true;
     } catch (e, stack) {
       debugPrint('[StorageService.saveMonthlyReport/linux] $e\n$stack');
@@ -1106,6 +1128,8 @@ class _LinuxStorageService implements StorageService {
     try {
       final docs = await _firestore
           .collection('$_userCollection/$userId/monthly')
+          .orderBy('__name__', descending: true)
+          .limit(60)
           .get();
 
       final entries = docs.toList()

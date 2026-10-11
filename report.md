@@ -426,3 +426,11 @@ The whole state plus 7 daily backups go into localStorage (`local_storage_servic
 ---
 
 *Method: I read the storage, sync, load, merge, restore, backup, ledger, updater and release code directly (`storage_service`, `local_storage_service`, `state_database`, `sync_mixin`, `user_mixin`, `task_mixin`, `finance_mixin`, `app_provider`, `app_action_ledger_service`, `update_service`, the data recovery, DB editor and settings screens, `push.md`, `.gitignore`, and the Android crash guard). I did not run anything: there is no Flutter SDK on this machine, and I made no network calls against the live database. C4 follows from how both sqflite and sqlite3 encode strings to UTF-8, and C7 depends on the live rules. Confirm both with the test or the curl check listed above.*
+
+---
+
+## 11. Implementation follow-up (2026-10-11)
+
+The working-tree fixes, verification results, and remaining operational limits are recorded in [docs/data-hazard-implementation.md](docs/data-hazard-implementation.md). The original findings above describe the audited version, not the updated implementation.
+
+The live anonymous shallow root check confirmed C7: HTTP 200 with 28 root nodes. Firebase project access is unavailable to the configured CLI account, so production rule deployment is still blocked. Do not consider the server-side exposure resolved merely because rule files now exist in this repository.

@@ -54,7 +54,7 @@ class ChatbotMessage {
       text: json['text'] as String,
       sender: MessageSender.values
           .firstWhere((e) => e.toString() == json['sender'] as String),
-      timestamp: DateTime.parse(json['timestamp'] as String),
+      timestamp: (DateTime.tryParse(json['timestamp']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0)),
       uiPayload: json['uiPayload'] != null
           ? DynamicUiPayload.fromJson(json['uiPayload'] as Map<String, dynamic>)
           : null,
@@ -80,9 +80,9 @@ class NoraSession {
   DateTime endDate;
   List<ChatbotMessage> messages;
   final DateTime createdAt;
-  String? customContext; 
+  String? customContext;
   String? personaId;
-  
+
   // Advanced Controls
   int messageLimit;
   String? modelOverride;
@@ -111,14 +111,14 @@ class NoraSession {
       id: json['id'] as String,
       title: json['title'] as String? ?? 'Session',
       tone: json['tone'] as String? ?? 'Assistant',
-      startDate: DateTime.parse(json['startDate'] as String),
-      endDate: DateTime.parse(json['endDate'] as String),
+      startDate: (DateTime.tryParse(json['startDate']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0)),
+      endDate: (DateTime.tryParse(json['endDate']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0)),
       messages: (json['messages'] as List<dynamic>?)
               ?.map((msgJson) => ChatbotMessage.fromJson(msgJson as Map<String, dynamic>))
               .toList() ??
           [],
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
+          ? (DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
           : DateTime.now(),
       customContext: json['customContext'] as String?,
       personaId: json['personaId'] as String?,
@@ -220,16 +220,16 @@ class PersonInfo {
       name: json['name'] as String? ?? 'Unknown',
       relation: json['relation'] as String? ?? 'Acquaintance',
       details: json['details'] as String?,
-      lastUpdated: json['lastUpdated'] != null 
-          ? DateTime.parse(json['lastUpdated'] as String) 
+      lastUpdated: json['lastUpdated'] != null
+          ? (DateTime.tryParse(json['lastUpdated']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
           : null,
       scanRangeStart: json['scanRangeStart'] != null
-          ? DateTime.parse(json['scanRangeStart'] as String)
+          ? (DateTime.tryParse(json['scanRangeStart']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
           : null,
       scanRangeEnd: json['scanRangeEnd'] != null
-          ? DateTime.parse(json['scanRangeEnd'] as String)
+          ? (DateTime.tryParse(json['scanRangeEnd']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
           : null,
-      manualAge: json['manualAge'] as int?,
+      manualAge: (json['manualAge'] as num?)?.toInt(),
       manualGender: json['manualGender'] as String?,
       manualNotes: json['manualNotes'] as String?,
       manualNextMeetPlan: json['manualNextMeetPlan'] as String?,
@@ -556,8 +556,8 @@ class ChatbotMemory {
   String? activeNoraSessionId;
 
   List<PersonInfo> people;
-  
-  List<GratitudeItem> gratitudeList; 
+
+  List<GratitudeItem> gratitudeList;
   List<NoraAgentSkill> noraAgentSkills;
   List<NoraPersona> customPersonas;
 

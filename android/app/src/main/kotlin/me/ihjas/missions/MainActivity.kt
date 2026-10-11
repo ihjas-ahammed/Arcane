@@ -100,14 +100,14 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         /**
          * Deliver an energy reply from notification or wearable to Flutter isolate.
          */
-        fun dispatchEnergyReply(reply: String, notificationId: Int): Boolean {
+        fun dispatchEnergyReply(reply: String, notificationId: Int, pendingLogId: String? = null): Boolean {
             val ch = channel
             if (!engineAlive || ch == null) return false
             Handler(Looper.getMainLooper()).post {
                 try {
                     ch.invokeMethod(
                         "energyReply",
-                        mapOf("reply" to reply, "notificationId" to notificationId)
+                        mapOf("reply" to reply, "notificationId" to notificationId, "pendingLogId" to pendingLogId)
                     )
                 } catch (_: Exception) {
                 }

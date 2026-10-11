@@ -39,6 +39,7 @@ class PaperTradingProvider extends ChangeNotifier {
   VoidCallback? onStateChanged;
 
   int _lastModified = 0;
+  int _accountGeneration = 0;
   int get lastModified => _lastModified;
 
   double _cashBalance = defaultStartingBalance;
@@ -152,6 +153,18 @@ class PaperTradingProvider extends ChangeNotifier {
     _usdtToInrRate = newRate.clamp(1.0, 1000.0);
     await _saveToStorage();
     notifyListeners();
+  }
+
+  void resetAccountState() {
+    _accountGeneration++;
+    _cashBalance = defaultStartingBalance;
+    _usdtToInrRate = defaultInrRate;
+    _lastModified = 0;
+    _holdings.clear(); _orders.clear(); _lossAlertsTriggered.clear();
+    _tradeRecords.clear(); _equitySnapshots.clear();
+    _riskSettings = const TradingRiskSettings();
+    _equityPeakINR = defaultStartingBalance;
+    _searchQuery = '';
   }
 
   Future<void> resetPortfolio([double balance = defaultStartingBalance]) async {
@@ -1275,8 +1288,10 @@ class PaperTradingProvider extends ChangeNotifier {
   }
 
   Future<void> _loadFromStorage() async {
+    final generation = _accountGeneration;
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (_accountGeneration != generation) return;
       final raw = prefs.getString(_prefKey);
       if (raw == null || raw.isEmpty) return;
 

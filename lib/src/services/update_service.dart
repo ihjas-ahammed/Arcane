@@ -1,4 +1,8 @@
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'package:missions/src/services/release_signature.dart';
+import 'package:missions/src/services/local_storage_service.dart';
+import 'package:missions/src/services/state_database.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +14,32 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
 class UpdateService {
+  Future<void> Function()? beforeInstall;
+  final Map<String, String> _verifiedFiles = {};
+
+  Future<void> verifyPackage(File file, UpdateModel update) async {
+    final url = await resolveDownloadUrl(update);
+    final expected = update.packageHashes[url];
+    if (expected == null || !RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(expected)) {
+      throw StateError('This release has no valid SHA-256 checksum. Installation is blocked.');
+    }
+    final signature = update.packageSignatures[url];
+    if (signature == null || !await verifyReleaseSignature(update.versionCode, expected.toLowerCase(), url, signature)) throw StateError('Update signature is missing or invalid. Installation is blocked.');
+    final actual = (await sha256.bind(file.openRead()).first).toString();
+    if (actual != expected.toLowerCase()) throw StateError('Update checksum mismatch. Download the package again.');
+    _verifiedFiles[file.path] = actual;
+  }
+
+  Future<void> _prepareInstall(String path) async {
+    final expected = _verifiedFiles[path];
+    if (expected == null || (await sha256.bind(File(path).openRead()).first).toString() != expected) {
+      throw StateError('The update must be verified before installation.');
+    }
+    if (beforeInstall == null) throw StateError('Save flushing is not configured.');
+    await beforeInstall!();
+    await LocalStorageService.flushPendingSaves();
+  }
+
   static const MethodChannel _native = MethodChannel('arcane/update');
 
   /// Instantaneous zero-cache Firebase Realtime Database update metadata endpoint
@@ -533,6 +563,7 @@ class UpdateService {
       if (await file.exists()) {
         final length = await file.length();
         if (length > 1024 * 1024) {
+          await verifyPackage(file, update);
           return file;
         } else {
           // Corrupt or truncated file, remove it
@@ -655,6 +686,8 @@ class UpdateService {
         throw Exception('Downloaded package is corrupt or too small (< 1MB)');
       }
 
+      await verifyPackage(tempFile, update);
+
       if (Platform.isAndroid) {
         // Android rejects an APK that isn't newer than the installed app, so verify first.
         final archiveCode = await apkVersionCode(tempFile.path);
@@ -674,6 +707,7 @@ class UpdateService {
         } catch (_) {}
       }
       await tempFile.rename(targetFile.path);
+      _verifiedFiles[targetFile.path] = _verifiedFiles.remove(tempFile.path)!;
 
       // Clean all older cached packages from previous versions
       await clearOldPackages(filename);
@@ -717,6 +751,7 @@ class UpdateService {
         return 'The downloaded update archive is missing. Tap download again.';
       }
 
+      await _prepareInstall(filePath);
       final execPath = Platform.resolvedExecutable;
       final execFile = File(execPath);
       final appDir = execFile.parent;
@@ -764,13 +799,15 @@ TARGET_DIR="\$2"
 SOURCE_DIR="\$3"
 EXE_PATH="\$4"
 
-# Wait for old instance to terminate
-for i in {1..50}; do
+set -euo pipefail
+# Abort instead of overwriting a process that is still running.
+for i in {1..600}; do
   if ! kill -0 "\$OLD_PID" 2>/dev/null; then
     break
   fi
   sleep 0.1
 done
+if kill -0 "\$OLD_PID" 2>/dev/null; then exit 1; fi
 
 # Copy new files over existing app bundle
 cp -rf "\$SOURCE_DIR"/* "\$TARGET_DIR"/
@@ -785,6 +822,7 @@ nohup "\$EXE_PATH" >/dev/null 2>&1 &
         await scriptFile.writeAsString(script);
         await Process.run('chmod', ['+x', scriptFile.path]);
 
+        await StateDatabase.instance.close();
         await Process.start(
           'bash',
           [scriptFile.path, currentPid.toString(), appDir.path, sourceDir.path, execPath],
@@ -809,6 +847,7 @@ rm -rf "\$SOURCE_DIR"
           return 'Permission denied updating $appDir (${res.stderr}).';
         }
 
+        await StateDatabase.instance.close();
         await Process.start(execPath, [], mode: ProcessStartMode.detached);
         exit(0);
       }
@@ -823,6 +862,7 @@ rm -rf "\$SOURCE_DIR"
     if (Platform.isLinux) {
       return installLinux(filePath);
     }
+    await _prepareInstall(filePath);
     return installApk(filePath);
   }
 

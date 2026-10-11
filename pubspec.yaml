@@ -2,7 +2,7 @@ name: missions
 description: "A Flutter version of the Task Dominion application."
 publish_to: 'none'
 
-version: 2026.10.9+2126100904
+version: 2026.10.11+2126101102
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -40,6 +40,8 @@ dependencies:
   flutter_colorpicker: ^1.1.0
   smooth_page_indicator: ^2.0.1
   uuid: ^4.5.2
+  archive: ^3.6.1
+  crypto: ^3.0.6
   http: ^1.6.0
   file_picker: ^10.3.10
   universal_html: ^2.2.4
@@ -61,6 +63,10 @@ dependencies:
   geolocator: ^14.0.2
   sqflite: ^2.4.4+1
   sqflite_common_ffi: ^2.4.3
+  idb_shim: ^2.9.11
+  firebase_storage: ^13.6.0
+  workmanager: ^0.10.10
+  cryptography: ^2.9.0
 
 dev_dependencies:
   flutter_test:

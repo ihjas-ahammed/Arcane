@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/providers/app_provider.dart';
@@ -16,6 +17,65 @@ class CloudSyncSettingsSection extends StatelessWidget {
     required this.appProvider,
     required this.theme,
   });
+
+  Future<void> _reviewConflict(BuildContext context) async {
+    if (appProvider.mergeConflicts.isEmpty) return;
+    final conflict = appProvider.mergeConflicts.first;
+    final choice = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: Text('Review ${conflict['collection']} (${appProvider.mergeConflicts.length} remaining)'),
+      content: SingleChildScrollView(child: SelectableText('This device:\n${const JsonEncoder.withIndent('  ').convert(conflict['local'])}\n\nIncoming backup:\n${const JsonEncoder.withIndent('  ').convert(conflict['incoming'])}')),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Later')),
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep this device')),
+        TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Use incoming'))],
+    ));
+    if (choice == null) return;
+    try { await appProvider.resolveMergeConflict(conflict, useIncoming: choice); }
+    catch (e) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Conflict review failed: $e'))); }
+  }
+
+  Future<void> _restoreVersion(BuildContext context) async {
+    try {
+      final versions = await appProvider.storageService.getCloudVersions(appProvider.currentUser!.uid);
+      if (!context.mounted) return;
+      final selected = await showDialog<Map<String, dynamic>>(context: context, builder: (ctx) => SimpleDialog(
+        title: const Text('Restore from date'),
+        children: versions.isEmpty ? [const Padding(padding: EdgeInsets.all(16), child: Text('No versioned backups yet.'))] : versions.map((v) => SimpleDialogOption(
+          onPressed: () => Navigator.pop(ctx, v),
+          child: Text('${DateTime.fromMillisecondsSinceEpoch((v['lastModified'] as num?)?.toInt() ?? 0).toLocal()} — ${v['lastPushedBy'] ?? 'Previous backup'}'),
+        )).toList(),
+      ));
+      if (selected == null || !context.mounted) return;
+      final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+        title: const Text('Replace with this backup?'),
+        content: const Text('A recovery snapshot of your current data will be saved first.'),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Restore'))],
+      ));
+      if (confirmed != true) return;
+      final snapshot = await appProvider.storageService.getUserSnapshot(appProvider.currentUser!.uid);
+      final state = await appProvider.storageService.getCloudVersion(appProvider.currentUser!.uid, selected['version'] as String);
+      await appProvider.replaceStateSafely(state);
+      if (snapshot != null) await appProvider.persistCloudBaseline((snapshot['lastModified'] as num).toInt(), version: snapshot['version'] as String?);
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dated backup restored on this device.')));
+    } catch (e) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Restore failed: $e'))); }
+  }
+
+  Future<void> _confirmDeletionSync(BuildContext context) async {
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Confirm cloud deletions'),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text('This upload removes a substantial part of your saved data. Earlier versions remain recoverable. Type DELETE only if you made these deletions.'),
+        TextField(controller: controller, decoration: const InputDecoration(labelText: 'Type DELETE')),
+      ]),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(ctx, controller.text == 'DELETE'), child: const Text('Confirm deletions'))],
+    ));
+    controller.dispose();
+    if (confirmed != true) return;
+    appProvider.allowConfirmedShrink = true;
+    try { await appProvider.manuallySaveToCloud(); } finally { appProvider.allowConfirmedShrink = false; }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,8 +113,8 @@ class CloudSyncSettingsSection extends StatelessWidget {
               color: AppTheme.fhBorderColor.withValues(alpha: 0.5),
             ),
             SwitchListTile.adaptive(
-              title: const Text('End-of-Day Cloud Backup'),
-              subtitle: const Text('Changes are saved on this device instantly. The cloud is updated once, when you generate your daily briefing.'),
+              title: const Text('Automatic Cloud Backup'),
+              subtitle: const Text('Local changes are saved within a moment. Changed data is backed up every six hours while the app is active and after daily briefings.'),
               value: appProvider.settings.autoSaveEnabled,
               activeTrackColor: AppTheme.fhAccentTeal,
               contentPadding: EdgeInsets.zero,
@@ -63,6 +123,11 @@ class CloudSyncSettingsSection extends StatelessWidget {
                     appProvider.settings..autoSaveEnabled = value);
               },
             ),
+            if (appProvider.mergeConflicts.isNotEmpty) TextButton(onPressed: () => _reviewConflict(context), child: Text('REVIEW ${appProvider.mergeConflicts.length} CONFLICTING EDITS')),
+            if (appProvider.offsiteBackupError != null) Text(appProvider.offsiteBackupError!, style: const TextStyle(color: Colors.orange)),
+            if (!appProvider.settings.autoSaveEnabled) const Text('Auto-backup is OFF. Manual sync is still available.', style: TextStyle(color: Colors.orange)),
+            if (appProvider.cloudSyncError != null) Text(appProvider.cloudSyncError!, style: const TextStyle(color: Colors.orange)),
+            if (appProvider.cloudSyncError?.contains('30%') == true) TextButton(onPressed: () => _confirmDeletionSync(context), child: const Text('REVIEW AND CONFIRM DELETIONS')),
             const SizedBox(height: 12),
             ElevatedButton.icon(
               icon: appProvider.isSyncing
@@ -204,6 +269,8 @@ class CloudSyncSettingsSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
+            OutlinedButton.icon(icon: const Icon(Icons.history), label: const Text('RESTORE FROM DATE'), onPressed: () => _restoreVersion(context)),
+            const SizedBox(height: 12),
             OutlinedButton.icon(
               icon: Icon(MdiIcons.backupRestore, size: 18),
               label: const Text('DATA RECOVERY & BACKUPS'),
@@ -225,7 +292,7 @@ class CloudSyncSettingsSection extends StatelessWidget {
               child: Text(
                 lastSavedString,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: AppTheme.fhTextSecondary.withValues(alpha: 0.8),
+                  color: appProvider.lastSuccessfulSaveTimestamp == null ? Colors.orange : DateTime.now().difference(appProvider.lastSuccessfulSaveTimestamp!).inHours >= 72 ? Colors.red : DateTime.now().difference(appProvider.lastSuccessfulSaveTimestamp!).inHours >= 24 ? Colors.orange : AppTheme.fhTextSecondary.withValues(alpha: 0.8),
                   fontSize: 11,
                   fontStyle: FontStyle.italic,
                 ),

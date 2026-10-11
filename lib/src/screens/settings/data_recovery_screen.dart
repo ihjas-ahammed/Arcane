@@ -1,8 +1,8 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:missions/src/services/app_storage_paths.dart';
+import 'package:missions/src/services/local_storage_service.dart';
 import 'package:provider/provider.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:intl/intl.dart';
@@ -38,7 +38,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     setState(() => _isLoading = true);
     try {
       if (!kIsWeb) {
-        final docsDir = await getApplicationDocumentsDirectory();
+        final docsDir = await AppStoragePaths.directory();
         final backupDir = Directory('${docsDir.path}/backups');
         if (await backupDir.exists()) {
           final files = backupDir.listSync().whereType<File>().toList();
@@ -58,17 +58,8 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
   Future<void> _createLocalBackup() async {
     final provider = context.read<AppProvider>();
     try {
-      final docsDir = await getApplicationDocumentsDirectory();
-      final backupDir = Directory('${docsDir.path}/backups');
-      if (!await backupDir.exists()) await backupDir.create(recursive: true);
+      await LocalStorageService().writeSnapshot(provider.currentUser!.uid, provider.getAppStateAsMap(), 'manual_backup');
 
-      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-      final file = File('${backupDir.path}/manual_backup_$timestamp.json');
-
-      final data = provider.getAppStateAsMap();
-      
-      await file.writeAsString(jsonEncode(data));
-      
       _loadBackups();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Local backup created successfully.")));
     } catch (e) {
@@ -364,7 +355,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                 await reportProgress(0, "Reading & normalizing imported JSON");
                 final norm = AppProvider.normalizeImportedData(importedData);
                 await reportProgress(2, "Replacing full database state");
-                provider.loadAppStateFromMap(norm);
+                await provider.replaceStateSafely(norm);
                 await reportProgress(4, "Writing atomic disk cache");
                 await provider.forceLocalBackup();
               },
@@ -479,7 +470,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                       ],
                     ),
                   ),
-                  
+
                   JwePanel(
                     title: "LOCAL DEVICE CACHE",
                     accentColor: JweTheme.textWhite,

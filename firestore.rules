@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+    // Shared provider credentials remain available only to the administrator.
+    // Clients use their own Settings keys; server proxies may use Admin SDK credentials.
+    match /secrets/{document=**} { allow read, write: if false; }
+  }
+}

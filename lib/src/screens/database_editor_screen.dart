@@ -36,9 +36,8 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
       return;
     }
     try {
-      provider.loadAppStateFromMap(_localData);
-      provider.manuallySaveToCloud();
-      if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Database synced.")));
+      await provider.replaceStateSafely(_localData);
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Changes saved locally. Use Cloud Sync to upload after review.")));
     } catch (e) {
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
@@ -105,7 +104,7 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      "firestore", 
+                      "firestore",
                       style:   TextStyle(
                         fontFamily: AppTheme.fontDisplay,
                         fontSize: 24,

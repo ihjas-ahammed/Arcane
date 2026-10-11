@@ -75,7 +75,7 @@ class GoalPlace {
     return GoalPlace(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
-      colorValue: json['colorValue'] as int? ?? 0xFF10B981,
+      colorValue: (json['colorValue'] as num?)?.toInt() ?? 0xFF10B981,
       iconName: json['iconName'] as String?,
     );
   }

@@ -51,6 +51,25 @@ class LocalDataErrorScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _startFresh(BuildContext context) async {
+    final provider = context.read<AppProvider>();
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Start fresh?'),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text('Existing cloud backups will remain recoverable. Type DELETE to replace your active data.'),
+        TextField(controller: controller, decoration: const InputDecoration(labelText: 'Type DELETE')),
+      ]),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(ctx, controller.text == 'DELETE'), child: const Text('Start fresh'))],
+    ));
+    final text = controller.text;
+    controller.dispose();
+    if (confirmed != true) return;
+    try { await provider.startFreshAfterCloudConfirmation(text); }
+    catch (e) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'))); }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.read<AppProvider>();
@@ -63,12 +82,12 @@ class LocalDataErrorScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                "LOCAL DATA COULD NOT BE LOADED",
+                provider.cloudAttachRequired ? "CLOUD DATA FOUND" : "DATA RECOVERY REQUIRED",
                 style: TextStyle(color: JweTheme.accentRed, fontWeight: FontWeight.bold, letterSpacing: 1.2),
               ),
               const SizedBox(height: 8),
               Text(
-                "Nothing was changed or uploaded. The app will not load older copies or the cloud in its place.",
+                "Your saved records are preserved. Choose a recovery action before continuing.",
                 style: TextStyle(color: JweTheme.textMuted, fontSize: 12),
               ),
               const SizedBox(height: 16),
@@ -96,6 +115,13 @@ class LocalDataErrorScreen extends StatelessWidget {
                 spacing: 10,
                 runSpacing: 10,
                 children: [
+                  if (provider.cloudAttachRequired) ...[
+                    ElevatedButton(onPressed: () async {
+                      try { await provider.restoreCloudAttachment(); }
+                      catch (e) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'))); }
+                    }, child: const Text('RESTORE / MERGE CLOUD DATA (RECOMMENDED)')),
+                    OutlinedButton(onPressed: () => _startFresh(context), child: const Text('START FRESH')),
+                  ],
                   ElevatedButton.icon(
                     icon: const Icon(Icons.copy, size: 16),
                     label: const Text("COPY ERROR"),

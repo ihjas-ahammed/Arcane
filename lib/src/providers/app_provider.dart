@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:missions/src/services/state_validator.dart';
+import 'package:missions/src/services/background_backup_service.dart';
 import 'package:flutter/material.dart';
 import 'package:missions/src/theme/wellbeing_theme.dart';
 import 'package:missions/src/services/ai_service.dart';
@@ -10,7 +12,6 @@ import 'package:missions/src/services/notification_service.dart';
 import 'package:missions/src/utils/briefing_context_helper.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
 import 'package:missions/src/utils/history_helper.dart';
-import 'package:missions/src/utils/constants.dart';
 import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/utils/goal_briefing_helper.dart';
@@ -32,10 +33,10 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
 import 'package:uuid/uuid.dart';
+import 'package:crypto/crypto.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
-import 'package:path_provider/path_provider.dart';
 import 'package:missions/src/services/app_user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -59,7 +60,7 @@ import 'package:missions/src/screens/launcher/launcher_icon.dart';
 import 'package:missions/src/screens/launcher/launcher_service.dart';
 
 class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserMixin, HealthMixin, WidgetsBindingObserver {
-  
+
   final AIService _aiService = AIService();
   final DataExportService _exportService = DataExportService();
   final StorageService _cloudStorage = StorageService();
@@ -84,8 +85,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   String? get loadingTaskName => _loadingTaskName;
   bool _isGeneratingSubquestsForTask = false;
   bool get isGeneratingSubquests => _isGeneratingSubquestsForTask;
-  
-  bool get isDataLoadingAfterLogin => false; 
+
+  bool get isDataLoadingAfterLogin => dataLoadInProgress;
 
   // Actions
   late final TaskActions _taskActions;
@@ -97,6 +98,7 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   late final JournalingActions _journalingActions;
   late final PaperTradingProvider _paperTrading;
   final UpdateService _updateService = UpdateService();
+  Future<void> _launcherLoad = Future.value();
 
   TaskActions get taskActions => _taskActions;
   AIGenerationActions get aiGenerationActions => _aiGenerationActions;
@@ -173,6 +175,12 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     LauncherService.instance.onLauncherChanged = () {
       markDirty('launcher');
       markDirty('settings');
+    };
+
+    _updateService.beforeInstall = () async {
+      if (localLoadError != null || cloudAttachRequired) throw StateError('Resolve data recovery before installing an update.');
+      await forceLocalBackup();
+      await LocalStorageService.flushPendingSaves();
     };
 
     // Real-time instant app update stream from Firebase Realtime Database
@@ -265,12 +273,12 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
         _scheduleMidnightTimer();
       }
       drainPendingEnergyLogs();
+      unawaited(maybeAutomaticCloudBackup());
     } else if (state == AppLifecycleState.paused ||
                state == AppLifecycleState.inactive ||
                state == AppLifecycleState.hidden) {
-      if (hasPendingLocalSave) {
-        forceLocalBackup();
-      }
+      unawaited(forceLocalBackup());
+      unawaited(maybeAutomaticCloudBackup());
     }
   }
 
@@ -379,20 +387,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   /// Handle an inline reply from an energy check notification or wearable auto-reply.
   /// Android 14 compliant: acknowledges inline reply immediately, parses sentiment/level,
   /// commits to health logs, consults AI, and sends response notification.
-  Future<void> handleEnergyReply(String replyText, {int? notificationId}) async {
-    final trimmed = replyText.trim();
-    if (trimmed.isEmpty) return;
-
-    final notifId = notificationId ?? 5000;
-
-    // 1. Android 14 instant visual feedback: immediately update notification inline
-    await NotificationService.instance.showEnergySyncedNotification(
-      notificationId: notifId,
-      replyText: trimmed,
-    );
-
-    // 2. Parse energy level from input text
-    final lower = trimmed.toLowerCase();
+  static int _energyReplyLevel(String reply) {
+    final lower = reply.toLowerCase();
     int level = 5;
     if (lower == 'yes' ||
         lower.contains('tired') ||
@@ -419,17 +415,34 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
       }
     }
 
-    // 3. Log to health state
-    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    addEnergyLog(
-      todayStr,
-      EnergyLog(
-        id: const Uuid().v4(),
-        level: level,
-        timestamp: DateTime.now(),
-        note: 'Wearable/Notification reply: "$trimmed"',
-      ),
+    return level;
+  }
+
+  Future<void> handleEnergyReply(String replyText, {int? notificationId, String? pendingLogId}) async {
+    final trimmed = replyText.trim();
+    if (trimmed.isEmpty) return;
+
+    final notifId = notificationId ?? 5000;
+
+    // 1. Android 14 instant visual feedback: immediately update notification inline
+    await NotificationService.instance.showEnergySyncedNotification(
+      notificationId: notifId,
+      replyText: trimmed,
     );
+
+    final level = _energyReplyLevel(trimmed);
+
+    // A native reply already has a durable id. Use its queue entry exactly once.
+    if (pendingLogId == null) {
+      final id = const Uuid().v4();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('pending_energy_log_$id', jsonEncode({
+        'id': id, 'reply': trimmed, 'level': level, 'userId': currentUser?.uid,
+        'timestamp': DateTime.now().toIso8601String(),
+      }));
+    }
+    if (currentUser == null || dataLoadInProgress || localLoadError != null || cloudAttachRequired) return;
+    await drainPendingEnergyLogs();
 
     showGlobalToast('Energy check: "$trimmed" logged');
 
@@ -480,65 +493,57 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   }
 
   /// Drains any pending energy logs saved to SharedPreferences while the app was suspended or killed.
+  bool _energyDrainRunning = false;
   Future<void> drainPendingEnergyLogs() async {
+    final user = currentUser;
+    if (_energyDrainRunning || user == null || dataLoadInProgress || localLoadError != null || cloudAttachRequired) return;
+    _energyDrainRunning = true;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final logs = prefs.getStringList('pending_energy_logs_v2') ?? [];
-      if (logs.isNotEmpty) {
-        await prefs.remove('pending_energy_logs_v2');
-        final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-        for (final raw in logs) {
-          try {
-            final map = jsonDecode(raw) as Map<String, dynamic>;
-            final level = (map['level'] as num?)?.toInt() ?? 5;
-            final reply = map['reply'] as String? ?? 'yes';
-            final ts = map['timestamp'] != null
-                ? DateTime.tryParse(map['timestamp'] as String) ?? DateTime.now()
-                : DateTime.now();
-            addEnergyLog(
-              todayStr,
-              EnergyLog(
-                id: const Uuid().v4(),
-                level: level,
-                timestamp: ts,
-                note: 'Wearable/Notification reply: "$reply"',
-              ),
-            );
-          } catch (_) {}
-        }
+      await prefs.reload();
+      if (currentUser?.uid != user.uid || dataLoadInProgress) return;
+      final entries = <String, String>{};
+      for (final key in prefs.getKeys().where((k) => k.startsWith('pending_energy_log_'))) {
+        final value = prefs.getString(key);
+        if (value != null) entries[key] = value;
       }
-
-      // Also drain native Android pending logs if any
-      final nativeLogsJson = prefs.getString('pending_energy_logs');
-      if (nativeLogsJson != null && nativeLogsJson.isNotEmpty) {
-        await prefs.remove('pending_energy_logs');
-        final array = jsonDecode(nativeLogsJson);
-        if (array is List) {
-          final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-          for (final item in array) {
-            if (item is Map) {
-              final reply = item['reply'] as String? ?? 'yes';
-              final lower = reply.toLowerCase();
-              int lvl = 5;
-              if (lower == 'yes' || lower.contains('tired')) {
-                lvl = 2;
-              } else if (lower == 'no' || lower.contains('good') || lower.contains('energetic')) {
-                lvl = 8;
-              }
-              addEnergyLog(
-                todayStr,
-                EnergyLog(
-                  id: const Uuid().v4(),
-                  level: lvl,
-                  timestamp: DateTime.now(),
-                  note: 'Wearable/Notification reply: "$reply"',
-                ),
-              );
-            }
+      final legacyDart = prefs.getStringList('pending_energy_logs_v2') ?? [];
+      final legacyNative = prefs.getString('pending_energy_logs');
+      final raw = [...entries.values, ...legacyDart];
+      if (legacyNative != null && legacyNative.isNotEmpty) {
+        final list = jsonDecode(legacyNative);
+        if (list is List) raw.addAll(list.map(jsonEncode));
+      }
+      final failed = <String>{};
+      for (final record in raw) {
+        try {
+          final map = jsonDecode(record) as Map<String, dynamic>;
+          if (map['userId'] != null && map['userId'] != user.uid) { failed.add(record); continue; }
+          final timestamp = map['timestamp'];
+          final ts = timestamp is num ? DateTime.fromMillisecondsSinceEpoch(timestamp.toInt()) : DateTime.tryParse(timestamp?.toString() ?? '');
+          if (ts == null) throw const FormatException('Energy log has no valid timestamp');
+          final reply = map['reply']?.toString() ?? 'yes';
+          final level = (map['level'] as num?)?.toInt() ?? _energyReplyLevel(reply);
+          final day = DateFormat('yyyy-MM-dd').format(ts);
+          final id = 'pending-${map['id'] ?? sha256.convert(utf8.encode(record)).toString()}';
+          if (!getDailyHealthLog(day).energyLogs.any((e) => e.id == id)) {
+            addEnergyLog(day, EnergyLog(id: id, level: level, timestamp: ts, note: 'Wearable/Notification reply: "$reply"'));
           }
-        }
+        } catch (_) { failed.add(record); }
       }
-    } catch (_) {}
+      if (raw.isEmpty) return;
+      await forceLocalBackup();
+      if (currentUser?.uid != user.uid || dataLoadInProgress || localLoadError != null) return;
+      for (final entry in entries.entries) {
+        if (!failed.contains(entry.value)) await prefs.remove(entry.key);
+      }
+      // Never erase a native producer's concurrently appended records.
+      await prefs.reload();
+      if (legacyNative != null && prefs.getString('pending_energy_logs') == legacyNative && !raw.any(failed.contains)) await prefs.remove('pending_energy_logs');
+      final remaining = prefs.getStringList('pending_energy_logs_v2') ?? [];
+      remaining.removeWhere((s) => legacyDart.contains(s) && !failed.contains(s));
+      await prefs.setStringList('pending_energy_logs_v2', remaining);
+    } finally { _energyDrainRunning = false; }
   }
 
   List<ScheduledReminder> get scheduledReminders =>
@@ -839,7 +844,6 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     try {
       await NotificationService.instance.init();
       rescheduleReminders();
-      drainPendingEnergyLogs();
     } catch (e) {
       debugPrint("Notification init error: $e");
     }
@@ -871,20 +875,47 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     // No saves or dirty-marking until the user's real data is in memory (see beginDataLoad).
     beginDataLoad();
     try {
+      failedCollections.clear();
+      protectedCollections.clear();
+      quarantine.clear();
+      mergeConflicts.clear();
+      tombstones.clear();
+      cloudAttachRequired = false;
+      await _resetToInitialState();
       final localData = await _localStorage.loadState(uid);
+      cloudAttachHasLocalData = localData != null;
       localLoadError = null;
       if (localData != null) {
         loadStateFromMap(localData);
+        await _launcherLoad;
       } else {
         // Nothing saved on this device yet: start from the defaults.
         await _resetToInitialState();
+      }
+      await loadCloudBaseline();
+      if (cloudBaseline == null || localData == null) {
+        try {
+          final remote = await storageService.getLastModified(uid);
+          if (remote > 0) {
+            cloudAttachRequired = true;
+            localLoadError = LocalStateException('Cloud data found. Restore it or explicitly start fresh before continuing.', 'Last cloud save: ${DateTime.fromMillisecondsSinceEpoch(remote)}');
+          } else { await persistCloudBaseline(0); }
+        } catch (e) {
+          if (localData == null) {
+            cloudAttachRequired = true;
+            localLoadError = LocalStateException('Connect to verify whether this account already has cloud data.', e.toString());
+          } else {
+            // Offline cached accounts may edit locally. Upload still requires the cloud check.
+            cloudSyncError = 'Cloud baseline could not be checked: $e';
+          }
+        }
       }
     } on LocalStateException catch (e) {
       localLoadError = e;
     } catch (e, stack) {
       localLoadError = LocalStateException('Unexpected error while loading local data.', '$e\n$stack');
     } finally {
-      endDataLoad();
+      endDataLoad(hasUnsavedChanges: hasUnsavedChanges);
       notifyListeners();
     }
   }
@@ -902,37 +933,60 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   Future<void> importLocalJson(Map<String, dynamic> data) async {
     final user = currentUser;
     if (user == null) throw StateError('Sign in before loading data.');
+    final normalized = normalizeImportedData(data);
+    validateAppState(normalized);
     try {
-      await _localStorage.importStateIntoDatabase(user.uid, normalizeImportedData(data));
+      await _localStorage.importStateIntoDatabase(user.uid, normalized);
     } on LocalStateException catch (e) {
       localLoadError = e;
       notifyListeners();
-      return;
+      rethrow;
     }
     await _loadLocalState(user.uid);
     if (localLoadError == null) initSync();
   }
 
-  Future<void> _onAuthStateChanged(AppUser? user) async {
+  Future<void> _authTransitionQueue = Future.value();
+
+  Future<void> _onAuthStateChanged(AppUser? user) {
+    final transition = _authTransitionQueue.then((_) => _applyAuthStateChanged(user));
+    _authTransitionQueue = transition.catchError((Object error) {
+      debugPrint('Account transition failed: $error');
+    });
+    return transition;
+  }
+
+  Future<void> _applyAuthStateChanged(AppUser? user) async {
     try {
       if (user != null) {
         final isDifferentUser = currentUser == null || currentUser!.uid != user.uid;
         if (isDifferentUser) {
+          await forceLocalBackup();
+          beginDataLoad();
+          resetSyncState();
           setCurrentUser(user);
-          unawaited(AppActionLedgerService.instance.init(user.uid));
+          await AppActionLedgerService.instance.init(user.uid);
           await _loadLocalState(user.uid);
-          if (localLoadError == null) initSync();
+          if (localLoadError == null) {
+            await drainPendingEnergyLogs();
+            initSync();
+            await BackgroundBackupService.schedule(user.uid);
+          }
         }
 
         // Release loading screen immediately so there is zero UI startup lag
         setAuthLoading(false);
+        WidgetsBinding.instance.addPostFrameCallback((_) => WidgetActionRouter.instance.flushPending());
 
         // Run background validation and maintenance asynchronously without blocking UI
         unawaited(_runPostAuthMaintenance());
       } else {
         if (currentUser != null || authLoading) {
-          setCurrentUser(null);
+          await forceLocalBackup();
           beginDataLoad();
+          resetSyncState();
+          setCurrentUser(null);
+          await AppActionLedgerService.instance.detachAccount();
           try {
             await _resetToInitialState();
           } catch (e) {
@@ -952,6 +1006,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   }
 
   Future<void> _runPostAuthMaintenance() async {
+    if (localLoadError != null || cloudAttachRequired || currentUser == null) return;
     try {
       _cleanOverlappingSessions();
       _fixTimerAnomalies();
@@ -969,17 +1024,17 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
   Future<void> fetchDailyReportsFromCloud() async {
     if (currentUser == null) return;
-    final recentDaily = await _cloudStorage.fetchRecentDailyData(currentUser!.uid, 60); 
+    final recentDaily = await _cloudStorage.fetchRecentDailyData(currentUser!.uid, 60);
     if (recentDaily.isNotEmpty) {
       final newHistory = Map<String, dynamic>.from(completedByDay);
       recentDaily.forEach((date, data) {
         final dayData = Map<String, dynamic>.from(newHistory[date] ?? {});
         bool changed = false;
-        if (data.containsKey('briefing')) {
+        if (data.containsKey('briefing') && dayData['aiBriefing'] == null) {
           dayData['aiBriefing'] = data['briefing'];
           changed = true;
         }
-        if (data.containsKey('report')) {
+        if (data.containsKey('report') && dayData['startDayReport'] == null) {
           dayData['startDayReport'] = data['report'];
           changed = true;
         }
@@ -992,26 +1047,49 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   }
 
   Future<void> _resetToInitialState() async {
-    setLastLoginDate(null);
-    // Timestamp 0: defaults must never look newer than real data (local cache or cloud).
-    setSettings(AppSettings(lastModified: 0));
-    setMainTasks(initialMainTaskTemplates.map((t) => MainTask.fromTemplate(t)).toList());
-    setCompletedByDay({});
+    resetTaskState();
+    resetFinanceState();
+    resetUserState();
+    resetHealthState();
     _cachedWeeklyReports = [];
     _cachedMonthlyReports = [];
-    setActiveTimers({});
-    setReflectionLogs([]);
-    setTransactions([]);
-    setCategories([]);
-    setSavingsGoals([]);
-    setAccounts([]);
-    setProjects([]);
-    setChatbotMemory(ChatbotMemory());
     initializeSkills();
     initializeDefaultFinanceCategories();
+    _paperTrading.resetAccountState();
+    await LauncherService.instance.loadFromMap({
+      'dock': [], 'home': [], 'shelf': [], 'drawerFolders': [],
+      'folders': [], 'widgets': [], 'hidden': [], 'overrides': {},
+      'webLinks': [], 'quickNotes': '', 'stats': {}, 'iconPack': null, 'fullscreen': true,
+    }, forceReplace: true);
+  }
+
+  Future<void> startFreshAfterCloudConfirmation(String confirmation) async {
+    if (confirmation != 'DELETE' || currentUser == null) throw StateError('Type DELETE to start fresh.');
+    await _localStorage.writeSnapshot(currentUser!.uid, getFullAppState(), 'before_start_fresh');
+    final snapshot = await storageService.getUserSnapshot(currentUser!.uid);
+    final remote = (snapshot?['lastModified'] as num?)?.toInt() ?? 0;
+    if (snapshot != null) await _localStorage.writeSnapshot(currentUser!.uid, snapshot['state'] as Map<String, dynamic>, 'before_start_fresh_cloud');
+    beginDataLoad();
     try {
-      _paperTrading.resetPortfolio();
-    } catch (_) {}
+      await _resetToInitialState();
+      localLoadError = null;
+      cloudAttachRequired = false;
+      failedCollections.clear();
+      protectedCollections.clear();
+      quarantine.clear();
+      mergeConflicts.clear();
+      tombstones.clear();
+      await persistCloudBaseline(remote, version: snapshot?['version'] as String?);
+      allowConfirmedShrink = true;
+    } finally { endDataLoad(); }
+    markAllDirty();
+    await forceLocalBackup();
+    initSync();
+  }
+
+  Future<void> restoreCloudAttachment() async {
+    await restoreFromCloudWithProgress(merge: cloudAttachHasLocalData);
+    if (localLoadError == null) { await drainPendingEnergyLogs(); initSync(); }
   }
 
   // --- Mixin Implementations & Legacy Compat ---
@@ -1031,82 +1109,115 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     map.addAll(getHealthStateMap());
     map['trading'] = getTradingStateMap();
     map['launcher'] = getLauncherStateMap();
+    map.addAll(protectedCollections);
+    if (quarantine.isNotEmpty) map['_quarantine'] = List.from(quarantine);
     return map;
   }
 
   Map<String, dynamic> getAppStateAsMap() => getFullAppState();
-  
+
   void loadAppStateFromMap(Map<String, dynamic> data) => loadStateFromMap(normalizeImportedData(data));
 
   @override
   void loadStateFromMap(Map<String, dynamic> data) {
+    runZoned(() => _loadStateMapNow(data), zoneValues: {
+      'stateDecodeFailure': (String path, dynamic raw, Object error) {
+        final collection = path.split('/').first;
+        failedCollections.add(collection);
+        protectedCollections[collection] = data[collection];
+        quarantine.add({'collection': collection, 'path': path, 'raw': raw, 'error': error.toString()});
+      },
+    });
+  }
+
+  void _loadStateMapNow(Map<String, dynamic> data) {
     try {
       loadTaskState(data);
     } catch (e) {
       debugPrint("Error loading task state in loadStateFromMap: $e");
+      for (final key in ['mainTasks', 'completedByDay', 'projects', 'routineLists', 'goals', 'goalPlaces', 'activeTimers']) {
+        if (data.containsKey(key)) { failedCollections.add(key); protectedCollections[key] = data[key]; }
+      }
+      localLoadError = LocalStateException('Some task data could not be read.', e.toString());
     }
     try {
       loadFinanceState(data);
     } catch (e) {
       debugPrint("Error loading finance state in loadStateFromMap: $e");
+      for (final key in ['transactions', 'categories', 'savingsGoals', 'accounts']) {
+        if (data.containsKey(key)) { failedCollections.add(key); protectedCollections[key] = data[key]; }
+      }
+      localLoadError = LocalStateException('Some finance data could not be read.', e.toString());
     }
     try {
       loadUserState(data);
     } catch (e) {
       debugPrint("Error loading user state in loadStateFromMap: $e");
+      for (final key in ['settings', 'skills', 'trackedSkills', 'reflectionLogs', 'sops', 'chatbotMemory']) {
+        if (data.containsKey(key)) { failedCollections.add(key); protectedCollections[key] = data[key]; }
+      }
+      localLoadError = LocalStateException('Some user data could not be read.', e.toString());
     }
     try {
       loadHealthState(data);
     } catch (e) {
       debugPrint("Error loading health state in loadStateFromMap: $e");
+      for (final key in ['foodItems', 'healthLogs']) {
+        if (data.containsKey(key)) { failedCollections.add(key); protectedCollections[key] = data[key]; }
+      }
+      localLoadError = LocalStateException('Some health data could not be read.', e.toString());
     }
     if (data['trading'] != null) {
       try {
-        final t = data['trading'];
-        if (t is Map) {
-          _paperTrading.loadState(Map<String, dynamic>.from(t));
-        } else if (t is String) {
-          final decoded = jsonDecode(t);
-          if (decoded is Map) {
-            _paperTrading.loadState(Map<String, dynamic>.from(decoded));
-          }
-        }
+        final raw = data['trading'];
+        final trading = Map<String, dynamic>.from((raw is String ? jsonDecode(raw) : raw) as Map);
+        validateTradingState(trading);
+        _paperTrading.loadState(trading, force: true);
       } catch (e) {
-        debugPrint("Error loading trading state in loadStateFromMap: $e");
+        _preserveFailedCollection('trading', data['trading'], e);
       }
     }
     if (data['launcher'] != null) {
       try {
-        final l = data['launcher'];
-        if (l is Map) {
-          unawaited(LauncherService.instance.loadFromMap(Map<String, dynamic>.from(l)));
-        } else if (l is String) {
-          final decoded = jsonDecode(l);
-          if (decoded is Map) {
-            unawaited(LauncherService.instance.loadFromMap(Map<String, dynamic>.from(decoded)));
-          }
-        }
+        final raw = data['launcher'];
+        final launcher = Map<String, dynamic>.from((raw is String ? jsonDecode(raw) : raw) as Map);
+        validateLauncherState(launcher);
+        _launcherLoad = LauncherService.instance.loadFromMap(launcher, forceReplace: true).catchError((Object error) {
+          _preserveFailedCollection('launcher', data['launcher'], error);
+        });
       } catch (e) {
-        debugPrint("Error loading launcher state in loadStateFromMap: $e");
+        _preserveFailedCollection('launcher', data['launcher'], e);
       }
     }
-    
+
+    if (data['_quarantine'] is List) quarantine.addAll((data['_quarantine'] as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)));
+    if (failedCollections.isNotEmpty) localLoadError = LocalStateException('Some data could not be read. Raw records have been preserved.', quarantine.map((e) => '${e['collection']}: ${e['error']}').join('\n'));
+
     if (settings.dataVersion < 1) {
       settings.dataVersion = 1;
       markDirty('settings');
     }
   }
 
+  void _preserveFailedCollection(String collection, dynamic raw, Object error) {
+    failedCollections.add(collection);
+    protectedCollections[collection] = raw;
+    quarantine.add({'collection': collection, 'raw': raw, 'error': error.toString()});
+    localLoadError = LocalStateException('Some data could not be read. Raw records have been preserved.', '$collection: $error');
+    notifyListeners();
+  }
+
   @override
   MergeReport mergeAppStateFromMap(Map<String, dynamic> rawData) {
     final data = normalizeImportedData(rawData);
+    validateAppState(data);
 
     final taskResult = mergeTaskState(data);
     final addedReflections = mergeUserState(data);
     final addedTransactions = mergeFinanceState(data);
 
     if (data['foodItems'] != null || data['healthLogs'] != null) {
-      loadHealthState(data);
+      mergeHealthState(data);
     }
 
     bool launcherMerged = false;
@@ -1122,12 +1233,13 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         } catch (_) {}
       }
       if (lMap != null && lMap.isNotEmpty) {
-        unawaited(LauncherService.instance.mergeFromMap(lMap));
+        _launcherLoad = LauncherService.instance.mergeFromMap(lMap);
         launcherMerged = true;
       }
     }
 
     if (data['trading'] != null) {
+      preserveMergeConflict('trading', 'trading', _paperTrading.getStateMap(), Map<String, dynamic>.from(data['trading'] as Map));
       final t = data['trading'];
       if (t is Map) {
         _paperTrading.loadState(Map<String, dynamic>.from(t));
@@ -1162,6 +1274,9 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   }) async {
     await onProgress?.call(0, "Analyzing & normalizing snapshot payload...");
     final data = normalizeImportedData(rawData);
+    validateAppState(data);
+    if (currentUser == null) throw StateError('Sign in before merging data.');
+    await _localStorage.writeSnapshot(currentUser!.uid, getFullAppState(), 'before_merge');
     final rawTasksCount = (data['mainTasks'] as List?)?.length ?? 0;
     await Future.delayed(const Duration(milliseconds: 120));
 
@@ -1185,7 +1300,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
     await onProgress?.call(5, "Synchronizing health data & home launcher configuration...");
     if (data['foodItems'] != null || data['healthLogs'] != null) {
-      loadHealthState(data);
+      mergeHealthState(data);
     }
 
     bool launcherMerged = false;
@@ -1201,12 +1316,13 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         } catch (_) {}
       }
       if (lMap != null && lMap.isNotEmpty) {
-        unawaited(LauncherService.instance.mergeFromMap(lMap));
+        _launcherLoad = LauncherService.instance.mergeFromMap(lMap);
         launcherMerged = true;
       }
     }
 
     if (data['trading'] != null) {
+      preserveMergeConflict('trading', 'trading', _paperTrading.getStateMap(), Map<String, dynamic>.from(data['trading'] as Map));
       final t = data['trading'];
       if (t is Map) {
         _paperTrading.loadState(Map<String, dynamic>.from(t));
@@ -1219,6 +1335,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     }
     await Future.delayed(const Duration(milliseconds: 140));
 
+    await _launcherLoad;
     await onProgress?.call(6, "Finalizing local storage & refreshing system state...");
     markAllDirty();
     notifyListeners();
@@ -1258,14 +1375,15 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       return val;
     }
 
-    // Helper to safely normalize dynamic map/list into List<Map<String, dynamic>>
+    // Reject unreadable records before an import can replace valid local state.
     List<Map<String, dynamic>> toListOfMaps(dynamic value) {
       value = decodeIfString(value);
       if (value is List) {
         return value.map((e) {
           final decoded = decodeIfString(e);
-          return decoded is Map ? Map<String, dynamic>.from(decoded) : null;
-        }).whereType<Map<String, dynamic>>().toList();
+          if (decoded is! Map) throw const FormatException('Imported collection contains a non-object record');
+          return Map<String, dynamic>.from(decoded);
+        }).toList();
       } else if (value is Map) {
         return value.entries.map((e) {
           final decoded = decodeIfString(e.value);
@@ -1274,15 +1392,16 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
             m.putIfAbsent('id', () => e.key.toString());
             return m;
           }
-          return <String, dynamic>{'id': e.key.toString()};
+          throw FormatException('Imported record ${e.key} is not an object');
         }).toList();
       }
-      return [];
+      throw const FormatException('Imported collection must be a list or map');
     }
 
     // 1. Unwrap Firebase RTDB root: { "users": { "<uid>": { "data": { ... } } } } or { "data": { ... } }
     if (raw['users'] is Map) {
       final usersMap = raw['users'] as Map;
+      if (usersMap.length != 1) throw const FormatException('Import a single account snapshot, rather than a database containing multiple accounts');
       if (usersMap.isNotEmpty) {
         final firstVal = decodeIfString(usersMap.values.first);
         if (firstVal is Map) {
@@ -1364,7 +1483,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
             }
           }
           normalizedCMap[normDateKey] = dayMap;
-        }
+        } else { throw FormatException('History day $dateKey is not an object'); }
       }
       raw['completedByDay'] = normalizedCMap;
     }
@@ -1469,7 +1588,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   void setProviderApiKeyIndex(int index) => setApiKeyIndex(index);
 
   // --- State Bridge ---
-  
+
   void setProviderState({
       String? lastLoginDate,
       List<MainTask>? mainTasks,
@@ -1785,13 +1904,16 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   // --- Auth & Wrappers ---
 
   Future<void> loginUser(String email, String password) async => await fb_service.signInWithEmail(email, password);
-  Future<void> logoutUser() async => await fb_service.signOut();
-  
+  Future<void> logoutUser() async {
+    await forceLocalBackup();
+    await fb_service.signOut();
+  }
+
   Future<void> signupUser(String email, String password) async {
     final user = await fb_service.signUpWithEmail(email, password);
     if (user != null) {
       await fb_service.updateDisplayName("OPERATIVE");
-      setCurrentUser(fb_service.currentUser);
+      await _onAuthStateChanged(fb_service.currentUser);
     }
   }
 
@@ -1815,23 +1937,35 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   }
 
   Future<void> clearAllData() async {
-    if (currentUser == null) return;
-    await _cloudStorage.deleteUserData(currentUser!.uid);
-    await _localStorage.clearState(currentUser!.uid);
-    localLoadError = null;
-    await _resetToInitialState();
+    final user = currentUser;
+    if (user == null) throw StateError('Sign in before purging.');
+    if (isSyncing) throw StateError('Wait for cloud sync to finish before purging.');
+    await forceLocalBackup();
+    final state = getFullAppState();
+    await _localStorage.writeSnapshot(user.uid, state, 'before_purge');
+    await _exportService.exportJson(state, 'before_purge');
+    beginDataLoad();
+    try {
+      if (!await _cloudStorage.deleteUserData(user.uid)) throw StateError('Cloud purge failed. Recovery copies have been preserved.');
+      await _localStorage.clearState(user.uid);
+      resetSyncState();
+      await _resetToInitialState();
+      await persistCloudBaseline(0);
+    } finally { endDataLoad(); }
     markAllDirty();
+    await forceLocalBackup();
   }
 
   Future<MergeReport?> restoreFromLocalSnapshot(File backupFile, {bool merge = true}) async {
     try {
       final contents = await backupFile.readAsString();
       final data = jsonDecode(contents) as Map<String, dynamic>;
+      await _localStorage.writeSnapshot(currentUser!.uid, getFullAppState(), 'before_restore');
       MergeReport? report;
       if (merge) {
         report = mergeAppStateFromMap(data);
       } else {
-        loadStateFromMap(data);
+        await replaceStateSafely(data);
       }
       markAllDirty();
       await forceLocalBackup();
@@ -1850,11 +1984,15 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     setManuallyLoading(true);
     try {
       await onProgress?.call(0, "Connecting to cloud & fetching remote snapshot");
-      final cloudData = await storageService.getUserData(currentUser!.uid);
+      final user = currentUser!;
+      final snapshot = await storageService.getUserSnapshot(user.uid);
+      if (currentUser?.uid != user.uid) throw StateError('Account changed during restore.');
+      final cloudData = snapshot?['state'] as Map<String, dynamic>?;
       if (cloudData == null || cloudData.isEmpty) {
         throw Exception("No cloud backup found for this account.");
       }
 
+      await _localStorage.writeSnapshot(currentUser!.uid, getFullAppState(), 'before_restore');
       MergeReport? report;
       if (merge) {
         report = await mergeAppStateFromMapWithProgress(cloudData, onProgress: onProgress);
@@ -1864,7 +2002,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         await onProgress?.call(2, "Replacing full database state");
         beginDataLoad();
         try {
-          loadStateFromMap(norm);
+          await replaceStateSafely(norm);
         } finally {
           endDataLoad();
         }
@@ -1879,6 +2017,13 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         markAllDirty();
         await forceLocalBackup();
       }
+      await _launcherLoad;
+      if (failedCollections.isNotEmpty) throw StateError('Cloud snapshot has unreadable records; recovery is required.');
+      await persistCloudBaseline((snapshot!['lastModified'] as num).toInt(), version: snapshot['version'] as String?);
+      cloudAttachRequired = false;
+      localLoadError = null;
+      markAllDirty();
+      await forceLocalBackup();
       return report;
     } finally {
       setManuallyLoading(false);
@@ -1895,6 +2040,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       await onProgress?.call(0, "Reading backup snapshot file from disk");
       final contents = await backupFile.readAsString();
       final data = jsonDecode(contents) as Map<String, dynamic>;
+      await _localStorage.writeSnapshot(currentUser!.uid, getFullAppState(), 'before_restore');
       MergeReport? report;
       if (merge) {
         report = await mergeAppStateFromMapWithProgress(data, onProgress: onProgress);
@@ -1902,7 +2048,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         await onProgress?.call(1, "Normalizing snapshot payload");
         final norm = normalizeImportedData(data);
         await onProgress?.call(2, "Replacing full database state");
-        loadStateFromMap(norm);
+        await replaceStateSafely(norm);
         await onProgress?.call(4, "Writing atomic local cache");
         markAllDirty();
         await forceLocalBackup();
@@ -1914,24 +2060,56 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   }
 
   Future<void> saveNoraBackupSnapshot() async {
-    try {
-      final docsDir = await getApplicationDocumentsDirectory();
-      final backupDir = Directory('${docsDir.path}/backups');
-      if (!await backupDir.exists()) {
-        await backupDir.create(recursive: true);
+    if (currentUser == null) throw StateError('Sign in before backing up.');
+    await _localStorage.writeSnapshot(currentUser!.uid, getFullAppState(), 'nora_backup');
+  }
+
+  Future<void> resolveMergeConflict(Map<String, dynamic> conflict, {required bool useIncoming}) async {
+    final state = getFullAppState();
+    if (useIncoming) {
+      final key = conflict['collection'] as String;
+      if (key == 'settings' || key == 'trading') {
+        state[key] = conflict['incoming'];
+      } else if (state[key] is Map) {
+        state[key] = {...state[key] as Map, conflict['id']: conflict['incoming']};
+      } else {
+      final records = List<dynamic>.from(state[key] as List? ?? []);
+      final index = records.indexWhere((e) => e is Map && e['id'] == conflict['id']);
+      if (index < 0) throw StateError('Conflicting record no longer exists.');
+      records[index] = conflict['incoming'];
+      state[key] = records;
       }
-      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-      final file = File('${backupDir.path}/nora_backup_$timestamp.json');
-      final data = getAppStateAsMap();
-      await file.writeAsString(jsonEncode(data));
-      debugPrint("Nora backup created at: ${file.path}");
-    } catch (e) {
-      debugPrint("Error creating Nora backup: $e");
     }
+    state['mergeConflicts'] = mergeConflicts.where((e) => !identical(e, conflict)).toList();
+    await replaceStateSafely(state);
+  }
+
+  Future<void> replaceStateSafely(Map<String, dynamic> rawData) async {
+    final user = currentUser;
+    if (user == null) throw StateError('Sign in before replacing data.');
+    final norm = normalizeImportedData(rawData);
+    validateAppState(norm);
+    await _localStorage.writeSnapshot(user.uid, getFullAppState(), 'before_replace');
+    await _localStorage.importStateIntoDatabase(user.uid, norm);
+    beginDataLoad();
+    try {
+      await _resetToInitialState();
+      failedCollections.clear();
+      mergeConflicts.clear();
+      tombstones.clear();
+      protectedCollections.clear();
+      quarantine.clear();
+      localLoadError = null;
+      loadStateFromMap(norm);
+      await _launcherLoad;
+    } finally { endDataLoad(); }
+    if (localLoadError != null) throw localLoadError!;
+    markAllDirty();
+    await forceLocalBackup();
   }
 
   void initializeChatbotMemory() {
-    notifyListeners(); 
+    notifyListeners();
   }
 
   Future<void> exportReflections() async {
@@ -2078,7 +2256,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
     updatePersonInfo(person);
   }
-  
+
   // --- Someday List Actions ---
   void addSomedayItem(String title) {
     final newItem = SomedayItem(id: const Uuid().v4(), title: title, createdAt: DateTime.now());
@@ -2106,29 +2284,29 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   }
 
   // --- Reports Logic ---
-  Map<String, dynamic> getLast7DaysData([DateTime? targetDate]) { 
+  Map<String, dynamic> getLast7DaysData([DateTime? targetDate]) {
     final now = targetDate != null
         ? DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59, 59, 999)
         : DateTime.now();
     final cutoff = now.subtract(const Duration(days: 7));
-    final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7, now); 
+    final historyStr = HistoryHelper.getSessionHistoryString(mainTasks, 7, now);
     final recentReflections = reflectionLogs
         .where((l) => l.timestamp.isAfter(cutoff) && l.timestamp.isBefore(now))
         .map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}")
         .join("\n");
     return {'logs': recentReflections, 'times': historyStr, 'sessions': historyStr};
   }
-  
+
   String getWeeklyWellbeingComparison([DateTime? targetDate]) {
     final now = targetDate != null
         ? DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59, 59, 999)
         : DateTime.now();
     final last7 = now.subtract(const Duration(days: 7));
     final prev7 = now.subtract(const Duration(days: 14));
-    
+
     Map<String, int> currentNeeds = {};
     Map<String, int> prevNeeds = {};
-    
+
     for (var log in reflectionLogs) {
       if (log.timestamp.isAfter(last7) && log.timestamp.isBefore(now)) {
         log.needs.forEach((k, v) {
@@ -2263,7 +2441,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     }
   }
 
-  void saveTacticalBriefing(String date, Map<String, dynamic> data) { 
+  void saveTacticalBriefing(String date, Map<String, dynamic> data) {
     final newCompletedByDay = Map<String, dynamic>.from(completedByDay);
     final dayData = Map<String, dynamic>.from(newCompletedByDay[date] ?? {});
     dayData['aiBriefing'] = data;
@@ -2313,7 +2491,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     return taskSnapshot;
   }
 
-  void saveStartDayReport(String date, Map<String, dynamic> data) { 
+  void saveStartDayReport(String date, Map<String, dynamic> data) {
     final reportData = Map<String, dynamic>.from(data);
     if (reportData['task_snapshot'] == null) {
       reportData['task_snapshot'] = buildTaskSnapshot();
@@ -2345,9 +2523,9 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       final subtaskData = <String, dynamic>{};
       for (var sub in task.subTasks) {
         if (sub.isDeleted || !sub.isActive) continue;
-        
+
         final isCheckedToday = checkedSubtaskIds.contains(sub.id);
-        
+
         double baselineProgress;
         int baselineTime;
 
@@ -2655,7 +2833,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     String date,
     List<ReflectionLog> logs, {
     Function(String status)? onStatusUpdate,
-  }) async { 
+  }) async {
     final logsFormatted = logs.map((l) => {'trigger': l.trigger, 'emotion': l.emotion, 'reason': l.reason, 'action': l.action}).toList();
     final recentBriefings = <String>[];
     for (int i=1; i<=3; i++) {
@@ -2664,14 +2842,14 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
        final b = getTacticalBriefing(dStr);
        if (b != null && b['summary'] != null) recentBriefings.add(b['summary']);
     }
-    
+
     final targetDate = DateTime.tryParse(date) ?? DateTime.now();
     final targetEndOfDay = DateTime(targetDate.year, targetDate.month, targetDate.day, 23, 59, 59, 999);
     final pastLogs = reflectionLogs.where((l) => l.timestamp.isBefore(targetEndOfDay)).toList();
     final allLogsContext = pastLogs.reversed.take(50).map((l) => "[${DateFormat('MM-dd').format(l.timestamp)}] ${l.trigger} -> ${l.emotion}").join("\n");
     final pastQuotes = getPreviouslyUsedQuotes().take(15).toList();
     final pastQuotesStr = pastQuotes.isNotEmpty ? pastQuotes.join("\n") : null;
-    
+
     // Finance context for target date
     double dayIncome = 0, dayExpense = 0;
     for (final t in transactions) {
@@ -2693,20 +2871,20 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     final dayContextText = BriefingContextHelper.buildDayContextText(this, targetDate);
 
     final result = await _aiService.generateDailySummary(
-      reflections: logsFormatted, 
-      previousBriefings: recentBriefings, 
+      reflections: logsFormatted,
+      previousBriefings: recentBriefings,
       fullContext: allLogsContext,
       previousQuotesContext: pastQuotesStr,
       financeText: financeStr,
       goalsText: goalsStr,
       notificationsText: notifsText.isNotEmpty ? notifsText : null,
       dayContextText: dayContextText.isNotEmpty ? dayContextText : null,
-      modelCandidates: settings.heavyModels, 
+      modelCandidates: settings.heavyModels,
       liteModelCandidates: settings.liteModels,
       proTimeout: const Duration(seconds: 60),
-      currentApiKeyIndex: apiKeyIndex, 
+      currentApiKeyIndex: apiKeyIndex,
       customApiKeys: settings.customApiKeys,
-      onNewApiKeyIndex: (idx) => setApiKeyIndex(idx), 
+      onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
       onLog: (m) => debugPrint(m),
       onStatusUpdate: onStatusUpdate,
       customInstruction: settings.customBriefingPrompt,
@@ -3006,23 +3184,23 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       if (recentLogs.isEmpty) {
         throw Exception("No reflection logs in the past 7 days to analyze.");
       }
-      
+
       final logsPayload = recentLogs.map((l) => {
         "log_id": l.id,
         "trigger": l.trigger,
         "emotion": l.emotion,
         "action": l.action,
       }).toList();
-      
+
       final updates = await aiService.evaluateBatchReflections(
         logsPayload: logsPayload,
-        modelCandidates: settings.heavyModels, 
+        modelCandidates: settings.heavyModels,
         currentApiKeyIndex: apiKeyIndex,
         customApiKeys: settings.customApiKeys,
         onNewApiKeyIndex: (i) => setApiKeyIndex(i),
         onLog: (msg) => debugPrint(msg),
       );
-      
+
       final newLogs = List<ReflectionLog>.from(reflectionLogs);
       bool logsChanged = false;
       for (var update in updates) {
@@ -3046,11 +3224,11 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
           logsChanged = true;
         }
       }
-      
+
       if (logsChanged) {
         setReflectionLogs(newLogs);
       }
-      
+
     } finally {
       setLoadingTask(null);
     }
@@ -3231,7 +3409,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         after: null,
       ));
       if (currentUser != null) {
-        unawaited(_cloudStorage.deleteReflection(currentUser!.uid, id));
+        // Deletion is carried atomically by the next snapshot, including its tombstone.
       }
     }
   }
@@ -3342,10 +3520,10 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   }
 
   void createNoraSession({
-    required String title, 
-    required String tone, 
-    required DateTime startDate, 
-    required DateTime endDate, 
+    required String title,
+    required String tone,
+    required DateTime startDate,
+    required DateTime endDate,
     String? customContext,
     String? personaId,
     int? messageLimit,
@@ -3357,11 +3535,11 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     final initialGreeting = persona.greetingMessage;
 
     final newSession = NoraSession(
-      id: const Uuid().v4(), 
-      title: title, 
-      tone: tone, 
-      startDate: startDate, 
-      endDate: endDate, 
+      id: const Uuid().v4(),
+      title: title,
+      tone: tone,
+      startDate: startDate,
+      endDate: endDate,
       customContext: customContext,
       personaId: persona.id,
       messageLimit: messageLimit ?? 0,
@@ -3384,7 +3562,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     markDirty('settings');
     notifyListeners();
   }
-  
+
   void updateNoraSessionConfig({
     required String sessionId,
     int? messageLimit,
@@ -3551,7 +3729,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     if (actions.isEmpty) return;
 
     // 1. Take a database snapshot first
-    await saveNoraBackupSnapshot();
+    if (currentUser != null || actions.any((a) => a is Map && ['custom_db_edit', 'delete_task', 'clear_all_data'].contains(a['type']))) await saveNoraBackupSnapshot();
 
     // 2. Loop and execute actions with context linking
     String? lastCreatedCompoundId;
@@ -3894,7 +4072,8 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
             if (path != null) {
               final stateMap = getAppStateAsMap();
               _updateJsonPathHelper(stateMap, path, value);
-              loadStateFromMap(stateMap);
+              await saveNoraBackupSnapshot();
+              await replaceStateSafely(stateMap);
               markDirty('tasks');
               markDirty('settings');
               markDirty('reflections');
@@ -3944,19 +4123,19 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       current[lastPart] = value;
     }
   }
-  
+
   Future<void> sendMessageToChatbot(String text) async => await sendNoraMessage(text);
-  
+
   void addCustomApiKey(String key) {
     final newKeys = List<String>.from(settings.customApiKeys)..add(key);
     setSettings(settings..customApiKeys = newKeys);
   }
-  
+
   void removeCustomApiKey(String key) {
     final newKeys = List<String>.from(settings.customApiKeys)..remove(key);
     setSettings(settings..customApiKeys = newKeys);
   }
-  
+
   void setJournalPin(String pin) {
     setSettings(settings..journalPin = pin);
   }
@@ -3965,46 +4144,46 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     if (!settings.adaptWritingStyle) {
       return;
     }
-    
+
     final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
     final recentLogs = reflectionLogs
         .where((l) => l.timestamp.isAfter(sevenDaysAgo))
         .toList();
-    
+
     if (recentLogs.isEmpty) {
       setSettings(settings..writingStyleMap = null);
       notifyListeners();
       return;
     }
-    
+
     final logsText = recentLogs
         .map((l) => "Situation/Trigger: ${l.trigger}\nFeeling/Emotion: ${l.emotion}\nReason: ${l.reason}\nAction Planned: ${l.action}")
         .join("\n\n");
-        
+
     final prompt = """
-    You are an expert linguist and writing style analyzer. 
+    You are an expert linguist and writing style analyzer.
     Analyze the following journal/reflection entries written by the user over the last 7 days:
-    
+
     $logsText
-    
-    Extract and create a detailed profile/map of their writing style. 
+
+    Extract and create a detailed profile/map of their writing style.
     Focus on:
     - Tone (e.g., formal, casual, reflective, self-critical, optimistic, stoic, emotional, analytical)
     - Vocabulary and word choice (common words, slang, specific terminology used)
     - Sentence structure and length (e.g., short fragments, long compound sentences)
     - Format and styling (e.g., use of bullet points, emoji usage)
-    
+
     CRITICAL CONSTRAINT: Do NOT copy or include any grammatical errors, spelling mistakes, typos, lack of capitalization, run-on sentences, lazy texting shortcuts, or chat abbreviations in the style map. Instead, formulate and describe the absolute BEST version of their writing style—one that is fully polished and grammatically perfect (using correct casing, punctuation, spelling, and standard sentence flow), while retaining their core voice, tone, vocabulary, personality, and perspective.
 
     Output a JSON object with a single key "style_map" containing a concise summary (1-3 paragraphs) describing this elevated, grammatically correct writing style so another LLM can replicate it perfectly.
-    
+
     JSON Schema:
     {
       "style_map": "string description"
     }
     ENSURE VALID JSON. NO TRAILING COMMAS.
     """;
-    
+
     try {
       final result = await _aiService.makeAICall(
         prompt: prompt,
@@ -4014,7 +4193,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         onNewApiKeyIndex: (idx) => setApiKeyIndex(idx),
         onLog: (m) => debugPrint("[StyleMap] $m"),
       );
-      
+
       final styleDescription = result['style_map'] as String?;
       if (styleDescription != null && styleDescription.isNotEmpty) {
         setSettings(settings..writingStyleMap = styleDescription);
