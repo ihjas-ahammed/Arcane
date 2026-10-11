@@ -53,7 +53,7 @@ note() { printf '   · %s\n' "$*"; }
 die()  { c 31; printf '   ✘ %s\n' "$*" >&2; c 0; exit 1; }
 # Echo every command before running it, so a long build never looks stuck.
 run()  { c 2; printf '   $ %s\n' "$*"; c 0; "$@"; }
-trap 'c 31; printf "\n✘ Failed at line %s (exit %s) after %s: %s\n   Log: %s\n" "$LINENO" "$?" "$(stamp)" "$BASH_COMMAND" "$LOG" >&2; c 0' ERR
+trap 'err=$?; c 31; printf "\n✘ Failed at line %s (exit %s) after %s: %s\n   Log: %s\n" "$LINENO" "$err" "$(stamp)" "$BASH_COMMAND" "$LOG" >&2; c 0' ERR
 confirm() {
   [[ $ASSUME_YES == 1 ]] && return 0
   read -r -p "   ? $1 [y/N] " answer
@@ -124,6 +124,8 @@ fi
 step 'Preserve and deploy Firebase rules (push.md step 0c)'
 if [[ $SKIP_FIREBASE == 1 || $NO_PUSH == 1 ]]; then
   warn 'skipped'
+elif [[ ${ARCANE_RULES_REVIEWED:-} != 1 ]]; then
+  warn 'skipped: ARCANE_RULES_REVIEWED=1 not set (confirm other apps keep access first)'
 else
   confirm 'Deploy database.rules.json, firestore.rules and storage.rules to task-dominion?'
   run scripts/release.sh rules
@@ -209,8 +211,12 @@ PY
   printf '\nFirebase update pointer: %s.\n' "$([[ $SKIP_FIREBASE == 1 ]] && echo 'not switched (blocked)' || echo "switched to $VCODE")"
 } >> docs/data-hazard-implementation.md
 run git add docs/data-hazard-implementation.md
-run git commit -m "docs(release): record published ${VERSION} (${VCODE})" \
-  -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+if git diff --cached --quiet; then
+  note 'docs already recorded'
+else
+  run git commit -m "docs(release): record published ${VERSION} (${VCODE})" \
+    -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+fi
 run git push origin "HEAD:$BRANCH"
 note 'Monthly: perform the restore drill in docs/data-hazard-implementation.md.'
 note 'Keep a private off-device copy of .release_keys/update_signing.pem.'

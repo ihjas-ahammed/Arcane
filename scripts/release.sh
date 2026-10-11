@@ -11,7 +11,11 @@ PROJECT=task-dominion
 log() { printf '\n[%s] ==> %s\n' "$(date +%H:%M:%S)" "$*"; }
 publish_github() {
   python3 scripts/verify_release_assets.py
-  gh release create "$TAG" builds/missions-v"${VERSION}"-b"${VCODE}"-*.apk "builds/missions-v${VERSION}-b${VCODE}-linux-x86_64.tar.gz" --repo "$REPO" --target "$(git rev-parse HEAD)" --title "Missions ${VERSION} (#${VCODE})" --notes-file latest.md
+  if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+    log "GitHub release $TAG already exists; verifying remote assets"
+  else
+    gh release create "$TAG" builds/missions-v"${VERSION}"-b"${VCODE}"-*.apk "builds/missions-v${VERSION}-b${VCODE}-linux-x86_64.tar.gz" --repo "$REPO" --target "$(git rev-parse HEAD)" --title "Missions ${VERSION} (#${VCODE})" --notes-file latest.md
+  fi
   python3 scripts/verify_release_assets.py --remote
 }
 # Dated, verified, gzip'd Firebase database backup, copied off-device and pruned to 30.
@@ -30,7 +34,9 @@ backup_firebase() {
   log 'Compressing the backup'
   gzip -9 "backups/firebase_db_${STAMP}.json"
   log "Copying the backup to $ARCANE_BACKUP_DESTINATION"
-  cp "backups/firebase_db_${STAMP}.json.gz" "$ARCANE_BACKUP_DESTINATION/"
+  if [[ $(realpath "backups") != $(realpath "$ARCANE_BACKUP_DESTINATION") ]]; then
+    cp "backups/firebase_db_${STAMP}.json.gz" "$ARCANE_BACKUP_DESTINATION/"
+  fi
   python3 - "backups/firebase_db_${STAMP}.json.gz" "$ARCANE_BACKUP_DESTINATION" <<'PY'
 import hashlib, sys
 from pathlib import Path
@@ -41,7 +47,8 @@ def digest(path):
 if digest(source) != digest(destination / source.name):
     raise SystemExit('The external backup copy failed checksum verification.')
 print('External copy verified:', destination / source.name)
-for folder in (source.parent, destination):
+folders = {source.parent.resolve(), destination.resolve()}
+for folder in folders:
     snapshots = sorted(folder.glob('firebase_db_*.json.gz'), reverse=True)
     for snapshot in snapshots[30:]:
         print('Pruning old backup', snapshot)
