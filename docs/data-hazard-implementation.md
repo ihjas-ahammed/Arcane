@@ -64,8 +64,22 @@ During the report implementation pass, no release was published and no deployed 
 
 The `revive2` branch was synchronized with `git pull --rebase --autostash origin revive2`; the remote was already up to date. The version code was incremented from the prepared `2126101101` to `2126101102`, with version name `2026.10.11`.
 
-The requested clean `scripts/release.sh prepare` run completed successfully: all 282 tests passed, static analysis reported zero errors, all three release APKs and the stripped Linux x86_64 bundle built, and all four packages passed local SHA-256 and Ed25519 verification. APK version codes match the metadata and every APK retains the previously published Android signing certificate. No signing keys are included in any package. GitHub publication and download verification are pending.
+The requested clean `scripts/release.sh prepare` run completed successfully: all 282 tests passed, static analysis reported zero errors, all three release APKs and the stripped Linux x86_64 bundle built, and all four packages passed local SHA-256 and Ed25519 verification. APK version codes match the metadata and every APK retains the previously published Android signing certificate. No signing keys are included in any package. GitHub publication completed, and all four assets were downloaded again and passed SHA-256, size, and Ed25519 checks. Anonymous requests to all four public package URLs returned HTTP 200.
 
 An authenticated Firebase database backup attempt and the attempt to retrieve deployed rules both failed with `Failed to get details for project: task-dominion`. Neither a verified production database backup nor a deployable preserved copy of the existing rules could be obtained. `ARCANE_BACKUP_DESTINATION` is unset, so the external-copy step is also blocked. The private release key remains local and ignored by Git; off-device key custody remains an operator requirement.
 
 GitHub artifact publication is separated from the administrator-only Firebase publication step. Release assets are published and downloaded for hash/signature verification before the branch exposes their updater metadata. The release notes disclose the unresolved production privacy rules. Firebase update metadata will be published only through an authenticated administrator after the backup and reviewed-rule deployment prerequisites succeed.
+
+
+Published release: [Missions 2026.10.11, build 2126101102](https://github.com/ihjas-ahammed/Arcane/releases/tag/v2026.10.11-b2126101102). The annotated release tag points to application source commit `5da8f25471064701199c3241ff6847f4909903cd`. The APK signing certificate matches the previously published build.
+
+| Verified downloadable package | SHA-256 |
+| --- | --- |
+| `missions-v2026.10.11-b2126101102-arm64-v8a.apk` | `98ff12598b48c1954eee332b19504e07a201f26088af8f18dfb6457f5590a4dd` |
+| `missions-v2026.10.11-b2126101102-armeabi-v7a.apk` | `b0b22b9551ef24f59e99324235a8297911871b52f6da3ef93d4556b123cf564e` |
+| `missions-v2026.10.11-b2126101102-x86_64.apk` | `8e5b08fb764ac41202a914a2aa17672bb5f6f480441b7d9fd872100272a78324` |
+| `missions-v2026.10.11-b2126101102-linux-x86_64.tar.gz` | `465a99a3e68736dc5f0d5ad0502c01a51f66a1a5ac4b6ccb2ab1a0ff3d6ec8f6` |
+
+The live Firebase pointer still advertises version `2026.10.9+2126100904` and raw branch URLs for its three APKs and Linux archive. Those four existing Git blobs have been retained unchanged from commit `2e2a62f` so pushing this branch cannot break the downloads advertised by that pointer. This introduces no new binary objects into Git history. New release binaries are distributed through GitHub Releases and remain ignored. Preparation preserves tracked compatibility APKs; these four files can be untracked once an authenticated administrator switches the Firebase pointer to verified GitHub URLs.
+
+The production backup, external backup copy, reviewed rule deployment, Firebase update publication, and administrator-backed restore drill remain blocked. No unauthenticated database write was used as a workaround.

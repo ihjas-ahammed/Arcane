@@ -18,7 +18,14 @@ case "$MODE" in
     flutter pub get
     flutter analyze --no-fatal-infos --no-fatal-warnings
     flutter test
-    rm -f builds/*.apk
+    # Existing tracked assets may still be referenced by deployed Firebase
+    # metadata. Keep those until its authenticated cutover is verified.
+    for APK in builds/*.apk; do
+      [[ -f $APK ]] || continue
+      if ! git ls-files --error-unmatch -- "$APK" >/dev/null 2>&1; then
+        rm -f -- "$APK"
+      fi
+    done
     flutter build apk --release --split-per-abi
     for ABI in arm64-v8a armeabi-v7a x86_64; do
       cp "build/app/outputs/flutter-apk/app-${ABI}-release.apk" "builds/missions-v${VERSION}-b${VCODE}-${ABI}.apk"
