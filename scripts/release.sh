@@ -137,7 +137,8 @@ case "$MODE" in
     # Switches the live Firebase update pointer. Needs administrator access to task-dominion.
     python3 scripts/verify_release_assets.py --remote
     log 'Publishing the update pointer to /app_updates/latest'
-    firebase database:set /app_updates/latest builds/update_info.json --project "$PROJECT" --force
+    python3 -c "import json; meta = json.load(open('builds/update_info.json')); fb_meta = {k: v for k, v in meta.items() if k not in ('package_sha256', 'package_signatures', 'package_sizes')}; open('builds/firebase_update_info.json', 'w').write(json.dumps(fb_meta, indent=2) + '\n')"
+    firebase database:set /app_updates/latest builds/firebase_update_info.json --project "$PROJECT" --force
     ;;
   publish-github)
     publish_github
@@ -152,7 +153,8 @@ case "$MODE" in
       publish_github
     fi
     log 'Publishing the update pointer to /app_updates/latest'
-    firebase database:set /app_updates/latest builds/update_info.json --project "$PROJECT" --force
+    python3 -c "import json; meta = json.load(open('builds/update_info.json')); fb_meta = {k: v for k, v in meta.items() if k not in ('package_sha256', 'package_signatures', 'package_sizes')}; open('builds/firebase_update_info.json', 'w').write(json.dumps(fb_meta, indent=2) + '\n')"
+    firebase database:set /app_updates/latest builds/firebase_update_info.json --project "$PROJECT" --force
     ;;
   *) echo 'Usage: scripts/release.sh prepare|publish-github|backup|rules|verify-rules|pointer|publish' >&2; exit 2;;
 esac

@@ -19,11 +19,33 @@ class UpdateService {
 
   Future<void> verifyPackage(File file, UpdateModel update) async {
     final url = await resolveDownloadUrl(update);
-    final expected = update.packageHashes[url];
+    var expected = update.packageHashes[url];
+    var signature = update.packageSignatures[url];
+    if (expected == null || signature == null) {
+      for (final metaUrl in _updateMetadataUrls) {
+        try {
+          final res = await http.get(
+            Uri.parse('$metaUrl?t=${DateTime.now().millisecondsSinceEpoch}'),
+            headers: {'Cache-Control': 'no-cache'},
+          ).timeout(const Duration(seconds: 6));
+          if (res.statusCode == 200 && res.body.trim().isNotEmpty) {
+            final json = jsonDecode(res.body) as Map<String, dynamic>;
+            final hashes = json['package_sha256'] as Map?;
+            final sigs = json['package_signatures'] as Map?;
+            if (hashes != null && hashes[url] != null) {
+              expected = hashes[url]?.toString();
+            }
+            if (sigs != null && sigs[url] != null) {
+              signature = sigs[url]?.toString();
+            }
+            if (expected != null && signature != null) break;
+          }
+        } catch (_) {}
+      }
+    }
     if (expected == null || !RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(expected)) {
       throw StateError('This release has no valid SHA-256 checksum. Installation is blocked.');
     }
-    final signature = update.packageSignatures[url];
     if (signature == null || !await verifyReleaseSignature(update.versionCode, expected.toLowerCase(), url, signature)) throw StateError('Update signature is missing or invalid. Installation is blocked.');
     final actual = (await sha256.bind(file.openRead()).first).toString();
     if (actual != expected.toLowerCase()) throw StateError('Update checksum mismatch. Download the package again.');
@@ -373,6 +395,29 @@ class UpdateService {
       if (metadataJson == null || metadataJson['version_code'] == null) {
         debugPrint('[UpdateService] Could not reach update endpoints.');
         return null;
+      }
+
+      // If metadata lacks checksums/signatures (e.g. from Firebase RTDB), enrich from GitHub update_info.json
+      if (metadataJson['package_sha256'] == null ||
+          (metadataJson['package_sha256'] is Map && (metadataJson['package_sha256'] as Map).isEmpty)) {
+        for (final url in _updateMetadataUrls) {
+          try {
+            final uri = Uri.parse('$url?t=${DateTime.now().millisecondsSinceEpoch}');
+            final response = await client.get(
+              uri,
+              headers: {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
+            ).timeout(const Duration(seconds: 6));
+            if (response.statusCode == 200 && response.body.trim().isNotEmpty) {
+              final ghJson = jsonDecode(response.body) as Map<String, dynamic>;
+              if (ghJson['version_code'] == metadataJson['version_code']) {
+                metadataJson['package_sha256'] = ghJson['package_sha256'];
+                metadataJson['package_signatures'] = ghJson['package_signatures'];
+                metadataJson['package_sizes'] = ghJson['package_sizes'];
+                break;
+              }
+            }
+          } catch (_) {}
+        }
       }
 
       final remoteVersionCode = (metadataJson['version_code'] as num?)?.toInt() ?? 0;
