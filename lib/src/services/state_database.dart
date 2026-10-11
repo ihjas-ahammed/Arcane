@@ -40,7 +40,8 @@ class StateDatabase {
       '${dir.path}/arcane_state.db',
       version: 2,
       onConfigure: (db) async {
-        await db.execute('PRAGMA journal_mode=WAL');
+        // journal_mode returns a row; Android sqflite rejects row-returning statements in execute().
+        await db.rawQuery('PRAGMA journal_mode=WAL');
         await db.execute('PRAGMA synchronous=FULL');
       },
       onOpen: (db) async {
