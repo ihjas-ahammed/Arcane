@@ -1,5 +1,6 @@
 # Missions 2026.10.11
 
+- Android: Resolved SQLite WAL journal mode initialization; row-returning PRAGMA statements execute via rawQuery to prevent startup errors on Android devices.
 - Imports and replacements verify SQLite data before committing; failed backups or imports preserve the previous database.
 - Emoji and large collections survive storage boundaries, with checksums and recovery guards for unreadable records.
 - Existing cloud data must be restored or merged before a new device can upload. Snapshot commits are atomic, older versions remain recoverable, and large deletions need confirmation.

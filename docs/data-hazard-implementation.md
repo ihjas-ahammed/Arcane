@@ -88,3 +88,17 @@ The production backup, external backup copy, reviewed rule deployment, Firebase 
 The branch was pushed successfully through release/compatibility commit `07632403587faaf1f86d4504e0eff2d23386cf87`. The public `revive2/builds/update_info.json` matches the signed local manifest exactly. All four new GitHub download URLs and all four legacy URLs advertised by Firebase returned HTTP 200 after the push. Firebase metadata was compared before and after publication and remained unchanged at `2026.10.9+2126100904`.
 
 [GitHub verification run 38117111025](https://github.com/ihjas-ahammed/Arcane/actions/runs/38117111025) completed successfully for the pushed release/compatibility commit, including dependency resolution, static analysis, and tests. The final documentation commit records these results; the working tree is clean.
+
+## Release run: 2026.10.11+2126101103
+
+The version code was incremented to `2126101103` for an Android-specific fix in `StateDatabase` (executing SQLite WAL journal mode via `rawQuery` instead of `execute`).
+
+`scripts/release.sh prepare` completed cleanly: tests and static analysis passed, split APKs and Linux bundle were built and stripped, and all packages passed local SHA-256 and Ed25519 verification.
+
+| Verified downloadable package | SHA-256 |
+| --- | --- |
+| `missions-v2026.10.11-b2126101103-arm64-v8a.apk` | `a1c9a8efed5e5b00085c5dd00d3859ad9ff38d8c6c2e5ff77c53fe1678be58ae` |
+| `missions-v2026.10.11-b2126101103-armeabi-v7a.apk` | `6f2da7a93cb100f988fd89f2630657206af98129ab2804ce7df43378d31bceae` |
+| `missions-v2026.10.11-b2126101103-x86_64.apk` | `2c535d434a8c887130e9d72ddaf9e5ffbb11bda8ec4c98acbd10bac59fc9815a` |
+| `missions-v2026.10.11-b2126101103-linux-x86_64.tar.gz` | `17e6b97d41716ed4197787ccc6e7725a162315634502bd9cb2219331247c7b37` |
+
