@@ -6,6 +6,8 @@
 #   ./build.sh --skip-firebase GitHub-only run (no backup / rules / update pointer)
 #   ./build.sh --no-push       build and verify only; no tag, release, push or pointer
 #   ./build.sh --yes           do not ask before the publishing stages
+#   ./build.sh --skip-build    reuse the packages already in builds/ (re-verified), e.g. to
+#                              resume after a failure that happened after the build
 #   ./build.sh --help
 #
 # Environment:
@@ -20,6 +22,7 @@ set -Eeuo pipefail
 cd "$(dirname "$0")"
 
 SKIP_FIREBASE=0
+SKIP_BUILD=0
 NO_PUSH=0
 ASSUME_YES=0
 for arg in "$@"; do
@@ -27,7 +30,8 @@ for arg in "$@"; do
     --skip-firebase) SKIP_FIREBASE=1 ;;
     --no-push) NO_PUSH=1 ;;
     --yes|-y) ASSUME_YES=1 ;;
-    --help|-h) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --skip-build) SKIP_BUILD=1 ;;
+    --help|-h) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $arg (see --help)" >&2; exit 2 ;;
   esac
 done
@@ -128,15 +132,21 @@ fi
 
 # ── 6. Build ─────────────────────────────────────────────────────────────────
 step 'Clean, analyze, test and build: 3 APKs + Linux bundle (push.md step 3)'
-note 'This is the long part: flutter output follows in full.'
-run scripts/release.sh prepare
-info 'all packages built, signed metadata generated and verified'
+if [[ $SKIP_BUILD == 1 ]]; then
+  warn '--skip-build: reusing packages in builds/'
+  run python3 scripts/verify_release_assets.py
+else
+  note 'This is the long part: flutter output follows in full.'
+  run scripts/release.sh prepare
+fi
+info 'all packages present, signed metadata verified'
 ls -lh builds/missions-v"${VERSION}"-b"${VCODE}"-* 2>/dev/null | sed 's/^/   /'
 sha256sum builds/missions-v"${VERSION}"-b"${VCODE}"-* | sed 's/^/   /'
 
 # ── 7. Commit ────────────────────────────────────────────────────────────────
 step 'Commit source and metadata (push.md step 4)'
-run git add -A -- . ':!backups' ':!.release_keys' ':!*.apk' ':!*.tar.gz'
+# Keys, backups and binaries are git-ignored, so a plain add can't pick them up.
+run git add -A
 if git diff --cached --quiet; then
   note 'nothing to commit'
 else
