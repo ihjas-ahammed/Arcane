@@ -298,6 +298,10 @@ class LauncherTakeoverService : AccessibilityService() {
         super.onServiceConnected()
         activeInstance = this
         refreshHomePackages()
+        // Some ROMs call onServiceConnected again without onUnbind; stop the old instances first
+        // or two bubbles (and two heartbeats) fight over the same window.
+        taskBubble?.stop()
+        noraBubble?.stop()
         taskBubble = TaskBubbleOverlay(this).also { it.start() }
         noraBubble = NoraBubbleOverlay(this).also { it.start() }
         micTapOverlay = ExternalMicTapOverlay(this)

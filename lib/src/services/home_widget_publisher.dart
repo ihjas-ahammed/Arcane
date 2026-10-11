@@ -31,17 +31,52 @@ class HomeWidgetPublisher {
       // The launcher palette can change without any app state changing.
       // ignore: discarded_futures
       _publishTheme();
+      // Only the unchanged-key check runs on most beats; a forced rewrite wakes the floating
+      // button, every widget and the foreground service, so it happens every few minutes only.
+      _heartbeatCount++;
+      final force = _heartbeatCount % _forceEveryBeats == 0;
       // ignore: discarded_futures
-      _publishTask(force: true);
+      _publishTask(force: force);
     });
   }
+
+  static const int _forceEveryBeats = 10; // 10 x 30 s = 5 min
+  int _heartbeatCount = 0;
 
   Timer? _heartbeat;
 
   static HomeWidgetPublisher? _active;
 
-  /// Redraws every widget right away (used when a widget tap turned out to be stale).
-  static void republishNow() => _active?.publishAll();
+  /// Re-asserts the live task state right away (used after a bubble/widget tap, or when a tap
+  /// turned out to be stale). Only the task is rewritten: the theme and the other widgets are not
+  /// time critical and must not delay it.
+  static void republishNow() {
+    // ignore: discarded_futures
+    _active?._publishTask(force: true);
+  }
+
+  /// A running session ended for good (finished, not paused): the floating button must not
+  /// linger in its paused state for the next planned task.
+  static void noteSessionEnded() => _active?._skipPausedGrace = true;
+
+  /// Puts the running state and clock back after a Widgets Studio preview push overwrote them,
+  /// so the floating button keeps ticking while the user previews widgets.
+  static Future<void> restoreLiveTimerState() async {
+    final live = _active?._lastLiveTimer;
+    if (live == null) return;
+    await HomeWidgetService.instance.publishTimerState(
+      hasTask: live.hasTask,
+      isRunning: live.isRunning,
+      accumulatedSeconds: live.accumulatedSeconds,
+      sessionStartMs: live.sessionStartMs,
+      pausedAtMs: live.pausedAtMs,
+    );
+  }
+
+  ({bool hasTask, bool isRunning, int accumulatedSeconds, int sessionStartMs, int pausedAtMs})? _lastLiveTimer;
+  bool _wasRunning = false;
+  bool _skipPausedGrace = false;
+  int _pausedAtMs = 0;
 
   final AppProvider _provider;
 
@@ -220,6 +255,7 @@ class HomeWidgetPublisher {
         s = m?.subTasks.firstWhereOrNull((st) => st.id == running.key && !st.isDeleted);
       }
       final isRunning = s != null && !s.completed;
+      _trackPausedAt(isRunning);
       await HomeWidgetService.instance.publishTask(
         hasTask: isRunning,
         title: isRunning ? s.name : 'NO PLAN SET',
@@ -227,11 +263,32 @@ class HomeWidgetPublisher {
         isRunning: isRunning,
         isCheckpoint: false,
         accumulatedSeconds: isRunning ? TaskCalculations.getHistoricalTodaySeconds(s, _provider.mainTasks).toInt() : 0,
-        sessionStart: isRunning ? running!.value.startTime : null,
+        sessionStart: isRunning ? _clampStart(running!.value.startTime) : null,
+        pausedAtMs: _pausedAtMs,
       );
     } catch (e) {
       debugPrint('[HomeWidget] fallback publish failed: $e');
     }
+  }
+
+  /// `TimerActions.startTimer` stamps the start one second in the future so back-to-back sessions
+  /// never overlap. The published clock must not start in the future, or it freezes at 00:00.
+  DateTime _clampStart(DateTime start) {
+    final now = DateTime.now();
+    return start.isAfter(now) ? now : start;
+  }
+
+  /// Remembers when a running session was halted so the floating button can stay for a grace
+  /// period. 0 means running, or never seen running in this process.
+  void _trackPausedAt(bool isRunning) {
+    if (isRunning) {
+      _pausedAtMs = 0;
+      _skipPausedGrace = false;
+    } else if (_wasRunning) {
+      _pausedAtMs = _skipPausedGrace ? 0 : DateTime.now().millisecondsSinceEpoch;
+      _skipPausedGrace = false;
+    }
+    _wasRunning = isRunning;
   }
 
   Future<void> _publishTaskInner({bool force = false}) async {
@@ -309,7 +366,9 @@ class HomeWidgetPublisher {
     final nextCheckpoint = s == null ? '' : (TaskCalculations.nextCheckpoint(s)?.name ?? '');
     final activeTimer = s == null ? null : _provider.activeTimers[s.id];
     final accumulated = s == null ? 0.0 : TaskCalculations.getHistoricalTodaySeconds(s, _provider.mainTasks);
-    final sessionStart = r.isRunning ? activeTimer?.startTime : null;
+    final rawStart = r.isRunning ? activeTimer?.startTime : null;
+    final sessionStart = rawStart == null ? null : _clampStart(rawStart);
+    _trackPausedAt(r.isRunning);
     final progress = s == null ? 0.0 : s.calculateProgress();
 
     // Buffer-aware day capacity ("planned / realistic"), shown on the widget.
@@ -340,6 +399,14 @@ class HomeWidgetPublisher {
     if (!force && key == _lastTaskKey) return;
     _lastTaskKey = key;
 
+    _lastLiveTimer = (
+      hasTask: s != null,
+      isRunning: r.isRunning,
+      accumulatedSeconds: accumulated.toInt(),
+      sessionStartMs: sessionStart?.millisecondsSinceEpoch ?? 0,
+      pausedAtMs: _pausedAtMs,
+    );
+
     try {
       await HomeWidgetService.instance.publishTask(
         hasTask: s != null,
@@ -356,6 +423,7 @@ class HomeWidgetPublisher {
         topFiveTasks: topFiveTasks,
         multitaskTasks: multitaskTasks,
         nextCheckpoint: nextCheckpoint,
+        pausedAtMs: _pausedAtMs,
       );
     } catch (e) {
       debugPrint('[HomeWidget] publish task: $e');

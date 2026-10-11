@@ -1183,8 +1183,12 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         val pending = pendingAssistantAction
         if (pending != null) {
             Handler(Looper.getMainLooper()).postDelayed({
-                dispatchWidgetAction(pending)
-                pendingAssistantAction = null
+                // Dart may already have consumed it through getPendingAction; dispatching the
+                // captured copy as well would apply the same tap twice.
+                if (pendingAssistantAction == pending) {
+                    pendingAssistantAction = null
+                    dispatchWidgetAction(pending)
+                }
             }, 300)
         }
     }

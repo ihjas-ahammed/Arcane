@@ -49,7 +49,21 @@ class WidgetActionRouter {
 
   /// Buffer for actions that arrive before MaterialApp has a navigator
   /// (cold-start case). Flushed once `flushPending` is called.
-  final List<String> _pending = [];
+  final List<({String action, int atMs})> _pending = [];
+
+  /// Taps older than this are dropped when the queue drains: replaying a halt/engage minutes
+  /// later makes the floating button suddenly vanish or appear.
+  static const int _pendingMaxAgeMs = 15000;
+
+  static bool _isTimerToggle(String a) => a == 'task_pause' || a == 'task_start' || a == 'task_toggle';
+
+  /// Idempotent actions (opening screens) stay valid however long they waited.
+  static bool _isIdempotent(String a) =>
+      a.startsWith('task_open') || a.startsWith('open_') || a.endsWith('_open');
+
+  void _queue(String action) =>
+      _pending.add((action: action, atMs: DateTime.now().millisecondsSinceEpoch));
+
 
   /// Channel the native [WidgetActionReceiver] invokes when the app process is
   /// already alive, so quick widget actions apply silently instead of
@@ -93,7 +107,7 @@ class WidgetActionRouter {
     final ctx = navigatorKey.currentContext;
     if (ctx == null) {
       // App hasn't built MaterialApp yet — stash for later.
-      _pending.add(action);
+      _queue(action);
       return;
     }
     _dispatch(ctx, action, silent: silent);
@@ -103,15 +117,33 @@ class WidgetActionRouter {
   void flushPending() {
     final ctx = navigatorKey.currentContext;
     if (ctx == null) return;
-    final pending = List<String>.from(_pending);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final queued = List.of(_pending);
     _pending.clear();
-    for (final action in pending) { _dispatch(ctx, action); }
+    var dropped = false;
+    final fresh = <String>[];
+    for (final p in queued) {
+      if (!_isIdempotent(p.action) && now - p.atMs > _pendingMaxAgeMs) {
+        dropped = true;
+        continue;
+      }
+      fresh.add(p.action);
+    }
+    // Several queued halt/engage taps would replay as start → pause → start. Only the last
+    // one reflects what the user wants.
+    final lastToggle = fresh.lastIndexWhere(_isTimerToggle);
+    final actions = <String>[
+      for (var i = 0; i < fresh.length; i++)
+        if (!_isTimerToggle(fresh[i]) || i == lastToggle) fresh[i],
+    ];
+    if (dropped) showGlobalToast('Arcane was loading — tap the button again.');
+    for (final action in actions) { _dispatch(ctx, action); }
   }
 
   void _dispatch(BuildContext ctx, String action, {bool silent = false}) {
     final provider = Provider.of<AppProvider>(ctx, listen: false);
     if (provider.authLoading || provider.dataLoadInProgress || provider.currentUser == null || provider.localLoadError != null || provider.cloudAttachRequired) {
-      _pending.add(action);
+      _queue(action);
       return;
     }
     // Floating task button double-tap: "task_check_add:<new checkpoint name>".
@@ -417,6 +449,7 @@ class WidgetActionRouter {
     final cp = r.checkpoint;
     final queueId = r.queueId;
     if (m == null || s == null) return;
+    if (r.isRunning && cp == null) HomeWidgetPublisher.noteSessionEnded();
 
     if (cp != null) {
       provider.taskActions.completeSubSubtask(m.id, s.id, cp.id);

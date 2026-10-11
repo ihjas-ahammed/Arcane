@@ -110,6 +110,7 @@ class HomeWidgetService {
     List<ResolvedDayPlanItem> topFiveTasks = const [],
     List<ResolvedDayPlanItem> multitaskTasks = const [],
     String nextCheckpoint = '',
+    int pausedAtMs = 0,
   }) async {
     if (!_supported) return;
 
@@ -127,7 +128,9 @@ class HomeWidgetService {
       'arcane.task.accumulatedSec': accumulatedSeconds,
       'arcane.task.progressPct': (progress.clamp(0.0, 1.0) * 100).round(),
       'arcane.task.sessionStartMs': sessionStart?.millisecondsSinceEpoch ?? 0,
-      'arcane.task.updatedAtMs': DateTime.now().millisecondsSinceEpoch,
+      // When the running session was halted (0 while running or unknown). The floating button
+      // stays visible for a grace period after this instead of vanishing on every halt.
+      'arcane.task.pausedAtMs': pausedAtMs,
       'arcane.task.dayPlannerWidgetCheckable': dayPlannerWidgetCheckable,
       'arcane.task.multitaskCount': multitaskTasks.length,
       // Checkpoint "CHECK NEXT" would tick (read by the floating task button's quick-add).
@@ -145,9 +148,53 @@ class HomeWidgetService {
       data['arcane.task.mt$i.checkpoints'] =
           i < multitaskTasks.length ? '${multitaskTasks[i].completedCheckpoints}/${multitaskTasks[i].totalCheckpoints}' : '';
     }
-    await _setAll(data);
-    await _refresh(_providerRunning);
-    await _refresh(_providerDayPlan);
+    await _enqueueTask(data);
+  }
+
+  /// Rewrites only the keys the floating button trusts (running state and clock), leaving the
+  /// title/preview keys alone. Used to undo a Widgets Studio preview push.
+  Future<void> publishTimerState({
+    required bool hasTask,
+    required bool isRunning,
+    required int accumulatedSeconds,
+    required int sessionStartMs,
+    required int pausedAtMs,
+  }) async {
+    if (!_supported) return;
+    await _enqueueTask({
+      'arcane.task.hasTask': hasTask,
+      'arcane.task.isRunning': isRunning,
+      'arcane.task.accumulatedSec': accumulatedSeconds,
+      'arcane.task.sessionStartMs': sessionStartMs,
+      'arcane.task.pausedAtMs': pausedAtMs,
+    });
+  }
+
+  static const String _updatedAtKey = 'arcane.task.updatedAtMs';
+
+  /// Snapshots waiting for the writer. Newer values replace older ones key by key, so a slow
+  /// publish can never land on top of a newer one.
+  Map<String, Object>? _queuedTask;
+  Future<void>? _taskWriter;
+
+  /// Serialises task publishes (latest wins, never interleaved). `updatedAtMs` is always written
+  /// last: the floating button only re-syncs on that key, so it never reads a half-written state.
+  Future<void> _enqueueTask(Map<String, Object> data) {
+    _queuedTask = {...?_queuedTask, ...data};
+    return _taskWriter ??= () async {
+      try {
+        while (_queuedTask != null) {
+          final next = _queuedTask!;
+          _queuedTask = null;
+          await _setAll(next);
+          await _setAll({_updatedAtKey: DateTime.now().millisecondsSinceEpoch});
+          await _refresh(_providerRunning);
+          await _refresh(_providerDayPlan);
+        }
+      } finally {
+        _taskWriter = null;
+      }
+    }();
   }
 
   /// Theme the native widgets follow: the launcher's palette (light/dark, accent, panel, text), as ARGB ints.

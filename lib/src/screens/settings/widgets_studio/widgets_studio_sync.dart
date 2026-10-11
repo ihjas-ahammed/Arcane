@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/services/home_widget_service.dart';
+import 'package:missions/src/services/home_widget_publisher.dart';
 import 'widgets_studio_models.dart';
 import 'widgets_studio_resolvers.dart';
 
@@ -68,6 +69,9 @@ class WidgetsStudioSync {
       capacity: task.capacity,
       multitaskTasks: task.multitaskTasks,
     );
+    // The preview wrote its own running state and clock into the live keys; the floating
+    // button must keep following the real timer.
+    await HomeWidgetPublisher.restoreLiveTimerState();
     if (context != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Task Widget synchronized with Android OS!')),
@@ -182,6 +186,9 @@ class WidgetsStudioSync {
       capacity: task.capacity,
       multitaskTasks: task.multitaskTasks,
     );
+    // The preview wrote its own running state and clock into the live keys; the floating
+    // button must keep following the real timer.
+    await HomeWidgetPublisher.restoreLiveTimerState();
     await HomeWidgetService.instance.publishFinance(
       balance: fin.balance,
       todaySpend: fin.todaySpend,

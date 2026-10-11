@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -20,8 +22,52 @@ class DesktopFloatingTimer extends StatefulWidget {
 }
 
 class _DesktopFloatingTimerState extends State<DesktopFloatingTimer> {
-  Offset _position = const Offset(80, 80);
-  bool _isMinimized = false;
+  // Kept across rebuilds and re-mounts (window resized, clock toggled), so the clock reopens
+  // where the user left it instead of jumping back to (80, 80).
+  static Offset _lastPosition = const Offset(80, 80);
+  static bool _lastMinimized = false;
+
+  static const Duration _idleDelay = Duration(seconds: 3);
+  static const double _idleOpacity = 0.4;
+  static const double _expandedWidth = 340;
+  static const double _minimizedWidth = 250;
+  static const double _grabHeight = 40; // the drag bar must always stay reachable
+
+  Offset _position = _lastPosition;
+  bool _isMinimized = _lastMinimized;
+  bool _idle = false;
+  Timer? _idleTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleIdle();
+  }
+
+  @override
+  void dispose() {
+    _idleTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleIdle() {
+    _idleTimer?.cancel();
+    _idleTimer = Timer(_idleDelay, () {
+      if (mounted) setState(() => _idle = true);
+    });
+  }
+
+  void _wake() {
+    if (_idle) setState(() => _idle = false);
+    _scheduleIdle();
+  }
+
+  Offset _clamped(Offset p, Size screen) {
+    final width = _isMinimized ? _minimizedWidth : _expandedWidth;
+    final maxX = (screen.width - width).clamp(0.0, double.infinity);
+    final maxY = (screen.height - _grabHeight).clamp(0.0, double.infinity);
+    return Offset(p.dx.clamp(0.0, maxX), p.dy.clamp(0.0, maxY));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,14 +104,23 @@ class _DesktopFloatingTimerState extends State<DesktopFloatingTimer> {
     }
 
     final accent = activeMain?.taskColor ?? JweTheme.accentCyan;
+    final screen = MediaQuery.sizeOf(context);
+    final position = _clamped(_position, screen);
 
     return Positioned(
-      left: _position.dx,
-      top: _position.dy,
-      child: GestureDetector(
+      left: position.dx,
+      top: position.dy,
+      child: MouseRegion(
+        onEnter: (_) => _wake(),
+        onHover: (_) => _wake(),
+        child: AnimatedOpacity(
+        opacity: _idle ? _idleOpacity : 1,
+        duration: const Duration(milliseconds: 300),
+        child: GestureDetector(
         onPanUpdate: (details) {
+          _wake();
           setState(() {
-            _position += details.delta;
+            _position = _lastPosition = _clamped(position + details.delta, screen);
           });
         },
         child: Material(
@@ -73,7 +128,7 @@ class _DesktopFloatingTimerState extends State<DesktopFloatingTimer> {
           elevation: 12,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            width: _isMinimized ? 250 : 340,
+            width: _isMinimized ? _minimizedWidth : _expandedWidth,
             decoration: BoxDecoration(
               color: AppTheme.fhBgDark.withValues(alpha: 0.95),
               border: Border.all(color: accent.withValues(alpha: 0.6), width: 1.5),
@@ -113,7 +168,7 @@ class _DesktopFloatingTimerState extends State<DesktopFloatingTimer> {
                       const Spacer(),
                       IconButton(
                         icon: Icon(_isMinimized ? MdiIcons.windowMaximize : MdiIcons.windowMinimize, size: 14, color: JweTheme.textMid),
-                        onPressed: () => setState(() => _isMinimized = !_isMinimized),
+                        onPressed: () => setState(() => _isMinimized = _lastMinimized = !_isMinimized),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
@@ -308,6 +363,8 @@ class _DesktopFloatingTimerState extends State<DesktopFloatingTimer> {
             ),
           ),
         ),
+      ),
+      ),
       ),
     );
   }

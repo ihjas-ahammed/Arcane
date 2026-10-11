@@ -45,6 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
   ThemeData? _scaffoldTheme;
   final Set<int> _visitedTabs = {};
   bool _showDesktopTimer = false;
+  static const String _desktopTimerPrefKey = 'desktop_focus_clock_visible';
 
   static const List<String> _viewTitles = <String>[
     'MISSIONS',
@@ -91,6 +92,23 @@ class _HomeScreenState extends State<HomeScreen> {
       _autoOpenGoals();
     });
     WidgetActionRouter.instance.tabRequest.addListener(_onTabRequest);
+    // ignore: discarded_futures
+    _restoreDesktopTimer();
+  }
+
+  Future<void> _restoreDesktopTimer() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final shown = prefs.getBool(_desktopTimerPrefKey) ?? false;
+      if (mounted && shown != _showDesktopTimer) setState(() => _showDesktopTimer = shown);
+    } catch (_) {/* the clock just starts hidden */}
+  }
+
+  void _setDesktopTimer(bool shown) {
+    setState(() => _showDesktopTimer = shown);
+    SharedPreferences.getInstance()
+        .then((prefs) => prefs.setBool(_desktopTimerPrefKey, shown))
+        .catchError((_) => false);
   }
 
   /// Auto-open the goals window on startup — but only once Arcane is actually on screen. As the
@@ -345,7 +363,7 @@ class _HomeScreenState extends State<HomeScreen> {
         appBar: HeaderWidget(
           currentViewLabel: headerLabel,
           leading: customLeading,
-          onToggleFocusClock: () => setState(() => _showDesktopTimer = !_showDesktopTimer),
+          onToggleFocusClock: () => _setDesktopTimer(!_showDesktopTimer),
           customAction: IconButton(
             icon:  Icon(MdiIcons.cogOutline, color: JweTheme.textMuted),
             tooltip: "SYSTEM SETTINGS",
@@ -365,9 +383,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-            if (_showDesktopTimer && isLargeScreen)
+            // Not tied to the rail breakpoint: resizing or snapping the window must not
+            // dispose the clock (and with it its position).
+            if (_showDesktopTimer)
               DesktopFloatingTimer(
-                onClose: () => setState(() => _showDesktopTimer = false),
+                onClose: () => _setDesktopTimer(false),
               ),
           ],
         ),
