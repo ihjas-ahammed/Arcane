@@ -10,10 +10,34 @@ import 'package:missions/src/theme/jwe_theme.dart';
 
 /// Shown instead of the app when the saved state on this device cannot be read. Nothing is
 /// loaded from the cloud or from older copies, and nothing is saved, until the user fixes it.
-class LocalDataErrorScreen extends StatelessWidget {
+class LocalDataErrorScreen extends StatefulWidget {
   const LocalDataErrorScreen({super.key, required this.error});
 
   final LocalStateException error;
+
+  @override
+  State<LocalDataErrorScreen> createState() => _LocalDataErrorScreenState();
+}
+
+class _LocalDataErrorScreenState extends State<LocalDataErrorScreen> {
+  LocalStateException get error => widget.error;
+  bool _busy = false;
+
+  /// What the last recovery action threw. A snackbar vanished before it could be read, which made
+  /// a failing restore look like "the screen never goes away".
+  String? _actionError;
+
+  Future<void> _run(String label, Future<void> Function() action) async {
+    if (_busy) return;
+    setState(() { _busy = true; _actionError = null; });
+    try {
+      await action();
+    } catch (e, stack) {
+      if (mounted) setState(() => _actionError = '$label failed:\n$e\n$stack');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   Future<void> _copy(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: error.toString()));
@@ -66,8 +90,7 @@ class LocalDataErrorScreen extends StatelessWidget {
     final text = controller.text;
     controller.dispose();
     if (confirmed != true) return;
-    try { await provider.startFreshAfterCloudConfirmation(text); }
-    catch (e) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'))); }
+    await _run('Start fresh', () => provider.startFreshAfterCloudConfirmation(text));
   }
 
   @override
@@ -104,7 +127,10 @@ class LocalDataErrorScreen extends StatelessWidget {
                   ),
                   child: SingleChildScrollView(
                     child: SelectableText(
-                      error.details.isEmpty ? error.message : error.details,
+                      [
+                        if (_actionError != null) _actionError!,
+                        error.details.isEmpty ? error.message : error.details,
+                      ].join('\n\n'),
                       style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
                     ),
                   ),
@@ -116,18 +142,21 @@ class LocalDataErrorScreen extends StatelessWidget {
                 runSpacing: 10,
                 children: [
                   if (provider.cloudAttachRequired) ...[
-                    ElevatedButton(onPressed: () async {
-                      try { await provider.restoreCloudAttachment(); }
-                      catch (e) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'))); }
-                    }, child: const Text('RESTORE / MERGE CLOUD DATA (RECOMMENDED)')),
-                    OutlinedButton(onPressed: () => _startFresh(context), child: const Text('START FRESH')),
+                    ElevatedButton(
+                      onPressed: _busy ? null : () => _run('Restore', provider.restoreCloudAttachment),
+                      child: Text(_busy ? 'WORKING…' : 'RESTORE / MERGE CLOUD DATA (RECOMMENDED)'),
+                    ),
+                    OutlinedButton(onPressed: _busy ? null : () => _startFresh(context), child: const Text('START FRESH')),
                   ],
                   ElevatedButton.icon(
                     icon: const Icon(Icons.copy, size: 16),
                     label: const Text("COPY ERROR"),
                     onPressed: () => _copy(context),
                   ),
-                  OutlinedButton(onPressed: provider.retryLocalLoad, child: const Text("RETRY")),
+                  OutlinedButton(
+                    onPressed: _busy ? null : () => _run('Retry', provider.retryLocalLoad),
+                    child: const Text("RETRY"),
+                  ),
                   OutlinedButton(onPressed: () => _loadJson(context), child: const Text("LOAD JSON INTO DATABASE")),
                   OutlinedButton(
                     onPressed: () => Navigator.push(

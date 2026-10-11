@@ -1066,8 +1066,17 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   Future<void> startFreshAfterCloudConfirmation(String confirmation) async {
     if (confirmation != 'DELETE' || currentUser == null) throw StateError('Type DELETE to start fresh.');
     await _localStorage.writeSnapshot(currentUser!.uid, getFullAppState(), 'before_start_fresh');
-    final snapshot = await storageService.getUserSnapshot(currentUser!.uid);
-    final remote = (snapshot?['lastModified'] as num?)?.toInt() ?? 0;
+    Map<String, dynamic>? snapshot;
+    int remote;
+    try {
+      snapshot = await storageService.getUserSnapshot(currentUser!.uid);
+      remote = (snapshot?['lastModified'] as num?)?.toInt() ?? 0;
+    } catch (e) {
+      // An unreadable cloud snapshot cannot be copied, but the user confirmed DELETE. Only the
+      // timestamp is needed to attach this device; a failure here (offline) still aborts.
+      debugPrint('[StartFresh] cloud snapshot unreadable, using its timestamp only: $e');
+      remote = await storageService.getLastModified(currentUser!.uid);
+    }
     if (snapshot != null) await _localStorage.writeSnapshot(currentUser!.uid, snapshot['state'] as Map<String, dynamic>, 'before_start_fresh_cloud');
     beginDataLoad();
     try {
@@ -2003,6 +2012,11 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         beginDataLoad();
         try {
           await replaceStateSafely(norm);
+        } on LocalStateException {
+          // Records the app could not decode are preserved raw (protectedCollections/quarantine)
+          // and were already stored by the import above, so the restore itself succeeded.
+          // Anything else is a real failure.
+          if (failedCollections.isEmpty) rethrow;
         } finally {
           endDataLoad();
         }
@@ -2018,7 +2032,13 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
         await forceLocalBackup();
       }
       await _launcherLoad;
-      if (failedCollections.isNotEmpty) throw StateError('Cloud snapshot has unreadable records; recovery is required.');
+      if (failedCollections.isNotEmpty) {
+        // The unreadable raw records are kept in protectedCollections/quarantine and saved with
+        // the rest, and cloud pushes stay blocked while failedCollections is not empty. Throwing
+        // here left the baseline unset, so the "Cloud data found" screen came back on every
+        // launch and could never be dismissed.
+        cloudSyncError = 'Some records could not be read and were preserved: ${failedCollections.join(', ')}. Cloud upload is paused until they are repaired.';
+      }
       await persistCloudBaseline((snapshot!['lastModified'] as num).toInt(), version: snapshot['version'] as String?);
       cloudAttachRequired = false;
       localLoadError = null;
