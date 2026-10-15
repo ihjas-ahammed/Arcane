@@ -79,6 +79,8 @@ for ABI in "${ABIS[@]}"; do
   GOT_NAME=$(echo "$BADGING" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")
   GOT_CODE=$(echo "$BADGING" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p")
   EXPECT_CODE=$((VCODE + OFFSET[$ABI]))
+  # A single-ABI build is not split, so it carries the base version code.
+  [[ $ARM64_ONLY == 1 ]] && EXPECT_CODE=$VCODE
   if [[ $GOT_NAME != "$VERSION" || $GOT_CODE != "$EXPECT_CODE" ]]; then
     fail "$ABI APK reports $GOT_NAME/$GOT_CODE, expected $VERSION/$EXPECT_CODE"
   fi

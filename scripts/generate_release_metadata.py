@@ -23,7 +23,7 @@ public = subprocess.check_output(['openssl','pkey','-in',str(key),'-pubout','-ou
 expected = re.search(r"const releasePublicKey = '([^']+)'",Path('lib/src/services/release_signature.dart').read_text())[1]
 if base64.b64encode(public).decode() != expected: raise SystemExit('Signing key does not match the public key compiled into the app.')
 arches = {'arm64-v8a':2000,'armeabi-v7a':1000,'x86_64':4000}
-if args.arm64_only: arches = {'arm64-v8a':2000}
+if args.arm64_only: arches = {'arm64-v8a':0}  # not split per ABI: base version code
 names = {abi:f'missions-v{version}-b{code}-{abi}.apk' for abi in arches}
 linux_name = f'missions-v{version}-b{code}-linux-x86_64.tar.gz'
 hashes, signatures, sizes = {}, {}, {}
