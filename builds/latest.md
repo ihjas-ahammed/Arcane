@@ -1,9 +1,8 @@
-# Missions 2026.10.15 (build 2126101502)
+# Missions 2026.10.15 (build 2126101503)
 
-- Widget and floating timer buttons (ENGAGE / HALT, CHECK NEXT, FINISH) now use the same task code as the app. When Arcane is closed, they are applied in the background without opening the app.
-- Known risk in this build: the background path has not been verified on a device yet. If a button tap does nothing with Arcane closed, open the app once and report it.
-- Floating timer readout stays centred in the disc.
-- Weekly offline backup is written to the Realtime Database (Firebase Storage is no longer used) and keeps the newest 8 weeks.
-- Task logic moved out of the main app state into its own module, so the background path and the app share one implementation.
+- Daily briefing export and prompt now include notifications from the journal, even if the journal screen was not opened that day.
+- Briefing prompt: finance income, expense and net are bare numbers. Explanations go in a separate finance note, and values shown on small cards carry no units or descriptions.
+- Android: arm64-v8a and armeabi-v7a only. x86 builds are no longer published.
+- Known risk, unchanged from 2026.10.15 (build 2126101502): widget task buttons with Arcane closed are applied in the background, and that path is not yet verified on a device. If a tap does nothing, open the app once and report it.
 
 Firebase Storage is not used for this project. Database backups are kept locally. Hosted release data is on GitHub.
