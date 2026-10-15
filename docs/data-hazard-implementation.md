@@ -130,3 +130,20 @@ Built and published with `build.sh` on 2026-10-11 10:51:25 (UTC). Tag: [v2026.10
 | `missions-v2026.10.11-b2126101104-linux-x86_64.tar.gz` | `86b0b2a4e00a1c9e24799252e54db76bf324af961761c063644ec55078c8a7e2` |
 
 Firebase update pointer: switched to 2126101104.
+
+
+## Release run: 2026.10.15+2126101501 (Android only)
+
+Released 2026-10-15 (UTC). Tag: [v2026.10.15-b2126101501](https://github.com/ihjas-ahammed/Arcane/releases/tag/v2026.10.15-b2126101501). Linux bundle not built or advertised; the metadata was generated with `scripts/generate_release_metadata.py --android-only`.
+
+| Verified downloadable package | SHA-256 |
+| --- | --- |
+| `missions-v2026.10.15-b2126101501-arm64-v8a.apk` | `74f9c01ad1c0b96af715a8f28f74d6a73adcc7c6f4dfec6f56e8ac199ca1b61e` |
+| `missions-v2026.10.15-b2126101501-armeabi-v7a.apk` | `0deaec5e81ec3b73fb5029cb12b5399cb01a9397d872fe8a4a9c8348cf81491f` |
+| `missions-v2026.10.15-b2126101501-x86_64.apk` | `d29423b068e5cf4a09d6b4d1c8aec0f77f7304c41078cbdad5a456b59e8de924` |
+
+- Published GitHub assets verified with `scripts/verify_release_assets.py --remote --android-only` (Ed25519 signatures and sizes).
+- Firebase RTDB backup: `backups/firebase_db_20261015T052021Z.json.gz` (verified as valid JSON before compression).
+- Rules: database and Firestore rules deployed from the repository without a snapshot of the previously deployed rules. Verified: anonymous root and `users` reads denied, `app_updates` readable, anonymous `app_updates` writes denied.
+- Storage rules not deployed: Firebase Storage is not set up on `task-dominion`, and the app's cloud backups use Storage (`lib/src/services/storage_service.dart`). Storage must be enabled in the console before its rules can be deployed.
+- Firebase update pointer: switched to 2126101501 (`/app_updates/latest`).
