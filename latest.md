@@ -1,5 +1,9 @@
-# Missions 2026.10.15 (build 2126101501)
+# Missions 2026.10.15 (build 2126101502)
 
-- Floating task button: the timer readout stays centred in the disc. It used to drift off-centre after the button settled from idle.
+- Widget and floating timer buttons (ENGAGE / HALT, CHECK NEXT, FINISH) now use the same task code as the app. When Arcane is closed, they are applied in the background without opening the app.
+- Known risk in this build: the background path has not been verified on a device yet. If a button tap does nothing with Arcane closed, open the app once and report it.
+- Floating timer readout stays centred in the disc.
+- Weekly offline backup is written to the Realtime Database (Firebase Storage is no longer used) and keeps the newest 8 weeks.
+- Task logic moved out of the main app state into its own module, so the background path and the app share one implementation.
 
-Still blocked on administrator access to the task-dominion Firebase project: deployment of the reviewed Firebase privacy and Storage rules, and authenticated publication of instant-update metadata. Until the rules are deployed the public database read exposure remains unresolved. See docs/data-hazard-implementation.md.
+Firebase Storage is not used for this project. Database backups are kept locally. Hosted release data is on GitHub.
