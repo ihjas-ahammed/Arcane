@@ -1,4 +1,4 @@
-import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/tasks/task_store.dart';
 import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/services/notification_service.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
@@ -6,7 +6,7 @@ import 'package:missions/src/utils/task_calculations.dart';
 import 'package:collection/collection.dart';
 
 class TimerActions {
-  final AppProvider _provider;
+  final TaskStore _provider;
 
   TimerActions(this._provider);
 

@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/tasks/task_store.dart';
 import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/utils/helpers.dart';
 import 'package:missions/src/utils/global_toast.dart';
@@ -10,7 +10,7 @@ import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
 
 class TaskActions {
-  final AppProvider _provider;
+  final TaskStore _provider;
 
   TaskActions(this._provider);
 

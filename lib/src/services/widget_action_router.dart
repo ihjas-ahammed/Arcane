@@ -1,11 +1,9 @@
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/models/skill_models.dart';
-import 'package:missions/src/models/task_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/screens/bus_schedule_screen.dart';
 import 'package:missions/src/screens/nora_ai_screen.dart';
@@ -14,11 +12,10 @@ import 'package:missions/src/screens/reflections_archive_screen.dart';
 import 'package:missions/src/screens/settings/widgets_studio/widgets_studio_resolvers.dart';
 import 'package:missions/src/services/bus_location_service.dart';
 import 'package:missions/src/services/home_widget_publisher.dart';
-import 'package:missions/src/services/stopped_task_memory.dart';
+import 'package:missions/src/tasks/task_commands.dart';
 import 'package:missions/src/widgets/dialogs/add_transaction_dialog.dart';
 import 'package:missions/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
-import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:home_widget/home_widget.dart';
@@ -148,26 +145,26 @@ class WidgetActionRouter {
     }
     // Floating task button double-tap: "task_check_add:<new checkpoint name>".
     if (action.startsWith(_checkAddPrefix)) {
-      _taskCheckAndAdd(provider, action.substring(_checkAddPrefix.length));
+      _commands(provider).checkAndAdd(action.substring(_checkAddPrefix.length));
       return;
     }
     switch (action) {
       case 'task_toggle':
-        _taskToggle(provider);
+        _commands(provider).toggle();
         if (!silent) _gotoTab(HomeTab.schedule);
         break;
       case 'task_finish':
-        _taskFinish(provider);
+        _commands(provider).finish();
         if (!silent) _gotoTab(HomeTab.schedule);
         break;
       case 'task_pause':
-        _taskPause(provider);
+        _commands(provider).pause();
         break;
       case 'task_start':
-        _taskStart(provider);
+        _commands(provider).start();
         break;
       case 'task_check_next':
-        _taskCheckNext(provider);
+        _commands(provider).checkNext();
         break;
       case 'task_check_0':
       case 'task_check_1':
@@ -175,7 +172,7 @@ class WidgetActionRouter {
       case 'task_check_3':
       case 'task_check_4':
         final index = int.parse(action.split('_').last);
-        _taskCheckAtPlanIndex(provider, index);
+        _commands(provider).checkAtPlanIndex(index);
         break;
       case 'task_open':
       case 'task_open_plan':
@@ -337,133 +334,15 @@ class WidgetActionRouter {
     }
   }
 
-  /// HUD and notification "pause". Only acts when a task is running, so a stale tap cannot start it.
-  void _taskPause(AppProvider provider) {
-    final r = _resolveActive(provider);
-    final s = r.subTask;
-    if (!r.isRunning || s == null) return;
-    StoppedTaskMemory.subTaskId = s.id;
-    provider.pauseTimer(s.id);
-    provider.logTimerAndReset(s.id);
-    HomeWidgetPublisher.republishNow();
-  }
-
-  /// HUD and notification "start". Starts the next planned task that was not just stopped, and only
-  /// when nothing is running, so a stale tap cannot pause a running task.
-  void _taskStart(AppProvider provider) {
-    final r = _resolveActive(provider, skipStopped: true);
-    final m = r.mainTask;
-    final s = r.subTask;
-    if (r.isRunning || m == null || s == null) return;
-    StoppedTaskMemory.subTaskId = null;
-    provider.startTimer(s.id, 'subtask', m.id);
-    HomeWidgetPublisher.republishNow();
-  }
-
-  void _taskToggle(AppProvider provider) {
-    final r = _resolveActive(provider);
-    final m = r.mainTask;
-    final s = r.subTask;
-    if (m == null || s == null) return;
-    if (r.isRunning) {
-      StoppedTaskMemory.subTaskId = s.id;
-      provider.pauseTimer(s.id);
-      provider.logTimerAndReset(s.id);
-    } else {
-      provider.startTimer(s.id, 'subtask', m.id);
-    }
-  }
+  TaskCommands _commands(AppProvider provider) => TaskCommands(
+        provider,
+        onMessage: showGlobalToast,
+        onRepublish: HomeWidgetPublisher.republishNow,
+        onSessionEnded: HomeWidgetPublisher.noteSessionEnded,
+        shownPlanIds: () => HomeWidgetPublisher.lastPublishedPlanIds,
+      );
 
   static const _checkAddPrefix = 'task_check_add:';
-
-  /// Ticks the current checkpoint and adds [name] on the same level right after it.
-  void _taskCheckAndAdd(AppProvider provider, String name) {
-    final r = _resolveActive(provider);
-    final m = r.mainTask;
-    final s = r.subTask;
-    if (m == null || s == null) return;
-    final newName = name.trim();
-    final checked = provider.taskActions.checkCurrentAndAddNext(m.id, s.id, newName);
-    if (checked != null && newName.isNotEmpty) {
-      showGlobalToast('✓ $checked  →  next: $newName');
-    } else if (checked != null) {
-      showGlobalToast('✓ Checked: $checked');
-    } else if (newName.isNotEmpty) {
-      showGlobalToast('Checkpoint added: $newName');
-    }
-  }
-
-  void _taskCheckNext(AppProvider provider) {
-    final r = _resolveActive(provider);
-    final m = r.mainTask;
-    final s = r.subTask;
-    if (m == null || s == null) return;
-    final cp = TaskCalculations.nextCheckpoint(s);
-    if (cp == null) {
-      showGlobalToast('No checkpoints left to check');
-      return;
-    }
-    provider.taskActions.completeSubSubtask(m.id, s.id, cp.id);
-    showGlobalToast('✓ Checked: ${cp.name}');
-  }
-
-  void _taskCheckAtPlanIndex(AppProvider provider, int index) {
-    final today = helper.getTodayDateString();
-    final topFive = TaskCalculations.resolveTopFiveDayPlanTasks(
-      mainTasks: provider.mainTasks,
-      plan: provider.taskActions.getDayPlan(today),
-    );
-    if (index >= topFive.length) return;
-    final item = topFive[index];
-    final shown = HomeWidgetPublisher.lastPublishedPlanIds;
-    if (index < shown.length && shown[index] != item.compoundId) {
-      // The plan changed since the widget last drew; ticking by position would hit another task.
-      showGlobalToast('Plan changed — widget refreshed, tap again');
-      HomeWidgetPublisher.republishNow();
-      return;
-    }
-    if (item.targetCheckpointId != null) {
-      provider.taskActions.completeSubSubtask(item.mainTaskId, item.subTaskId, item.targetCheckpointId!);
-      showGlobalToast('✓ Checked: ${item.name}');
-    } else {
-      final recurring = provider.mainTasks
-              .firstWhereOrNull((t) => t.id == item.mainTaskId)
-              ?.subTasks
-              .firstWhereOrNull((s) => s.id == item.subTaskId)
-              ?.isRecurring ==
-          true;
-      provider.taskActions.tickPlanSubtask(item.mainTaskId, item.subTaskId);
-      showGlobalToast(recurring ? '✓ Completed: ${item.name}' : 'Off today\'s plan: ${item.name}');
-    }
-
-    // Also remove from day plan
-    final currentPlan = List<String>.from(provider.taskActions.getDayPlan(today));
-    currentPlan.remove(item.compoundId);
-    provider.taskActions.updateDayPlan(today, currentPlan);
-  }
-
-  void _taskFinish(AppProvider provider) {
-    final r = _resolveActive(provider);
-    final m = r.mainTask;
-    final s = r.subTask;
-    final cp = r.checkpoint;
-    final queueId = r.queueId;
-    if (m == null || s == null) return;
-    if (r.isRunning && cp == null) HomeWidgetPublisher.noteSessionEnded();
-
-    if (cp != null) {
-      provider.taskActions.completeSubSubtask(m.id, s.id, cp.id);
-    } else {
-      provider.taskActions.completeSubtask(m.id, s.id);
-    }
-
-    if (queueId != null) {
-      final plan = List<String>.from(
-        provider.taskActions.getDayPlan(helper.getTodayDateString()),
-      )..remove(queueId);
-      provider.taskActions.updateDayPlan(helper.getTodayDateString(), plan);
-    }
-  }
 
   void _busSwap(AppProvider provider) {
     try {
@@ -475,65 +354,6 @@ class WidgetActionRouter {
       newSettings.lastSelectedBusDestination = orig;
       provider.setSettings(newSettings);
     } catch (_) {}
-  }
-
-  ({
-    MainTask? mainTask,
-    SubTask? subTask,
-    SubSubTask? checkpoint,
-    bool isRunning,
-    String? queueId,
-  }) _resolveActive(AppProvider provider, {bool skipStopped = false}) {
-    final today = helper.getTodayDateString();
-    final plan = List<String>.from(provider.taskActions.getDayPlan(today));
-
-    final runningEntry = provider.activeTimers.entries
-        .firstWhereOrNull((e) => e.value.isRunning && e.value.type == 'subtask');
-    if (runningEntry != null) {
-      final m = provider.mainTasks.firstWhereOrNull(
-        (t) => t.id == runningEntry.value.mainTaskId && !t.isDeleted,
-      );
-      final s = m?.subTasks.firstWhereOrNull(
-        (st) => st.id == runningEntry.key && !st.isDeleted,
-      );
-      if (m != null && s != null && !s.completed) {
-        String? queueId;
-        SubSubTask? cp;
-        final inPlan = plan.firstWhereOrNull((p) {
-          final parts = p.split('|');
-          return parts.length >= 2 && parts[0] == m.id && parts[1] == s.id;
-        });
-        if (inPlan != null) {
-          queueId = inPlan;
-          final parts = inPlan.split('|');
-          if (parts.length == 3) {
-            cp = s.findCheckpoint(parts[2]);
-          }
-        }
-        return (mainTask: m, subTask: s, checkpoint: cp, isRunning: true, queueId: queueId);
-      }
-    }
-
-    for (final idPair in plan) {
-      final parts = idPair.split('|');
-      if (parts.length < 2) continue;
-      final m = provider.mainTasks.firstWhereOrNull(
-        (t) => t.id == parts[0] && !t.isDeleted,
-      );
-      final s = m?.subTasks.firstWhereOrNull(
-        (st) => st.id == parts[1] && !st.isDeleted,
-      );
-      if (m == null || s == null || s.completed) continue;
-      if (skipStopped && s.id == StoppedTaskMemory.subTaskId) continue;
-      if (parts.length == 3) {
-        final cp = s.findCheckpoint(parts[2]);
-        if (cp == null || cp.completed) continue;
-        return (mainTask: m, subTask: s, checkpoint: cp, isRunning: false, queueId: idPair);
-      }
-      return (mainTask: m, subTask: s, checkpoint: null, isRunning: false, queueId: idPair);
-    }
-
-    return (mainTask: null, subTask: null, checkpoint: null, isRunning: false, queueId: null);
   }
 
   ReflectionLog? _latestReflection(AppProvider provider) {
