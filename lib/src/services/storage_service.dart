@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:missions/src/services/auth_service.dart';
-import 'package:firebase_storage/firebase_storage.dart' as fs;
 import 'package:missions/src/services/cloud_snapshot_store.dart';
 import 'dart:convert';
 import 'dart:io' show Platform;
@@ -270,18 +269,48 @@ Map<String, dynamic> _parseRtdbData(Map<dynamic, dynamic> raw) {
   return fullData;
 }
 
+/// Weekly offsite backup in the Realtime Database (Firebase Storage is not used for this project).
+/// The gzip bytes are base64-encoded and written as parts under `offsite_parts/{period}/{ver}`. The
+/// pointer `offsite/{period}` is written last, so a half-finished backup never replaces a good one.
+Future<void> _saveOffsiteBytes(
+  String userId,
+  String period,
+  Uint8List bytes, {
+  required Future<void> Function(String path, Object value) set,
+  required Future<Object?> Function(String path) get,
+}) async {
+  final parts = _splitJsonParts(base64Encode(bytes)); // base64 is ASCII, so splitting is safe
+  final ver = DateTime.now().millisecondsSinceEpoch;
+  final base = 'users/$userId/offsite_parts/$period/$ver';
+  for (var i = 0; i < parts.length; i++) {
+    await _withRetry(() => set('$base/${_partKey(i)}', parts[i]));
+    await Future.delayed(_partPause);
+  }
+  for (final i in {0, parts.length - 1}) {
+    final back = await get('$base/${_partKey(i)}');
+    if (back != parts[i]) throw StateError('Offsite backup part $i failed verification');
+  }
+  await _withRetry(() => set('users/$userId/offsite/$period', {
+        'ver': ver,
+        'n': parts.length,
+        'bytes': bytes.length,
+        'encoding': 'base64-gzip',
+      }));
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // FlutterFire-backed impl (Android, iOS, web, macOS, Windows).
 // Identical behavior to the pre-refactor StorageService.
 // ─────────────────────────────────────────────────────────────────────────
 class _FlutterFireStorageService implements StorageService {
   @override
-  Future<void> saveOffsiteSnapshot(String userId, Uint8List bytes, String period) async {
-    final ref = fs.FirebaseStorage.instance.ref('backups/$userId/$period.json.gz');
-    await ref.putData(bytes, fs.SettableMetadata(contentType: 'application/gzip')).timeout(const Duration(minutes: 2));
-    final restored = await ref.getData(bytes.length + 1).timeout(const Duration(seconds: 60));
-    if (!listEquals(restored, bytes)) throw StateError('Offsite snapshot verification failed');
-  }
+  Future<void> saveOffsiteSnapshot(String userId, Uint8List bytes, String period) => _saveOffsiteBytes(
+        userId,
+        period,
+        bytes,
+        set: (path, value) => _rtdb.ref(path).set(value).timeout(_rtdbTimeout),
+        get: (path) async => (await _rtdb.ref(path).get().timeout(_rtdbTimeout)).value,
+      );
 
   @override
   late final CloudSnapshotStore snapshots = CloudSnapshotStore(
@@ -709,12 +738,13 @@ class _FlutterFireStorageService implements StorageService {
 // ─────────────────────────────────────────────────────────────────────────
 class _LinuxStorageService implements StorageService {
   @override
-  Future<void> saveOffsiteSnapshot(String userId, Uint8List bytes, String period) async {
-    final ref = fd.FirebaseStorage.instance.ref('backups/$userId/$period.json.gz');
-    await ref.putData(bytes, fd.SettableMetadata(contentType: 'application/gzip')).timeout(const Duration(minutes: 2));
-    final restored = await ref.getData(bytes.length + 1).timeout(const Duration(seconds: 60));
-    if (!listEquals(restored, bytes)) throw StateError('Offsite snapshot verification failed');
-  }
+  Future<void> saveOffsiteSnapshot(String userId, Uint8List bytes, String period) => _saveOffsiteBytes(
+        userId,
+        period,
+        bytes,
+        set: (path, value) => _rtdb.reference().child(path).set(value).timeout(_rtdbTimeout),
+        get: (path) async => (await _rtdb.reference().child(path).once().timeout(_rtdbTimeout)).value,
+      );
 
   @override
   late final CloudSnapshotStore snapshots = CloudSnapshotStore(
