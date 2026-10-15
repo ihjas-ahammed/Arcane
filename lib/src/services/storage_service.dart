@@ -276,7 +276,7 @@ Future<void> _saveOffsiteBytes(
   String userId,
   String period,
   Uint8List bytes, {
-  required Future<void> Function(String path, Object value) set,
+  required Future<void> Function(String path, Object? value) set,
   required Future<Object?> Function(String path) get,
 }) async {
   final parts = _splitJsonParts(base64Encode(bytes)); // base64 is ASCII, so splitting is safe
@@ -296,6 +296,32 @@ Future<void> _saveOffsiteBytes(
         'bytes': bytes.length,
         'encoding': 'base64-gzip',
       }));
+  try {
+    await _pruneOffsiteBackups(userId, get: get, set: set);
+  } catch (e) {
+    // The new backup is already safe; a failed prune is retried on the next weekly run.
+    debugPrint('[StorageService] Offsite pruning deferred: $e');
+  }
+}
+
+/// Weekly offsite backups kept per user (about two months).
+const int _offsiteKeepWeeks = 8;
+
+/// Removes all but the newest [_offsiteKeepWeeks] weekly backups. Periods are ISO dates, so they
+/// sort chronologically as plain strings.
+Future<void> _pruneOffsiteBackups(
+  String userId, {
+  required Future<Object?> Function(String path) get,
+  required Future<void> Function(String path, Object? value) set,
+}) async {
+  final index = await get('users/$userId/offsite');
+  if (index is! Map) return;
+  final periods = index.keys.map((k) => k.toString()).toList()..sort();
+  if (periods.length <= _offsiteKeepWeeks) return;
+  for (final period in periods.sublist(0, periods.length - _offsiteKeepWeeks)) {
+    await _withRetry(() => set('users/$userId/offsite/$period', null));
+    await _withRetry(() => set('users/$userId/offsite_parts/$period', null));
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────
