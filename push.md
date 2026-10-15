@@ -24,7 +24,7 @@ Update pointer findings (2026.10.15 release):
 - The app fills in the checksums and signatures itself: when the pointer lacks them, `lib/src/services/update_service.dart` reads `builds/update_info.json` from `raw.githubusercontent.com` on `revive2` and needs its `version_code` to match the pointer. Installation is blocked if no valid SHA-256 is found.
 - Before switching the pointer, check that the `revive2` raw copy has the new `version_code` and all three hashes, signatures and sizes. The app also tries the `main` raw copy, which was not updated and did not return JSON; do not rely on it.
 - Android-only releases: use `scripts/generate_release_metadata.py --android-only` and `scripts/verify_release_assets.py --android-only`. They omit the Linux bundle and its URLs, which the app treats as optional.
-- Storage is not set up on `task-dominion`; the app's cloud backups use Storage, so its rules cannot be deployed until it is enabled in the console.
+- Firebase Storage is not used for this project and will not be enabled. Database backups are kept on this machine in `backups/` (git-ignored). Hosted release data lives on GitHub: the signed metadata in `builds/` on `revive2`, and the APKs on the GitHub release. The Firebase pointer `/app_updates/latest` holds only version fields. `storage.rules` is not deployed.
 
 Release safety check (added after the 2026.10.15 mistake, where the published APKs contained the 2026.10.11 build):
 - Before copying or publishing any APK, confirm the version inside it, not just the file name: `aapt dump badging <apk> | grep -m1 "^package:"` must show `versionName='<pubspec version>'` and the expected `versionCode` (the base code, plus 2000 for arm64-v8a, 1000 for armeabi-v7a and 4000 for x86_64).
