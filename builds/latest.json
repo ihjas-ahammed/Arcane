@@ -1,34 +1,24 @@
 {
-  "version_code": 2126101501,
+  "version_code": 2126101502,
   "version_name": "2026.10.15",
-  "published_at": "2026-10-15T07:46:04.634721Z",
+  "published_at": "2026-10-15T09:56:08.744562Z",
   "min_supported_version_code": 2026010101,
-  "apk_filename": "missions-v2026.10.15-b2126101501-arm64-v8a.apk",
-  "apk_url": "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101501/missions-v2026.10.15-b2126101501-arm64-v8a.apk",
+  "apk_filename": "missions-v2026.10.15-b2126101502-arm64-v8a.apk",
+  "apk_url": "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101502/missions-v2026.10.15-b2126101502-arm64-v8a.apk",
   "apk_arch_urls": {
-    "arm64-v8a": "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101501/missions-v2026.10.15-b2126101501-arm64-v8a.apk",
-    "armeabi-v7a": "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101501/missions-v2026.10.15-b2126101501-armeabi-v7a.apk",
-    "x86_64": "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101501/missions-v2026.10.15-b2126101501-x86_64.apk"
+    "arm64-v8a": "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101502/missions-v2026.10.15-b2126101502-arm64-v8a.apk"
   },
   "apk_arch_version_codes": {
-    "arm64-v8a": 2126103501,
-    "armeabi-v7a": 2126102501,
-    "x86_64": 2126105501
+    "arm64-v8a": 2126101502
   },
   "package_sha256": {
-    "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101501/missions-v2026.10.15-b2126101501-arm64-v8a.apk": "7ca6629ddcad67b87d4bb488c0b4cd97761d42fb834a0f7bffc8c455a80e1282",
-    "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101501/missions-v2026.10.15-b2126101501-armeabi-v7a.apk": "5c9781f7d88980437f001680d8eec29df88fc7b93e20fb4d10db7b3d2b1cfe2e",
-    "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101501/missions-v2026.10.15-b2126101501-x86_64.apk": "9798b63f507f2b4d35d44b7cf831ca53f9a2cac6f95876dbc21322aebc58169e"
+    "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101502/missions-v2026.10.15-b2126101502-arm64-v8a.apk": "f80a9bf6f54ea8e49b786a175f3c757f96841ed37e17021d2158b7ecdf071809"
   },
   "package_signatures": {
-    "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101501/missions-v2026.10.15-b2126101501-arm64-v8a.apk": "+enWetCajaCbpJl/VdG/IqCSd4xdzj9qTBZKoIFkE5+Lysi7ziyJMcxRenXs60KAY2s1naWAyvFF5V40daIDBw==",
-    "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101501/missions-v2026.10.15-b2126101501-armeabi-v7a.apk": "LBiNnWQLvf+og/R9ld5QJ2xbpLk1kKiyIDMHAmSB+oLeK7BZxHL1bZvyjm8ZF/1ZuTcVEM1Q8I8df/1ClQ6sBA==",
-    "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101501/missions-v2026.10.15-b2126101501-x86_64.apk": "GyONTBFSlULEcochw0w/u0E2mc3mRdex5oGYvlEWuMWl+mDMkK6L6cEQ90tjzCyZrOJwxvPqSZs1cgabzDHiAg=="
+    "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101502/missions-v2026.10.15-b2126101502-arm64-v8a.apk": "aDYWMJCVp/v9MC7Knf5hcX/vdOGRS4R6QSXDsWtB/nXwkDjSglkjC8x/7CQR4N75HpN5GDUQ0veoJWxzisADCQ=="
   },
   "package_sizes": {
-    "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101501/missions-v2026.10.15-b2126101501-arm64-v8a.apk": 33475358,
-    "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101501/missions-v2026.10.15-b2126101501-armeabi-v7a.apk": 32080488,
-    "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101501/missions-v2026.10.15-b2126101501-x86_64.apk": 35500527
+    "https://github.com/ihjas-ahammed/Arcane/releases/download/v2026.10.15-b2126101502/missions-v2026.10.15-b2126101502-arm64-v8a.apk": 33715614
   },
   "changelog_url": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/latest.md"
 }
