@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/services/notification_journal_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:missions/src/widgets/ui/tactical_briefing_indicator.dart';
 import 'package:uuid/uuid.dart';
 
@@ -15,6 +17,29 @@ class ExternalAiBriefingHelper {
   /// - All monthly briefs of last year
   /// - All daily briefs of last 7 days (including today)
   /// - Raw activity telemetry for last 7 days (daily and weekly) or last 30 days (monthly)
+  /// Notifications are kept in the native journal and only copied into the day record when the
+  /// journal screen is opened. Export and prompts read the day record, so merge the journal in
+  /// first (same merge rule as the journal screen: the journal wins for the same id).
+  static Future<void> syncNotificationsFromJournal(AppProvider provider, DateTime date) async {
+    final dateStr = DateFormat('yyyy-MM-dd').format(date);
+    try {
+      final native = await NotificationJournalService.instance.getNotifications(dateStr);
+      final unified = <String, NotificationJournalEntry>{};
+      for (final raw in provider.getNotificationsForDate(dateStr)) {
+        final e = NotificationJournalEntry.fromMap(raw);
+        if (e.id.isNotEmpty) unified[e.id] = e;
+      }
+      for (final e in native) {
+        if (e.id.isNotEmpty) unified[e.id] = e;
+      }
+      if (unified.isEmpty) return;
+      final merged = unified.values.toList()..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      provider.saveNotificationsForDate(dateStr, merged.map((e) => e.toMap()).toList());
+    } catch (e) {
+      debugPrint('[ExternalAiBriefing] journal sync failed: $e');
+    }
+  }
+
   static Map<String, dynamic> buildExportData({
     required AppProvider provider,
     required DateTime targetDate,
@@ -291,6 +316,8 @@ MISSION:
 Tone: Uplifting, highly optimistic, empowering, and deeply appreciative. Celebrate all accomplishments, small wins, and positive turning points. NEVER give negative or critical advice.
 Writing rules: Address the user directly as "you". Plain prose only — no markdown, no headers, no bullet/numbered lists inside any string. Be concrete and specific to the data.
 
+VALUE FIELDS RULE: Fields that show a value on a small card (finance income, expense and net, counts, amounts, scores) must hold ONLY the bare value. Do not add units, currency symbols, labels or descriptions inside those fields. Put any explanation in a separate description or note field.
+
 CRITICAL OUTPUT FORMAT:
 Return a single valid JSON object containing BOTH "daily_briefing" and "tomorrow_startup_report" adhering strictly to this schema:
 
@@ -333,9 +360,10 @@ Return a single valid JSON object containing BOTH "daily_briefing" and "tomorrow
       }
     ],
     "finance_briefing": {
-      "income": "string",
-      "expense": "string",
-      "net": "string",
+      "income": "string (bare number only, e.g. 1200: no currency symbol, no unit, no words)",
+      "expense": "string (bare number only, e.g. 850: no currency symbol, no unit, no words)",
+      "net": "string (bare number only, e.g. 350 or -120: no currency symbol, no unit, no words)",
+      "finance_note": "string (one short sentence describing the day's money, with any units or sources here only; empty string if no activity)",
       "ai_feedback": "string (encouraging positive feedback, or empty string if no activity)"
     },
     "suggested_sops": [

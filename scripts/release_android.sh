@@ -62,13 +62,13 @@ flutter pub get
 if [[ $ARM64_ONLY == 1 ]]; then
   flutter build apk --release --target-platform android-arm64
 else
-  flutter build apk --release --split-per-abi
+  flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64
 fi
 
 # --- 3. Verify the version inside each APK -----------------------------------
 log "3. Verify version inside each APK"
-declare -A OFFSET=([arm64-v8a]=2000 [armeabi-v7a]=1000 [x86_64]=4000)
-ABIS=(arm64-v8a armeabi-v7a x86_64)
+declare -A OFFSET=([arm64-v8a]=2000 [armeabi-v7a]=1000)
+ABIS=(arm64-v8a armeabi-v7a)
 [[ $ARM64_ONLY == 1 ]] && ABIS=(arm64-v8a)
 for ABI in "${ABIS[@]}"; do
   if [[ $ARM64_ONLY == 1 ]]; then SRC=build/app/outputs/flutter-apk/app-release.apk; else SRC=build/app/outputs/flutter-apk/app-${ABI}-release.apk; fi

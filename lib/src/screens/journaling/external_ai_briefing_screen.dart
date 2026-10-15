@@ -43,6 +43,10 @@ class _ExternalAiBriefingScreenState extends State<ExternalAiBriefingScreen> {
     super.initState();
     _selectedType = widget.initialType;
     _selectedDate = widget.initialDate ?? DateTime.now();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ExternalAiBriefingHelper.syncNotificationsFromJournal(Provider.of<AppProvider>(context, listen: false), _selectedDate);
+    });
   }
 
   @override
@@ -79,7 +83,9 @@ class _ExternalAiBriefingScreenState extends State<ExternalAiBriefingScreen> {
     }
   }
 
-  void _copyPrompt(AppProvider provider) {
+  Future<void> _copyPrompt(AppProvider provider) async {
+    await ExternalAiBriefingHelper.syncNotificationsFromJournal(provider, _selectedDate);
+    if (!mounted) return;
     final prompt = ExternalAiBriefingHelper.buildPrompt(
       type: _selectedType,
       targetDate: _selectedDate,
@@ -98,7 +104,9 @@ class _ExternalAiBriefingScreenState extends State<ExternalAiBriefingScreen> {
     );
   }
 
-  void _copyDataJson(AppProvider provider) {
+  Future<void> _copyDataJson(AppProvider provider) async {
+    await ExternalAiBriefingHelper.syncNotificationsFromJournal(provider, _selectedDate);
+    if (!mounted) return;
     final data = ExternalAiBriefingHelper.buildExportData(
       provider: provider,
       targetDate: _selectedDate,
@@ -119,6 +127,7 @@ class _ExternalAiBriefingScreenState extends State<ExternalAiBriefingScreen> {
   }
 
   Future<void> _shareDataJson(AppProvider provider) async {
+    await ExternalAiBriefingHelper.syncNotificationsFromJournal(provider, _selectedDate);
     final data = ExternalAiBriefingHelper.buildExportData(
       provider: provider,
       targetDate: _selectedDate,

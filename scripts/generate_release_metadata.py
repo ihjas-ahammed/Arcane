@@ -22,7 +22,8 @@ if not key.is_file(): raise SystemExit('The private release signing key is requi
 public = subprocess.check_output(['openssl','pkey','-in',str(key),'-pubout','-outform','DER'])[-32:]
 expected = re.search(r"const releasePublicKey = '([^']+)'",Path('lib/src/services/release_signature.dart').read_text())[1]
 if base64.b64encode(public).decode() != expected: raise SystemExit('Signing key does not match the public key compiled into the app.')
-arches = {'arm64-v8a':2000,'armeabi-v7a':1000,'x86_64':4000}
+# Supported Android ABIs: arm64-v8a and armeabi-v7a only.
+arches = {'arm64-v8a':2000,'armeabi-v7a':1000}
 if args.arm64_only: arches = {'arm64-v8a':0}  # not split per ABI: base version code
 names = {abi:f'missions-v{version}-b{code}-{abi}.apk' for abi in arches}
 linux_name = f'missions-v{version}-b{code}-linux-x86_64.tar.gz'

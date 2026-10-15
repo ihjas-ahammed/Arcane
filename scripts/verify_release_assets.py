@@ -22,7 +22,8 @@ tag = f'v{version}-b{code}'
 metadata = json.loads(Path('builds/update_info.json').read_text())
 if metadata['version_code'] != code or metadata['version_name'] != version:
     raise SystemExit('Prepared metadata does not match pubspec.yaml.')
-abis = ('arm64-v8a',) if args.arm64_only else ('arm64-v8a', 'armeabi-v7a', 'x86_64')
+# Supported Android ABIs: arm64-v8a and armeabi-v7a only.
+abis = ('arm64-v8a',) if args.arm64_only else ('arm64-v8a', 'armeabi-v7a')
 names = [f'missions-v{version}-b{code}-{abi}.apk' for abi in abis]
 if not args.android_only:
     names.append(f'missions-v{version}-b{code}-linux-x86_64.tar.gz')
