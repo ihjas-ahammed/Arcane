@@ -11,13 +11,14 @@ class TimerActions {
   TimerActions(this._provider);
 
   void startTimer(String id, String type, String mainTaskId) {
-    final mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
-    if (mainTask == null) return; 
+    final mainTask =
+        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    if (mainTask == null) return;
 
     if (type == 'subtask') {
       final subTask = mainTask.subTasks.firstWhereOrNull((s) => s.id == id);
       if (subTask == null) return;
-      if (subTask.completed) return; 
+      if (subTask.completed) return;
     }
 
     final runningTimerIds = _provider.activeTimers.entries
@@ -26,23 +27,25 @@ class TimerActions {
         .toList();
 
     for (var timerId in runningTimerIds) {
-      pauseTimer(timerId); 
+      pauseTimer(timerId);
     }
 
     // Auto-add engaged task to Day Plan (Top) to sync with the dashboard
     if (type == 'subtask') {
       final dateStr = helper.getTodayDateString();
-      final currentPlan = List<String>.from(_provider.taskActions.getDayPlan(dateStr));
+      final currentPlan =
+          List<String>.from(_provider.taskActions.getDayPlan(dateStr));
       final compoundId = "$mainTaskId|$id";
-      
+
       // Remove if it exists to move it to the top
       currentPlan.remove(compoundId);
       currentPlan.insert(0, compoundId);
-      
+
       _provider.taskActions.updateDayPlan(dateStr, currentPlan);
     }
 
-    Map<String, ActiveTimerInfo> updatedActiveTimers = Map.from(_provider.activeTimers);
+    Map<String, ActiveTimerInfo> updatedActiveTimers =
+        Map.from(_provider.activeTimers);
 
     // Give a 1-second offset to the new task's start time to guarantee it doesn't overlap
     // with the exact millisecond the previous task was stopped.
@@ -54,23 +57,26 @@ class TimerActions {
       type: type,
       mainTaskId: mainTaskId,
     );
-    
+
     _provider.setProviderState(activeTimers: updatedActiveTimers);
 
     // Show persistent timer notification
     final subTask = type == 'subtask'
         ? mainTask.subTasks.firstWhereOrNull((s) => s.id == id)
         : null;
-    final nextCp = subTask != null ? TaskCalculations.nextCheckpoint(subTask) : null;
-    NotificationService.instance.showTimerNotification(
-      taskName: subTask?.name ?? id,
-      startTime: updatedActiveTimers[id]!.startTime,
-      subtaskId: id,
-      mainTaskId: mainTaskId,
-      mainTaskName: mainTask.name,
-      progress: subTask?.calculateProgress() ?? 0.0,
-      nextCheckpointName: nextCp?.name,
-    );
+    final nextCp =
+        subTask != null ? TaskCalculations.nextCheckpoint(subTask) : null;
+    if (_provider.canNotify) {
+      NotificationService.instance.showTimerNotification(
+        taskName: subTask?.name ?? id,
+        startTime: updatedActiveTimers[id]!.startTime,
+        subtaskId: id,
+        mainTaskId: mainTaskId,
+        mainTaskName: mainTask.name,
+        progress: subTask?.calculateProgress() ?? 0.0,
+        nextCheckpointName: nextCp?.name,
+      );
+    }
   }
 
   void pauseTimer(String id) {
@@ -78,8 +84,10 @@ class TimerActions {
     if (timer != null && timer.isRunning) {
       // Optimistic: flip to paused immediately so UI responds without waiting for I/O
       final pauseTime = DateTime.now();
-      final double elapsed = (pauseTime.difference(timer.startTime).inMilliseconds) / 1000.0;
-      final newActiveTimers = Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
+      final double elapsed =
+          (pauseTime.difference(timer.startTime).inMilliseconds) / 1000.0;
+      final newActiveTimers =
+          Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
       newActiveTimers[id] = ActiveTimerInfo(
         startTime: timer.startTime,
         accumulatedDisplayTime: timer.accumulatedDisplayTime + elapsed,
@@ -92,7 +100,9 @@ class TimerActions {
       // Stopping never checks or removes the task from the plan.
 
       // Cancel timer notification
-      NotificationService.instance.cancelTimerNotification();
+      if (_provider.canNotify) {
+        NotificationService.instance.cancelTimerNotification();
+      }
 
       // Defer session commit + cloud save off the hot path
       Future.microtask(() {
@@ -106,14 +116,17 @@ class TimerActions {
     if (timer != null) {
       final pauseTime = DateTime.now();
       // Optimistic: remove timer immediately so UI responds without waiting for I/O
-      final newActiveTimers = Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
+      final newActiveTimers =
+          Map<String, ActiveTimerInfo>.from(_provider.activeTimers);
       newActiveTimers.remove(id);
       _provider.setProviderState(activeTimers: newActiveTimers);
 
       // Stopping never checks or removes the task from the plan.
 
       // Cancel timer notification
-      NotificationService.instance.cancelTimerNotification();
+      if (_provider.canNotify) {
+        NotificationService.instance.cancelTimerNotification();
+      }
 
       // Defer session commit + cloud save off the hot path
       Future.microtask(() {
@@ -128,7 +141,7 @@ class TimerActions {
     DateTime start = timer.startTime;
 
     if (now.difference(start).inHours >= 12) {
-      start = now.subtract(const Duration(hours: 1)); 
+      start = now.subtract(const Duration(hours: 1));
     }
 
     // Accidental starts/stops under a minute aren't worth a session.

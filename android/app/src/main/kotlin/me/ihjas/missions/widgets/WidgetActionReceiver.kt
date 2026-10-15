@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
 import androidx.core.content.ContextCompat
+import es.antonborri.home_widget.HomeWidgetBackgroundIntent
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import me.ihjas.missions.MainActivity
 import me.ihjas.missions.R
@@ -21,16 +22,36 @@ import me.ihjas.missions.R
  * title tap) keep using a normal launch intent instead of this receiver.
  */
 class WidgetActionReceiver : BroadcastReceiver() {
+    companion object {
+        /** Task actions the background engine can apply without the app (see headless_entry.dart). */
+        private val HEADLESS_ACTIONS = setOf(
+            "task_toggle",
+            "task_finish",
+            "task_pause",
+            "task_start",
+            "task_check_next",
+        )
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.data?.getQueryParameter("action") ?: return
 
         // Update the widget UI instantly to provide visual feedback.
         applyInstantFeedback(context, action)
 
+        if (isHeadlessAction(action)) {
+            // App running: the live Flutter isolate applies it.
+            if (MainActivity.isFlutterAlive() && MainActivity.dispatchWidgetAction(action)) return
+            // App not running: the background Flutter engine applies it with the same task code,
+            // and the app is not opened. Not queued as a pending action, so it cannot run twice.
+            HomeWidgetBackgroundIntent.getBroadcast(context, intent.data).send()
+            return
+        }
+
         if (MainActivity.dispatchWidgetAction(action)) return
 
-        // App not running — open it with the launch deep link so the existing
-        // cold-start handler applies the action.
+        // App not running: open it with the launch deep link so the existing cold-start handler
+        // applies the action.
         val launch = Intent(context, MainActivity::class.java).apply {
             data = intent.data
             this.action = HomeWidgetLaunchIntent.HOME_WIDGET_LAUNCH_ACTION
@@ -38,6 +59,9 @@ class WidgetActionReceiver : BroadcastReceiver() {
         }
         context.startActivity(launch)
     }
+
+    private fun isHeadlessAction(action: String): Boolean =
+        action in HEADLESS_ACTIONS || action.startsWith("task_check_add:")
 
     private fun applyInstantFeedback(context: Context, action: String) {
         try {

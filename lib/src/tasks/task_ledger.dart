@@ -44,7 +44,8 @@ void recordTaskLedgerDelta(List<MainTask> oldList, List<MainTask> newList) {
         final oldTask = oldMap[t.id]!;
         // Untouched tasks/subtasks keep their identity across copyWith, so skip the (expensive)
         // serialize-and-compare for everything except what an action actually replaced.
-        if (!identical(oldTask, t) && jsonEncode(oldTask.toJson()) != jsonEncode(t.toJson())) {
+        if (!identical(oldTask, t) &&
+            jsonEncode(oldTask.toJson()) != jsonEncode(t.toJson())) {
           final oldSubMap = {for (final s in oldTask.subTasks) s.id: s};
           final newSubMap = {for (final s in t.subTasks) s.id: s};
 
@@ -61,14 +62,18 @@ void recordTaskLedgerDelta(List<MainTask> oldList, List<MainTask> newList) {
               ));
             } else {
               final oldS = oldSubMap[s.id]!;
-              if (!identical(oldS, s) && jsonEncode(oldS.toJson()) != jsonEncode(s.toJson())) {
-                final action = (oldS.completed != s.completed) ? (s.completed ? 'COMPLETE' : 'INCOMPLETE') : 'UPDATE';
+              if (!identical(oldS, s) &&
+                  jsonEncode(oldS.toJson()) != jsonEncode(s.toJson())) {
+                final action = (oldS.completed != s.completed)
+                    ? (s.completed ? 'COMPLETE' : 'INCOMPLETE')
+                    : 'UPDATE';
                 unawaited(AppActionLedgerService.instance.recordAction(
                   actionType: action,
                   collection: 'subtask',
                   entityId: '${t.id}:${s.id}',
                   title: s.name,
-                  summary: '${action == 'COMPLETE' ? 'Completed' : 'Updated'} subtask "${s.name}" in "${t.name}"',
+                  summary:
+                      '${action == 'COMPLETE' ? 'Completed' : 'Updated'} subtask "${s.name}" in "${t.name}"',
                   before: oldS.toJson(),
                   after: s.toJson(),
                 ));

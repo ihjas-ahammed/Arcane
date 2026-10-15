@@ -82,6 +82,9 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
          * when the app process/engine isn't alive, so the caller can fall back
          * to launching the app.
          */
+        /** True while the Flutter app is running and can take a widget action right now. */
+        fun isFlutterAlive(): Boolean = engineAlive && channel != null
+
         fun dispatchWidgetAction(action: String): Boolean {
             val ch = channel
             if (!engineAlive || ch == null) {

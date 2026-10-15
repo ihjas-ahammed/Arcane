@@ -71,6 +71,8 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   AIService get aiService => _aiService;
 
   void notify() => notifyListeners();
+  @override
+  bool get canNotify => true;
 
   /// Fires whenever a reflection's AI analysis completes successfully.
   /// Carries the payload needed to render the "INSIGHT ACQUIRED" dialog.

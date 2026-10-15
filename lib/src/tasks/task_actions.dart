@@ -19,7 +19,9 @@ class TaskActions {
       completed: true,
       completionTimestamp: timestamp,
       currentCount: node.isCountable ? node.targetCount : node.currentCount,
-      substeps: node.substeps.map((child) => _markAllDescendantsCompleted(child, timestamp)).toList(),
+      substeps: node.substeps
+          .map((child) => _markAllDescendantsCompleted(child, timestamp))
+          .toList(),
     );
   }
 
@@ -27,25 +29,30 @@ class TaskActions {
     final copy = node.copyWith(
       completed: false,
       currentCount: node.isCountable ? 0 : node.currentCount,
-      substeps: node.substeps.map((child) => _markAllDescendantsUncompleted(child)).toList(),
+      substeps: node.substeps
+          .map((child) => _markAllDescendantsUncompleted(child))
+          .toList(),
     );
     copy.completionTimestamp = null; // copyWith cannot clear a nullable field
     return copy;
   }
 
   // --- Helper for SubSubTask Recursion ---
-  List<SubSubTask> _recursiveNodeOperation(List<SubSubTask> nodes, String targetId, String action, dynamic payload) {
+  List<SubSubTask> _recursiveNodeOperation(
+      List<SubSubTask> nodes, String targetId, String action, dynamic payload) {
     List<SubSubTask> newNodes = [];
-    
+
     for (var node in nodes) {
       if (node.id == targetId) {
         if (action == 'delete') {
-          continue; 
+          continue;
         } else if (action == 'update') {
           final updates = payload as Map<String, dynamic>;
-          final isCompletedChange = updates.containsKey('completed') && updates['completed'] == true;
-          final isUncompletedChange = updates.containsKey('completed') && updates['completed'] == false;
-          
+          final isCompletedChange =
+              updates.containsKey('completed') && updates['completed'] == true;
+          final isUncompletedChange =
+              updates.containsKey('completed') && updates['completed'] == false;
+
           var updatedNode = node.copyWith(
             name: updates['name'] as String?,
             completed: updates['completed'] as bool?,
@@ -58,7 +65,8 @@ class TaskActions {
             what: updates['what'] as String?,
             isActive: updates['isActive'] as bool?,
             timeSpentMinutes: updates['timeSpentMinutes'] as int?,
-            progressDataPoints: updates['progressDataPoints'] as List<ProgressDataPoint>?,
+            progressDataPoints:
+                updates['progressDataPoints'] as List<ProgressDataPoint>?,
             currentTimeSpent: updates['currentTimeSpent'] as int?,
             substeps: updates['substeps'] as List<SubSubTask>?,
           );
@@ -66,12 +74,14 @@ class TaskActions {
             if (isUncompletedChange) {
               updatedNode.currentCount = 0;
             } else {
-              updatedNode.currentCount = updatedNode.currentCount.clamp(0, updatedNode.targetCount);
+              updatedNode.currentCount =
+                  updatedNode.currentCount.clamp(0, updatedNode.targetCount);
             }
           }
-          
+
           if (isCompletedChange) {
-            final ts = updates['completionTimestamp'] as String? ?? DateTime.now().toIso8601String();
+            final ts = updates['completionTimestamp'] as String? ??
+                DateTime.now().toIso8601String();
             updatedNode = _markAllDescendantsCompleted(updatedNode, ts);
           } else if (isUncompletedChange) {
             updatedNode = _markAllDescendantsUncompleted(updatedNode);
@@ -87,16 +97,20 @@ class TaskActions {
             id: data['id'] as String? ?? IdGenerator.generateCheckpointId(),
             name: data['name'] as String,
             isCountable: data['isCountable'] as bool? ?? false,
-            targetCount: data['isCountable'] as bool? ?? false ? (data['targetCount'] as int? ?? 1) : 0,
+            targetCount: data['isCountable'] as bool? ?? false
+                ? (data['targetCount'] as int? ?? 1)
+                : 0,
             type: data['type'] as String? ?? 'check',
             why: data['why'] as String? ?? '',
             what: data['what'] as String? ?? '',
           );
-          final updatedNode = node.copyWith(substeps: [...node.substeps, newChild]);
+          final updatedNode =
+              node.copyWith(substeps: [...node.substeps, newChild]);
           newNodes.add(updatedNode);
         }
       } else {
-        final newChildren = _recursiveNodeOperation(node.substeps, targetId, action, payload);
+        final newChildren =
+            _recursiveNodeOperation(node.substeps, targetId, action, payload);
         final updatedNode = node.copyWith(substeps: newChildren);
         newNodes.add(updatedNode);
       }
@@ -200,16 +214,14 @@ class TaskActions {
     List<List<Map<String, dynamic>>> rowEntries,
   ) {
     final cleanRows = rowEntries
-        .map((r) => r.where((e) => (e['id'] as String? ?? '').isNotEmpty).toList())
+        .map((r) =>
+            r.where((e) => (e['id'] as String? ?? '').isNotEmpty).toList())
         .where((r) => r.isNotEmpty)
         .toList();
-    final flatPlan = cleanRows
-        .expand((r) => r)
-        .map((e) => e['id'] as String)
-        .toList();
-    final stringRows = cleanRows
-        .map((r) => r.map((e) => e['id'] as String).toList())
-        .toList();
+    final flatPlan =
+        cleanRows.expand((r) => r).map((e) => e['id'] as String).toList();
+    final stringRows =
+        cleanRows.map((r) => r.map((e) => e['id'] as String).toList()).toList();
 
     final newHistory = Map<String, dynamic>.from(_provider.completedByDay);
     if (!newHistory.containsKey(dateStr)) {
@@ -298,7 +310,8 @@ class TaskActions {
 
   /// Adds [compoundId] to the scheduled day plan for [dateStr] (default today).
   /// Preserves planRowEntries if they exist and sets [estimateMinutes] if provided.
-  void addToDayPlan(String compoundId, [String? dateStr, int? estimateMinutes]) {
+  void addToDayPlan(String compoundId,
+      [String? dateStr, int? estimateMinutes]) {
     final targetDate = dateStr ?? getTodayDateString();
     final currentPlan = List<String>.from(getDayPlan(targetDate));
     if (!currentPlan.contains(compoundId)) {
@@ -307,9 +320,12 @@ class TaskActions {
 
     final existingRowEntries = getDayPlanRowEntries(targetDate);
     if (existingRowEntries.isNotEmpty) {
-      bool alreadyInRow = existingRowEntries.any((r) => r.any((e) => e['id'] == compoundId));
+      bool alreadyInRow =
+          existingRowEntries.any((r) => r.any((e) => e['id'] == compoundId));
       if (!alreadyInRow) {
-        existingRowEntries.add([{'id': compoundId, 'addedAtRuntime': true}]);
+        existingRowEntries.add([
+          {'id': compoundId, 'addedAtRuntime': true}
+        ]);
         saveDayPlanRowEntries(targetDate, existingRowEntries);
       }
     } else {
@@ -334,10 +350,12 @@ class TaskActions {
     updateDayPlan(targetDate, newPlan);
   }
 
-  int calculateSubSubtaskStepTime(String mainTaskId, String subTaskId, String cpId) {
+  int calculateSubSubtaskStepTime(
+      String mainTaskId, String subTaskId, String cpId) {
     final taskIndex = _provider.mainTasks.indexWhere((t) => t.id == mainTaskId);
     if (taskIndex < 0) return 15;
-    final subIndex = _provider.mainTasks[taskIndex].subTasks.indexWhere((s) => s.id == subTaskId);
+    final subIndex = _provider.mainTasks[taskIndex].subTasks
+        .indexWhere((s) => s.id == subTaskId);
     if (subIndex < 0) return 15;
 
     final subTask = _provider.mainTasks[taskIndex].subTasks[subIndex];
@@ -373,13 +391,16 @@ class TaskActions {
     } else {
       final prevCp = activeFlat[targetIndex - 1];
       startTime = prevCp.completionTimestamp != null
-          ? (DateTime.tryParse(prevCp.completionTimestamp!) ?? subTask.createdAt)
+          ? (DateTime.tryParse(prevCp.completionTimestamp!) ??
+              subTask.createdAt)
           : subTask.createdAt;
     }
 
     final endTime = getTimestamp(targetCp);
     final diffMins = endTime.difference(startTime).inMinutes;
-    return diffMins > 0 ? diffMins : (targetCp.timeSpentMinutes > 0 ? targetCp.timeSpentMinutes : 15);
+    return diffMins > 0
+        ? diffMins
+        : (targetCp.timeSpentMinutes > 0 ? targetCp.timeSpentMinutes : 15);
   }
 
   Map<String, int> getDayPlanEstimates(String dateStr) {
@@ -452,9 +473,11 @@ class TaskActions {
   bool _isPlanItemActionable(String compoundId) {
     final parts = compoundId.split('|');
     if (parts.length < 2) return false;
-    final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
+    final task = _provider.mainTasks
+        .firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
     if (task == null) return false;
-    final sub = task.subTasks.firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
+    final sub =
+        task.subTasks.firstWhereOrNull((s) => s.id == parts[1] && !s.isDeleted);
     if (sub == null) return false;
     if (parts.length == 3) {
       final cp = sub.findCheckpoint(parts[2]);
@@ -548,14 +571,18 @@ class TaskActions {
 
   // --- SubSubTask Actions ---
 
-  String addSubSubtask(String mainTaskId, String parentSubtaskId, Map<String, dynamic> subSubtaskData, {String? parentCheckpointId}) {
+  String addSubSubtask(String mainTaskId, String parentSubtaskId,
+      Map<String, dynamic> subSubtaskData,
+      {String? parentCheckpointId}) {
     if (parentCheckpointId != null) {
       final newMainTasks = _provider.mainTasks.map((task) {
         if (task.id == mainTaskId) {
-          return task.copyWith(subTasks: task.subTasks.map((st) {
+          return task.copyWith(
+              subTasks: task.subTasks.map((st) {
             if (st.id == parentSubtaskId) {
               return _syncTemplateSetsWithActiveCheckpoints(st.copyWith(
-                subSubTasks: _recursiveNodeOperation(st.subSubTasks, parentCheckpointId, 'add_child', subSubtaskData),
+                subSubTasks: _recursiveNodeOperation(st.subSubTasks,
+                    parentCheckpointId, 'add_child', subSubtaskData),
                 updatedAt: DateTime.now(),
               ));
             }
@@ -571,7 +598,9 @@ class TaskActions {
         id: IdGenerator.generateCheckpointId(),
         name: subSubtaskData['name'] as String,
         isCountable: subSubtaskData['isCountable'] as bool? ?? false,
-        targetCount: subSubtaskData['isCountable'] as bool? ?? false ? (subSubtaskData['targetCount'] as int? ?? 1) : 0,
+        targetCount: subSubtaskData['isCountable'] as bool? ?? false
+            ? (subSubtaskData['targetCount'] as int? ?? 1)
+            : 0,
         completionTimestamp: null,
         type: subSubtaskData['type'] as String? ?? 'check',
         why: subSubtaskData['why'] as String? ?? '',
@@ -579,7 +608,8 @@ class TaskActions {
       );
       final newMainTasks = _provider.mainTasks.map((task) {
         if (task.id == mainTaskId) {
-          return task.copyWith(subTasks: task.subTasks.map((st) {
+          return task.copyWith(
+              subTasks: task.subTasks.map((st) {
             if (st.id == parentSubtaskId) {
               return _syncTemplateSetsWithActiveCheckpoints(st.copyWith(
                 subSubTasks: [...st.subSubTasks, newSubSubtask],
@@ -596,13 +626,16 @@ class TaskActions {
     }
   }
 
-  void updateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, Map<String, dynamic> updates) {
+  void updateSubSubtask(String mainTaskId, String parentSubtaskId,
+      String subSubtaskId, Map<String, dynamic> updates) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        return task.copyWith(subTasks: task.subTasks.map((st) {
+        return task.copyWith(
+            subTasks: task.subTasks.map((st) {
           if (st.id == parentSubtaskId) {
             return _syncTemplateSetsWithActiveCheckpoints(st.copyWith(
-              subSubTasks: _recursiveNodeOperation(st.subSubTasks, subSubtaskId, 'update', updates),
+              subSubTasks: _recursiveNodeOperation(
+                  st.subSubTasks, subSubtaskId, 'update', updates),
               updatedAt: DateTime.now(),
             ));
           }
@@ -615,24 +648,36 @@ class TaskActions {
     sanitizeRoutineLists();
   }
 
-  void deleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool silent = false}) {
-    final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
-    final subtask = task?.subTasks.firstWhereOrNull((s) => s.id == parentSubtaskId);
+  void deleteSubSubtask(
+      String mainTaskId, String parentSubtaskId, String subSubtaskId,
+      {bool silent = false}) {
+    final task =
+        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+    final subtask =
+        task?.subTasks.firstWhereOrNull((s) => s.id == parentSubtaskId);
     final subSubtask = subtask?.findCheckpoint(subSubtaskId);
     final String name = subSubtask?.name ?? 'Checkpoint';
 
-    final savedTasks = _provider.mainTasks.map((t) => t.copyWith(
-      subTasks: t.subTasks.map((st) => st.copyWith(
-        subSubTasks: st.subSubTasks.map((sss) => sss.copyWith()).toList(),
-      )).toList(),
-    )).toList();
+    final savedTasks = _provider.mainTasks
+        .map((t) => t.copyWith(
+              subTasks: t.subTasks
+                  .map((st) => st.copyWith(
+                        subSubTasks: st.subSubTasks
+                            .map((sss) => sss.copyWith())
+                            .toList(),
+                      ))
+                  .toList(),
+            ))
+        .toList();
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        return task.copyWith(subTasks: task.subTasks.map((st) {
+        return task.copyWith(
+            subTasks: task.subTasks.map((st) {
           if (st.id == parentSubtaskId) {
             return _syncTemplateSetsWithActiveCheckpoints(st.copyWith(
-              subSubTasks: _recursiveNodeOperation(st.subSubTasks, subSubtaskId, 'delete', null),
+              subSubTasks: _recursiveNodeOperation(
+                  st.subSubTasks, subSubtaskId, 'delete', null),
               updatedAt: DateTime.now(),
             ));
           }
@@ -653,13 +698,16 @@ class TaskActions {
     }
   }
 
-  void duplicateSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId) {
+  void duplicateSubSubtask(
+      String mainTaskId, String parentSubtaskId, String subSubtaskId) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        return task.copyWith(subTasks: task.subTasks.map((st) {
+        return task.copyWith(
+            subTasks: task.subTasks.map((st) {
           if (st.id == parentSubtaskId) {
             return _syncTemplateSetsWithActiveCheckpoints(st.copyWith(
-              subSubTasks: _recursiveNodeOperation(st.subSubTasks, subSubtaskId, 'duplicate', null),
+              subSubTasks: _recursiveNodeOperation(
+                  st.subSubTasks, subSubtaskId, 'duplicate', null),
               updatedAt: DateTime.now(),
             ));
           }
@@ -671,8 +719,11 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  void completeSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
-    final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+  void completeSubSubtask(
+      String mainTaskId, String parentSubtaskId, String subSubtaskId,
+      {bool fromSync = false}) {
+    final task =
+        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     final sub = task?.subTasks.firstWhereOrNull((s) => s.id == parentSubtaskId);
     final cp = sub?.findCheckpoint(subSubtaskId);
 
@@ -693,7 +744,8 @@ class TaskActions {
   /// new checkpoint on the same level, right after it, so it becomes the next one up (e.g. the next
   /// chapter while reading). With no open checkpoint, [name] is added at the subtask's top level.
   /// An empty [name] only ticks. Returns the ticked checkpoint's name, or null if none was open.
-  String? checkCurrentAndAddNext(String mainTaskId, String subTaskId, String name) {
+  String? checkCurrentAndAddNext(
+      String mainTaskId, String subTaskId, String name) {
     final sub = _provider.mainTasks
         .firstWhereOrNull((t) => t.id == mainTaskId)
         ?.subTasks
@@ -704,12 +756,17 @@ class TaskActions {
 
     // Add before ticking, so the level never looks fully done in between.
     if (newName.isNotEmpty) {
-      final parentId = current == null ? null : _parentCheckpointId(sub.subSubTasks, current.id);
+      final parentId = current == null
+          ? null
+          : _parentCheckpointId(sub.subSubTasks, current.id);
       final newId = IdGenerator.generateCheckpointId();
-      final returned = addSubSubtask(mainTaskId, subTaskId, {'id': newId, 'name': newName}, parentCheckpointId: parentId);
+      final returned = addSubSubtask(
+          mainTaskId, subTaskId, {'id': newId, 'name': newName},
+          parentCheckpointId: parentId);
       final addedId = parentId == null ? returned : newId;
       if (current != null && addedId.isNotEmpty) {
-        moveCheckpointRelative(mainTaskId, subTaskId, addedId, current.id, 'after');
+        moveCheckpointRelative(
+            mainTaskId, subTaskId, addedId, current.id, 'after');
       }
     }
     if (current != null) completeSubSubtask(mainTaskId, subTaskId, current.id);
@@ -717,7 +774,8 @@ class TaskActions {
   }
 
   /// Id of the checkpoint whose substeps contain [id]; null when [id] is top-level.
-  String? _parentCheckpointId(List<SubSubTask> nodes, String id, [String? parent]) {
+  String? _parentCheckpointId(List<SubSubTask> nodes, String id,
+      [String? parent]) {
     for (final n in nodes) {
       if (n.id == id) return parent;
       final found = _parentCheckpointId(n.substeps, id, n.id);
@@ -726,32 +784,36 @@ class TaskActions {
     return null;
   }
 
-  void uncompleteSubSubtask(String mainTaskId, String parentSubtaskId, String subSubtaskId, {bool fromSync = false}) {
+  void uncompleteSubSubtask(
+      String mainTaskId, String parentSubtaskId, String subSubtaskId,
+      {bool fromSync = false}) {
     final updates = {'completed': false, 'completionTimestamp': null};
     updateSubSubtask(mainTaskId, parentSubtaskId, subSubtaskId, updates);
   }
 
-  void moveCheckpointRelative(String mainTaskId, String subTaskId, String draggedId, String targetId, String position) {
+  void moveCheckpointRelative(String mainTaskId, String subTaskId,
+      String draggedId, String targetId, String position) {
     if (draggedId == targetId) return;
 
     final taskIndex = _provider.mainTasks.indexWhere((t) => t.id == mainTaskId);
     if (taskIndex == -1) return;
     final task = _provider.mainTasks[taskIndex];
-    
+
     final subIndex = task.subTasks.indexWhere((s) => s.id == subTaskId);
     if (subIndex == -1) return;
     final sub = task.subTasks[subIndex];
 
-    List<SubSubTask> clonedCheckpoints = sub.subSubTasks.map((e) => SubSubTask.fromJson(e.toJson())).toList();
+    List<SubSubTask> clonedCheckpoints =
+        sub.subSubTasks.map((e) => SubSubTask.fromJson(e.toJson())).toList();
 
     bool isDescendant(List<SubSubTask> list) {
       for (var node in list) {
-         if (node.id == targetId) return true;
-         if (isDescendant(node.substeps)) return true;
+        if (node.id == targetId) return true;
+        if (isDescendant(node.substeps)) return true;
       }
       return false;
     }
-    
+
     SubSubTask? draggedNodeRaw;
     void findDragged(List<SubSubTask> list) {
       for (var node in list) {
@@ -759,69 +821,89 @@ class TaskActions {
         findDragged(node.substeps);
       }
     }
+
     findDragged(clonedCheckpoints);
-    
-    if (draggedNodeRaw != null && (position == 'inside' || position == 'before' || position == 'after') && isDescendant(draggedNodeRaw!.substeps)) {
+
+    if (draggedNodeRaw != null &&
+        (position == 'inside' || position == 'before' || position == 'after') &&
+        isDescendant(draggedNodeRaw!.substeps)) {
       return; // Cannot drop a parent into or adjacent to its own child
     }
 
     SubSubTask? detachedNode;
     bool extractNode(List<SubSubTask> list) {
-       for (int i = 0; i < list.length; i++) {
-          if (list[i].id == draggedId) {
-             detachedNode = list.removeAt(i);
-             return true;
-          }
-          if (extractNode(list[i].substeps)) return true;
-       }
-       return false;
+      for (int i = 0; i < list.length; i++) {
+        if (list[i].id == draggedId) {
+          detachedNode = list.removeAt(i);
+          return true;
+        }
+        if (extractNode(list[i].substeps)) return true;
+      }
+      return false;
     }
+
     extractNode(clonedCheckpoints);
 
     if (detachedNode == null) return;
 
     bool insertNode(List<SubSubTask> list) {
-       for (int i = 0; i < list.length; i++) {
-          if (list[i].id == targetId) {
-             if (position == 'inside') {
-                list[i].substeps.add(detachedNode!);
-             } else if (position == 'before') {
-                list.insert(i, detachedNode!);
-             } else if (position == 'after') {
-                list.insert(i + 1, detachedNode!);
-             }
-             return true;
+      for (int i = 0; i < list.length; i++) {
+        if (list[i].id == targetId) {
+          if (position == 'inside') {
+            list[i].substeps.add(detachedNode!);
+          } else if (position == 'before') {
+            list.insert(i, detachedNode!);
+          } else if (position == 'after') {
+            list.insert(i + 1, detachedNode!);
           }
-          if (insertNode(list[i].substeps)) return true;
-       }
-       return false;
+          return true;
+        }
+        if (insertNode(list[i].substeps)) return true;
+      }
+      return false;
     }
+
     insertNode(clonedCheckpoints);
 
-    final updatedSubTask = _syncTemplateSetsWithActiveCheckpoints(sub.copyWith(subSubTasks: clonedCheckpoints));
-    final updatedTask = task.copyWith(subTasks: task.subTasks.map((s) => s.id == subTaskId ? updatedSubTask : s).toList());
+    final updatedSubTask = _syncTemplateSetsWithActiveCheckpoints(
+        sub.copyWith(subSubTasks: clonedCheckpoints));
+    final updatedTask = task.copyWith(
+        subTasks: task.subTasks
+            .map((s) => s.id == subTaskId ? updatedSubTask : s)
+            .toList());
     final newMainTasks = List<MainTask>.from(_provider.mainTasks);
     newMainTasks[taskIndex] = updatedTask;
     _provider.setProviderState(mainTasks: newMainTasks);
   }
-  
-  void reorderSubSubtasksBySubset(String mainTaskId, String parentSubtaskId, List<String> subsetIds, {String? parentCheckpointId}) {
+
+  void reorderSubSubtasksBySubset(
+      String mainTaskId, String parentSubtaskId, List<String> subsetIds,
+      {String? parentCheckpointId}) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        return task.copyWith(subTasks: task.subTasks.map((st) {
+        return task.copyWith(
+            subTasks: task.subTasks.map((st) {
           if (st.id == parentSubtaskId) {
             if (parentCheckpointId != null) {
-              return _syncTemplateSetsWithActiveCheckpoints(st.copyWith(subSubTasks: _reorderNodesSubset(st.subSubTasks, parentCheckpointId, subsetIds)));
+              return _syncTemplateSetsWithActiveCheckpoints(st.copyWith(
+                  subSubTasks: _reorderNodesSubset(
+                      st.subSubTasks, parentCheckpointId, subsetIds)));
             } else {
-              final subsetItems = subsetIds.map((id) => st.subSubTasks.firstWhere((sst) => sst.id == id)).toList();
-              final otherItems = st.subSubTasks.where((sst) => !subsetIds.contains(sst.id)).toList();
-              int firstIndex = st.subSubTasks.indexWhere((sst) => subsetIds.contains(sst.id));
+              final subsetItems = subsetIds
+                  .map((id) => st.subSubTasks.firstWhere((sst) => sst.id == id))
+                  .toList();
+              final otherItems = st.subSubTasks
+                  .where((sst) => !subsetIds.contains(sst.id))
+                  .toList();
+              int firstIndex = st.subSubTasks
+                  .indexWhere((sst) => subsetIds.contains(sst.id));
               if (firstIndex == -1) firstIndex = 0;
               final List<SubSubTask> updated = [];
               updated.addAll(otherItems.sublist(0, firstIndex));
               updated.addAll(subsetItems);
               updated.addAll(otherItems.sublist(firstIndex));
-              return _syncTemplateSetsWithActiveCheckpoints(st.copyWith(subSubTasks: updated));
+              return _syncTemplateSetsWithActiveCheckpoints(
+                  st.copyWith(subSubTasks: updated));
             }
           }
           return st;
@@ -840,7 +922,8 @@ class TaskActions {
         return task.copyWith(
           subTasks: task.subTasks.map((st) {
             if (st.id == subTaskId) {
-              final currentSets = List<SubTaskTemplateSet>.from(st.templateSets);
+              final currentSets =
+                  List<SubTaskTemplateSet>.from(st.templateSets);
               if (currentSets.isEmpty) {
                 currentSets.add(SubTaskTemplateSet(
                   id: 'default',
@@ -877,7 +960,8 @@ class TaskActions {
         return task.copyWith(
           subTasks: task.subTasks.map((st) {
             if (st.id == subTaskId) {
-              final currentSets = List<SubTaskTemplateSet>.from(st.templateSets);
+              final currentSets =
+                  List<SubTaskTemplateSet>.from(st.templateSets);
               if (currentSets.isEmpty) {
                 currentSets.add(SubTaskTemplateSet(
                   id: 'default',
@@ -886,7 +970,8 @@ class TaskActions {
                 ));
               }
               final prevActiveId = st.activeTemplateSetId ?? 'default';
-              final prevIndex = currentSets.indexWhere((ts) => ts.id == prevActiveId);
+              final prevIndex =
+                  currentSets.indexWhere((ts) => ts.id == prevActiveId);
               if (prevIndex != -1) {
                 currentSets[prevIndex] = currentSets[prevIndex].copyWith(
                   subSubTasks: List.from(st.subSubTasks),
@@ -897,7 +982,8 @@ class TaskActions {
                 );
               }
 
-              final targetSet = currentSets.firstWhereOrNull((ts) => ts.id == setId);
+              final targetSet =
+                  currentSets.firstWhereOrNull((ts) => ts.id == setId);
               if (targetSet == null) return st;
 
               return st.copyWith(
@@ -922,7 +1008,8 @@ class TaskActions {
         return task.copyWith(
           subTasks: task.subTasks.map((st) {
             if (st.id == subTaskId) {
-              final currentSets = List<SubTaskTemplateSet>.from(st.templateSets);
+              final currentSets =
+                  List<SubTaskTemplateSet>.from(st.templateSets);
               if (currentSets.isEmpty) {
                 currentSets.add(SubTaskTemplateSet(
                   id: 'default',
@@ -955,7 +1042,8 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  void renameTemplateSet(String mainTaskId, String subTaskId, String setId, String newName) {
+  void renameTemplateSet(
+      String mainTaskId, String subTaskId, String setId, String newName) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(
@@ -981,20 +1069,26 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  List<SubSubTask> _reorderNodesSubset(List<SubSubTask> nodes, String targetId, List<String> subsetIds) {
+  List<SubSubTask> _reorderNodesSubset(
+      List<SubSubTask> nodes, String targetId, List<String> subsetIds) {
     return nodes.map((node) {
       if (node.id == targetId) {
-         final subsetItems = subsetIds.map((id) => node.substeps.firstWhere((sst) => sst.id == id)).toList();
-         final otherItems = node.substeps.where((sst) => !subsetIds.contains(sst.id)).toList();
-         int firstIndex = node.substeps.indexWhere((sst) => subsetIds.contains(sst.id));
-         if (firstIndex == -1) firstIndex = 0;
-         final List<SubSubTask> updated = [];
-         updated.addAll(otherItems.sublist(0, firstIndex));
-         updated.addAll(subsetItems);
-         updated.addAll(otherItems.sublist(firstIndex));
-         return node.copyWith(substeps: updated);
+        final subsetItems = subsetIds
+            .map((id) => node.substeps.firstWhere((sst) => sst.id == id))
+            .toList();
+        final otherItems =
+            node.substeps.where((sst) => !subsetIds.contains(sst.id)).toList();
+        int firstIndex =
+            node.substeps.indexWhere((sst) => subsetIds.contains(sst.id));
+        if (firstIndex == -1) firstIndex = 0;
+        final List<SubSubTask> updated = [];
+        updated.addAll(otherItems.sublist(0, firstIndex));
+        updated.addAll(subsetItems);
+        updated.addAll(otherItems.sublist(firstIndex));
+        return node.copyWith(substeps: updated);
       } else {
-         return node.copyWith(substeps: _reorderNodesSubset(node.substeps, targetId, subsetIds));
+        return node.copyWith(
+            substeps: _reorderNodesSubset(node.substeps, targetId, subsetIds));
       }
     }).toList();
   }
@@ -1012,11 +1106,12 @@ class TaskActions {
       isCountable: subtaskData['isCountable'] as bool? ?? false,
       targetCount: subtaskData['targetCount'] as int? ?? 0,
       currentCount: subtaskData['currentCount'] as int? ?? 0,
-      manualProgress: (subtaskData['manualProgress'] as num?)?.toDouble() ?? 0.0,
+      manualProgress:
+          (subtaskData['manualProgress'] as num?)?.toDouble() ?? 0.0,
       subSubTasks: [],
       why: subtaskData['why'] as String? ?? '',
       what: subtaskData['what'] as String? ?? '',
-      resources: subtaskData['resources'] as String? ?? '', 
+      resources: subtaskData['resources'] as String? ?? '',
       progressMode: subtaskData['progressMode'] as String? ?? 'auto',
       isRecurring: subtaskData['isRecurring'] as bool? ?? false,
       isActive: subtaskData['isActive'] as bool? ?? true,
@@ -1028,23 +1123,29 @@ class TaskActions {
       }
       return task;
     }).toList();
-    
+
     _provider.setProviderState(mainTasks: newMainTasks);
     return newSubtask.id;
   }
 
-  void updateSubtask(String mainTaskId, String subtaskId, Map<String, dynamic> updates) {
-    final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+  void updateSubtask(
+      String mainTaskId, String subtaskId, Map<String, dynamic> updates) {
+    final task =
+        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     if (task == null) return;
 
     final subtask = task.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
     if (subtask == null) return;
 
     final int oldSubtaskTime = subtask.currentTimeSpent;
-    final int newTime = updates.containsKey('currentTimeSpent') ? updates['currentTimeSpent'] as int : subtask.currentTimeSpent;
+    final int newTime = updates.containsKey('currentTimeSpent')
+        ? updates['currentTimeSpent'] as int
+        : subtask.currentTimeSpent;
     final int timeDifference = newTime - oldSubtaskTime;
 
-    bool newCompleted = updates.containsKey('completed') ? updates['completed'] as bool : subtask.completed;
+    bool newCompleted = updates.containsKey('completed')
+        ? updates['completed'] as bool
+        : subtask.completed;
     String? newCompletedDate = subtask.completedDate;
     DateTime? newLastCompletedDate = subtask.lastCompletedDate;
 
@@ -1078,10 +1179,15 @@ class TaskActions {
       what: updates['what'] as String? ?? subtask.what,
       resources: updates['resources'] as String? ?? subtask.resources,
       isActive: updates['isActive'] as bool? ?? subtask.isActive,
-      subSubTasks: updates['subSubTasks'] as List<SubSubTask>? ?? subtask.subSubTasks,
-      depth: updates.containsKey('depth') ? updates['depth'] as int? : subtask.depth,
+      subSubTasks:
+          updates['subSubTasks'] as List<SubSubTask>? ?? subtask.subSubTasks,
+      depth: updates.containsKey('depth')
+          ? updates['depth'] as int?
+          : subtask.depth,
       clearDepth: updates.containsKey('depth') && updates['depth'] == null,
-      manualProgress: updates.containsKey('manualProgress') ? (updates['manualProgress'] as num).toDouble() : subtask.manualProgress,
+      manualProgress: updates.containsKey('manualProgress')
+          ? (updates['manualProgress'] as num).toDouble()
+          : subtask.manualProgress,
       currentTimeSpent: newTime,
       completed: newCompleted,
       completedDate: newCompletedDate,
@@ -1090,17 +1196,23 @@ class TaskActions {
     );
 
     if (timeDifference != 0) {
-      logToDailySummary('taskTime', {'taskId': mainTaskId, 'time': timeDifference});
+      logToDailySummary(
+          'taskTime', {'taskId': mainTaskId, 'time': timeDifference});
     }
 
     final newMainTasks = _provider.mainTasks.map((t) {
       if (t.id == mainTaskId) {
-        final newDailyTime = timeDifference != 0 ? t.dailyTimeSpent + timeDifference : t.dailyTimeSpent;
-        final newLastWorked = timeDifference != 0 ? getTodayDateString() : t.lastWorkedDate;
+        final newDailyTime = timeDifference != 0
+            ? t.dailyTimeSpent + timeDifference
+            : t.dailyTimeSpent;
+        final newLastWorked =
+            timeDifference != 0 ? getTodayDateString() : t.lastWorkedDate;
         return t.copyWith(
           dailyTimeSpent: newDailyTime,
           lastWorkedDate: newLastWorked,
-          subTasks: t.subTasks.map((s) => s.id == subtaskId ? updatedSubtask : s).toList(),
+          subTasks: t.subTasks
+              .map((s) => s.id == subtaskId ? updatedSubtask : s)
+              .toList(),
         );
       }
       return t;
@@ -1127,13 +1239,17 @@ class TaskActions {
     return completeSubtask(mainTaskId, subtaskId);
   }
 
-  bool completeSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) {
-    MainTask? mainTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+  bool completeSubtask(String mainTaskId, String subtaskId,
+      {bool fromSync = false}) {
+    MainTask? mainTask =
+        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     if (mainTask == null) return false;
-    SubTask? subTask = mainTask.subTasks.firstWhereOrNull((st) => st.id == subtaskId);
+    SubTask? subTask =
+        mainTask.subTasks.firstWhereOrNull((st) => st.id == subtaskId);
     if (subTask == null || subTask.completed) return false;
 
-    if (subTask.isCountable && subTask.currentCount < subTask.targetCount) return false;
+    if (subTask.isCountable && subTask.currentCount < subTask.targetCount)
+      return false;
 
     bool hasTime = subTask.currentTimeSpent > 0;
     if (subTask.isRecurring) {
@@ -1142,7 +1258,8 @@ class TaskActions {
     }
 
     if (!hasTime && !subTask.isCountable) {
-      bool allSubSubTasksDone = subTask.subSubTasks.every((sss) => sss.completed);
+      bool allSubSubTasksDone =
+          subTask.subSubTasks.every((sss) => sss.completed);
       if (subTask.subSubTasks.isNotEmpty && !allSubSubTasksDone) return false;
       if (subTask.subSubTasks.isEmpty && !hasTime && !fromSync) return false;
     }
@@ -1153,18 +1270,22 @@ class TaskActions {
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        final nextPhx = task.phoenixSubTaskId == subtaskId ? null : task.phoenixSubTaskId;
+        final nextPhx =
+            task.phoenixSubTaskId == subtaskId ? null : task.phoenixSubTaskId;
         return task.copyWith(
           phoenixSubTaskId: nextPhx,
           subTasks: task.subTasks.map((st) {
             if (st.id == subtaskId) {
               final ts = DateTime.now().toIso8601String();
-              final updatedSubSubTasks = st.subSubTasks.map((child) => _markAllDescendantsCompleted(child, ts)).toList();
+              final updatedSubSubTasks = st.subSubTasks
+                  .map((child) => _markAllDescendantsCompleted(child, ts))
+                  .toList();
               return st.copyWith(
-                  completed: true, completedDate: getTodayDateString(),
-                  lastCompletedDate: DateTime.now(), updatedAt: DateTime.now(),
-                  subSubTasks: updatedSubSubTasks
-              );
+                  completed: true,
+                  completedDate: getTodayDateString(),
+                  lastCompletedDate: DateTime.now(),
+                  updatedAt: DateTime.now(),
+                  subSubTasks: updatedSubSubTasks);
             }
             return st;
           }).toList(),
@@ -1188,17 +1309,20 @@ class TaskActions {
     return true;
   }
 
-  void uncompleteSubtask(String mainTaskId, String subtaskId, {bool fromSync = false}) {
+  void uncompleteSubtask(String mainTaskId, String subtaskId,
+      {bool fromSync = false}) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(
           subTasks: task.subTasks.map((st) {
             if (st.id == subtaskId) {
-              final updatedSubSubTasks = st.subSubTasks.map((child) => _markAllDescendantsUncompleted(child)).toList();
+              final updatedSubSubTasks = st.subSubTasks
+                  .map((child) => _markAllDescendantsUncompleted(child))
+                  .toList();
               return st.copyWith(
-                completed: false, 
-                completedDate: null, 
-                lastCompletedDate: null, 
+                completed: false,
+                completedDate: null,
+                lastCompletedDate: null,
                 updatedAt: DateTime.now(),
                 currentCount: st.isCountable ? 0 : st.currentCount,
                 subSubTasks: updatedSubSubTasks,
@@ -1213,51 +1337,69 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  void deleteSubtask(String mainTaskId, String subtaskId, {bool silent = false}) {
-    final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+  void deleteSubtask(String mainTaskId, String subtaskId,
+      {bool silent = false}) {
+    final task =
+        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     final subtask = task?.subTasks.firstWhereOrNull((s) => s.id == subtaskId);
     if (subtask == null) return;
 
-    final savedTasks = _provider.mainTasks.map((t) => t.copyWith(
-      subTasks: t.subTasks.map((st) => st.copyWith(
-        subSubTasks: st.subSubTasks.map((sss) => sss.copyWith()).toList(),
-      )).toList(),
-    )).toList();
+    final savedTasks = _provider.mainTasks
+        .map((t) => t.copyWith(
+              subTasks: t.subTasks
+                  .map((st) => st.copyWith(
+                        subSubTasks: st.subSubTasks
+                            .map((sss) => sss.copyWith())
+                            .toList(),
+                      ))
+                  .toList(),
+            ))
+        .toList();
 
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        final nextPhx = task.phoenixSubTaskId == subtaskId ? null : task.phoenixSubTaskId;
+        final nextPhx =
+            task.phoenixSubTaskId == subtaskId ? null : task.phoenixSubTaskId;
         return task.copyWith(
           phoenixSubTaskId: nextPhx,
-          subTasks: task.subTasks.map((st) => st.id == subtaskId ? st.copyWith(isDeleted: true) : st).toList(),
+          subTasks: task.subTasks
+              .map((st) =>
+                  st.id == subtaskId ? st.copyWith(isDeleted: true) : st)
+              .toList(),
         );
       }
       return task;
     }).toList();
 
-    final newActiveTimers = Map<String, dynamic>.from(_provider.activeTimers.map((k, v) => MapEntry(k, v.toJson())));
+    final newActiveTimers = Map<String, dynamic>.from(
+        _provider.activeTimers.map((k, v) => MapEntry(k, v.toJson())));
     final previousTimer = newActiveTimers.remove(subtaskId);
-    
-    _provider.setProviderState(mainTasks: newMainTasks, activeTimers: newActiveTimers);
+
+    _provider.setProviderState(
+        mainTasks: newMainTasks, activeTimers: newActiveTimers);
 
     if (!silent) {
       showUndoSnackBar(
         message: 'Deleted "${subtask.name}"',
         onUndo: () {
-          final restoreActiveTimers = Map<String, dynamic>.from(_provider.activeTimers.map((k, v) => MapEntry(k, v.toJson())));
+          final restoreActiveTimers = Map<String, dynamic>.from(
+              _provider.activeTimers.map((k, v) => MapEntry(k, v.toJson())));
           if (previousTimer != null) {
             restoreActiveTimers[subtaskId] = previousTimer;
           }
-          _provider.setProviderState(mainTasks: savedTasks, activeTimers: restoreActiveTimers);
+          _provider.setProviderState(
+              mainTasks: savedTasks, activeTimers: restoreActiveTimers);
         },
       );
     }
   }
 
   void duplicateCompletedSubtask(String mainTaskId, String subtaskId) {
-    MainTask? taskToUpdate = _provider.mainTasks.firstWhereOrNull((task) => task.id == mainTaskId);
+    MainTask? taskToUpdate =
+        _provider.mainTasks.firstWhereOrNull((task) => task.id == mainTaskId);
     if (taskToUpdate == null) return;
-    SubTask? subTaskToDuplicate = taskToUpdate.subTasks.firstWhereOrNull((st) => st.id == subtaskId);
+    SubTask? subTaskToDuplicate =
+        taskToUpdate.subTasks.firstWhereOrNull((st) => st.id == subtaskId);
     if (subTaskToDuplicate == null || !subTaskToDuplicate.completed) return;
 
     final newSubtask = SubTask(
@@ -1276,12 +1418,15 @@ class TaskActions {
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       isActive: true,
-      subSubTasks: subTaskToDuplicate.subSubTasks.map((sss) => _deepCloneCheckpoint(sss)).toList(),
+      subSubTasks: subTaskToDuplicate.subSubTasks
+          .map((sss) => _deepCloneCheckpoint(sss))
+          .toList(),
       sessions: [],
     );
 
     final newMainTasks = _provider.mainTasks.map((task) {
-      if (task.id == mainTaskId) return task.copyWith(subTasks: [newSubtask, ...task.subTasks]);
+      if (task.id == mainTaskId)
+        return task.copyWith(subTasks: [newSubtask, ...task.subTasks]);
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
@@ -1292,7 +1437,10 @@ class TaskActions {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         final List<SubTask> updatedSubtasks = List.from(task.subTasks);
-        if (oldIndex >= 0 && oldIndex < updatedSubtasks.length && newIndex >= 0 && newIndex < updatedSubtasks.length) {
+        if (oldIndex >= 0 &&
+            oldIndex < updatedSubtasks.length &&
+            newIndex >= 0 &&
+            newIndex < updatedSubtasks.length) {
           final SubTask item = updatedSubtasks.removeAt(oldIndex);
           updatedSubtasks.insert(newIndex, item);
         }
@@ -1306,9 +1454,13 @@ class TaskActions {
   void reorderSubtasksBySubset(String mainTaskId, List<String> subsetIds) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
-        final subsetItems = subsetIds.map((id) => task.subTasks.firstWhere((st) => st.id == id)).toList();
-        final otherItems = task.subTasks.where((st) => !subsetIds.contains(st.id)).toList();
-        int firstIndex = task.subTasks.indexWhere((st) => subsetIds.contains(st.id));
+        final subsetItems = subsetIds
+            .map((id) => task.subTasks.firstWhere((st) => st.id == id))
+            .toList();
+        final otherItems =
+            task.subTasks.where((st) => !subsetIds.contains(st.id)).toList();
+        int firstIndex =
+            task.subTasks.indexWhere((st) => subsetIds.contains(st.id));
         if (firstIndex == -1) firstIndex = 0;
         final List<SubTask> updated = [];
         updated.addAll(otherItems.sublist(0, firstIndex));
@@ -1323,17 +1475,19 @@ class TaskActions {
 
   // --- Session Management ---
 
-  bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end) {
+  bool addSessionToSubtask(
+      String mainTaskId, String subTaskId, DateTime start, DateTime end) {
     if (TimeValidationHelper.hasOverlap(
-      start: start, 
-      end: end, 
+      start: start,
+      end: end,
       allTasks: _provider.mainTasks,
       targetSubTaskId: subTaskId,
     )) {
       return false;
     }
 
-    final session = TaskSession(id: IdGenerator.generateSessionId(), startTime: start, endTime: end);
+    final session = TaskSession(
+        id: IdGenerator.generateSessionId(), startTime: start, endTime: end);
 
     final provisionalTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
@@ -1341,7 +1495,8 @@ class TaskActions {
           lastWorkedDate: getTodayDateString(),
           subTasks: task.subTasks.map((st) {
             if (st.id == subTaskId) {
-              final newSessions = [...st.sessions, session]..sort((a, b) => b.startTime.compareTo(a.startTime));
+              final newSessions = [...st.sessions, session]
+                ..sort((a, b) => b.startTime.compareTo(a.startTime));
               return st.copyWith(
                 sessions: newSessions,
                 updatedAt: DateTime.now(),
@@ -1354,7 +1509,8 @@ class TaskActions {
       return task;
     }).toList();
 
-    final recalibrated = TaskCalculations.recalculateAllTimeLogs(provisionalTasks);
+    final recalibrated =
+        TaskCalculations.recalculateAllTimeLogs(provisionalTasks);
     final todayStr = getTodayDateString();
     final todayTimes = recalibrated.dailyTaskTimes[todayStr] ?? {};
 
@@ -1370,7 +1526,8 @@ class TaskActions {
       );
     }).toList();
 
-    final Map<String, dynamic> newCompletedByDay = Map.from(_provider.completedByDay);
+    final Map<String, dynamic> newCompletedByDay =
+        Map.from(_provider.completedByDay);
     recalibrated.dailyTaskTimes.forEach((date, taskMap) {
       if (!newCompletedByDay.containsKey(date)) {
         newCompletedByDay[date] = {
@@ -1392,11 +1549,12 @@ class TaskActions {
     return true;
   }
 
-  void updateSessionInSubtask(String mainTaskId, String subTaskId, String sessionId, DateTime newStart, DateTime newEnd) {
+  void updateSessionInSubtask(String mainTaskId, String subTaskId,
+      String sessionId, DateTime newStart, DateTime newEnd) {
     if (TimeValidationHelper.hasOverlap(
-      start: newStart, 
-      end: newEnd, 
-      allTasks: _provider.mainTasks, 
+      start: newStart,
+      end: newEnd,
+      allTasks: _provider.mainTasks,
       excludeSessionId: sessionId,
       targetSubTaskId: subTaskId,
     )) {
@@ -1409,9 +1567,12 @@ class TaskActions {
           subTasks: task.subTasks.map((st) {
             if (st.id == subTaskId) {
               final updatedSessions = st.sessions.map((s) {
-                if (s.id == sessionId) return TaskSession(id: s.id, startTime: newStart, endTime: newEnd);
+                if (s.id == sessionId)
+                  return TaskSession(
+                      id: s.id, startTime: newStart, endTime: newEnd);
                 return s;
-              }).toList()..sort((a, b) => b.startTime.compareTo(a.startTime));
+              }).toList()
+                ..sort((a, b) => b.startTime.compareTo(a.startTime));
               return st.copyWith(
                 sessions: updatedSessions,
                 updatedAt: DateTime.now(),
@@ -1424,7 +1585,8 @@ class TaskActions {
       return task;
     }).toList();
 
-    final recalibrated = TaskCalculations.recalculateAllTimeLogs(provisionalTasks);
+    final recalibrated =
+        TaskCalculations.recalculateAllTimeLogs(provisionalTasks);
     final todayStr = getTodayDateString();
     final todayTimes = recalibrated.dailyTaskTimes[todayStr] ?? {};
 
@@ -1440,7 +1602,8 @@ class TaskActions {
       );
     }).toList();
 
-    final Map<String, dynamic> newCompletedByDay = Map.from(_provider.completedByDay);
+    final Map<String, dynamic> newCompletedByDay =
+        Map.from(_provider.completedByDay);
     recalibrated.dailyTaskTimes.forEach((date, taskMap) {
       if (!newCompletedByDay.containsKey(date)) {
         newCompletedByDay[date] = {
@@ -1461,25 +1624,36 @@ class TaskActions {
     );
   }
 
-  void deleteSessionFromSubtask(String mainTaskId, String subTaskId, String sessionId, {bool silent = false}) {
-    final oldTask = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
+  void deleteSessionFromSubtask(
+      String mainTaskId, String subTaskId, String sessionId,
+      {bool silent = false}) {
+    final oldTask =
+        _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId);
     final oldSub = oldTask?.subTasks.firstWhereOrNull((s) => s.id == subTaskId);
-    final oldSession = oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
+    final oldSession =
+        oldSub?.sessions.firstWhereOrNull((s) => s.id == sessionId);
     if (oldSession == null) return;
 
-    final savedTasks = _provider.mainTasks.map((t) => t.copyWith(
-      subTasks: t.subTasks.map((st) => st.copyWith(
-        sessions: List<TaskSession>.from(st.sessions),
-        subSubTasks: st.subSubTasks.map((sss) => sss.copyWith()).toList(),
-      )).toList(),
-    )).toList();
+    final savedTasks = _provider.mainTasks
+        .map((t) => t.copyWith(
+              subTasks: t.subTasks
+                  .map((st) => st.copyWith(
+                        sessions: List<TaskSession>.from(st.sessions),
+                        subSubTasks: st.subSubTasks
+                            .map((sss) => sss.copyWith())
+                            .toList(),
+                      ))
+                  .toList(),
+            ))
+        .toList();
 
     final provisionalTasks = _provider.mainTasks.map((task) {
       if (task.id == mainTaskId) {
         return task.copyWith(
           subTasks: task.subTasks.map((st) {
             if (st.id == subTaskId) {
-              final remainingSessions = st.sessions.where((s) => s.id != sessionId).toList();
+              final remainingSessions =
+                  st.sessions.where((s) => s.id != sessionId).toList();
               return st.copyWith(
                 sessions: remainingSessions,
                 updatedAt: DateTime.now(),
@@ -1492,7 +1666,8 @@ class TaskActions {
       return task;
     }).toList();
 
-    final recalibrated = TaskCalculations.recalculateAllTimeLogs(provisionalTasks);
+    final recalibrated =
+        TaskCalculations.recalculateAllTimeLogs(provisionalTasks);
     final todayStr = getTodayDateString();
     final todayTimes = recalibrated.dailyTaskTimes[todayStr] ?? {};
 
@@ -1508,7 +1683,8 @@ class TaskActions {
       );
     }).toList();
 
-    final Map<String, dynamic> newCompletedByDay = Map.from(_provider.completedByDay);
+    final Map<String, dynamic> newCompletedByDay =
+        Map.from(_provider.completedByDay);
     recalibrated.dailyTaskTimes.forEach((date, taskMap) {
       if (!newCompletedByDay.containsKey(date)) {
         newCompletedByDay[date] = {
@@ -1530,7 +1706,8 @@ class TaskActions {
 
     if (!silent) {
       final formatter = DateFormat('jm');
-      final formattedTime = '${formatter.format(oldSession.startTime)} - ${formatter.format(oldSession.endTime)}';
+      final formattedTime =
+          '${formatter.format(oldSession.startTime)} - ${formatter.format(oldSession.endTime)}';
       showUndoSnackBar(
         message: 'Deleted session ($formattedTime)',
         onUndo: () {
@@ -1554,7 +1731,9 @@ class TaskActions {
 
   // FIX: Soft delete protocol/MainTask
   void deleteMainTask(String id) {
-    final newTasks = _provider.mainTasks.map((t) => t.id == id ? t.copyWith(isDeleted: true) : t).toList();
+    final newTasks = _provider.mainTasks
+        .map((t) => t.id == id ? t.copyWith(isDeleted: true) : t)
+        .toList();
     _provider.setProviderState(mainTasks: newTasks);
     if (_provider.selectedTaskId == id) {
       final firstValid = newTasks.firstWhereOrNull((t) => !t.isDeleted);
@@ -1567,8 +1746,10 @@ class TaskActions {
   Future<void> recalibrateTimeLogs({bool silent = false}) async {
     if (!silent) _provider.setLoadingTask("RECALIBRATING...");
 
-    final Map<String, dynamic> newCompletedByDay = Map.from(_provider.completedByDay);
-    final recalibrated = TaskCalculations.recalculateAllTimeLogs(_provider.mainTasks);
+    final Map<String, dynamic> newCompletedByDay =
+        Map.from(_provider.completedByDay);
+    final recalibrated =
+        TaskCalculations.recalculateAllTimeLogs(_provider.mainTasks);
     final calculatedHistory = recalibrated.dailyTaskTimes;
 
     calculatedHistory.forEach((date, taskMap) {
@@ -1595,20 +1776,17 @@ class TaskActions {
       }).toList();
 
       return task.copyWith(
-        subTasks: updatedSubtasks, 
-        dailyTimeSpent: todayTimes[task.id] ?? 0 
-      );
+          subTasks: updatedSubtasks, dailyTimeSpent: todayTimes[task.id] ?? 0);
     }).toList();
 
     _provider.setProviderState(
-      completedByDay: newCompletedByDay,
-      mainTasks: newMainTasks
-    );
-    
+        completedByDay: newCompletedByDay, mainTasks: newMainTasks);
+
     if (!silent) _provider.setLoadingTask(null);
   }
 
-  void saveProgressDataPoint(String mainTaskId, String subTaskId, double progress, int spentSeconds) {
+  void saveProgressDataPoint(
+      String mainTaskId, String subTaskId, double progress, int spentSeconds) {
     final point = ProgressDataPoint(
       timestamp: DateTime.now(),
       progress: progress.clamp(0.0, 1.0),
@@ -1617,7 +1795,8 @@ class TaskActions {
 
     final newMainTasks = _provider.mainTasks.map((t) {
       if (t.id == mainTaskId) {
-        return t.copyWith(subTasks: t.subTasks.map((s) {
+        return t.copyWith(
+            subTasks: t.subTasks.map((s) {
           if (s.id == subTaskId) {
             final updated = [...s.progressDataPoints, point]
               ..sort((a, b) => a.spentSeconds.compareTo(b.spentSeconds));
@@ -1634,7 +1813,8 @@ class TaskActions {
   void deleteProgressDataPoint(String mainTaskId, String subTaskId, int index) {
     final newMainTasks = _provider.mainTasks.map((t) {
       if (t.id == mainTaskId) {
-        return t.copyWith(subTasks: t.subTasks.map((s) {
+        return t.copyWith(
+            subTasks: t.subTasks.map((s) {
           if (s.id == subTaskId) {
             final updated = List<ProgressDataPoint>.from(s.progressDataPoints);
             if (index >= 0 && index < updated.length) updated.removeAt(index);
@@ -1648,7 +1828,12 @@ class TaskActions {
     _provider.setProviderState(mainTasks: newMainTasks);
   }
 
-  void saveSubSubtaskProgressDataPoint(String mainTaskId, String parentSubtaskId, String subSubtaskId, double progress, int spentSeconds) {
+  void saveSubSubtaskProgressDataPoint(
+      String mainTaskId,
+      String parentSubtaskId,
+      String subSubtaskId,
+      double progress,
+      int spentSeconds) {
     final point = ProgressDataPoint(
       timestamp: DateTime.now(),
       progress: progress.clamp(0.0, 1.0),
@@ -1658,7 +1843,7 @@ class TaskActions {
     try {
       final task = _provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
       final sub = task.subTasks.firstWhere((s) => s.id == parentSubtaskId);
-      
+
       SubSubTask? findRecursive(List<SubSubTask> list, String id) {
         for (var item in list) {
           if (item.id == id) return item;
@@ -1680,7 +1865,8 @@ class TaskActions {
     } catch (_) {}
   }
 
-  void deleteSubSubtaskProgressDataPoint(String mainTaskId, String parentSubtaskId, String subSubtaskId, int index) {
+  void deleteSubSubtaskProgressDataPoint(String mainTaskId,
+      String parentSubtaskId, String subSubtaskId, int index) {
     try {
       final task = _provider.mainTasks.firstWhere((t) => t.id == mainTaskId);
       final sub = task.subTasks.firstWhere((s) => s.id == parentSubtaskId);
@@ -1696,7 +1882,8 @@ class TaskActions {
 
       final cp = findRecursive(sub.subSubTasks, subSubtaskId);
       if (cp != null) {
-        final updatedPoints = List<ProgressDataPoint>.from(cp.progressDataPoints);
+        final updatedPoints =
+            List<ProgressDataPoint>.from(cp.progressDataPoints);
         if (index >= 0 && index < updatedPoints.length) {
           updatedPoints.removeAt(index);
         }
@@ -1707,7 +1894,11 @@ class TaskActions {
     } catch (_) {}
   }
 
-  void addMainTask({required String name, required String description, required String theme, required String colorHex}) {
+  void addMainTask(
+      {required String name,
+      required String description,
+      required String theme,
+      required String colorHex}) {
     final newTask = MainTask(
       id: IdGenerator.generateMainTaskId(),
       name: name,
@@ -1719,10 +1910,18 @@ class TaskActions {
     _provider.setProviderState(mainTasks: [newTask, ..._provider.mainTasks]);
   }
 
-  void editMainTask(String taskId, {required String name, required String description, required String theme, required String colorHex}) {
+  void editMainTask(String taskId,
+      {required String name,
+      required String description,
+      required String theme,
+      required String colorHex}) {
     final newMainTasks = _provider.mainTasks.map((task) {
       if (task.id == taskId) {
-        return task.copyWith(name: name, description: description, theme: theme, colorHex: colorHex);
+        return task.copyWith(
+            name: name,
+            description: description,
+            theme: theme,
+            colorHex: colorHex);
       }
       return task;
     }).toList();
@@ -1731,20 +1930,32 @@ class TaskActions {
 
   void logToDailySummary(String type, Map<String, dynamic> data) {
     final today = getTodayDateString();
-    final newCompletedByDay = Map<String, dynamic>.from(_provider.completedByDay);
-    final dayData = Map<String, dynamic>.from(newCompletedByDay[today] ?? {'taskTimes': <String, int>{}, 'subtasksCompleted': <Map<String, dynamic>>[], 'checkpointsCompleted': <Map<String, dynamic>>[], 'dailyPlan': <String>[]});
+    final newCompletedByDay =
+        Map<String, dynamic>.from(_provider.completedByDay);
+    final dayData = Map<String, dynamic>.from(newCompletedByDay[today] ??
+        {
+          'taskTimes': <String, int>{},
+          'subtasksCompleted': <Map<String, dynamic>>[],
+          'checkpointsCompleted': <Map<String, dynamic>>[],
+          'dailyPlan': <String>[]
+        });
 
     if (type == 'taskTime') {
-      final taskTimes = Map<String, int>.from(dayData['taskTimes'] as Map? ?? {});
-      taskTimes[data['taskId'] as String] = (taskTimes[data['taskId'] as String] ?? 0) + (data['time'] as int);
+      final taskTimes =
+          Map<String, int>.from(dayData['taskTimes'] as Map? ?? {});
+      taskTimes[data['taskId'] as String] =
+          (taskTimes[data['taskId'] as String] ?? 0) + (data['time'] as int);
       dayData['taskTimes'] = taskTimes;
     } else if (type == 'subtaskCompleted') {
-      final subtasksCompleted = List<Map<String, dynamic>>.from(dayData['subtasksCompleted'] as List? ?? []);
+      final subtasksCompleted = List<Map<String, dynamic>>.from(
+          dayData['subtasksCompleted'] as List? ?? []);
       subtasksCompleted.add(data);
       dayData['subtasksCompleted'] = subtasksCompleted;
     } else if (type == 'subSubtaskCompleted') {
-      final checkpointsCompleted = List<Map<String, dynamic>>.from(dayData['checkpointsCompleted'] as List? ?? []);
-      if (!data.containsKey('completionTimestamp')) data['completionTimestamp'] = DateTime.now().toIso8601String();
+      final checkpointsCompleted = List<Map<String, dynamic>>.from(
+          dayData['checkpointsCompleted'] as List? ?? []);
+      if (!data.containsKey('completionTimestamp'))
+        data['completionTimestamp'] = DateTime.now().toIso8601String();
       checkpointsCompleted.add(data);
       dayData['checkpointsCompleted'] = checkpointsCompleted;
     }
@@ -1767,7 +1978,8 @@ class TaskActions {
   }
 
   void deleteRoutineList(String routineId) {
-    final lists = _provider.routineLists.where((r) => r.id != routineId).toList();
+    final lists =
+        _provider.routineLists.where((r) => r.id != routineId).toList();
     _provider.setRoutineLists(lists);
     _provider.notify();
   }
@@ -1790,13 +2002,15 @@ class TaskActions {
         final mainTaskId = parts[0];
         final subTaskId = parts[1];
 
-        final task = _provider.mainTasks.firstWhereOrNull((t) => t.id == mainTaskId && !t.isDeleted);
+        final task = _provider.mainTasks
+            .firstWhereOrNull((t) => t.id == mainTaskId && !t.isDeleted);
         if (task == null) {
           routineChanged = true;
           continue;
         }
 
-        final sub = task.subTasks.firstWhereOrNull((s) => s.id == subTaskId && !s.isDeleted);
+        final sub = task.subTasks
+            .firstWhereOrNull((s) => s.id == subTaskId && !s.isDeleted);
         if (sub == null) {
           routineChanged = true;
           continue;

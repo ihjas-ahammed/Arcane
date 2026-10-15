@@ -28,7 +28,11 @@ abstract class TaskStore {
   void setLoadingTask(String? name);
   void notify();
 
+  /// False in the background engine: there is no notification plugin to call.
+  bool get canNotify;
+
   TaskActions get taskActions;
   TimerActions get timerActions;
-  bool addSessionToSubtask(String mainTaskId, String subTaskId, DateTime start, DateTime end);
+  bool addSessionToSubtask(
+      String mainTaskId, String subTaskId, DateTime start, DateTime end);
 }

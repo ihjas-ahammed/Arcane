@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_dart/firebase_dart.dart' as fd;
 import 'package:firedart/firedart.dart' as firedart;
 import 'package:path_provider/path_provider.dart';
+import 'package:missions/src/tasks/app_liveness.dart';
 import 'package:missions/src/app.dart';
 import 'package:missions/firebase_options.dart';
 import 'package:missions/src/providers/app_provider.dart';
@@ -48,7 +49,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Performance & RAM: constrain image cache to prevent unbounded heap allocations on Android
-  PaintingBinding.instance.imageCache.maximumSizeBytes = 40 * 1024 * 1024; // 40MB
+  PaintingBinding.instance.imageCache.maximumSizeBytes =
+      40 * 1024 * 1024; // 40MB
   PaintingBinding.instance.imageCache.maximumSize = 100;
 
   // Launcher anti-kill safety: prevent unhandled exceptions from terminating the launcher process
@@ -83,6 +85,8 @@ void main() async {
   NotificationService.instance.init().catchError((e) {
     debugPrint("Notification init error: $e");
   });
+  // Lets the background widget engine know the app is running (see AppLiveness).
+  AppLiveness.start();
   HomeWidgetService.instance.init().catchError((e) {
     debugPrint("HomeWidget init error: $e");
   });

@@ -80,7 +80,8 @@ class TaskCommands {
     final s = r.subTask;
     if (m == null || s == null) return;
     final newName = name.trim();
-    final checked = store.taskActions.checkCurrentAndAddNext(m.id, s.id, newName);
+    final checked =
+        store.taskActions.checkCurrentAndAddNext(m.id, s.id, newName);
     if (checked != null && newName.isNotEmpty) {
       _say('✓ $checked  →  next: $newName');
     } else if (checked != null) {
@@ -120,7 +121,8 @@ class TaskCommands {
       return;
     }
     if (item.targetCheckpointId != null) {
-      store.taskActions.completeSubSubtask(item.mainTaskId, item.subTaskId, item.targetCheckpointId!);
+      store.taskActions.completeSubSubtask(
+          item.mainTaskId, item.subTaskId, item.targetCheckpointId!);
       _say('✓ Checked: ${item.name}');
     } else {
       final recurring = store.mainTasks
@@ -130,7 +132,9 @@ class TaskCommands {
               ?.isRecurring ==
           true;
       store.taskActions.tickPlanSubtask(item.mainTaskId, item.subTaskId);
-      _say(recurring ? '✓ Completed: ${item.name}' : 'Off today\'s plan: ${item.name}');
+      _say(recurring
+          ? '✓ Completed: ${item.name}'
+          : 'Off today\'s plan: ${item.name}');
     }
 
     // Also remove from day plan
@@ -173,8 +177,8 @@ class TaskCommands {
     final today = helper.getTodayDateString();
     final plan = List<String>.from(store.taskActions.getDayPlan(today));
 
-    final runningEntry = store.activeTimers.entries
-        .firstWhereOrNull((e) => e.value.isRunning && e.value.type == 'subtask');
+    final runningEntry = store.activeTimers.entries.firstWhereOrNull(
+        (e) => e.value.isRunning && e.value.type == 'subtask');
     if (runningEntry != null) {
       final m = store.mainTasks.firstWhereOrNull(
         (t) => t.id == runningEntry.value.mainTaskId && !t.isDeleted,
@@ -196,7 +200,13 @@ class TaskCommands {
             cp = s.findCheckpoint(parts[2]);
           }
         }
-        return (mainTask: m, subTask: s, checkpoint: cp, isRunning: true, queueId: queueId);
+        return (
+          mainTask: m,
+          subTask: s,
+          checkpoint: cp,
+          isRunning: true,
+          queueId: queueId
+        );
       }
     }
 
@@ -214,11 +224,29 @@ class TaskCommands {
       if (parts.length == 3) {
         final cp = s.findCheckpoint(parts[2]);
         if (cp == null || cp.completed) continue;
-        return (mainTask: m, subTask: s, checkpoint: cp, isRunning: false, queueId: idPair);
+        return (
+          mainTask: m,
+          subTask: s,
+          checkpoint: cp,
+          isRunning: false,
+          queueId: idPair
+        );
       }
-      return (mainTask: m, subTask: s, checkpoint: null, isRunning: false, queueId: idPair);
+      return (
+        mainTask: m,
+        subTask: s,
+        checkpoint: null,
+        isRunning: false,
+        queueId: idPair
+      );
     }
 
-    return (mainTask: null, subTask: null, checkpoint: null, isRunning: false, queueId: null);
+    return (
+      mainTask: null,
+      subTask: null,
+      checkpoint: null,
+      isRunning: false,
+      queueId: null
+    );
   }
 }

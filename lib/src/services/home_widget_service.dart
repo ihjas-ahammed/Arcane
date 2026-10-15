@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:missions/src/tasks/headless_entry.dart';
 import 'package:missions/src/utils/task_calculations.dart';
 
 /// Bridge between the Flutter app and the Android home-screen widgets.
@@ -20,10 +21,14 @@ class HomeWidgetService {
   HomeWidgetService._();
   static final HomeWidgetService instance = HomeWidgetService._();
 
-  static const String _providerRunning = 'me.ihjas.missions.widgets.RunningTaskWidget';
-  static const String _providerDayPlan = 'me.ihjas.missions.widgets.DayPlanWidget';
-  static const String _providerFinance = 'me.ihjas.missions.widgets.FinanceWidget';
-  static const String _providerJournal = 'me.ihjas.missions.widgets.JournalWidget';
+  static const String _providerRunning =
+      'me.ihjas.missions.widgets.RunningTaskWidget';
+  static const String _providerDayPlan =
+      'me.ihjas.missions.widgets.DayPlanWidget';
+  static const String _providerFinance =
+      'me.ihjas.missions.widgets.FinanceWidget';
+  static const String _providerJournal =
+      'me.ihjas.missions.widgets.JournalWidget';
   static const String _providerBus = 'me.ihjas.missions.widgets.BusWidget';
   static const String _providerGoals = 'me.ihjas.missions.widgets.GoalsWidget';
 
@@ -40,6 +45,13 @@ class HomeWidgetService {
     try {
       await HomeWidget.setAppGroupId('group.me.ihjas.missions');
     } catch (_) {/* Android no-op */}
+
+    // Taps while the app is not running are applied by the background engine (same task code).
+    try {
+      await HomeWidget.registerInteractivityCallback(widgetBackgroundCallback);
+    } catch (e) {
+      debugPrint('[HomeWidget] background callback not registered: $e');
+    }
 
     // Cold start: did the app launch from a widget tap?
     try {
@@ -145,8 +157,9 @@ class HomeWidgetService {
           i < multitaskTasks.length ? multitaskTasks[i].name : '';
       data['arcane.task.mt$i.parent'] =
           i < multitaskTasks.length ? multitaskTasks[i].parentName : '';
-      data['arcane.task.mt$i.checkpoints'] =
-          i < multitaskTasks.length ? '${multitaskTasks[i].completedCheckpoints}/${multitaskTasks[i].totalCheckpoints}' : '';
+      data['arcane.task.mt$i.checkpoints'] = i < multitaskTasks.length
+          ? '${multitaskTasks[i].completedCheckpoints}/${multitaskTasks[i].totalCheckpoints}'
+          : '';
     }
     await _enqueueTask(data);
   }
@@ -213,7 +226,14 @@ class HomeWidgetService {
       'arcane.theme.text': textArgb,
       'arcane.theme.muted': mutedArgb,
     });
-    for (final p in [_providerRunning, _providerDayPlan, _providerFinance, _providerJournal, _providerBus, _providerGoals]) {
+    for (final p in [
+      _providerRunning,
+      _providerDayPlan,
+      _providerFinance,
+      _providerJournal,
+      _providerBus,
+      _providerGoals
+    ]) {
       await _refresh(p);
     }
   }
@@ -293,7 +313,8 @@ class HomeWidgetService {
     required int completedCount,
     required int progressPct,
     required String scope,
-    List<({String id, String title, bool isCompleted, String tag})> items = const [],
+    List<({String id, String title, bool isCompleted, String tag})> items =
+        const [],
   }) async {
     if (!_supported) return;
 
