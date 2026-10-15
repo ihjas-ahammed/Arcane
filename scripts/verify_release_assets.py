@@ -12,6 +12,8 @@ import tempfile
 parser = argparse.ArgumentParser()
 parser.add_argument('--remote', action='store_true')
 parser.add_argument('--repo', default='ihjas-ahammed/Arcane')
+# Android-only release: the Linux bundle is neither built nor advertised.
+parser.add_argument('--android-only', action='store_true')
 args = parser.parse_args()
 version, code = re.search(r'^version:\s*([^+\s]+)\+(\d+)', Path('pubspec.yaml').read_text(), re.M).groups()
 code = int(code)
@@ -20,7 +22,8 @@ metadata = json.loads(Path('builds/update_info.json').read_text())
 if metadata['version_code'] != code or metadata['version_name'] != version:
     raise SystemExit('Prepared metadata does not match pubspec.yaml.')
 names = [f'missions-v{version}-b{code}-{abi}.apk' for abi in ('arm64-v8a', 'armeabi-v7a', 'x86_64')]
-names.append(f'missions-v{version}-b{code}-linux-x86_64.tar.gz')
+if not args.android_only:
+    names.append(f'missions-v{version}-b{code}-linux-x86_64.tar.gz')
 base = f'https://github.com/{args.repo}/releases/download/{tag}'
 expected = re.search(r"const releasePublicKey = '([^']+)'", Path('lib/src/services/release_signature.dart').read_text())[1]
 public = base64.b64decode(expected, validate=True)

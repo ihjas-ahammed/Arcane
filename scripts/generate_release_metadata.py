@@ -8,6 +8,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--repo', default='ihjas-ahammed/Arcane')
 parser.add_argument('--branch', default='revive2')
 parser.add_argument('--signing-key', default='.release_keys/update_signing.pem')
+# Android-only release: no Linux bundle, so no Linux URLs may be advertised.
+parser.add_argument('--android-only', action='store_true')
 args = parser.parse_args()
 version, code = re.search(r'^version:\s*([^+\s]+)\+(\d+)', Path('pubspec.yaml').read_text(), re.M).groups()
 code = int(code)
@@ -22,7 +24,8 @@ arches = {'arm64-v8a':2000,'armeabi-v7a':1000,'x86_64':4000}
 names = {abi:f'missions-v{version}-b{code}-{abi}.apk' for abi in arches}
 linux_name = f'missions-v{version}-b{code}-linux-x86_64.tar.gz'
 hashes, signatures, sizes = {}, {}, {}
-for name in [*names.values(),linux_name]:
+packages = [*names.values()] + ([] if args.android_only else [linux_name])
+for name in packages:
     path = Path('builds')/name
     if not path.is_file() or path.stat().st_size < 1024*1024: raise SystemExit(f'Missing or truncated build: {path}')
     with path.open('rb') as stream: digest = hashlib.file_digest(stream,'sha256').hexdigest()
@@ -40,11 +43,12 @@ metadata = {
  'apk_filename':names['arm64-v8a'],'apk_url':f"{base}/{names['arm64-v8a']}",
  'apk_arch_urls':{abi:f'{base}/{name}' for abi,name in names.items()},
  'apk_arch_version_codes':{abi:code+offset for abi,offset in arches.items()},
- 'linux_filename':linux_name,'linux_url':f'{base}/{linux_name}',
- 'linux_arch_urls':{'x86_64':f'{base}/{linux_name}'},
  'package_sha256':hashes,'package_signatures':signatures,'package_sizes':sizes,
  'changelog_url':f'https://raw.githubusercontent.com/{args.repo}/{args.branch}/builds/latest.md',
 }
+if not args.android_only:
+    metadata.update({'linux_filename':linux_name,'linux_url':f'{base}/{linux_name}',
+                     'linux_arch_urls':{'x86_64':f'{base}/{linux_name}'}})
 for filename in ['builds/update_info.json','builds/latest.json']:
     Path(filename).write_text(json.dumps(metadata,indent=2)+'\n')
 print(f'Signed metadata prepared for {tag}: {len(hashes)} packages')
