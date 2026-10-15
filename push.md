@@ -1,3 +1,9 @@
+Project facts (confirmed by the owner):
+- The `task-dominion` Firebase project hosts only Arcane. No other application shares its RTDB, Firestore or Storage rules, so the "retain other apps' rules" requirement in step 0c does not apply: the repository's rule files are the complete rule set, and no `ARCANE_RULES_REVIEWED` merge is needed.
+- The Firebase CLI account in use is the owner's account for this product. Administrator access is therefore available to the release run.
+- The off-device backup directory is `backups/` inside this repository (git-ignored, see `.gitignore`). Use `ARCANE_BACKUP_DESTINATION=$PWD/backups` when running the release.
+- Android releases are signed with the repository's `debug.keystore`, the same as previous releases, so installed users can upgrade.
+
 Steps 0, 0b, 0c and 3-6 below (sync, Firebase backup and rules, builds, GitHub release, update pointer, verification) are automated by `./build.sh`. It is verbose and logs to `backups/build_<stamp>.log`. Run it on the build machine with `ARCANE_BACKUP_DESTINATION` set; use `--skip-firebase` when administrator access is unavailable, and `--no-push` for a build-only dry run. Steps 1 and 2 (version, release notes) are done by hand before running it.
 
 0. Sync the branch with `git pull --rebase origin <branch>` before starting a release.

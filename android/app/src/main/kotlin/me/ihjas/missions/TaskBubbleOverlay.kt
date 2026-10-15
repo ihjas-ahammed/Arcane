@@ -1100,10 +1100,8 @@ class TaskBubbleOverlay(private val context: Context) {
                 else -> AMBER
             }
 
-            // Docked, the readout moves to the middle of the part that is still on screen.
-            val visibleCx = if (settingsPrefs.getBoolean(KEY_RIGHT, true)) (w - tuckPx) / 2f
-                            else tuckPx + (w - tuckPx) / 2f
-            val ccx = cx + (visibleCx - cx) * dim
+            // PATCH: readout stays on the half-width centre of the disc (no docked shift).
+            val ccx = w / 2f
 
             // 1. Outer ambient glow halo
             glowPaint.color = fade(accent and 0x24FFFFFF, 0f)
