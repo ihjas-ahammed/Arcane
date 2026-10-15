@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arcane: how home-screen widgets get the running task</title>
+<style>
+  :root { --ink:#1d2430; --muted:#5b6575; --line:#d9dee7; --bg:#f6f7f9; --card:#ffffff; --accent:#0f766e; --warn:#b45309; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color:var(--ink); background:var(--bg); }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 2rem; margin: 0 0 4px; }
+  h2 { font-size: 1.4rem; margin: 40px 0 12px; padding-top: 8px; border-top: 2px solid var(--line); }
+  h3 { font-size: 1.1rem; margin: 24px 0 8px; }
+  p, li { max-width: 72ch; }
+  .lede { font-size: 1.1rem; color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; margin: 16px 0; }
+  .note { border-left: 4px solid var(--warn); background: #fffbeb; padding: 12px 16px; border-radius: 6px; margin: 16px 0; }
+  .tip { border-left: 4px solid var(--accent); background: #ecfdf5; padding: 12px 16px; border-radius: 6px; margin: 16px 0; }
+  code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 0.9em; background: #eef1f5; padding: 1px 5px; border-radius: 4px; }
+  pre { background: #1d2430; color: #e6edf6; padding: 14px 16px; border-radius: 8px; overflow-x: auto; font-size: 0.88rem; }
+  pre code { background: none; padding: 0; color: inherit; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; background: var(--card); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-size: 0.95rem; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #eef2f7; font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  .flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; margin: 18px 0; }
+  .box { flex: 1 1 180px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .box strong { display:block; margin-bottom: 4px; }
+  .box small { color: var(--muted); }
+  .arrow { align-self: center; font-size: 1.4rem; color: var(--accent); }
+  .store { background: #ecfdf5; border-color: #6ee7b7; }
+  .toc { columns: 2; font-size: 0.95rem; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .meta { color: var(--muted); font-size: 0.9rem; }
+  @media (max-width: 640px) { .toc { columns: 1; } .arrow { display:none; } }
+</style>
+</head>
+<body>
+<main>
+
+<h1>How the home-screen widgets get the running task</h1>
+<p class="lede">What the widgets, the floating timer and external launchers show, where that information comes from, and how button presses get back to the app.</p>
+<p class="meta">Arcane (Missions), branch <code>revive2</code>. Written from reading the code. Not yet measured on a phone.</p>
+
+<h2>Contents</h2>
+<ul class="toc">
+  <li><a href="#short">The short version</a></li>
+  <li><a href="#picture">The picture</a></li>
+  <li><a href="#decide">1. The app decides the task state</a></li>
+  <li><a href="#write">2. The state is written to a shared store</a></li>
+  <li><a href="#redraw">3. Android is told to redraw</a></li>
+  <li><a href="#consumers">4. Who reads the store</a></li>
+  <li><a href="#taps">5. Button taps coming back</a></li>
+  <li><a href="#timing">Timing you can expect</a></li>
+  <li><a href="#caveats">Things to know</a></li>
+  <li><a href="#where">Where to look in the code</a></li>
+</ul>
+
+<h2 id="short">The short version</h2>
+<div class="card">
+  <ol>
+    <li>The Flutter app works out the task state and <strong>writes it into one shared store</strong> on the phone: Android's <code>SharedPreferences</code> file named <code>HomeWidgetPreferences</code>.</li>
+    <li>It then <strong>tells Android to redraw</strong> the widgets.</li>
+    <li>Every consumer reads that same store: the widgets, the floating timer bubble, and the day-plan widget.</li>
+    <li>When a user taps a button on a widget or the bubble, the tap travels <strong>back</strong> to the app as a small <code>arcane://widget?action=...</code> link.</li>
+  </ol>
+  <p>Nothing talks to the app directly. The store is the only shared memory between them.</p>
+</div>
+
+<h2 id="picture">The picture</h2>
+<div class="flow">
+  <div class="box"><strong>Flutter app</strong><small>AppProvider state, then HomeWidgetPublisher (decides), then HomeWidgetService (writes)</small></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box store"><strong>HomeWidgetPreferences</strong><small>Shared key-value store. Keys start with <code>arcane.task.</code></small></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box"><strong>Readers</strong><small>Home-screen widgets, floating timer bubble, day-plan widget</small></div>
+</div>
+<div class="flow">
+  <div class="box"><strong>Widget or bubble tap</strong><small><code>arcane://widget?action=task_toggle</code></small></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box"><strong>WidgetActionReceiver</strong><small>Quick instant change in the store, then hands the action over</small></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box"><strong>WidgetActionRouter (Flutter)</strong><small>Runs the real operation, then publishes the new state</small></div>
+</div>
+
+<h2 id="decide">1. The app decides the task state</h2>
+<p><code>lib/src/services/home_widget_publisher.dart</code> listens to <code>AppProvider</code>. Each change in app state asks for a republish. The publish is debounced by <strong>400 ms</strong> and skipped when nothing has changed.</p>
+<p>A <strong>heartbeat runs every 30 seconds</strong> and re-checks the state. Every <strong>5 minutes</strong> it forces a full rewrite. The forced rewrite exists so that one missed or failed write cannot leave a stale "running" clock on screen.</p>
+<p>Two things publish straight away: a bubble or widget tap (<code>republishNow</code>), and a Widgets Studio preview being pushed (<code>restoreLiveTimerState</code> puts the live timer back afterwards).</p>
+
+<h2 id="write">2. The state is written to a shared store</h2>
+<p><code>lib/src/services/home_widget_service.dart</code> builds a flat map of keys and saves each one with <code>HomeWidget.saveWidgetData</code>. All running-task keys start with <code>arcane.task.</code></p>
+<table>
+  <thead><tr><th>Key</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><code>hasTask</code></td><td>Is there a task to show at all?</td></tr>
+    <tr><td><code>isRunning</code></td><td>Is the timer running right now?</td></tr>
+    <tr><td><code>title</code>, <code>subtitle</code></td><td>Task name and the line under it</td></tr>
+    <tr><td><code>sessionStartMs</code></td><td>When the current running session began (epoch milliseconds). The clock is calculated from this.</td></tr>
+    <tr><td><code>accumulatedSec</code></td><td>Seconds already logged before this session</td></tr>
+    <tr><td><code>pausedAtMs</code></td><td>When the timer was paused (drives the 10-minute "paused" grace)</td></tr>
+    <tr><td><code>isCheckpoint</code>, <code>nextCheckpoint</code></td><td>The next checkpoint, for the "check next" button</td></tr>
+    <tr><td><code>progressPct</code>, <code>capacity</code></td><td>Progress bar and load</td></tr>
+    <tr><td><code>dp0..dp4.title</code></td><td>Day-plan entries (the queue)</td></tr>
+    <tr><td><code>mt0..mt2.*</code></td><td>Multitask entries: title, parent and checkpoints</td></tr>
+    <tr><td><code>updatedAtMs</code></td><td><strong>Always written last.</strong> Its arrival tells the bubble that everything else is in place.</td></tr>
+  </tbody>
+</table>
+<div class="tip"><strong>Why the timestamp is last:</strong> the bubble only listens for that key, so it never reads a half-written state.</div>
+<p>Other slices use the same pattern with their own prefixes: <code>arcane.fin.*</code> (finance), <code>arcane.bus.*</code> (bus), <code>arcane.goals.*</code> (goals), and <code>arcane.theme</code> for colours.</p>
+
+<h2 id="redraw">3. Android is told to redraw</h2>
+<p>After the values are saved, the service calls <code>HomeWidget.updateWidget</code> with the provider's class name, for example <code>me.ihjas.missions.widgets.RunningTaskWidget</code>. That sends a broadcast. Android calls <code>onUpdate</code> on each widget provider, and the provider re-reads the store and builds the layout it shows.</p>
+<p>The providers are declared in <code>AndroidManifest.xml</code> and live in <code>android/app/src/main/kotlin/me/ihjas/missions/widgets/</code>: <code>RunningTaskWidget</code>, <code>DayPlanWidget</code>, <code>FinanceWidget</code>, <code>JournalWidget</code>, <code>BusWidget</code>, <code>GoalsWidget</code>. Shared helpers are in <code>WidgetCommon.kt</code>.</p>
+<p>Each provider also has an <code>updatePeriodMillis</code> of <strong>30 minutes</strong> (in <code>res/xml/widget_*_info.xml</code>). That is a fallback: if no broadcast arrives, the widget still refreshes at least that often.</p>
+<h3>How the clock ticks without the app running</h3>
+<p><code>RunningTaskWidget.renderRunning</code> does not store a changing number. It reads <code>sessionStartMs</code> and sets an Android <strong>Chronometer</strong> to that start time. The home screen then counts up by itself. The bubble does the same with its own drawing code.</p>
+
+<h2 id="consumers">4. Who reads the store</h2>
+<table>
+  <thead><tr><th>Reader</th><th>How it reads</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><strong>External launcher</strong> (for example the stock Pixel home screen)</td><td>Does not read our data. It hosts the widget, shows the layout our provider built, and forwards clicks back to our intents.</td><td>Refreshes when our app sends a broadcast, or on the 30-minute timer.</td></tr>
+    <tr><td><strong>Arcane's own launcher</strong></td><td>Hosts the same Android widgets through <code>LauncherBridge.kt</code> (an <code>AppWidgetHost</code>).</td><td>Gets exactly the same data as an external launcher. Previews come from <code>getWidgetPreview</code>.</td></tr>
+    <tr><td><strong>Floating timer bubble</strong> (<code>TaskBubbleOverlay.kt</code>)</td><td>Reads the same keys through <code>WidgetCommon.prefs</code>. Listens for changes to <code>updatedAtMs</code> only, after a 150 ms debounce.</td><td>Drawn by the "Arcane Launcher" accessibility service. Only shows while a task is running.</td></tr>
+    <tr><td><strong>Day-plan widget</strong> (<code>DayPlanWidget.kt</code>)</td><td>Reads the <code>dp*</code> day-plan keys.</td><td>Same store, different slice.</td></tr>
+    <tr><td><strong>Foreground service</strong> (<code>TaskForegroundService.kt</code>)</td><td>Does <em>not</em> read the task keys. Its only link is a launch intent used when the notification is tapped.</td><td>Keeps the app alive while a task runs.</td></tr>
+    <tr><td><strong>In-app Flutter widgets</strong> (<code>homescreen_widgets.dart</code>)</td><td>Rendered offscreen to PNG with <code>HomeWidget.renderFlutterWidget</code>.</td><td>Previews for the widget picker, not live widgets.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="taps">5. Button taps coming back to the app</h2>
+<p>A button on a widget or the bubble does not change the app directly. It fires a link:</p>
+<pre><code>arcane://widget?action=task_toggle      ENGAGE / HALT
+arcane://widget?action=task_check_next  CHECK NEXT
+arcane://widget?action=task_finish      FINISH</code></pre>
+<p><strong><code>WidgetActionReceiver.kt</code></strong> handles the link first:</p>
+<ul>
+  <li>It applies a quick "instant feedback" change to the store, so the widget responds at once.</li>
+  <li>If the app is running, it passes the action to Flutter through <code>MainActivity.dispatchWidgetAction</code>.</li>
+  <li>If the app is not running, it starts the app with the link. Flutter reads the link at cold start (<code>HomeWidget.initiallyLaunchedFromHomeWidget</code>).</li>
+</ul>
+<p><strong><code>WidgetActionRouter</code></strong> (<code>lib/src/services/widget_action_router.dart</code>) then maps the action name to the real operation. For example, <code>task_toggle</code> starts or pauses the timer. The change goes through the normal publish, so the widgets and bubble end up showing the same state.</p>
+<p>Some buttons open the app instead, such as OPEN PLAN and OPEN TASK. Those use <code>HomeWidgetLaunchIntent</code>.</p>
+
+<h2 id="timing">Timing you can expect</h2>
+<table>
+  <thead><tr><th>Event</th><th>Typical delay</th></tr></thead>
+  <tbody>
+    <tr><td>Tap ENGAGE on a widget</td><td>Immediate visual change from the receiver. App state follows once Flutter handles the action.</td></tr>
+    <tr><td>Change made inside the app</td><td>About 0.4 s debounce, then the widgets redraw.</td></tr>
+    <tr><td>Bubble after a task changes</td><td>About 150 ms after <code>updatedAtMs</code> is written.</td></tr>
+    <tr><td>Widget with nothing changing</td><td>Refreshes every 30 minutes (provider fallback).</td></tr>
+    <tr><td>Missed publish</td><td>Corrected by the 30-second heartbeat, forced every 5 minutes.</td></tr>
+  </tbody>
+</table>
+<p class="meta">These come from the code (debounces, heartbeat and update periods). Real delays depend on the launcher and on Android's battery rules.</p>
+
+<h2 id="caveats">Things to know</h2>
+<div class="note">
+  <ul>
+    <li><strong>Data is only as fresh as the last write.</strong> If the app is killed and no broadcast arrives, widgets show the last saved state. A running clock still counts correctly, because it is calculated from <code>sessionStartMs</code>.</li>
+    <li><strong>Plain SharedPreferences.</strong> The values are not encrypted, and they include task titles.</li>
+    <li><strong>Keys are shared by name.</strong> Renaming a key in Dart without changing the Kotlin readers silently shows empty values. <code>WidgetCommon.kt</code>, <code>RunningTaskWidget.kt</code>, <code>DayPlanWidget.kt</code> and <code>TaskBubbleOverlay.kt</code> all depend on the <code>arcane.task.*</code> names.</li>
+    <li><strong>Order matters for the bubble.</strong> Anything that makes the bubble read the store must write <code>updatedAtMs</code> last.</li>
+    <li><strong>Not measured on a device.</strong> The timings are from the code, not from a phone.</li>
+  </ul>
+</div>
+
+<h2 id="where">Where to look in the code</h2>
+<table>
+  <thead><tr><th>Piece</th><th>File</th></tr></thead>
+  <tbody>
+    <tr><td>Decide the state, when to publish</td><td><code>lib/src/services/home_widget_publisher.dart</code></td></tr>
+    <tr><td>Write keys, trigger redraws</td><td><code>lib/src/services/home_widget_service.dart</code></td></tr>
+    <tr><td>Route taps from widgets and bubble</td><td><code>lib/src/services/widget_action_router.dart</code></td></tr>
+    <tr><td>Widget providers</td><td><code>android/app/src/main/kotlin/me/ihjas/missions/widgets/*.kt</code></td></tr>
+    <tr><td>Shared readers and action intents</td><td><code>.../widgets/WidgetCommon.kt</code></td></tr>
+    <tr><td>Tap receiver</td><td><code>.../widgets/WidgetActionReceiver.kt</code></td></tr>
+    <tr><td>Widget declarations and update periods</td><td><code>android/app/src/main/AndroidManifest.xml</code>, <code>res/xml/widget_*_info.xml</code></td></tr>
+    <tr><td>Floating timer bubble</td><td><code>android/app/src/main/kotlin/me/ihjas/missions/TaskBubbleOverlay.kt</code></td></tr>
+    <tr><td>Launcher hosting of widgets</td><td><code>android/app/src/main/kotlin/me/ihjas/missions/LauncherBridge.kt</code></td></tr>
+    <tr><td>Foreground service (keeps app alive)</td><td><code>android/app/src/main/kotlin/me/ihjas/missions/TaskForegroundService.kt</code></td></tr>
+  </tbody>
+</table>
+
+</main>
+</body>
+</html>
