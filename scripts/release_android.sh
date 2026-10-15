@@ -5,6 +5,7 @@
 #   scripts/release_android.sh                 full release (asks before publishing)
 #   scripts/release_android.sh --prepare-only  build, verify and sign locally; publish nothing
 #   scripts/release_android.sh --yes           do not ask before publishing
+#   scripts/release_android.sh --arm64-only    build and publish only the arm64-v8a APK
 #
 # Steps (each one stops the run on failure):
 #   1. Check pubspec version, clean tree, tag not yet used.
@@ -19,10 +20,12 @@ cd "$(dirname "$0")/.."
 
 PREPARE_ONLY=0
 ASSUME_YES=0
+ARM64_ONLY=0
 for arg in "$@"; do
   case "$arg" in
     --prepare-only) PREPARE_ONLY=1 ;;
     --yes|-y) ASSUME_YES=1 ;;
+    --arm64-only) ARM64_ONLY=1 ;;
     *) echo "Unknown option: $arg" >&2; exit 2 ;;
   esac
 done
@@ -56,15 +59,23 @@ echo "Release $TAG (versionName $VERSION, versionCode $VCODE)"
 # --- 2. Build ----------------------------------------------------------------
 log "2. Build split release APKs"
 flutter pub get
-flutter build apk --release --split-per-abi
+if [[ $ARM64_ONLY == 1 ]]; then
+  flutter build apk --release --target-platform android-arm64
+else
+  flutter build apk --release --split-per-abi
+fi
 
 # --- 3. Verify the version inside each APK -----------------------------------
 log "3. Verify version inside each APK"
 declare -A OFFSET=([arm64-v8a]=2000 [armeabi-v7a]=1000 [x86_64]=4000)
-for ABI in arm64-v8a armeabi-v7a x86_64; do
-  SRC=build/app/outputs/flutter-apk/app-${ABI}-release.apk
+ABIS=(arm64-v8a armeabi-v7a x86_64)
+[[ $ARM64_ONLY == 1 ]] && ABIS=(arm64-v8a)
+for ABI in "${ABIS[@]}"; do
+  if [[ $ARM64_ONLY == 1 ]]; then SRC=build/app/outputs/flutter-apk/app-release.apk; else SRC=build/app/outputs/flutter-apk/app-${ABI}-release.apk; fi
   [[ -f $SRC ]] || fail "missing $SRC"
-  BADGING=$("$AAPT" dump badging "$SRC" | grep -m1 "^package:")
+  # Capture first: grep -m1 closing the pipe would make aapt fail under pipefail.
+  BADGING=$("$AAPT" dump badging "$SRC")
+  BADGING=$(printf '%s\n' "$BADGING" | grep -m1 "^package:" || true)
   GOT_NAME=$(echo "$BADGING" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")
   GOT_CODE=$(echo "$BADGING" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p")
   EXPECT_CODE=$((VCODE + OFFSET[$ABI]))
@@ -78,8 +89,9 @@ done
 # --- 4. Metadata -------------------------------------------------------------
 log "4. Signed metadata (Android only)"
 cp latest.md builds/latest.md
-python3 scripts/generate_release_metadata.py --branch "$BRANCH" --android-only
-python3 scripts/verify_release_assets.py --android-only | tail -1
+EXTRA=(); [[ $ARM64_ONLY == 1 ]] && EXTRA=(--arm64-only)
+python3 scripts/generate_release_metadata.py --branch "$BRANCH" --android-only "${EXTRA[@]}"
+python3 scripts/verify_release_assets.py --android-only "${EXTRA[@]}" | tail -1
 
 if [[ $PREPARE_ONLY == 1 ]]; then
   echo; echo "Prepare-only: nothing published. Assets are in builds/ for $TAG."
@@ -100,14 +112,14 @@ if ! git diff --cached --quiet; then
 fi
 git tag -a "$TAG" -m "Missions ${VERSION} (${VCODE})"
 retry git push origin "$TAG"
-APKS=(builds/missions-v${VERSION}-b${VCODE}-*.apk)
+APKS=(); for ABI in "${ABIS[@]}"; do APKS+=("builds/missions-v${VERSION}-b${VCODE}-${ABI}.apk"); done
 retry gh release create "$TAG" "${APKS[@]}" --repo "$REPO" --target "$(git rev-parse HEAD)" \
   --title "Missions ${VERSION} (#${VCODE})" --notes-file latest.md
 retry git push -u origin "$BRANCH"
 
 # --- 6. Verify published assets, switch the pointer ---------------------------
 log "6. Verify published assets"
-for ABI in arm64-v8a armeabi-v7a x86_64; do
+for ABI in "${ABIS[@]}"; do
   NAME=missions-v${VERSION}-b${VCODE}-${ABI}.apk
   TMP=$(mktemp -d)
   retry gh release download "$TAG" --repo "$REPO" --pattern "$NAME" --dir "$TMP" >/dev/null

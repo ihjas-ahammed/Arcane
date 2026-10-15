@@ -14,6 +14,7 @@ parser.add_argument('--remote', action='store_true')
 parser.add_argument('--repo', default='ihjas-ahammed/Arcane')
 # Android-only release: the Linux bundle is neither built nor advertised.
 parser.add_argument('--android-only', action='store_true')
+parser.add_argument('--arm64-only', action='store_true')
 args = parser.parse_args()
 version, code = re.search(r'^version:\s*([^+\s]+)\+(\d+)', Path('pubspec.yaml').read_text(), re.M).groups()
 code = int(code)
@@ -21,7 +22,8 @@ tag = f'v{version}-b{code}'
 metadata = json.loads(Path('builds/update_info.json').read_text())
 if metadata['version_code'] != code or metadata['version_name'] != version:
     raise SystemExit('Prepared metadata does not match pubspec.yaml.')
-names = [f'missions-v{version}-b{code}-{abi}.apk' for abi in ('arm64-v8a', 'armeabi-v7a', 'x86_64')]
+abis = ('arm64-v8a',) if args.arm64_only else ('arm64-v8a', 'armeabi-v7a', 'x86_64')
+names = [f'missions-v{version}-b{code}-{abi}.apk' for abi in abis]
 if not args.android_only:
     names.append(f'missions-v{version}-b{code}-linux-x86_64.tar.gz')
 base = f'https://github.com/{args.repo}/releases/download/{tag}'

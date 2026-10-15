@@ -10,6 +10,8 @@ parser.add_argument('--branch', default='revive2')
 parser.add_argument('--signing-key', default='.release_keys/update_signing.pem')
 # Android-only release: no Linux bundle, so no Linux URLs may be advertised.
 parser.add_argument('--android-only', action='store_true')
+# Build and advertise only the arm64-v8a APK (the owner's phone).
+parser.add_argument('--arm64-only', action='store_true')
 args = parser.parse_args()
 version, code = re.search(r'^version:\s*([^+\s]+)\+(\d+)', Path('pubspec.yaml').read_text(), re.M).groups()
 code = int(code)
@@ -21,6 +23,7 @@ public = subprocess.check_output(['openssl','pkey','-in',str(key),'-pubout','-ou
 expected = re.search(r"const releasePublicKey = '([^']+)'",Path('lib/src/services/release_signature.dart').read_text())[1]
 if base64.b64encode(public).decode() != expected: raise SystemExit('Signing key does not match the public key compiled into the app.')
 arches = {'arm64-v8a':2000,'armeabi-v7a':1000,'x86_64':4000}
+if args.arm64_only: arches = {'arm64-v8a':2000}
 names = {abi:f'missions-v{version}-b{code}-{abi}.apk' for abi in arches}
 linux_name = f'missions-v{version}-b{code}-linux-x86_64.tar.gz'
 hashes, signatures, sizes = {}, {}, {}
