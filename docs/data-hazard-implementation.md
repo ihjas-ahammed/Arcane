@@ -138,10 +138,11 @@ Released 2026-10-15 (UTC). Tag: [v2026.10.15-b2126101501](https://github.com/ihj
 
 | Verified downloadable package | SHA-256 |
 | --- | --- |
-| `missions-v2026.10.15-b2126101501-arm64-v8a.apk` | `74f9c01ad1c0b96af715a8f28f74d6a73adcc7c6f4dfec6f56e8ac199ca1b61e` |
-| `missions-v2026.10.15-b2126101501-armeabi-v7a.apk` | `0deaec5e81ec3b73fb5029cb12b5399cb01a9397d872fe8a4a9c8348cf81491f` |
-| `missions-v2026.10.15-b2126101501-x86_64.apk` | `d29423b068e5cf4a09d6b4d1c8aec0f77f7304c41078cbdad5a456b59e8de924` |
+| `missions-v2026.10.15-b2126101501-arm64-v8a.apk` | `7ca6629ddcad67b87d4bb488c0b4cd97761d42fb834a0f7bffc8c455a80e1282` |
+| `missions-v2026.10.15-b2126101501-armeabi-v7a.apk` | `5c9781f7d88980437f001680d8eec29df88fc7b93e20fb4d10db7b3d2b1cfe2e` |
+| `missions-v2026.10.15-b2126101501-x86_64.apk` | `9798b63f507f2b4d35d44b7cf831ca53f9a2cac6f95876dbc21322aebc58169e` |
 
+- Correction: the first 2026.10.15 upload contained the 2026.10.11 build (versionCode 2126103104). The three APKs were replaced on the release with builds from current source; each reports versionName 2026.10.15.
 - Published GitHub assets verified with `scripts/verify_release_assets.py --remote --android-only` (Ed25519 signatures and sizes).
 - Firebase RTDB backup: `backups/firebase_db_20261015T052021Z.json.gz` (verified as valid JSON before compression).
 - Rules: database and Firestore rules deployed from the repository without a snapshot of the previously deployed rules. Verified: anonymous root and `users` reads denied, `app_updates` readable, anonymous `app_updates` writes denied.

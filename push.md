@@ -18,3 +18,15 @@ Steps 0, 0b, 0c and 3-6 below (sync, Firebase backup and rules, builds, GitHub r
    APKs, tarballs, private signing keys, and database backups are ignored by Git; do not add them with `git add -f`. The existing Git history is preserved.
    If Firebase publication is blocked, retain the existing Git blobs for the packages its live metadata still references. Remove those compatibility files only after the authenticated Firebase pointer has switched to verified GitHub URLs; new binary artifacts remain excluded from Git.
 6. Verify the published package hashes and Firebase metadata. Record the result in docs/data-hazard-implementation.md. Perform the restore drill in that document monthly.
+
+Update pointer findings (2026.10.15 release):
+- Firebase RTDB keys cannot contain `.`, `$`, `#`, `[`, `]` or `/`. The checksum and signature maps are keyed by download URL, so they cannot be stored under `/app_updates/latest`. The pointer must omit `package_sha256`, `package_signatures` and `package_sizes`. Do not remove that stripping in `scripts/release.sh`; a write with the maps fails with HTTP 400.
+- The app fills in the checksums and signatures itself: when the pointer lacks them, `lib/src/services/update_service.dart` reads `builds/update_info.json` from `raw.githubusercontent.com` on `revive2` and needs its `version_code` to match the pointer. Installation is blocked if no valid SHA-256 is found.
+- Before switching the pointer, check that the `revive2` raw copy has the new `version_code` and all three hashes, signatures and sizes. The app also tries the `main` raw copy, which was not updated and did not return JSON; do not rely on it.
+- Android-only releases: use `scripts/generate_release_metadata.py --android-only` and `scripts/verify_release_assets.py --android-only`. They omit the Linux bundle and its URLs, which the app treats as optional.
+- Storage is not set up on `task-dominion`; the app's cloud backups use Storage, so its rules cannot be deployed until it is enabled in the console.
+
+Release safety check (added after the 2026.10.15 mistake, where the published APKs contained the 2026.10.11 build):
+- Before copying or publishing any APK, confirm the version inside it, not just the file name: `aapt dump badging <apk> | grep -m1 "^package:"` must show `versionName='<pubspec version>'` and the expected `versionCode` (the base code, plus 2000 for arm64-v8a, 1000 for armeabi-v7a and 4000 for x86_64).
+- Check the source APK's build time against the build run before copying it. Stale files in `build/` look valid.
+- `scripts/verify_release_assets.py` checks signatures and hashes, but it does not check the version inside each APK. Run the `aapt` check above in addition.
