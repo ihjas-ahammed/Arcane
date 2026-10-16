@@ -6,6 +6,7 @@ import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/theme/person_info_theme.dart';
 import 'package:missions/src/widgets/valorant/valorant_button.dart';
 import 'package:missions/src/screens/journaling/person_detail_screen.dart';
+import 'package:missions/src/screens/journaling/external_ai_people_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
@@ -29,16 +30,26 @@ class _PeopleInfoScreenState extends State<PeopleInfoScreen> {
   bool _isSelectionMode = false;
   final Set<String> _selectedIds = {};
 
-  void _showExtractionWizard(BuildContext context) {
+  void _showExtractionWizard(BuildContext context, {List<Map<String, dynamic>>? externalExtracted}) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Dialog(
+      builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.all(16),
-        child: PeopleExtractionWizard(),
+        insetPadding: const EdgeInsets.all(16),
+        child: PeopleExtractionWizard(externalExtracted: externalExtracted),
       ),
     );
+  }
+
+  /// Long-press: run the scan in an external AI. The reply comes back here and goes through the same resolve step.
+  Future<void> _openExternalPeopleScan() async {
+    final people = await Navigator.push<List<Map<String, dynamic>>>(
+      context,
+      MaterialPageRoute(builder: (_) => const ExternalAiPeopleScreen()),
+    );
+    if (people == null || !mounted) return;
+    _showExtractionWizard(context, externalExtracted: people);
   }
 
   void _confirmMultiDelete(BuildContext context, AppProvider provider) {
@@ -211,15 +222,25 @@ class _PeopleInfoScreenState extends State<PeopleInfoScreen> {
           if (!_isSelectionMode)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: ValorantButton(
-                  label: "INITIATE TACTICAL SCANS",
-                  icon: MdiIcons.accountSearchOutline,
-                  isPrimary: true,
-                  color: AppTheme.fhAccentTeal,
-                  onPressed: () => _showExtractionWizard(context),
-                ),
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: ValorantButton(
+                      label: "INITIATE TACTICAL SCANS",
+                      icon: MdiIcons.accountSearchOutline,
+                      isPrimary: true,
+                      color: AppTheme.fhAccentTeal,
+                      onPressed: () => _showExtractionWizard(context),
+                      onLongPress: _openExternalPeopleScan,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "HOLD FOR EXTERNAL AI SCAN",
+                    style: GoogleFonts.jetBrainsMono(color: AppTheme.fhTextDisabled, fontSize: 9, letterSpacing: 1),
+                  ),
+                ],
               ),
             ),
 

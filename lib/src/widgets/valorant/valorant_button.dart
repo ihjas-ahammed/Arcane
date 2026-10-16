@@ -4,6 +4,7 @@ import 'package:missions/src/theme/app_theme.dart';
 class ValorantButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
+  final VoidCallback? onLongPress;
   final IconData? icon;
   final bool isPrimary;
   final Color? color;
@@ -12,6 +13,7 @@ class ValorantButton extends StatelessWidget {
     super.key,
     required this.label,
     required this.onPressed,
+    this.onLongPress,
     this.icon,
     this.isPrimary = true,
     this.color,
@@ -25,6 +27,7 @@ class ValorantButton extends StatelessWidget {
 
     return ElevatedButton(
       onPressed: onPressed,
+      onLongPress: onLongPress,
       style: ElevatedButton.styleFrom(
         backgroundColor: effectiveColor,
         foregroundColor: textColor,

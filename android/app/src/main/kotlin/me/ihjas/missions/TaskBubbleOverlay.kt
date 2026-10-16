@@ -96,14 +96,11 @@ class TaskBubbleOverlay(private val context: Context) {
         /** The view must be detached this long before the self-heal rebuilds it. */
         private const val DETACH_HEAL_MS = 5000L
 
-        /** No "Continue" notification this long after the user threw the button away. */
-        private const val CONTINUE_SUPPRESS_MS = 15 * 60_000L
-
         /** Second DISABLE pick must come within this window. */
         private const val DISABLE_CONFIRM_MS = 6000L
         private const val UPDATED_KEY = "arcane.task.updatedAtMs"
+        /** Id of the old "Continue" notification, cancelled on every sync so none is left behind. */
         private const val CONTINUE_NOTIF_ID = 4002
-        private const val CONTINUE_CHANNEL = "arcane_task_continue"
 
         /** Self-heal beat: re-runs [sync] so a bubble the system dropped (or a missed pref change) comes back. */
         private const val HEARTBEAT_MS = 60_000L
@@ -147,7 +144,6 @@ class TaskBubbleOverlay(private val context: Context) {
     private var started = false
     private var temporarilyHidden = false
     private var hiddenSawStopped = false
-    private var suppressContinueUntilMs = 0L
     private var disableArmedUntilMs = 0L
 
     /** Survives [hide], so a rebuilt button comes back parked instead of popping out. */
@@ -157,7 +153,6 @@ class TaskBubbleOverlay(private val context: Context) {
     private var fgRunning = false
     private var fgTitle: String? = null
     private var fgSubtitle: String? = null
-    private var bubbleWasShown = false
 
     // Strong references: SharedPreferences only keeps listeners weakly.
     private val settingsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -225,7 +220,6 @@ class TaskBubbleOverlay(private val context: Context) {
         val enabled = isEnabled(context)
         val running = isRunning()
         val taskPresent = hasTask()
-        val currentTitle = widgetPrefs.getString("arcane.task.title", "") ?: ""
         val now = System.currentTimeMillis()
 
         if (temporarilyHidden) {
@@ -280,9 +274,6 @@ class TaskBubbleOverlay(private val context: Context) {
                 // Wake up exactly when the grace period ends so the button leaves on time.
                 handler.postDelayed(syncRunnable, (PAUSED_GRACE_MS - pausedAge).coerceAtLeast(1000L) + 500L)
             }
-            cancelContinueNotification()
-            bubbleWasShown = true
-            wasRunning = running
             return@Runnable
         }
 
@@ -300,15 +291,7 @@ class TaskBubbleOverlay(private val context: Context) {
 
         stopForeground()
         hide()
-        val suppressed = SystemClock.uptimeMillis() < suppressContinueUntilMs
-        if (started && enabled && !temporarilyHidden && !suppressed && taskPresent && currentTitle.isNotEmpty() &&
-            (bubbleWasShown || wasRunning || currentTitle != lastContinueTitle)) {
-            postContinueNotification(currentTitle, widgetPrefs.getString("arcane.task.subtitle", "") ?: "")
-        } else if (!taskPresent) {
-            cancelContinueNotification()
-        }
-        bubbleWasShown = false
-        wasRunning = false
+        cancelLegacyContinueNotification()
     }
 
     private fun stopForeground() {
@@ -319,53 +302,10 @@ class TaskBubbleOverlay(private val context: Context) {
         TaskForegroundService.stop(context)
     }
 
-    private var wasRunning = false
-    private var lastContinueTitle: String? = null
-
-    private fun cancelContinueNotification() {
-        lastContinueTitle = null
+    /** Removes the "Continue: <task>" notification that earlier builds posted. It is no longer shown. */
+    private fun cancelLegacyContinueNotification() {
         try {
             (context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager).cancel(CONTINUE_NOTIF_ID)
-        } catch (_: Exception) {}
-    }
-
-    /** "Continue <plan task>" with an action that engages it, without opening the app. */
-    private fun postContinueNotification(title: String, subtitle: String) {
-        lastContinueTitle = title
-        try {
-            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            if (Build.VERSION.SDK_INT >= 26) {
-                nm.createNotificationChannel(android.app.NotificationChannel(
-                    CONTINUE_CHANNEL, "Continue plan task", android.app.NotificationManager.IMPORTANCE_LOW,
-                ).apply { setShowBadge(false) })
-            }
-            val flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-            val engage = android.app.PendingIntent.getBroadcast(
-                context, 4002,
-                Intent(context, WidgetActionReceiver::class.java).apply {
-                    action = "me.ihjas.missions.WIDGET_ACTION"
-                    data = actionUri("task_start")
-                }, flags,
-            )
-            val open = android.app.PendingIntent.getActivity(
-                context, 4003,
-                Intent(context, MainActivity::class.java).apply {
-                    action = HomeWidgetLaunchIntent.HOME_WIDGET_LAUNCH_ACTION
-                    data = actionUri("task_open_plan")
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                }, flags,
-            )
-            val n = androidx.core.app.NotificationCompat.Builder(context, CONTINUE_CHANNEL)
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle("Continue: $title")
-                .setContentText(subtitle.ifEmpty { "Next in your plan" })
-                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
-                .setOnlyAlertOnce(true)
-                .setAutoCancel(true)
-                .setContentIntent(open)
-                .addAction(0, "ENGAGE", engage)
-                .build()
-            nm.notify(CONTINUE_NOTIF_ID, n)
         } catch (_: Exception) {}
     }
 
@@ -769,8 +709,6 @@ class TaskBubbleOverlay(private val context: Context) {
         }
         temporarilyHidden = true
         hiddenSawStopped = false
-        suppressContinueUntilMs = SystemClock.uptimeMillis() + CONTINUE_SUPPRESS_MS
-        cancelContinueNotification()
         hide()
         // The hide above bypasses the debounced sync; this one clears the foreground service.
         sync()

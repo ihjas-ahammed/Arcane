@@ -1,7 +1,6 @@
 import 'package:missions/src/tasks/task_store.dart';
 import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/services/notification_service.dart';
-import 'package:missions/src/utils/helpers.dart' as helper;
 import 'package:missions/src/utils/task_calculations.dart';
 import 'package:collection/collection.dart';
 
@@ -30,20 +29,7 @@ class TimerActions {
       pauseTimer(timerId);
     }
 
-    // Auto-add engaged task to Day Plan (Top) to sync with the dashboard
-    if (type == 'subtask') {
-      final dateStr = helper.getTodayDateString();
-      final currentPlan =
-          List<String>.from(_provider.taskActions.getDayPlan(dateStr));
-      final compoundId = "$mainTaskId|$id";
-
-      // Remove if it exists to move it to the top
-      currentPlan.remove(compoundId);
-      currentPlan.insert(0, compoundId);
-
-      _provider.taskActions.updateDayPlan(dateStr, currentPlan);
-    }
-
+    // Running a task never changes the day plan. The plan is predefined.
     Map<String, ActiveTimerInfo> updatedActiveTimers =
         Map.from(_provider.activeTimers);
 

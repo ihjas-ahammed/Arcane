@@ -162,12 +162,15 @@ class ActivityLog {
   double walkDistanceKm;
   int workoutMinutes;
   DateTime timestamp;
+  /// Health protocol task the workout time was copied from, as '${protocolId}|${subTaskId}'.
+  String? linkedTaskId;
 
   ActivityLog({
     required this.id,
     required this.walkDistanceKm,
     required this.workoutMinutes,
     required this.timestamp,
+    this.linkedTaskId,
   });
 
   factory ActivityLog.fromJson(Map<String, dynamic> json) {
@@ -178,6 +181,7 @@ class ActivityLog {
       timestamp: json['timestamp'] != null
           ? (DateTime.tryParse(json['timestamp']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0))
           : DateTime.now(),
+      linkedTaskId: json['linkedTaskId'] as String?,
     );
   }
 
@@ -187,6 +191,7 @@ class ActivityLog {
       'walkDistanceKm': walkDistanceKm,
       'workoutMinutes': workoutMinutes,
       'timestamp': timestamp.toIso8601String(),
+      if (linkedTaskId != null) 'linkedTaskId': linkedTaskId,
     };
   }
 }

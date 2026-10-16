@@ -12,7 +12,11 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 class PeopleExtractionWizard extends StatefulWidget {
-  const PeopleExtractionWizard({super.key});
+  /// People already extracted outside the app (external AI scan). When set, the wizard skips the
+  /// in-app scan and goes straight to resolving them.
+  final List<Map<String, dynamic>>? externalExtracted;
+
+  const PeopleExtractionWizard({super.key, this.externalExtracted});
 
   @override
   State<PeopleExtractionWizard> createState() => _PeopleExtractionWizardState();
@@ -34,6 +38,27 @@ class _PeopleExtractionWizardState extends State<PeopleExtractionWizard> {
   DateTime? _scanRangeStart;
   DateTime? _scanRangeEnd;
   DateTimeRange? _customDateRange;
+
+  @override
+  void initState() {
+    super.initState();
+    final external = widget.externalExtracted;
+    if (external == null) return;
+
+    // External scan covers the whole reflection archive, so the range is lifetime.
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    final logs = provider.reflectionLogs;
+    if (logs.isNotEmpty) {
+      _scanRangeStart = logs.map((l) => l.timestamp).reduce((a, b) => a.isBefore(b) ? a : b);
+      _scanRangeEnd = logs.map((l) => l.timestamp).reduce((a, b) => a.isAfter(b) ? a : b);
+    }
+    _extractedPeople = external;
+    _resolvingIndex = 0;
+    _step = 2;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _processNextEntity(Provider.of<AppProvider>(context, listen: false));
+    });
+  }
 
   bool isSimilar(String name1, String name2) {
     final n1 = name1.toLowerCase().trim();
