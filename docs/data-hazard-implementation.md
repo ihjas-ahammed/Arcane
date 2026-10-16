@@ -148,3 +148,16 @@ Released 2026-10-15 (UTC). Tag: [v2026.10.15-b2126101501](https://github.com/ihj
 - Rules: database and Firestore rules deployed from the repository without a snapshot of the previously deployed rules. Verified: anonymous root and `users` reads denied, `app_updates` readable, anonymous `app_updates` writes denied.
 - Storage rules not deployed: Firebase Storage is not set up on `task-dominion`, and the app's cloud backups use Storage (`lib/src/services/storage_service.dart`). Storage must be enabled in the console before its rules can be deployed.
 - Firebase update pointer: switched to 2126101501 (`/app_updates/latest`).
+
+
+## Release run: 2026.10.16+2126101601
+
+Built and published with `build.sh` on 2026-10-16 14:41:07 (UTC). Tag: [v2026.10.16-b2126101601](https://github.com/ihjas-ahammed/Arcane/releases/tag/v2026.10.16-b2126101601).
+
+| Verified downloadable package | SHA-256 |
+| --- | --- |
+| `missions-v2026.10.16-b2126101601-arm64-v8a.apk` | `7eab621174a1c573962155c620bc67c1242725e07bf9d29b685e40887f90fc76` |
+| `missions-v2026.10.16-b2126101601-armeabi-v7a.apk` | `4893caf39a92c1e8b3aea68a7aa590e210df4115a6260e76b6ccc2b1e11fa94b` |
+| `missions-v2026.10.16-b2126101601-linux-x86_64.tar.gz` | `b41b8517f9104f899e0a4deb87d810a4d13cb39a4724e36fbe50d3e20e2b03a4` |
+
+Firebase update pointer: not switched (blocked).
