@@ -180,6 +180,26 @@ class JournalingActions {
     ));
   }
 
+  /// Saves dossiers produced outside the app (external AI), keyed by person id. Stored the same way
+  /// as the in-app dossier, so the dossier tab shows them. Returns how many people were updated.
+  int applyExternalPersonReports(Map<String, Map<String, dynamic>> reportsByPersonId) {
+    var applied = 0;
+    for (final entry in reportsByPersonId.entries) {
+      final idx = _provider.chatbotMemory.people.indexWhere((p) => p.id == entry.key);
+      if (idx == -1) continue;
+      _provider.chatbotMemory.people[idx].details = jsonEncode(entry.value);
+      _provider.chatbotMemory.people[idx].lastUpdated = DateTime.now();
+      applied++;
+    }
+    if (applied > 0) {
+      _provider.markDirty('settings');
+      _provider.scheduleRealtimeSync();
+      // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
+      _provider.notifyListeners();
+    }
+    return applied;
+  }
+
   Future<Map<String, dynamic>> runQuickTherapy(String reason, String feeling, String action, {bool requestComms = false}) async {
     final logsText = _getLogsText();
     final peopleContext = _provider.chatbotMemory.people.map((p) => "${p.name} (${p.relation})").join(', ');

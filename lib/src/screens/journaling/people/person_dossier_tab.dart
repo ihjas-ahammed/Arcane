@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/screens/journaling/external_ai_person_report_screen.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
 import 'package:missions/src/theme/person_info_theme.dart';
 import 'package:missions/src/widgets/journaling/person_core_stats.dart';
@@ -149,6 +150,18 @@ class _PersonAIDossierTabState extends State<PersonAIDossierTab> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("AI Dossier section updated manually.")),
+    );
+  }
+
+  /// Long-press: write this person's dossier in an external AI instead of the in-app AI.
+  Future<void> _openExternalReport() async {
+    final saved = await Navigator.push<int>(
+      context,
+      MaterialPageRoute(builder: (_) => ExternalAiPersonReportScreen(personIds: [widget.person.id])),
+    );
+    if (!mounted || saved == null || saved == 0) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Intel report saved.")),
     );
   }
 
@@ -316,6 +329,7 @@ class _PersonAIDossierTabState extends State<PersonAIDossierTab> {
                   isPrimary: false,
                   color: PersonInfoTheme.spideyCyan,
                   onPressed: isUpdating ? null : () => _generateProfile(),
+                  onLongPress: isUpdating ? null : _openExternalReport,
                 ),
               ),
             ],

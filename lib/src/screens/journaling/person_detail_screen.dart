@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
 import 'package:missions/src/theme/spidey_theme.dart';
 import 'people/people.dart';
+import 'package:missions/src/screens/journaling/external_ai_person_report_screen.dart';
 
 export 'people/people.dart';
 
@@ -77,6 +78,19 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     _manualNotesController = TextEditingController(text: person.manualNotes ?? "");
 
     _isInitialized = true;
+  }
+
+  /// Long-press: write this person's dossier in an external AI instead of the in-app AI.
+  Future<void> _openExternalReport(BuildContext context) async {
+    final saved = await Navigator.push<int>(
+      context,
+      MaterialPageRoute(builder: (_) => ExternalAiPersonReportScreen(personIds: [widget.personId])),
+    );
+    if (!context.mounted || saved == null || saved == 0) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Intel report saved.")),
+    );
   }
 
   Future<void> _generateProfile(BuildContext context, AppProvider provider) async {
@@ -363,6 +377,9 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                           onPressed: provider.journalingActions.isPersonUpdating(widget.personId)
                               ? null
                               : () => _generateProfile(context, provider),
+                          onLongPress: provider.journalingActions.isPersonUpdating(widget.personId)
+                              ? null
+                              : () => _openExternalReport(context),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: PersonInfoTheme.textGrey,
                             side: BorderSide(color: ArcStrokes.steel),

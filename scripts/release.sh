@@ -9,14 +9,25 @@ TAG="v${VERSION}-b${VCODE}"
 REPO=ihjas-ahammed/Arcane
 PROJECT=task-dominion
 log() { printf '\n[%s] ==> %s\n' "$(date +%H:%M:%S)" "$*"; }
+LINUX_TARBALL="builds/missions-v${VERSION}-b${VCODE}-linux-x86_64.tar.gz"
+# Stage 1 (Android) has no Linux bundle yet, so verification and the update metadata leave it out.
+# Stage 2 (Linux) adds it. Both stages use the same tag.
+verify_flags() { [[ -f $LINUX_TARBALL ]] || echo --android-only; }
+release_assets() {
+  local apk
+  for apk in builds/missions-v"${VERSION}"-b"${VCODE}"-*.apk; do [[ -f $apk ]] && echo "$apk"; done
+  [[ -f $LINUX_TARBALL ]] && echo "$LINUX_TARBALL"
+  return 0
+}
 publish_github() {
-  python3 scripts/verify_release_assets.py
+  python3 scripts/verify_release_assets.py $(verify_flags)
   if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
     log "GitHub release $TAG already exists; verifying remote assets"
   else
-    gh release create "$TAG" builds/missions-v"${VERSION}"-b"${VCODE}"-*.apk "builds/missions-v${VERSION}-b${VCODE}-linux-x86_64.tar.gz" --repo "$REPO" --target "$(git rev-parse HEAD)" --title "Missions ${VERSION} (#${VCODE})" --notes-file latest.md
+    mapfile -t ASSETS < <(release_assets)
+    gh release create "$TAG" "${ASSETS[@]}" --repo "$REPO" --target "$(git rev-parse HEAD)" --title "Missions ${VERSION} (#${VCODE})" --notes-file latest.md
   fi
-  python3 scripts/verify_release_assets.py --remote
+  python3 scripts/verify_release_assets.py --remote $(verify_flags)
 }
 # Dated, verified, gzip'd Firebase database backup, copied off-device and pruned to 30.
 backup_firebase() {
@@ -88,7 +99,12 @@ verify_rules() {
 
 case "$MODE" in
   prepare)
-    log "Preparing $TAG on $BRANCH"
+    # Both stages in one run. Use prepare-android and prepare-linux to run them separately.
+    bash scripts/release.sh prepare-android
+    bash scripts/release.sh prepare-linux
+    ;;
+  prepare-android)
+    log "Preparing $TAG on $BRANCH (Android stage)"
     log 'flutter clean'
     flutter clean
     log 'flutter pub get'
@@ -105,24 +121,39 @@ case "$MODE" in
         rm -f -- "$APK"
       fi
     done
-    log 'Building split release APKs (arm64-v8a, armeabi-v7a, x86_64)'
+    # Only the two ABIs that run on phones. x86_64 is not published.
+    log 'Building split release APKs (arm64-v8a, armeabi-v7a)'
     flutter build apk --release --split-per-abi
-    for ABI in arm64-v8a armeabi-v7a x86_64; do
+    for ABI in arm64-v8a armeabi-v7a; do
       log "Copying the $ABI APK"
       cp -v "build/app/outputs/flutter-apk/app-${ABI}-release.apk" "builds/missions-v${VERSION}-b${VCODE}-${ABI}.apk"
     done
+    cp -v latest.md builds/latest.md
+    log 'Generating signed metadata (Android only)'
+    python3 scripts/generate_release_metadata.py --branch "$BRANCH" --android-only
+    log 'Verifying local Android packages (SHA-256, size, Ed25519)'
+    python3 scripts/verify_release_assets.py --android-only
+    ;;
+  prepare-linux)
+    log "Preparing the Linux bundle for $TAG (Linux stage)"
     log 'Building the Linux x86_64 release bundle'
     flutter build linux --release
     log 'Stripping the Linux binaries'
     strip --strip-unneeded build/linux/x64/release/bundle/missions build/linux/x64/release/bundle/lib/*.so
     cp -v linux/arcane.desktop build/linux/x64/release/bundle/
     log 'Packaging the Linux tarball'
-    tar -I 'gzip -9' -cvf "builds/missions-v${VERSION}-b${VCODE}-linux-x86_64.tar.gz" -C build/linux/x64/release/bundle .
-    cp -v latest.md builds/latest.md
-    log 'Generating signed metadata'
+    tar -I 'gzip -9' -cvf "$LINUX_TARBALL" -C build/linux/x64/release/bundle .
+    log 'Generating signed metadata (Android and Linux)'
     python3 scripts/generate_release_metadata.py --branch "$BRANCH"
     log 'Verifying local packages (SHA-256, size, Ed25519)'
     python3 scripts/verify_release_assets.py
+    ;;
+  publish-linux)
+    # Stage 2: attach the Linux bundle to the existing release, then verify every asset from GitHub.
+    [[ -f $LINUX_TARBALL ]] || { echo "Missing $LINUX_TARBALL. Run prepare-linux first." >&2; exit 1; }
+    log "Uploading the Linux bundle to $TAG"
+    gh release upload "$TAG" "$LINUX_TARBALL" --repo "$REPO"
+    python3 scripts/verify_release_assets.py --remote
     ;;
   backup)
     backup_firebase
@@ -135,7 +166,7 @@ case "$MODE" in
     ;;
   pointer)
     # Switches the live Firebase update pointer. Needs administrator access to task-dominion.
-    python3 scripts/verify_release_assets.py --remote
+    python3 scripts/verify_release_assets.py --remote $(verify_flags)
     log 'Publishing the update pointer to /app_updates/latest'
     python3 -c "import json; meta = json.load(open('builds/update_info.json')); fb_meta = {k: v for k, v in meta.items() if k not in ('package_sha256', 'package_signatures', 'package_sizes')}; open('builds/firebase_update_info.json', 'w').write(json.dumps(fb_meta, indent=2) + '\n')"
     firebase database:set /app_updates/latest builds/firebase_update_info.json --project "$PROJECT" --force
@@ -156,5 +187,5 @@ case "$MODE" in
     python3 -c "import json; meta = json.load(open('builds/update_info.json')); fb_meta = {k: v for k, v in meta.items() if k not in ('package_sha256', 'package_signatures', 'package_sizes')}; open('builds/firebase_update_info.json', 'w').write(json.dumps(fb_meta, indent=2) + '\n')"
     firebase database:set /app_updates/latest builds/firebase_update_info.json --project "$PROJECT" --force
     ;;
-  *) echo 'Usage: scripts/release.sh prepare|publish-github|backup|rules|verify-rules|pointer|publish' >&2; exit 2;;
+  *) echo 'Usage: scripts/release.sh prepare|prepare-android|prepare-linux|publish-github|publish-linux|pointer|backup|rules|verify-rules|publish' >&2; exit 2;;
 esac

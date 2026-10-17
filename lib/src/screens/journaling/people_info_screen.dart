@@ -7,6 +7,7 @@ import 'package:missions/src/theme/person_info_theme.dart';
 import 'package:missions/src/widgets/valorant/valorant_button.dart';
 import 'package:missions/src/screens/journaling/person_detail_screen.dart';
 import 'package:missions/src/screens/journaling/external_ai_people_screen.dart';
+import 'package:missions/src/screens/journaling/external_ai_person_report_screen.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:missions/src/theme/arc/arc_theme.dart';
@@ -96,6 +97,62 @@ class _PeopleInfoScreenState extends State<PeopleInfoScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _isSelectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  /// Choose how to write the selected people's reports: the in-app AI (all at once) or an external AI.
+  void _showReportModes(AppProvider provider) {
+    final ids = _selectedIds.toList();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppTheme.fhBgDeepDark,
+      shape: const BeveledRectangleBorder(),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(MdiIcons.robotOutline, color: AppTheme.fhAccentTeal),
+              title: Text("IN-APP AI · ${ids.length} AT ONCE", style: GoogleFonts.rajdhani(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold)),
+              subtitle: Text("Uses the app's own AI keys.", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _exitSelection();
+                provider.journalingActions.generateAllPersonDetails(ids);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Generating ${ids.length} reports in the background.")),
+                );
+              },
+            ),
+            ListTile(
+              leading: Icon(MdiIcons.openInNew, color: AppTheme.fhAccentTeal),
+              title: Text("EXTERNAL AI · ONE RUN", style: GoogleFonts.rajdhani(color: AppTheme.fhTextPrimary, fontWeight: FontWeight.bold)),
+              subtitle: Text("Copy the data to any AI, then paste the reply back.", style: TextStyle(color: AppTheme.fhTextSecondary, fontSize: 12)),
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                final saved = await Navigator.push<int>(
+                  context,
+                  MaterialPageRoute(builder: (_) => ExternalAiPersonReportScreen(personIds: ids)),
+                );
+                if (!mounted) return;
+                _exitSelection();
+                if (saved != null && saved > 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Saved $saved reports.")),
+                  );
+                }
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -198,13 +255,28 @@ class _PeopleInfoScreenState extends State<PeopleInfoScreen> {
               )
             : const Text("PEOPLE INTEL"),
         actions: [
-          if (_isSelectionMode)
+          if (_isSelectionMode) ...[
+            IconButton(
+              icon: Icon(Icons.select_all, color: PersonInfoTheme.spideyCyan),
+              tooltip: "Select all",
+              onPressed: () => setState(() {
+                _selectedIds
+                  ..clear()
+                  ..addAll(people.map((p) => p.id));
+              }),
+            ),
+            IconButton(
+              icon: Icon(MdiIcons.bookOpenVariantOutline, color: PersonInfoTheme.spideyCyan),
+              tooltip: "Generate reports",
+              onPressed: _selectedIds.isEmpty ? null : () => _showReportModes(provider),
+            ),
             IconButton(
               icon: Icon(Icons.delete, color: PersonInfoTheme.spideyRed),
               onPressed: _selectedIds.isEmpty
                   ? null
                   : () => _confirmMultiDelete(context, provider),
-            )
+            ),
+          ]
           else if (people.isNotEmpty)
             IconButton(
               icon: Icon(Icons.checklist, color: PersonInfoTheme.spideyCyan),

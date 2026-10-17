@@ -94,7 +94,7 @@ class TaskBubbleOverlay(private val context: Context) {
         private const val HIDE_DEBOUNCE_MS = 1500L
 
         /** The view must be detached this long before the self-heal rebuilds it. */
-        private const val DETACH_HEAL_MS = 5000L
+        private const val DETACH_HEAL_MS = 1000L
 
         /** Second DISABLE pick must come within this window. */
         private const val DISABLE_CONFIRM_MS = 6000L
