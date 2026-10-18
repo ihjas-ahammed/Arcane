@@ -23,6 +23,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
+import android.provider.Settings
 import android.text.Editable
 import android.text.InputType
 import android.text.TextUtils
@@ -153,15 +154,19 @@ class TaskBubbleOverlay(private val context: Context) {
     private var fgRunning = false
     private var fgTitle: String? = null
     private var fgSubtitle: String? = null
+    private var lastSawRunning = false
+    private var localPausedAtMs = 0L
+    private var lastHadTask = false
 
     // Strong references: SharedPreferences only keeps listeners weakly.
     private val settingsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == KEY_ENABLED) sync()
     }
     private val widgetListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        // The Dart side writes every other task key first and this one last, so reacting only
-        // to it means the whole snapshot is already in place (no torn reads).
-        if (key == UPDATED_KEY) {
+        // The Dart side writes every other task key first and UPDATED_KEY last; debouncing all
+        // arcane.task.* keys ensures we always sync after the final key lands even if updatedAtMs
+        // was not touched by a headless writer.
+        if (key == null || key == UPDATED_KEY || key.startsWith("arcane.task.")) {
             handler.removeCallbacks(syncRunnable)
             handler.postDelayed(syncRunnable, 150)
         }
@@ -191,6 +196,9 @@ class TaskBubbleOverlay(private val context: Context) {
         handler.removeCallbacks(heartbeatRunnable)
         temporarilyHidden = false
         hiddenSawStopped = false
+        lastSawRunning = false
+        localPausedAtMs = 0L
+        lastHadTask = false
         handler.removeCallbacks(syncRunnable)
         settingsPrefs.unregisterOnSharedPreferenceChangeListener(settingsListener)
         widgetPrefs.unregisterOnSharedPreferenceChangeListener(widgetListener)
@@ -232,9 +240,36 @@ class TaskBubbleOverlay(private val context: Context) {
             }
         }
 
-        val pausedAtMs = WidgetCommon.getSafeLong(widgetPrefs, "arcane.task.pausedAtMs", 0L)
-        val pausedAge = if (pausedAtMs > 0L) now - pausedAtMs else Long.MAX_VALUE
-        val inGrace = taskPresent && !running && pausedAge in 0L until PAUSED_GRACE_MS
+        val pausedAtPref = WidgetCommon.getSafeLong(widgetPrefs, "arcane.task.pausedAtMs", 0L)
+        if (pausedAtPref < 0L) {
+            // Session was explicitly finished (not paused).
+            lastSawRunning = false
+            localPausedAtMs = 0L
+            lastHadTask = taskPresent
+        } else if (running) {
+            lastSawRunning = true
+            lastHadTask = true
+            localPausedAtMs = 0L
+        } else {
+            if (lastSawRunning) {
+                lastSawRunning = false
+                if (pausedAtPref > 0L) {
+                    localPausedAtMs = pausedAtPref
+                } else {
+                    localPausedAtMs = now
+                    try {
+                        widgetPrefs.edit().putLong("arcane.task.pausedAtMs", now).apply()
+                    } catch (_: Exception) {}
+                }
+            } else if (pausedAtPref > localPausedAtMs) {
+                localPausedAtMs = pausedAtPref
+            }
+        }
+        if (taskPresent) lastHadTask = true
+
+        val effectivePausedAtMs = if (pausedAtPref < 0L) 0L else maxOf(pausedAtPref, localPausedAtMs)
+        val pausedAge = if (effectivePausedAtMs > 0L) (now - effectivePausedAtMs).coerceAtLeast(0L) else Long.MAX_VALUE
+        val inGrace = (taskPresent || lastHadTask) && !running && pausedAge in 0L until PAUSED_GRACE_MS
         val wanted = started && enabled && !temporarilyHidden && (running || inGrace)
 
         if (wanted) {
@@ -288,6 +323,7 @@ class TaskBubbleOverlay(private val context: Context) {
             }
         }
         notRunningSince = 0L
+        lastHadTask = false
 
         stopForeground()
         hide()
@@ -320,6 +356,13 @@ class TaskBubbleOverlay(private val context: Context) {
         if (Build.VERSION.SDK_INT >= 22) WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
         else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_SYSTEM_OVERLAY
 
+    private fun fallbackOverlayType(): Int? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && Settings.canDrawOverlays(context)) {
+            return WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        }
+        return null
+    }
+
     private fun screen(): Rect {
         return if (Build.VERSION.SDK_INT >= 30) {
             wm.currentWindowMetrics.bounds
@@ -344,14 +387,28 @@ class TaskBubbleOverlay(private val context: Context) {
             PixelFormat.TRANSLUCENT,
         ).apply { gravity = Gravity.TOP or Gravity.START }
         placeFromPrefs(p)
+        var added = false
         try {
             wm.addView(view, p)
+            added = true
+        } catch (_: Exception) {
+            val altType = fallbackOverlayType()
+            if (altType != null) {
+                p.type = altType
+                try {
+                    wm.addView(view, p)
+                    added = true
+                } catch (_: Exception) {}
+            }
+        }
+        if (added) {
             bubble = view
             params = p
             shownAtMs = System.currentTimeMillis()
             view.refreshState()
             scheduleIdle()
-        } catch (_: Exception) {
+        } else if (started) {
+            handler.postDelayed(syncRunnable, 1000L)
         }
     }
 
@@ -512,6 +569,16 @@ class TaskBubbleOverlay(private val context: Context) {
         context.sendBroadcast(intent)
     }
 
+    private fun pauseFromBubble() {
+        val nowMs = System.currentTimeMillis()
+        localPausedAtMs = nowMs
+        lastHadTask = true
+        try {
+            widgetPrefs.edit().putLong("arcane.task.pausedAtMs", nowMs).apply()
+        } catch (_: Exception) {}
+        sendAction("task_pause")
+    }
+
     /** Opens Arcane on the given screen (like tapping the widget's title). */
     private fun openApp(action: String) {
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -526,10 +593,14 @@ class TaskBubbleOverlay(private val context: Context) {
         Uri.Builder().scheme("arcane").authority("widget").appendQueryParameter("action", action).build()
 
     private fun onTap() {
-        if (hasTask()) {
+        if (hasTask() || lastHadTask) {
             bubble?.pending = true
             bubble?.invalidate()
-            sendAction(if (isRunning()) "task_pause" else "task_start")
+            if (isRunning()) {
+                pauseFromBubble()
+            } else {
+                sendAction("task_start")
+            }
             handler.postDelayed({ bubble?.pending = false; bubble?.invalidate() }, 1200)
         } else {
             openApp("task_open_plan")
@@ -554,15 +625,21 @@ class TaskBubbleOverlay(private val context: Context) {
 
     private fun buildRadialItems(): List<RadialItem> {
         val items = mutableListOf<RadialItem>()
-        if (hasTask()) {
+        if (hasTask() || lastHadTask) {
             if (isRunning()) {
-                items.add(RadialItem("toggle", "HALT", "❚❚", RED) { sendAction("task_pause") })
+                items.add(RadialItem("toggle", "HALT", "❚❚", RED) { pauseFromBubble() })
             } else {
                 items.add(RadialItem("toggle", "ENGAGE", "▶", AMBER) { sendAction("task_start") })
             }
             items.add(RadialItem("check", "CHECK", "✓", CYAN) { sendAction("task_check_next") })
             items.add(RadialItem("add", "ADD +", "＋", CYAN) { showCheckpointDialog() })
-            items.add(RadialItem("finish", "FINISH", "⚑", CYAN) { sendAction("task_finish") })
+            items.add(RadialItem("finish", "FINISH", "⚑", CYAN) {
+                lastSawRunning = false
+                localPausedAtMs = 0L
+                lastHadTask = false
+                try { widgetPrefs.edit().putLong("arcane.task.pausedAtMs", -1L).apply() } catch (_: Exception) {}
+                sendAction("task_finish")
+            })
             items.add(RadialItem("plan", "PLAN", "☰", Color.WHITE) { openApp("task_open_plan") })
             items.add(RadialItem("off", "DISABLE", "✕", MUTED) { confirmDisable() })
         } else {
@@ -645,7 +722,7 @@ class TaskBubbleOverlay(private val context: Context) {
         val mp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
-            overlayType(),
+            params?.type ?: overlayType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
@@ -677,7 +754,7 @@ class TaskBubbleOverlay(private val context: Context) {
         val p = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
-            overlayType(),
+            params?.type ?: overlayType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
@@ -705,7 +782,7 @@ class TaskBubbleOverlay(private val context: Context) {
 
     private fun temporarilyHideBubble() {
         if (isRunning()) {
-            sendAction("task_pause")
+            pauseFromBubble()
         }
         temporarilyHidden = true
         hiddenSawStopped = false
@@ -851,7 +928,7 @@ class TaskBubbleOverlay(private val context: Context) {
         val p = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
-            overlayType(),
+            params?.type ?: overlayType(),
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT,
         ).apply {
@@ -965,7 +1042,11 @@ class TaskBubbleOverlay(private val context: Context) {
         private val tick = object : Runnable {
             override fun run() {
                 invalidate()
-                if (running) postDelayed(this, 1000)
+                if (running && bubble === this@BubbleView) {
+                    handler.postDelayed(this, 1000)
+                } else {
+                    hasTick = false
+                }
             }
         }
 
@@ -980,7 +1061,7 @@ class TaskBubbleOverlay(private val context: Context) {
 
         fun refreshState() {
             val wasRunningView = running
-            hasTask = WidgetCommon.getSafeBoolean(widgetPrefs, "arcane.task.hasTask", false)
+            hasTask = WidgetCommon.getSafeBoolean(widgetPrefs, "arcane.task.hasTask", false) || lastHadTask
             running = WidgetCommon.getSafeBoolean(widgetPrefs, "arcane.task.isRunning", false)
             progress = WidgetCommon.getSafeInt(widgetPrefs, "arcane.task.progressPct", 0).coerceIn(0, 100)
             contentDescription = when {
@@ -992,9 +1073,12 @@ class TaskBubbleOverlay(private val context: Context) {
             // sync must not make the clock tick twice or clear a tap still being applied.
             if (running != wasRunningView || !hasTick) {
                 pending = false
-                removeCallbacks(tick)
+                handler.removeCallbacks(tick)
                 hasTick = false
-                if (running) { post(tick); hasTick = true }
+                if (running) {
+                    handler.post(tick)
+                    hasTick = true
+                }
             }
             invalidate()
         }
@@ -1014,11 +1098,16 @@ class TaskBubbleOverlay(private val context: Context) {
         }
 
         override fun onDetachedFromWindow() {
-            removeCallbacks(tick)
+            handler.removeCallbacks(tick)
+            hasTick = false
             removeCallbacks(longPress)
             removeCallbacks(singleTap)
             awaitingSecondTap = false
             super.onDetachedFromWindow()
+            if (bubble === this && started) {
+                handler.removeCallbacks(syncRunnable)
+                handler.postDelayed(syncRunnable, DETACH_HEAL_MS + 100)
+            }
         }
 
         override fun onDraw(canvas: Canvas) {

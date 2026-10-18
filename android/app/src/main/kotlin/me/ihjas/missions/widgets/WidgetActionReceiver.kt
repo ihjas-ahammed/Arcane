@@ -4,8 +4,6 @@ import android.appwidget.AppWidgetManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.widget.RemoteViews
-import androidx.core.content.ContextCompat
 import es.antonborri.home_widget.HomeWidgetBackgroundIntent
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import me.ihjas.missions.MainActivity
@@ -30,6 +28,11 @@ class WidgetActionReceiver : BroadcastReceiver() {
             "task_pause",
             "task_start",
             "task_check_next",
+            "task_check_0",
+            "task_check_1",
+            "task_check_2",
+            "task_check_3",
+            "task_check_4",
         )
     }
 
@@ -61,10 +64,22 @@ class WidgetActionReceiver : BroadcastReceiver() {
     }
 
     private fun isHeadlessAction(action: String): Boolean =
-        action in HEADLESS_ACTIONS || action.startsWith("task_check_add:")
+        action in HEADLESS_ACTIONS || action.startsWith("task_check_add:") || action.startsWith("task_check_")
 
     private fun applyInstantFeedback(context: Context, action: String) {
         try {
+            val prefs = WidgetCommon.prefs(context)
+            if (action == "task_pause") {
+                prefs.edit().putLong("arcane.task.pausedAtMs", System.currentTimeMillis()).apply()
+            } else if (action == "task_finish") {
+                prefs.edit().putLong("arcane.task.pausedAtMs", -1L).apply()
+            } else if (action == "task_toggle") {
+                val isRunning = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isRunning", false)
+                if (isRunning) {
+                    prefs.edit().putLong("arcane.task.pausedAtMs", System.currentTimeMillis()).apply()
+                }
+            }
+
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val runningIds = appWidgetManager.getAppWidgetIds(
                 android.content.ComponentName(context, RunningTaskWidget::class.java)
@@ -73,7 +88,6 @@ class WidgetActionReceiver : BroadcastReceiver() {
                 val views = WidgetTheme.views(context, R.layout.widget_running_task)
                 when (action) {
                     "task_toggle" -> {
-                        val prefs = context.getSharedPreferences("HomeWidgetPrefs", Context.MODE_PRIVATE)
                         val isRunning = WidgetCommon.getSafeBoolean(prefs, "arcane.task.isRunning", false)
                         views.setTextViewText(R.id.widget_btn_engage, if (isRunning) "HALTING..." else "ENGAGING...")
                     }

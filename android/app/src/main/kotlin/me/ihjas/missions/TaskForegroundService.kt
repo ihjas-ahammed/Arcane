@@ -35,14 +35,14 @@ class TaskForegroundService : Service() {
                 } else {
                     context.startService(intent)
                 }
-            } catch (_: Exception) {
+            } catch (_: Throwable) {
             }
         }
 
         fun stop(context: Context) {
             try {
                 context.stopService(Intent(context, TaskForegroundService::class.java))
-            } catch (_: Exception) {
+            } catch (_: Throwable) {
             }
         }
     }
@@ -76,10 +76,13 @@ class TaskForegroundService : Service() {
             .setColor(0xFF00F0FF.toInt())
             .build()
 
-        if (Build.VERSION.SDK_INT >= 34) {
-            startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-        } else {
-            startForeground(NOTIF_ID, notification)
+        try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            } else {
+                startForeground(NOTIF_ID, notification)
+            }
+        } catch (_: Throwable) {
         }
 
         return START_STICKY

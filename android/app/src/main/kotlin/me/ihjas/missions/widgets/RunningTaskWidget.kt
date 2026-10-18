@@ -38,12 +38,12 @@ class RunningTaskWidget : HomeWidgetProvider() {
         if (isOnBus && !isTaskRunning) {
             views = WidgetTheme.views(context, R.layout.widget_running_task)
             renderBusTransit(context, views, prefs)
-        } else if (dayPlannerWidgetCheckable) {
-            views = WidgetTheme.views(context, R.layout.widget_dayplan)
-            renderDayPlan(context, views, prefs)
         } else if (multitaskCount > 1) {
             views = WidgetTheme.views(context, R.layout.widget_running_task)
             renderMultitask(context, views, prefs, multitaskCount)
+        } else if (dayPlannerWidgetCheckable && !isTaskRunning) {
+            views = WidgetTheme.views(context, R.layout.widget_dayplan)
+            renderDayPlan(context, views, prefs)
         } else {
             views = WidgetTheme.views(context, R.layout.widget_running_task)
             renderRunning(context, views, prefs)
@@ -186,7 +186,7 @@ class RunningTaskWidget : HomeWidgetProvider() {
             views.setViewVisibility(R.id.widget_task_today, View.GONE)
             views.setViewVisibility(R.id.widget_task_chronometer, View.VISIBLE)
             views.setTextColor(R.id.widget_task_chronometer, accentColor)
-            val elapsedSinceSession = System.currentTimeMillis() - sessionStartMs
+            val elapsedSinceSession = (System.currentTimeMillis() - sessionStartMs).coerceAtLeast(0L)
             val base = SystemClock.elapsedRealtime() - elapsedSinceSession - (accumulatedSec * 1000L)
             views.setChronometer(R.id.widget_task_chronometer, base, null, true)
         } else {

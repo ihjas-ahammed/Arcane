@@ -14,6 +14,7 @@ import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.provider.ContactsContract
 import androidx.core.content.ContextCompat
 import androidx.core.app.ActivityCompat
@@ -60,6 +61,13 @@ import android.view.Gravity
 import android.widget.RemoteViews
 import android.widget.TextView
 import android.util.Log
+import me.ihjas.missions.widgets.BusWidget
+import me.ihjas.missions.widgets.DayPlanWidget
+import me.ihjas.missions.widgets.FinanceWidget
+import me.ihjas.missions.widgets.GoalsWidget
+import me.ihjas.missions.widgets.JournalWidget
+import me.ihjas.missions.widgets.RunningTaskWidget
+import me.ihjas.missions.widgets.WidgetCommon
 
 /**
  * Native half of the Arcane home-screen launcher (`arcane/launcher` channel).
@@ -111,6 +119,7 @@ class LauncherBridge(
     private val main = Handler(Looper.getMainLooper())
 
     private val widgetManager: AppWidgetManager = AppWidgetManager.getInstance(appContext)
+    private val widgetPrefs: SharedPreferences = WidgetCommon.prefs(appContext)
 
     val widgetHost = object : AppWidgetHost(appContext, HOST_ID) {
         override fun onCreateView(
@@ -156,11 +165,55 @@ class LauncherBridge(
 
     private class IconPack(val map: Map<String, String>, val drawables: List<String>)
 
+    private val refreshWidgetsRunnable = Runnable {
+        try {
+            val runningIds = widgetManager.getAppWidgetIds(ComponentName(appContext, RunningTaskWidget::class.java))
+            if (runningIds.isNotEmpty()) {
+                RunningTaskWidget().onUpdate(appContext, widgetManager, runningIds, widgetPrefs)
+            }
+            val dayPlanIds = widgetManager.getAppWidgetIds(ComponentName(appContext, DayPlanWidget::class.java))
+            if (dayPlanIds.isNotEmpty()) {
+                DayPlanWidget().onUpdate(appContext, widgetManager, dayPlanIds, widgetPrefs)
+            }
+            val financeIds = widgetManager.getAppWidgetIds(ComponentName(appContext, FinanceWidget::class.java))
+            if (financeIds.isNotEmpty()) {
+                FinanceWidget().onUpdate(appContext, widgetManager, financeIds, widgetPrefs)
+            }
+            val journalIds = widgetManager.getAppWidgetIds(ComponentName(appContext, JournalWidget::class.java))
+            if (journalIds.isNotEmpty()) {
+                JournalWidget().onUpdate(appContext, widgetManager, journalIds, widgetPrefs)
+            }
+            val busIds = widgetManager.getAppWidgetIds(ComponentName(appContext, BusWidget::class.java))
+            if (busIds.isNotEmpty()) {
+                BusWidget().onUpdate(appContext, widgetManager, busIds, widgetPrefs)
+            }
+            val goalsIds = widgetManager.getAppWidgetIds(ComponentName(appContext, GoalsWidget::class.java))
+            if (goalsIds.isNotEmpty()) {
+                GoalsWidget().onUpdate(appContext, widgetManager, goalsIds, widgetPrefs)
+            }
+        } catch (e: Throwable) {
+            Log.e(TAG, "Error refreshing Arcane widgets", e)
+        }
+    }
+
+    private val widgetPrefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        main.removeCallbacks(refreshWidgetsRunnable)
+        main.postDelayed(refreshWidgetsRunnable, 80)
+    }
+
     init {
         channel.setMethodCallHandler(this)
         registerPackageReceiver()
         registerTorchCallback()
         registerLauncherAppsCallback()
+        try {
+            widgetPrefs.registerOnSharedPreferenceChangeListener(widgetPrefsListener)
+        } catch (_: Exception) {}
+    }
+
+    fun refreshArcaneWidgets() {
+        main.removeCallbacks(refreshWidgetsRunnable)
+        main.post(refreshWidgetsRunnable)
     }
 
     private var launcherAppsCallback: LauncherApps.Callback? = null
@@ -193,14 +246,19 @@ class LauncherBridge(
 
     fun onStart() {
         try { widgetHost.startListening() } catch (_: Exception) {}
+        refreshArcaneWidgets()
     }
 
     fun onStop() {
-        try { widgetHost.stopListening() } catch (_: Exception) {}
+        // Keep widgetHost listening while in the same process so updates made in MainActivity
+        // (Schedule screen) are immediately applied to hosted widgets on LauncherActivity.
     }
 
     fun dispose() {
         channel.setMethodCallHandler(null)
+        main.removeCallbacks(refreshWidgetsRunnable)
+        try { widgetPrefs.unregisterOnSharedPreferenceChangeListener(widgetPrefsListener) } catch (_: Exception) {}
+        try { widgetHost.stopListening() } catch (_: Exception) {}
         launcherAppsCallback?.let { cb -> try { launcherApps?.unregisterCallback(cb) } catch (_: Exception) {} }
         launcherAppsCallback = null
         packageReceiver?.let { try { activity.unregisterReceiver(it) } catch (_: Exception) {} }
@@ -281,6 +339,8 @@ class LauncherBridge(
     }
 
     fun onNewIntent(intent: Intent) {
+        try { widgetHost.startListening() } catch (_: Exception) {}
+        refreshArcaneWidgets()
         if (handlePinRequest(intent)) {
             channel.invokeMethod("homePressed", null)
         } else if (isHomeIntent(intent)) {
@@ -1258,6 +1318,7 @@ class LauncherBridge(
 
         init {
             try {
+                try { widgetHost.startListening() } catch (_: Exception) {}
                 val info = try { widgetManager.getAppWidgetInfo(widgetId) } catch (_: Throwable) { null }
                 if (info != null) {
                     val view: AppWidgetHostView = try {
@@ -1280,6 +1341,7 @@ class LauncherBridge(
                             view.updateAppWidgetSize(Bundle(), widthDp, heightDp, widthDp, heightDp)
                         } catch (_: Exception) {}
                     }
+                    refreshArcaneWidgets()
                 } else {
                     val tv = TextView(hostContext).apply {
                         text = "Widget unavailable ($widgetId)"
@@ -1462,8 +1524,6 @@ class LauncherBridge(
         val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${Uri.encode(clean)}"))
         return startSafely(intent)
     }
-
-
 
     private fun getDeviceCountryCallingCode(): String {
         try {

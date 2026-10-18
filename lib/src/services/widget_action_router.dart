@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -12,7 +13,9 @@ import 'package:missions/src/screens/reflections_archive_screen.dart';
 import 'package:missions/src/screens/settings/widgets_studio/widgets_studio_resolvers.dart';
 import 'package:missions/src/services/bus_location_service.dart';
 import 'package:missions/src/services/home_widget_publisher.dart';
+import 'package:missions/src/services/stopped_task_memory.dart';
 import 'package:missions/src/tasks/task_commands.dart';
+import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/widgets/dialogs/add_transaction_dialog.dart';
 import 'package:missions/src/widgets/screens/reflection_editor_screen.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
@@ -47,6 +50,7 @@ class WidgetActionRouter {
   /// Buffer for actions that arrive before MaterialApp has a navigator
   /// (cold-start case). Flushed once `flushPending` is called.
   final List<({String action, int atMs})> _pending = [];
+  AppProvider? _waitingProvider;
 
   /// Taps older than this are dropped when the queue drains: replaying a halt/engage minutes
   /// later makes the floating button suddenly vanish or appear.
@@ -61,6 +65,22 @@ class WidgetActionRouter {
   void _queue(String action) =>
       _pending.add((action: action, atMs: DateTime.now().millisecondsSinceEpoch));
 
+  void _listenUntilReady(AppProvider provider) {
+    if (identical(_waitingProvider, provider)) return;
+    _waitingProvider?.removeListener(_onWaitingProviderChanged);
+    _waitingProvider = provider;
+    provider.addListener(_onWaitingProviderChanged);
+  }
+
+  void _onWaitingProviderChanged() {
+    final p = _waitingProvider;
+    if (p == null) return;
+    if (!p.authLoading && !p.dataLoadInProgress && p.currentUser != null && p.localLoadError == null && !p.cloudAttachRequired) {
+      p.removeListener(_onWaitingProviderChanged);
+      _waitingProvider = null;
+      flushPending();
+    }
+  }
 
   /// Channel the native [WidgetActionReceiver] invokes when the app process is
   /// already alive, so quick widget actions apply silently instead of
@@ -112,8 +132,14 @@ class WidgetActionRouter {
 
   /// Call after MaterialApp builds to drain any cold-start action.
   void flushPending() {
+    if (_pending.isEmpty) return;
     final ctx = navigatorKey.currentContext;
     if (ctx == null) return;
+    final provider = Provider.of<AppProvider>(ctx, listen: false);
+    if (provider.authLoading || provider.dataLoadInProgress || provider.currentUser == null || provider.localLoadError != null || provider.cloudAttachRequired) {
+      _listenUntilReady(provider);
+      return;
+    }
     final now = DateTime.now().millisecondsSinceEpoch;
     final queued = List.of(_pending);
     _pending.clear();
@@ -134,13 +160,16 @@ class WidgetActionRouter {
         if (!_isTimerToggle(fresh[i]) || i == lastToggle) fresh[i],
     ];
     if (dropped) showGlobalToast('Arcane was loading — tap the button again.');
-    for (final action in actions) { _dispatch(ctx, action); }
+    for (final action in actions) {
+      _dispatch(ctx, action);
+    }
   }
 
   void _dispatch(BuildContext ctx, String action, {bool silent = false}) {
     final provider = Provider.of<AppProvider>(ctx, listen: false);
     if (provider.authLoading || provider.dataLoadInProgress || provider.currentUser == null || provider.localLoadError != null || provider.cloudAttachRequired) {
       _queue(action);
+      _listenUntilReady(provider);
       return;
     }
     // Floating task button double-tap: "task_check_add:<new checkpoint name>".
@@ -150,7 +179,11 @@ class WidgetActionRouter {
     }
     switch (action) {
       case 'task_toggle':
+        final hadRunning = provider.activeTimers.values.any((t) => t.isRunning && t.type == 'subtask');
         _commands(provider).toggle();
+        if (!hadRunning) {
+          _resumeLastPausedIfIdle(provider);
+        }
         if (!silent) _gotoTab(HomeTab.schedule);
         break;
       case 'task_finish':
@@ -162,6 +195,7 @@ class WidgetActionRouter {
         break;
       case 'task_start':
         _commands(provider).start();
+        _resumeLastPausedIfIdle(provider);
         break;
       case 'task_check_next':
         _commands(provider).checkNext();
@@ -270,6 +304,20 @@ class WidgetActionRouter {
     }
   }
 
+  void _resumeLastPausedIfIdle(AppProvider provider) {
+    final anyRunning = provider.activeTimers.values.any((t) => t.isRunning && t.type == 'subtask');
+    if (anyRunning) return;
+    final paused = HomeWidgetPublisher.lastPausedTaskIds;
+    if (paused == null) return;
+    final m = provider.mainTasks.firstWhereOrNull((t) => t.id == paused.mainTaskId && !t.isDeleted);
+    final s = m?.subTasks.firstWhereOrNull((st) => st.id == paused.subTaskId && !st.isDeleted && !st.completed);
+    if (m != null && s != null) {
+      StoppedTaskMemory.subTaskId = null;
+      provider.startTimer(s.id, 'subtask', m.id);
+      HomeWidgetPublisher.republishNow();
+    }
+  }
+
   Future<void> _processNoraPrompt(String prompt) async {
     try {
       final context = navigatorKey.currentContext;
@@ -339,7 +387,15 @@ class WidgetActionRouter {
         onMessage: showGlobalToast,
         onRepublish: HomeWidgetPublisher.republishNow,
         onSessionEnded: HomeWidgetPublisher.noteSessionEnded,
-        shownPlanIds: () => HomeWidgetPublisher.lastPublishedPlanIds,
+        shownPlanIds: () {
+          final cached = HomeWidgetPublisher.lastPublishedPlanIds;
+          if (cached.isNotEmpty) return cached;
+          final today = helper.getTodayDateString();
+          return TaskCalculations.resolveTopFiveDayPlanTasks(
+            mainTasks: provider.mainTasks,
+            plan: provider.taskActions.getDayPlan(today),
+          ).map((t) => t.compoundId).toList();
+        },
       );
 
   static const _checkAddPrefix = 'task_check_add:';

@@ -123,6 +123,7 @@ class HomeWidgetService {
     List<ResolvedDayPlanItem> multitaskTasks = const [],
     String nextCheckpoint = '',
     int pausedAtMs = 0,
+    bool clearPausedGrace = false,
   }) async {
     if (!_supported) return;
 
@@ -140,9 +141,14 @@ class HomeWidgetService {
       'arcane.task.accumulatedSec': accumulatedSeconds,
       'arcane.task.progressPct': (progress.clamp(0.0, 1.0) * 100).round(),
       'arcane.task.sessionStartMs': sessionStart?.millisecondsSinceEpoch ?? 0,
-      // When the running session was halted (0 while running or unknown). The floating button
-      // stays visible for a grace period after this instead of vanishing on every halt.
-      'arcane.task.pausedAtMs': pausedAtMs,
+      // When the running session was halted (0 while running, -1 when finished). Avoid
+      // overwriting an active pause grace timestamp with 0 during cold-start or headless writes.
+      if (isRunning)
+        'arcane.task.pausedAtMs': 0
+      else if (clearPausedGrace)
+        'arcane.task.pausedAtMs': -1
+      else if (pausedAtMs > 0)
+        'arcane.task.pausedAtMs': pausedAtMs,
       'arcane.task.dayPlannerWidgetCheckable': dayPlannerWidgetCheckable,
       'arcane.task.multitaskCount': multitaskTasks.length,
       // Checkpoint "CHECK NEXT" would tick (read by the floating task button's quick-add).
@@ -179,7 +185,10 @@ class HomeWidgetService {
       'arcane.task.isRunning': isRunning,
       'arcane.task.accumulatedSec': accumulatedSeconds,
       'arcane.task.sessionStartMs': sessionStartMs,
-      'arcane.task.pausedAtMs': pausedAtMs,
+      if (isRunning)
+        'arcane.task.pausedAtMs': 0
+      else if (pausedAtMs > 0)
+        'arcane.task.pausedAtMs': pausedAtMs,
     });
   }
 

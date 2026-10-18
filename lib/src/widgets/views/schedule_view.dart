@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,8 @@ import 'package:missions/src/models/timeline_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/screens/schedule/external_ai_schedule_screen.dart';
 import 'package:missions/src/screens/schedule/today_planner_screen.dart';
+import 'package:missions/src/services/home_widget_publisher.dart';
+import 'package:missions/src/services/stopped_task_memory.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/widgets/dialogs/add_session_dialog.dart';
@@ -33,6 +36,37 @@ class _ScheduleViewState extends State<ScheduleView> {
   DateTime _selectedDate = DateTime.now();
   List<TimelineEntry> _predictedEntries = [];
   bool _isPredicting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.openTick?.addListener(_onOpenTick);
+  }
+
+  @override
+  void didUpdateWidget(covariant ScheduleView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.openTick != widget.openTick) {
+      oldWidget.openTick?.removeListener(_onOpenTick);
+      widget.openTick?.addListener(_onOpenTick);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.openTick?.removeListener(_onOpenTick);
+    super.dispose();
+  }
+
+  void _onOpenTick() {
+    final now = DateTime.now();
+    if (!_isSameDay(_selectedDate, now) && mounted) {
+      setState(() {
+        _selectedDate = now;
+        _predictedEntries.clear();
+      });
+    }
+  }
 
   // --- Date Control ---
   void _shiftDate(int days) {
@@ -618,6 +652,25 @@ class _ScheduleViewState extends State<ScheduleView> {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
+  void _checkPlanItem(AppProvider provider, String selectedDateStr, ResolvedDayPlanItem item) {
+    if (item.targetCheckpointId != null) {
+      provider.taskActions.completeSubSubtask(item.mainTaskId, item.subTaskId, item.targetCheckpointId!);
+      final currentPlan = List<String>.from(provider.taskActions.getDayPlan(selectedDateStr));
+      currentPlan.remove(item.compoundId);
+      provider.taskActions.updateDayPlan(selectedDateStr, currentPlan);
+    } else {
+      provider.taskActions.tickPlanSubtask(item.mainTaskId, item.subTaskId);
+      final m = provider.mainTasks.firstWhereOrNull((t) => t.id == item.mainTaskId && !t.isDeleted);
+      final s = m?.subTasks.firstWhereOrNull((st) => st.id == item.subTaskId && !st.isDeleted);
+      if (s == null || s.completed) {
+        final currentPlan = List<String>.from(provider.taskActions.getDayPlan(selectedDateStr));
+        currentPlan.remove(item.compoundId);
+        provider.taskActions.updateDayPlan(selectedDateStr, currentPlan);
+      }
+    }
+    HomeWidgetPublisher.republishNow();
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
@@ -626,10 +679,17 @@ class _ScheduleViewState extends State<ScheduleView> {
     final selectedDateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
     final plan = List<String>.from(provider.taskActions.getDayPlan(selectedDateStr));
 
-    final heroState = ScheduleHeroStateResolver.resolve(
+    var heroState = ScheduleHeroStateResolver.resolve(
       provider: provider,
       selectedDate: _selectedDate,
     );
+    if (isToday && heroState.nextSubTask == null && StoppedTaskMemory.subTaskId != null) {
+      StoppedTaskMemory.subTaskId = null;
+      heroState = ScheduleHeroStateResolver.resolve(
+        provider: provider,
+        selectedDate: _selectedDate,
+      );
+    }
 
     final bool isLargeScreen = MediaQuery.of(context).size.width > 900;
 
@@ -649,26 +709,8 @@ class _ScheduleViewState extends State<ScheduleView> {
           sessionStart: heroState.sessionStart,
           topFiveTasks: heroState.topFiveTasks,
           multitaskItems: heroState.multitaskItems,
-          onCheckMultitaskItem: (item) {
-            if (item.targetCheckpointId != null) {
-              provider.taskActions.completeSubSubtask(item.mainTaskId, item.subTaskId, item.targetCheckpointId!);
-            } else {
-              provider.taskActions.tickPlanSubtask(item.mainTaskId, item.subTaskId);
-            }
-            final currentPlan = List<String>.from(provider.taskActions.getDayPlan(selectedDateStr));
-            currentPlan.remove(item.compoundId);
-            provider.taskActions.updateDayPlan(selectedDateStr, currentPlan);
-          },
-          onCheckTask: (item) {
-            if (item.targetCheckpointId != null) {
-              provider.taskActions.completeSubSubtask(item.mainTaskId, item.subTaskId, item.targetCheckpointId!);
-            } else {
-              provider.taskActions.tickPlanSubtask(item.mainTaskId, item.subTaskId);
-            }
-            final currentPlan = List<String>.from(provider.taskActions.getDayPlan(selectedDateStr));
-            currentPlan.remove(item.compoundId);
-            provider.taskActions.updateDayPlan(selectedDateStr, currentPlan);
-          },
+          onCheckMultitaskItem: (item) => _checkPlanItem(provider, selectedDateStr, item),
+          onCheckTask: (item) => _checkPlanItem(provider, selectedDateStr, item),
           onOpenPlan: () {
             Navigator.push(
               context,
@@ -687,37 +729,47 @@ class _ScheduleViewState extends State<ScheduleView> {
               provider.pauseTimer(nextSub.id);
               provider.logTimerAndReset(nextSub.id);
             } else {
+              StoppedTaskMemory.subTaskId = null;
               provider.startTimer(nextSub.id, 'subtask', nextMain.id);
             }
+            HomeWidgetPublisher.republishNow();
           },
           onFinishCheckpoint: () {
             final nextQ = heroState.nextQueueId;
             final nextCp = heroState.nextCheckpoint;
             final nextMain = heroState.nextMainTask;
             final nextSub = heroState.nextSubTask;
-            if (nextQ != null && nextCp != null && nextMain != null && nextSub != null) {
+            if (nextCp != null && nextMain != null && nextSub != null) {
               provider.taskActions.completeSubSubtask(nextMain.id, nextSub.id, nextCp.id);
-              final parts = nextQ.split('|');
-              if (parts.length == 3) {
-                final newPlan = List<String>.from(plan)..remove(nextQ);
-                provider.taskActions.updateDayPlan(selectedDateStr, newPlan);
-              } else {
-                final remainingNext = TaskCalculations.nextCheckpoint(nextSub);
-                if (remainingNext == null) {
+              if (nextQ != null) {
+                final parts = nextQ.split('|');
+                if (parts.length == 3) {
+                  final newPlan = List<String>.from(plan)..remove(nextQ);
+                  provider.taskActions.updateDayPlan(selectedDateStr, newPlan);
+                } else if (nextSub.completed) {
                   final newPlan = List<String>.from(plan)..remove(nextQ);
                   provider.taskActions.updateDayPlan(selectedDateStr, newPlan);
                 }
               }
+              HomeWidgetPublisher.republishNow();
             }
           },
           onFinishSubTask: () {
             final nextQ = heroState.nextQueueId;
             final nextMain = heroState.nextMainTask;
             final nextSub = heroState.nextSubTask;
-            if (nextQ != null && nextMain != null && nextSub != null) {
+            if (nextMain != null && nextSub != null) {
+              if (heroState.isRunning) {
+                provider.pauseTimer(nextSub.id);
+                provider.logTimerAndReset(nextSub.id);
+              }
+              HomeWidgetPublisher.noteSessionEnded();
               provider.taskActions.completeSubtask(nextMain.id, nextSub.id);
-              final newPlan = List<String>.from(plan)..remove(nextQ);
-              provider.taskActions.updateDayPlan(selectedDateStr, newPlan);
+              if (nextQ != null) {
+                final newPlan = List<String>.from(plan)..remove(nextQ);
+                provider.taskActions.updateDayPlan(selectedDateStr, newPlan);
+              }
+              HomeWidgetPublisher.republishNow();
             }
           },
           onTitleTap: () {

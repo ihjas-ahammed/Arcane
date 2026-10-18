@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:collection/collection.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:intl/intl.dart';
@@ -13,17 +14,22 @@ import 'package:missions/src/screens/settings/widgets_studio/widgets_studio_reso
 import 'package:missions/src/services/bus_location_service.dart';
 import 'package:missions/src/services/stopped_task_memory.dart';
 import 'package:missions/src/services/home_widget_service.dart';
+import 'package:missions/src/services/widget_action_router.dart';
 import 'package:missions/src/utils/day_budget_helper.dart';
-import 'package:missions/src/utils/helpers.dart' as helper;
 import 'package:missions/src/utils/task_calculations.dart';
+import 'package:missions/src/widgets/schedule/schedule.dart';
 
 /// Subscribes to AppProvider state changes and republishes the slices each
 /// home-screen widget cares about. Designed to be cheap on each tick:
 /// recomputes hashes and skips redundant publishes.
 class HomeWidgetPublisher {
   HomeWidgetPublisher(this._provider) {
+    _isLauncherIsolate = _detectLauncherIsolate();
     _provider.addListener(_onProviderChanged);
-    _active = this;
+    if (!_isLauncherIsolate) {
+      _active = this;
+    }
+    _verifyLaunchMode();
     // Self-heal: the floating button and widgets trust the last published state, so re-assert
     // the truth regularly. A single missed or failed publish can no longer leave a stale
     // "running" clock ticking.
@@ -31,6 +37,7 @@ class HomeWidgetPublisher {
       // The launcher palette can change without any app state changing.
       // ignore: discarded_futures
       _publishTheme();
+      if (_isLauncherIsolate || !_isProviderReady) return;
       // Only the unchanged-key check runs on most beats; a forced rewrite wakes the floating
       // button, every widget and the foreground service, so it happens every few minutes only.
       _heartbeatCount++;
@@ -40,24 +47,60 @@ class HomeWidgetPublisher {
     });
   }
 
+  static bool _detectLauncherIsolate() {
+    try {
+      final route = WidgetsBinding.instance.platformDispatcher.defaultRouteName;
+      return route == '/launcher' ||
+          route.startsWith('/launcher/') ||
+          route.startsWith('/launcher?');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _verifyLaunchMode() async {
+    try {
+      final mode = await const MethodChannel('arcane/launcher').invokeMethod<String>('getLaunchMode');
+      if (mode == 'home') {
+        _isLauncherIsolate = true;
+        if (identical(_active, this)) _active = null;
+      } else if (mode == 'app' && !_isLauncherIsolate) {
+        _active = this;
+      }
+    } catch (_) {}
+  }
+
   static const int _forceEveryBeats = 10; // 10 x 30 s = 5 min
   int _heartbeatCount = 0;
 
   Timer? _heartbeat;
+  bool _isLauncherIsolate = false;
+  bool _didInitialPublish = false;
+  String? _lastRunningTimerSnapshot;
 
   static HomeWidgetPublisher? _active;
+
+  /// Last running/paused task IDs so a paused task outside Today's Day Plan can still
+  /// be displayed and resumed during the floating button's grace window.
+  static ({String mainTaskId, String subTaskId})? lastPausedTaskIds;
 
   /// Re-asserts the live task state right away (used after a bubble/widget tap, or when a tap
   /// turned out to be stale). Only the task is rewritten: the theme and the other widgets are not
   /// time critical and must not delay it.
   static void republishNow() {
+    final active = _active;
+    if (active == null || active._isLauncherIsolate) return;
+    active._publishDebounce?.cancel();
     // ignore: discarded_futures
-    _active?._publishTask(force: true);
+    active._publishTask(force: true);
   }
 
   /// A running session ended for good (finished, not paused): the floating button must not
   /// linger in its paused state for the next planned task.
-  static void noteSessionEnded() => _active?._skipPausedGrace = true;
+  static void noteSessionEnded() {
+    lastPausedTaskIds = null;
+    _active?._skipPausedGrace = true;
+  }
 
   /// Puts the running state and clock back after a Widgets Studio preview push overwrote them,
   /// so the floating button keeps ticking while the user previews widgets.
@@ -77,6 +120,8 @@ class HomeWidgetPublisher {
   bool _wasRunning = false;
   bool _skipPausedGrace = false;
   int _pausedAtMs = 0;
+  String? _lastRunningMainTaskId;
+  String? _lastRunningSubTaskId;
 
   final AppProvider _provider;
 
@@ -93,6 +138,22 @@ class HomeWidgetPublisher {
   /// checked against this so a stale widget can never tick a different task than the one on it.
   static List<String> lastPublishedPlanIds = const [];
 
+  bool get _isProviderReady =>
+      !_provider.authLoading &&
+      !_provider.dataLoadInProgress &&
+      _provider.currentUser != null &&
+      _provider.localLoadError == null &&
+      !_provider.cloudAttachRequired;
+
+  String _runningTimersSignature() {
+    final entries = _provider.activeTimers.entries
+        .where((e) => e.value.isRunning && e.value.type == 'subtask')
+        .map((e) => '${e.key}:${e.value.startTime.millisecondsSinceEpoch}')
+        .toList()
+      ..sort();
+    return entries.join(',');
+  }
+
   void dispose() {
     if (identical(_active, this)) _active = null;
     _publishDebounce?.cancel();
@@ -104,6 +165,9 @@ class HomeWidgetPublisher {
   /// state without waiting for the first user-driven mutation.
   Future<void> publishAll() async {
     await _publishTheme(force: true);
+    if (_isLauncherIsolate || !_isProviderReady) return;
+    _didInitialPublish = true;
+    _lastRunningTimerSnapshot = _runningTimersSignature();
     await _publishTask(force: true);
     await _publishFinance(force: true);
     await _publishJournal(force: true);
@@ -111,16 +175,57 @@ class HomeWidgetPublisher {
     await _publishGoals(force: true);
   }
 
+  void onLifecycleChanged(AppLifecycleState state) {
+    if (_isLauncherIsolate) {
+      if (state == AppLifecycleState.resumed) {
+        // ignore: discarded_futures
+        _publishTheme();
+      }
+      return;
+    }
+    if (!_isProviderReady) return;
+    if (state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      _publishDebounce?.cancel();
+      // ignore: discarded_futures
+      _publishTask(force: state == AppLifecycleState.resumed);
+    }
+  }
+
   void _onProviderChanged() {
-    // AppProvider notifies on every edit anywhere (finance, health, sync flags, …),
-    // most of which don't touch what these widgets show. Coalesce bursts of changes
-    // (e.g. a cloud sync landing several fields at once) into one publish pass instead
-    // of re-resolving task/finance/journal/bus state on each individual notification —
-    // the OS widgets read a pushed sessionStart and tick themselves, so a short delay
-    // here is imperceptible.
+    if (_isLauncherIsolate) {
+      _publishDebounce?.cancel();
+      _publishDebounce = Timer(const Duration(milliseconds: 400), () {
+        // ignore: discarded_futures
+        _publishTheme();
+      });
+      return;
+    }
+
+    if (!_isProviderReady) return;
+
+    WidgetActionRouter.instance.flushPending();
+
+    if (!_didInitialPublish) {
+      _didInitialPublish = true;
+      // ignore: discarded_futures
+      publishAll();
+      return;
+    }
+
+    // If a timer just started or stopped, publish task state immediately without waiting
+    // for the debounce so the floating timer and homescreen widget react instantaneously.
+    final currentRunningSig = _runningTimersSignature();
+    if (currentRunningSig != _lastRunningTimerSnapshot) {
+      _lastRunningTimerSnapshot = currentRunningSig;
+      // ignore: discarded_futures
+      _publishTask(force: true);
+    }
+
+    // Coalesce bursts of changes into one publish pass.
     _publishDebounce?.cancel();
-    _publishDebounce = Timer(const Duration(milliseconds: 400), () {
-      // Cheap fire-and-forget — these are async but we don't need to await.
+    _publishDebounce = Timer(const Duration(milliseconds: 250), () {
       // ignore: discarded_futures
       _publishTheme();
       // ignore: discarded_futures
@@ -163,77 +268,8 @@ class HomeWidgetPublisher {
 
   // ── Task ───────────────────────────────────────────────────────────────
 
-  /// Mirror the schedule view's hero resolution: a running session always
-  /// claims the hero spot; otherwise fall back to the first uncompleted item
-  /// in today's day plan.
-  ({
-    MainTask? mainTask,
-    SubTask? subTask,
-    SubSubTask? checkpoint,
-    bool isRunning,
-    String? queueId,
-  }) _resolveActiveTask() {
-    final today = helper.getTodayDateString();
-    final plan = List<String>.from(_provider.taskActions.getDayPlan(today));
-
-    // Running session always claims the headline.
-    final runningEntry = _provider.activeTimers.entries
-        .firstWhereOrNull((e) => e.value.isRunning && e.value.type == 'subtask');
-    if (runningEntry != null) {
-      final m = _provider.mainTasks.firstWhereOrNull(
-        (t) => t.id == runningEntry.value.mainTaskId && !t.isDeleted,
-      );
-      final s = m?.subTasks.firstWhereOrNull(
-        (st) => st.id == runningEntry.key && !st.isDeleted,
-      );
-      if (m != null && s != null && !s.completed) {
-        String? queueId;
-        SubSubTask? cp;
-        final inPlan = plan.firstWhereOrNull((p) {
-          final parts = p.split('|');
-          return parts.length >= 2 && parts[0] == m.id && parts[1] == s.id;
-        });
-        if (inPlan != null) {
-          queueId = inPlan;
-          final parts = inPlan.split('|');
-          if (parts.length == 3) {
-            cp = s.findCheckpoint(parts[2]);
-          }
-        }
-        StoppedTaskMemory.subTaskId = null;
-        return (
-          mainTask: m,
-          subTask: s,
-          checkpoint: cp,
-          isRunning: true,
-          queueId: queueId,
-        );
-      }
-    }
-
-    for (final idPair in plan) {
-      final parts = idPair.split('|');
-      if (parts.length < 2) continue;
-      final m = _provider.mainTasks.firstWhereOrNull(
-        (t) => t.id == parts[0] && !t.isDeleted,
-      );
-      final s = m?.subTasks.firstWhereOrNull(
-        (st) => st.id == parts[1] && !st.isDeleted,
-      );
-      if (m == null || s == null || s.completed) continue;
-      if (s.id == StoppedTaskMemory.subTaskId) continue;
-      if (parts.length == 3) {
-        final cp = s.findCheckpoint(parts[2]);
-        if (cp == null || cp.completed) continue;
-        return (mainTask: m, subTask: s, checkpoint: cp, isRunning: false, queueId: idPair);
-      }
-      return (mainTask: m, subTask: s, checkpoint: null, isRunning: false, queueId: idPair);
-    }
-
-    return (mainTask: null, subTask: null, checkpoint: null, isRunning: false, queueId: null);
-  }
-
   Future<void> _publishTask({bool force = false}) async {
+    if (_isLauncherIsolate || !_isProviderReady) return;
     try {
       await _publishTaskInner(force: force);
     } catch (e, st) {
@@ -255,6 +291,7 @@ class HomeWidgetPublisher {
         s = m?.subTasks.firstWhereOrNull((st) => st.id == running.key && !st.isDeleted);
       }
       final isRunning = s != null && !s.completed;
+      final clearPausedGrace = _skipPausedGrace;
       _trackPausedAt(isRunning);
       await HomeWidgetService.instance.publishTask(
         hasTask: isRunning,
@@ -265,6 +302,7 @@ class HomeWidgetPublisher {
         accumulatedSeconds: isRunning ? TaskCalculations.getHistoricalTodaySeconds(s, _provider.mainTasks).toInt() : 0,
         sessionStart: isRunning ? _clampStart(running!.value.startTime) : null,
         pausedAtMs: _pausedAtMs,
+        clearPausedGrace: clearPausedGrace,
       );
     } catch (e) {
       debugPrint('[HomeWidget] fallback publish failed: $e');
@@ -286,73 +324,74 @@ class HomeWidgetPublisher {
       _skipPausedGrace = false;
     } else if (_wasRunning) {
       _pausedAtMs = _skipPausedGrace ? 0 : DateTime.now().millisecondsSinceEpoch;
+      if (_skipPausedGrace) {
+        _lastRunningMainTaskId = null;
+        _lastRunningSubTaskId = null;
+        lastPausedTaskIds = null;
+      }
+      _skipPausedGrace = false;
+    } else if (_skipPausedGrace) {
+      _pausedAtMs = 0;
+      _lastRunningMainTaskId = null;
+      _lastRunningSubTaskId = null;
+      lastPausedTaskIds = null;
       _skipPausedGrace = false;
     }
     _wasRunning = isRunning;
   }
 
   Future<void> _publishTaskInner({bool force = false}) async {
-    final r = _resolveActiveTask();
-    final s = r.subTask;
-    final m = r.mainTask;
-    final cp = r.checkpoint;
+    final now = DateTime.now();
 
-    final today = helper.getTodayDateString();
+    // Use ScheduleHeroStateResolver so the homescreen widget and the Schedule screen's
+    // ScheduleHeroWidget always resolve the exact same mission, checkpoint, and queue state.
+    var heroState = ScheduleHeroStateResolver.resolve(
+      provider: _provider,
+      selectedDate: now,
+    );
+    if (heroState.nextSubTask == null && StoppedTaskMemory.subTaskId != null) {
+      StoppedTaskMemory.subTaskId = null;
+      heroState = ScheduleHeroStateResolver.resolve(
+        provider: _provider,
+        selectedDate: now,
+      );
+    }
+
+    MainTask? m = heroState.nextMainTask;
+    SubTask? s = heroState.nextSubTask;
+    SubSubTask? cp = heroState.nextCheckpoint;
+    final bool isRunning = heroState.isRunning;
+
+    if (isRunning && m != null && s != null) {
+      _lastRunningMainTaskId = m.id;
+      _lastRunningSubTaskId = s.id;
+      lastPausedTaskIds = (mainTaskId: m.id, subTaskId: s.id);
+    }
+
+    final bool clearPausedGrace = _skipPausedGrace;
+    _trackPausedAt(isRunning);
+
+    // If a task outside Today's Day Plan was running and just paused, keep it as the active
+    // paused task during the grace window so the floating button and widget don't vanish.
+    if (!isRunning && s == null && _pausedAtMs > 0 && _lastRunningMainTaskId != null && _lastRunningSubTaskId != null) {
+      final lastM = _provider.mainTasks.firstWhereOrNull(
+        (t) => t.id == _lastRunningMainTaskId && !t.isDeleted,
+      );
+      final lastS = lastM?.subTasks.firstWhereOrNull(
+        (st) => st.id == _lastRunningSubTaskId && !st.isDeleted && !st.completed,
+      );
+      if (lastM != null && lastS != null) {
+        m = lastM;
+        s = lastS;
+        cp = TaskCalculations.nextCheckpoint(lastS);
+        lastPausedTaskIds = (mainTaskId: lastM.id, subTaskId: lastS.id);
+      }
+    }
+
     final dayPlannerWidgetCheckable = _provider.settings.dayPlannerWidgetCheckable;
-
-    final topFiveTasks = TaskCalculations.resolveTopFiveDayPlanTasks(
-      mainTasks: _provider.mainTasks,
-      plan: _provider.taskActions.getDayPlan(today),
-    );
+    final topFiveTasks = heroState.topFiveTasks;
     lastPublishedPlanIds = topFiveTasks.map((t) => t.compoundId).toList();
-
-    final planRows = _provider.taskActions.getDayPlanRows(today);
-    List<String> activeRowCompoundIds = [];
-    if (s != null) {
-      final activeSubId = s.id;
-      for (final row in planRows) {
-        if (row.any((id) {
-          final parts = id.split('|');
-          return parts.length >= 2 && parts[1] == activeSubId;
-        })) {
-          activeRowCompoundIds = row;
-          break;
-        }
-      }
-    }
-    if (activeRowCompoundIds.isEmpty) {
-      for (final row in planRows) {
-        bool hasUncompleted = false;
-        for (final id in row) {
-          final parts = id.split('|');
-          if (parts.length >= 2) {
-            final candM = _provider.mainTasks.firstWhereOrNull((t) => t.id == parts[0] && !t.isDeleted);
-            final candS = candM?.subTasks.firstWhereOrNull((st) => st.id == parts[1] && !st.isDeleted);
-            if (candS != null && !candS.completed) {
-              if (parts.length == 3) {
-                final candCp = candS.findCheckpoint(parts[2]);
-                if (candCp != null && !candCp.completed) {
-                  hasUncompleted = true;
-                  break;
-                }
-              } else {
-                hasUncompleted = true;
-                break;
-              }
-            }
-          }
-        }
-        if (hasUncompleted) {
-          activeRowCompoundIds = row;
-          break;
-        }
-      }
-    }
-    final multitaskTasks = TaskCalculations.resolveDayPlanItems(
-      mainTasks: _provider.mainTasks,
-      compoundIds: activeRowCompoundIds,
-      activeTimers: _provider.activeTimers,
-    );
+    final multitaskTasks = heroState.multitaskItems;
 
     final title = s == null
         ? 'NO PLAN SET'
@@ -363,20 +402,20 @@ class HomeWidgetPublisher {
             ? '${m?.name ?? ''} · ${s.name}'
             : (m?.name ?? ''));
 
-    final nextCheckpoint = s == null ? '' : (TaskCalculations.nextCheckpoint(s)?.name ?? '');
-    final activeTimer = s == null ? null : _provider.activeTimers[s.id];
-    final accumulated = s == null ? 0.0 : TaskCalculations.getHistoricalTodaySeconds(s, _provider.mainTasks);
-    final rawStart = r.isRunning ? activeTimer?.startTime : null;
+    final nextCheckpoint = s == null ? '' : (cp?.name ?? TaskCalculations.nextCheckpoint(s)?.name ?? '');
+    final accumulated = s == null
+        ? 0.0
+        : (s.id == heroState.nextSubTask?.id
+            ? heroState.accumulatedTodaySeconds
+            : TaskCalculations.getHistoricalTodaySeconds(s, _provider.mainTasks));
+    final rawStart = isRunning ? heroState.sessionStart : null;
     final sessionStart = rawStart == null ? null : _clampStart(rawStart);
-    _trackPausedAt(r.isRunning);
     final progress = s == null ? 0.0 : s.calculateProgress();
 
     // Buffer-aware day capacity ("planned / realistic"), shown on the widget.
     String capacity = '';
-    final now = DateTime.now();
-    final window = resolveDayWindow(_provider, now);
-    final planned = _provider.taskActions.plannedMinutesForDay(today);
-    final realistic = window.realisticMinutes(now);
+    final planned = heroState.plannedMin;
+    final realistic = heroState.realisticMin;
     if (realistic > 0) {
       capacity = '${formatMinutes(planned)} / ${formatMinutes(realistic)}';
     }
@@ -388,7 +427,7 @@ class HomeWidgetPublisher {
       s != null,
       title,
       subtitle,
-      r.isRunning,
+      isRunning,
       cp != null,
       capacity,
       accumulated.toInt(),
@@ -401,7 +440,7 @@ class HomeWidgetPublisher {
 
     _lastLiveTimer = (
       hasTask: s != null,
-      isRunning: r.isRunning,
+      isRunning: isRunning,
       accumulatedSeconds: accumulated.toInt(),
       sessionStartMs: sessionStart?.millisecondsSinceEpoch ?? 0,
       pausedAtMs: _pausedAtMs,
@@ -412,7 +451,7 @@ class HomeWidgetPublisher {
         hasTask: s != null,
         title: title,
         subtitle: subtitle,
-        isRunning: r.isRunning,
+        isRunning: isRunning,
         isCheckpoint: cp != null,
         accumulatedSeconds: accumulated.toInt(),
         progress: progress,
@@ -424,6 +463,7 @@ class HomeWidgetPublisher {
         multitaskTasks: multitaskTasks,
         nextCheckpoint: nextCheckpoint,
         pausedAtMs: _pausedAtMs,
+        clearPausedGrace: clearPausedGrace,
       );
     } catch (e) {
       debugPrint('[HomeWidget] publish task: $e');
@@ -433,6 +473,7 @@ class HomeWidgetPublisher {
   // ── Finance ────────────────────────────────────────────────────────────
 
   Future<void> _publishFinance({bool force = false}) async {
+    if (_isLauncherIsolate || !_isProviderReady) return;
     final balance = _provider.financeActions.currentBalance;
 
     final now = DateTime.now();
@@ -484,6 +525,7 @@ class HomeWidgetPublisher {
   // ── Journal ────────────────────────────────────────────────────────────
 
   Future<void> _publishJournal({bool force = false}) async {
+    if (_isLauncherIsolate || !_isProviderReady) return;
     final logs = _provider.reflectionLogs;
     final now = DateTime.now();
     final todayLogs = logs.where((log) {
@@ -557,6 +599,7 @@ class HomeWidgetPublisher {
 
   // ── Bus ────────────────────────────────────────────────────────────────
   Future<void> _publishBus({bool force = false}) async {
+    if (_isLauncherIsolate || !_isProviderReady) return;
     try {
       final live = BusLocationService.instance.currentState;
       final settings = _provider.settings;
@@ -699,6 +742,7 @@ class HomeWidgetPublisher {
   // ── Goals ─────────────────────────────────────────────────────────────
 
   Future<void> _publishGoals({bool force = false}) async {
+    if (_isLauncherIsolate || !_isProviderReady) return;
     final live = WidgetsStudioResolvers.resolveLiveGoals(_provider);
     final topGoals = live.goals.take(3).toList();
 
@@ -761,17 +805,23 @@ class HomeWidgetHost extends StatefulWidget {
   State<HomeWidgetHost> createState() => _HomeWidgetHostState();
 }
 
-class _HomeWidgetHostState extends State<HomeWidgetHost> {
+class _HomeWidgetHostState extends State<HomeWidgetHost> with WidgetsBindingObserver {
   HomeWidgetPublisher? _publisher;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _publisher = HomeWidgetPublisher(widget.provider);
     // Initial publish on first frame so the home screen reflects state.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _publisher?.publishAll();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _publisher?.onLifecycleChanged(state);
   }
 
   @override
@@ -786,6 +836,7 @@ class _HomeWidgetHostState extends State<HomeWidgetHost> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _publisher?.dispose();
     super.dispose();
   }
