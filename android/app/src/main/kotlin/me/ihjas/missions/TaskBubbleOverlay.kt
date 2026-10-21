@@ -1043,7 +1043,7 @@ class TaskBubbleOverlay(private val context: Context) {
             override fun run() {
                 invalidate()
                 if (running && bubble === this@BubbleView) {
-                    handler.postDelayed(this, 1000)
+                    this@TaskBubbleOverlay.handler.postDelayed(this, 1000)
                 } else {
                     hasTick = false
                 }
@@ -1073,10 +1073,10 @@ class TaskBubbleOverlay(private val context: Context) {
             // sync must not make the clock tick twice or clear a tap still being applied.
             if (running != wasRunningView || !hasTick) {
                 pending = false
-                handler.removeCallbacks(tick)
+                this@TaskBubbleOverlay.handler.removeCallbacks(tick)
                 hasTick = false
                 if (running) {
-                    handler.post(tick)
+                    this@TaskBubbleOverlay.handler.post(tick)
                     hasTick = true
                 }
             }
@@ -1098,15 +1098,15 @@ class TaskBubbleOverlay(private val context: Context) {
         }
 
         override fun onDetachedFromWindow() {
-            handler.removeCallbacks(tick)
+            this@TaskBubbleOverlay.handler.removeCallbacks(tick)
             hasTick = false
             removeCallbacks(longPress)
             removeCallbacks(singleTap)
             awaitingSecondTap = false
             super.onDetachedFromWindow()
             if (bubble === this && started) {
-                handler.removeCallbacks(syncRunnable)
-                handler.postDelayed(syncRunnable, DETACH_HEAL_MS + 100)
+                this@TaskBubbleOverlay.handler.removeCallbacks(syncRunnable)
+                this@TaskBubbleOverlay.handler.postDelayed(syncRunnable, DETACH_HEAL_MS + 100)
             }
         }
 

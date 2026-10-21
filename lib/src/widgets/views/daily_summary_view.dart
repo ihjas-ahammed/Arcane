@@ -1015,7 +1015,11 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                         style: TextStyle(color: JweTheme.textMuted, fontSize: 12, height: 1.3),
                       ),
                       const SizedBox(height: 12),
-                      Row(
+                      // Wrap, not Row: at 720 px width the two buttons together are wider than the card.
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
@@ -1032,7 +1036,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
                               style: GoogleFonts.rajdhani(fontWeight: FontWeight.bold, letterSpacing: 1.2),
                             ),
                           ),
-                          const SizedBox(width: 10),
                           TextButton(
                             style: TextButton.styleFrom(foregroundColor: JweTheme.textMuted),
                             onPressed: () => CreateTimeLogStartDialog.show(context),

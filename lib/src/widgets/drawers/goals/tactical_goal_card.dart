@@ -124,10 +124,10 @@ class _TacticalGoalCardState extends State<TacticalGoalCard> {
                 runSpacing: 4,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  if (goal.placeId != null) ...[
-                    Builder(
+                  ...goal.placeIds.map(
+                    (placeId) => Builder(
                       builder: (context) {
-                        final place = appProvider.getGoalPlace(goal.placeId);
+                        final place = appProvider.getGoalPlace(placeId);
                         if (place == null) return const SizedBox.shrink();
                         final placeColor = Color(place.colorValue);
                         return Container(
@@ -159,7 +159,7 @@ class _TacticalGoalCardState extends State<TacticalGoalCard> {
                         );
                       },
                     ),
-                  ],
+                  ),
                   if (goal.scope == GoalScope.daily && goal.reminderTimes.isNotEmpty) ...[
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -615,6 +615,11 @@ class _TacticalGoalCardState extends State<TacticalGoalCard> {
                           Expanded(
                             child: GestureDetector(
                               behavior: HitTestBehavior.opaque,
+                              // Tapping the name ticks the checkpoint, so the small icon is not the only target.
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                appProvider.toggleGoalSubCheckItem(goal.id, item.id);
+                              },
                               onDoubleTap: _toggleReorderMode,
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 4),

@@ -1,5 +1,6 @@
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -12,6 +13,7 @@ import 'package:missions/src/utils/helpers.dart';
 import 'package:missions/src/widgets/header_widget.dart';
 import 'package:missions/src/widgets/analytics/jwe_date_selector.dart';
 import 'package:missions/src/widgets/drawers/goals/create_goal_sheet.dart';
+import 'package:missions/src/widgets/drawers/goals/goals_copy_action.dart';
 import 'package:missions/src/widgets/drawers/goals/goals_progress_banner.dart';
 import 'package:missions/src/widgets/drawers/goals/goals_scope_tab_row.dart';
 import 'package:missions/src/widgets/drawers/goals/tactical_goal_card.dart';
@@ -29,6 +31,10 @@ export 'package:missions/src/widgets/drawers/goals/tactical_goal_painters.dart';
 /// subchecklists support, manual count input, and accurate progress tracking.
 class GoalsBottomDrawer extends StatefulWidget {
   final DateTime? initialDate;
+
+  /// Scope and date the drawer was last showing. The home tile's long-press copies these.
+  static GoalScope lastScope = GoalScope.daily;
+  static DateTime? lastDate;
 
   const GoalsBottomDrawer({super.key, this.initialDate});
 
@@ -58,6 +64,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
   void initState() {
     super.initState();
     _selectedDate = widget.initialDate ?? DateTime.now();
+    GoalsBottomDrawer.lastDate = _selectedDate;
     registerActiveScaffoldMessenger(_drawerMessengerKey);
   }
 
@@ -118,6 +125,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
     if (picked != null) {
       setState(() {
         _selectedDate = picked;
+        GoalsBottomDrawer.lastDate = picked;
       });
     }
   }
@@ -256,7 +264,14 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                FittedBox(
+                                // Long-press the title to copy the goals of the open period as JSON.
+                                GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onLongPress: () {
+                                    HapticFeedback.mediumImpact();
+                                    copyGoalsForPeriod(appProvider, _activeScope, _selectedDate);
+                                  },
+                                  child: FittedBox(
                                   fit: BoxFit.scaleDown,
                                   alignment: Alignment.centerLeft,
                                   child: RichText(
@@ -281,6 +296,7 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                                       ],
                                     ),
                                   ),
+                                ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
@@ -349,8 +365,10 @@ class _GoalsBottomDrawerState extends State<GoalsBottomDrawer> {
                       activeScope: _activeScope,
                       themeColor: themeColor,
                       isLight: isLight,
-                      onScopeChanged: (scope) =>
-                          setState(() => _activeScope = scope),
+                      onScopeChanged: (scope) => setState(() {
+                        _activeScope = scope;
+                        GoalsBottomDrawer.lastScope = scope;
+                      }),
                     ),
 
                     const SizedBox(height: 10),

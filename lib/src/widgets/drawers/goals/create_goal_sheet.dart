@@ -41,7 +41,7 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
   final List<String> _initialSubItems = [];
   final _newSubController = TextEditingController();
   List<String> _reminderTimes = [];
-  String? _selectedPlaceId;
+  final Set<String> _selectedPlaceIds = {};
 
   @override
   void initState() {
@@ -59,7 +59,7 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
       _selectedTaskIds.addAll(g.linkedTaskIds);
       _initialSubItems.addAll(g.subChecklist.map((s) => s.title));
       _reminderTimes = List.from(g.reminderTimes);
-      _selectedPlaceId = g.placeId;
+      _selectedPlaceIds.addAll(g.placeIds);
     } else {
       _targetValueController.text = '1';
     }
@@ -129,8 +129,7 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
         subChecklist: updatedSubChecklist,
         countAllTime: _countAllTime,
         reminderTimes: _selectedScope == GoalScope.daily ? _reminderTimes : const [],
-        placeId: _selectedPlaceId,
-        clearPlaceId: _selectedPlaceId == null,
+        placeIds: _selectedPlaceIds.toList(),
       );
 
       provider.updateGoal(updatedGoal);
@@ -158,7 +157,7 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
         subChecklist: subItems,
         countAllTime: _countAllTime,
         reminderTimes: _selectedScope == GoalScope.daily ? _reminderTimes : const [],
-        placeId: _selectedPlaceId,
+        placeIds: _selectedPlaceIds.toList(),
       );
 
       provider.addGoal(goal);
@@ -623,7 +622,7 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
                 runSpacing: 6,
                 children: [
                   ...appProvider.goalPlaces.map((place) {
-                    final selected = _selectedPlaceId == place.id;
+                    final selected = _selectedPlaceIds.contains(place.id);
                     final placeColor = Color(place.colorValue);
                     return ChoiceChip(
                       shape: RoundedRectangleBorder(
@@ -658,9 +657,14 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
                       selected: selected,
                       selectedColor: placeColor.withValues(alpha: isLight ? 0.22 : 0.28),
                       backgroundColor: isLight ? const Color(0xFFEDE9DF) : const Color(0xFF14151E),
+                      // Several places can be chosen; each chip toggles its own place.
                       onSelected: (val) {
                         setState(() {
-                          _selectedPlaceId = val ? place.id : null;
+                          if (val) {
+                            _selectedPlaceIds.add(place.id);
+                          } else {
+                            _selectedPlaceIds.remove(place.id);
+                          }
                         });
                       },
                     );
@@ -1263,7 +1267,7 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
                     );
                     appProvider.addGoalPlace(newPlace);
                     setState(() {
-                      _selectedPlaceId = id;
+                      _selectedPlaceIds.add(id);
                     });
                     Navigator.of(ctx).pop();
                     showGlobalToast('Place "$name" added!');
@@ -1382,8 +1386,8 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
                               tooltip: 'Delete place',
                               onPressed: () {
                                 appProvider.deleteGoalPlace(place.id);
-                                if (_selectedPlaceId == place.id) {
-                                  setState(() => _selectedPlaceId = null);
+                                if (_selectedPlaceIds.contains(place.id)) {
+                                  setState(() => _selectedPlaceIds.remove(place.id));
                                 }
                                 setSheetState(() {});
                               },

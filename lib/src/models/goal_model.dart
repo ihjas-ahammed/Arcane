@@ -127,7 +127,7 @@ class GoalModel {
   final List<GoalSubCheckItem> subChecklist;
   final bool countAllTime; // If true, count all-time task duration; if false (default), start from goal date at 12:00 AM
   final List<String> reminderTimes; // e.g. ["09:00", "14:30"], active strictly for daily goals
-  final String? placeId; // Reference to GoalPlace.id
+  final List<String> placeIds; // References to GoalPlace.id; empty when no place is set
 
   GoalModel({
     required this.id,
@@ -145,7 +145,7 @@ class GoalModel {
     this.subChecklist = const [],
     this.countAllTime = false,
     this.reminderTimes = const [],
-    this.placeId,
+    this.placeIds = const [],
   })  : createdAt = createdAt ?? DateTime.now(),
         dateKey = dateKey ?? getPeriodKey(scope, startDateTime ?? DateTime.now());
 
@@ -191,8 +191,8 @@ class GoalModel {
     List<GoalSubCheckItem>? subChecklist,
     bool? countAllTime,
     List<String>? reminderTimes,
-    String? placeId,
-    bool clearPlaceId = false,
+    List<String>? placeIds,
+    bool clearPlaceIds = false,
   }) {
     return GoalModel(
       id: id ?? this.id,
@@ -210,7 +210,7 @@ class GoalModel {
       subChecklist: subChecklist ?? this.subChecklist,
       countAllTime: countAllTime ?? this.countAllTime,
       reminderTimes: reminderTimes ?? this.reminderTimes,
-      placeId: clearPlaceId ? null : (placeId ?? this.placeId),
+      placeIds: clearPlaceIds ? const [] : (placeIds ?? this.placeIds),
     );
   }
 
@@ -253,7 +253,9 @@ class GoalModel {
               ?.map((e) => e.toString())
               .toList() ??
           const [],
-      placeId: json['placeId'] as String?,
+      // Older saves stored one 'placeId' string; read it as a one-item list.
+      placeIds: (json['placeIds'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
+          (json['placeId'] is String ? [json['placeId'] as String] : const []),
     );
   }
 
@@ -274,7 +276,9 @@ class GoalModel {
       'subChecklist': subChecklist.map((e) => e.toJson()).toList(),
       'countAllTime': countAllTime,
       'reminderTimes': reminderTimes,
-      if (placeId != null) 'placeId': placeId,
+      'placeIds': placeIds,
+      // Kept for older app versions that read a single place.
+      if (placeIds.isNotEmpty) 'placeId': placeIds.first,
     };
   }
 

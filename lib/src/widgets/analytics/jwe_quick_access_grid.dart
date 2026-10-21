@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/widgets/drawers/goals_bottom_drawer.dart';
+import 'package:missions/src/widgets/drawers/goals/goals_copy_action.dart';
 import 'package:missions/src/screens/skills/skills_screen.dart';
-import 'package:missions/src/screens/nora_ai_screen.dart';
 
 /// Operator HUD classified-access tiles.
 class JweQuickAccessGrid extends StatelessWidget {
@@ -57,7 +59,12 @@ class JweQuickAccessGrid extends StatelessWidget {
         tone: HudTone.amber,
         code: 'A-03',
         onTap: () => GoalsBottomDrawer.show(context),
-        onLongPress: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NoraAiScreen())),
+        // Long-press copies the goals of the period the drawer last showed, as JSON.
+        onLongPress: () => copyGoalsForPeriod(
+          Provider.of<AppProvider>(context, listen: false),
+          GoalsBottomDrawer.lastScope,
+          GoalsBottomDrawer.lastDate ?? DateTime.now(),
+        ),
       ),
       const SizedBox(height: 6),
       _Tile(

@@ -87,8 +87,8 @@ class _LocalDataErrorScreenState extends State<LocalDataErrorScreen> {
       actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
         TextButton(onPressed: () => Navigator.pop(ctx, controller.text == 'DELETE'), child: const Text('Start fresh'))],
     ));
+    // Not disposed here: the dialog's TextField is still in its close animation and would use a disposed controller.
     final text = controller.text;
-    controller.dispose();
     if (confirmed != true) return;
     await _run('Start fresh', () => provider.startFreshAfterCloudConfirmation(text));
   }

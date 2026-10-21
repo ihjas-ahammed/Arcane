@@ -77,7 +77,7 @@ void main() {
           scope: GoalScope.daily,
           metricType: GoalMetricType.check,
           isCompleted: true,
-          placeId: 'work',
+          placeIds: ['work'],
         ),
         GoalModel(
           id: 'g2',

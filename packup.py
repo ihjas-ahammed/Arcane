@@ -34,6 +34,9 @@ ADDITIONAL_IGNORE_PATTERNS = [
     ".vscode/",             # VSCode metadata
     ".idea/",               # IntelliJ IDEA metadata
     ".dart_tool/",          # Dart/Flutter tooling artifacts
+    "build/",               # Flutter/Gradle build output
+    "graphify-out/",        # Graphify generated graph (graph.json is ~4.8 MB)
+    ".graphify/",           # Graphify cache
     "__pycache__/",         # Python cache
     "*.pyc",                # Python compiled files
     "*.pyo",                # Python optimized compiled files

@@ -31,21 +31,7 @@ class StartDayYesterdayProgress extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Container(width: 3, height: 10, color: JweTheme.accentCyan),
-            const SizedBox(width: 8),
-            Icon(MdiIcons.history, size: 11, color: JweTheme.accentCyan),
-            const SizedBox(width: 5),
-            Text(
-              'YESTERDAY\'S TASK PROGRESS',
-              style: GoogleFonts.jetBrainsMono(
-                color: JweTheme.accentCyan,
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.6,
-              ),
-            ),
-          ]),
+          _SectionHeader(label: 'YESTERDAY\'S TASK PROGRESS'),
           const SizedBox(height: 8),
           Container(
             width: double.infinity,
@@ -66,13 +52,28 @@ class StartDayYesterdayProgress extends StatelessWidget {
       );
     }
 
-    // Prepare active time rows
+    // Inactive or deleted tasks and subtasks keep their old history entries, but they
+    // should not appear in daily progress.
+    bool isLiveTask(String id) {
+      final t = provider.mainTasks.firstWhereOrNull((t) => t.id == id);
+      return t == null || (t.isActive && !t.isDeleted);
+    }
+
+    bool isLiveSubtask(String id) {
+      if (id.isEmpty) return true;
+      final s = provider.mainTasks
+          .expand((t) => t.subTasks)
+          .firstWhereOrNull((s) => s.id == id);
+      return s == null || (s.isActive && !s.isDeleted);
+    }
+
+    // Active time rows
     final timeRows = <Widget>[];
     taskTimes.forEach((taskId, timeSec) {
       final secs = timeSec is num ? timeSec.toInt() : 0;
       if (secs <= 0) return;
       final mainTask = provider.mainTasks.firstWhereOrNull((t) => t.id == taskId.toString());
-      if (mainTask == null) return;
+      if (mainTask == null || !isLiveTask(mainTask.id)) return;
 
       final mins = secs ~/ 60;
       final timeStr = mins >= 60 ? '${mins ~/ 60}h ${mins % 60}m' : '${mins}m';
@@ -88,6 +89,8 @@ class StartDayYesterdayProgress extends StatelessWidget {
               Expanded(
                 child: Text(
                   mainTask.name.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.rajdhani(
                     color: JweTheme.textWhite,
                     fontSize: 12,
@@ -95,6 +98,7 @@ class StartDayYesterdayProgress extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
               Text(
                 timeStr,
                 style: GoogleFonts.robotoMono(
@@ -109,139 +113,51 @@ class StartDayYesterdayProgress extends StatelessWidget {
       );
     });
 
-    // Prepare completed subtasks rows
+    // Completed objectives
     final subtaskRows = <Widget>[];
     for (final entry in completedSubs) {
       if (entry is! Map) continue;
       final name = entry['name']?.toString() ?? entry['subtaskName']?.toString() ?? 'Unnamed Objective';
       final parentTaskId = entry['parentTaskId']?.toString() ?? entry['taskId']?.toString() ?? '';
+      final subtaskId = entry['subtaskId']?.toString() ?? entry['parentSubTaskId']?.toString() ?? '';
+      if (!isLiveTask(parentTaskId) || !isLiveSubtask(subtaskId)) continue;
       final mainTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parentTaskId);
       final color = mainTask != null ? Color(int.parse('0xFF${mainTask.colorHex}')) : JweTheme.accentCyan;
 
-      subtaskRows.add(
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(MdiIcons.checkboxMarkedCircleOutline, size: 13, color: color),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  name,
-                  style: GoogleFonts.inter(
-                    color: JweTheme.textMid,
-                    fontSize: 12,
-                    height: 1.3,
-                  ),
-                ),
-              ),
-              if (mainTask != null) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    border: Border.all(color: color.withValues(alpha: 0.3)),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  child: Text(
-                    mainTask.name.toUpperCase(),
-                    style: GoogleFonts.jetBrainsMono(
-                      color: color,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      );
+      subtaskRows.add(_EntryRow(
+        icon: MdiIcons.checkboxMarkedCircleOutline,
+        color: color,
+        title: name,
+        tag: mainTask?.name,
+      ));
     }
 
-    // Prepare completed checkpoints rows
+    // Completed checkpoints
     final checkpointRows = <Widget>[];
     for (final entry in completedCheckpoints) {
       if (entry is! Map) continue;
       final name = entry['name']?.toString() ?? 'Checkpoint';
       final parentTaskId = entry['parentTaskId']?.toString() ?? entry['taskId']?.toString() ?? '';
+      final parentSubtaskId = entry['parentSubTaskId']?.toString() ?? entry['subtaskId']?.toString() ?? '';
       final parentSubtaskName = entry['parentSubtaskName']?.toString() ?? '';
+      if (!isLiveTask(parentTaskId) || !isLiveSubtask(parentSubtaskId)) continue;
       final mainTask = provider.mainTasks.firstWhereOrNull((t) => t.id == parentTaskId);
       final color = mainTask != null ? Color(int.parse('0xFF${mainTask.colorHex}')) : JweTheme.accentCyan;
 
-      checkpointRows.add(
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(MdiIcons.rhombusOutline, size: 12, color: color),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  name,
-                  style: GoogleFonts.inter(
-                    color: JweTheme.textMid,
-                    fontSize: 11.5,
-                    height: 1.3,
-                  ),
-                ),
-              ),
-              if (parentSubtaskName.isNotEmpty) ...[
-                const SizedBox(width: 6),
-                Text(
-                  parentSubtaskName,
-                  style: GoogleFonts.jetBrainsMono(
-                    color: JweTheme.textMuted,
-                    fontSize: 9,
-                  ),
-                ),
-              ],
-              if (mainTask != null) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    border: Border.all(color: color.withValues(alpha: 0.3)),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  child: Text(
-                    mainTask.name.toUpperCase(),
-                    style: GoogleFonts.jetBrainsMono(
-                      color: color,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      );
+      checkpointRows.add(_EntryRow(
+        icon: MdiIcons.rhombusOutline,
+        color: color,
+        title: name,
+        detail: parentSubtaskName,
+        tag: mainTask?.name,
+        isCheckpoint: true,
+      ));
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(children: [
-          Container(width: 3, height: 10, color: JweTheme.accentCyan),
-          const SizedBox(width: 8),
-          Icon(MdiIcons.history, size: 11, color: JweTheme.accentCyan),
-          const SizedBox(width: 5),
-          Text(
-            'YESTERDAY\'S TASK PROGRESS',
-            style: GoogleFonts.jetBrainsMono(
-              color: JweTheme.accentCyan,
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.6,
-            ),
-          ),
-        ]),
+        _SectionHeader(label: 'YESTERDAY\'S TASK PROGRESS'),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
@@ -252,54 +168,21 @@ class StartDayYesterdayProgress extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (timeRows.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.only(left: 12, top: 10, bottom: 6),
-                  child: Text(
-                    'ACTIVE TIME LOGGED',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: JweTheme.textMuted,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
+                _GroupLabel(label: 'ACTIVE TIME LOGGED'),
                 ...timeRows,
                 const SizedBox(height: 6),
               ],
               if (timeRows.isNotEmpty && (subtaskRows.isNotEmpty || checkpointRows.isNotEmpty))
                 Divider(color: JweTheme.lineSoft, height: 1),
               if (subtaskRows.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.only(left: 12, top: 10, bottom: 6),
-                  child: Text(
-                    'COMPLETED OBJECTIVES',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: JweTheme.textMuted,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
+                _GroupLabel(label: 'COMPLETED OBJECTIVES'),
                 ...subtaskRows,
                 const SizedBox(height: 10),
               ],
               if (subtaskRows.isNotEmpty && checkpointRows.isNotEmpty)
                 Divider(color: JweTheme.lineSoft, height: 1),
               if (checkpointRows.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.only(left: 12, top: 10, bottom: 6),
-                  child: Text(
-                    'COMPLETED CHECKPOINTS',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: JweTheme.textMuted,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
+                _GroupLabel(label: 'COMPLETED CHECKPOINTS'),
                 ...checkpointRows,
                 const SizedBox(height: 10),
               ],
@@ -307,6 +190,146 @@ class StartDayYesterdayProgress extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String label;
+
+  const _SectionHeader({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Container(width: 3, height: 10, color: JweTheme.accentCyan),
+      const SizedBox(width: 8),
+      Icon(MdiIcons.history, size: 11, color: JweTheme.accentCyan),
+      const SizedBox(width: 5),
+      Expanded(
+        child: Text(
+          label,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.jetBrainsMono(
+            color: JweTheme.accentCyan,
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.6,
+          ),
+        ),
+      ),
+    ]);
+  }
+}
+
+class _GroupLabel extends StatelessWidget {
+  final String label;
+
+  const _GroupLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 12, top: 10, bottom: 6),
+      child: Text(
+        label,
+        style: GoogleFonts.jetBrainsMono(
+          color: JweTheme.textMuted,
+          fontSize: 8,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+}
+
+/// One completed objective or checkpoint. The title takes the full row width.
+/// Detail and tag wrap onto their own line, so a long name never gets squeezed.
+class _EntryRow extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String? detail;
+  final String? tag;
+  final bool isCheckpoint;
+
+  const _EntryRow({
+    required this.icon,
+    required this.color,
+    required this.title,
+    this.detail,
+    this.tag,
+    this.isCheckpoint = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasDetail = detail != null && detail!.isNotEmpty;
+    final hasTag = tag != null && tag!.isNotEmpty;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: isCheckpoint ? 4 : 5, horizontal: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(icon, size: isCheckpoint ? 12 : 13, color: color),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    color: JweTheme.textMid,
+                    fontSize: isCheckpoint ? 11.5 : 12,
+                    height: 1.3,
+                  ),
+                ),
+                if (hasDetail || hasTag) ...[
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (hasDetail)
+                        Text(
+                          detail!,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: JweTheme.textMuted,
+                            fontSize: 9,
+                          ),
+                        ),
+                      if (hasTag)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.1),
+                            border: Border.all(color: color.withValues(alpha: 0.3)),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          child: Text(
+                            tag!.toUpperCase(),
+                            style: GoogleFonts.jetBrainsMono(
+                              color: color,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

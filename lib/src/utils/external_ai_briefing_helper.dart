@@ -1,5 +1,6 @@
 import 'package:missions/src/utils/briefing_context_helper.dart';
 import 'dart:convert';
+import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/providers/app_provider.dart';
@@ -155,7 +156,10 @@ class ExternalAiBriefingHelper {
 
     // Goals active
     final goals = provider.goals.map((g) {
-      final place = provider.getGoalPlace(g.placeId);
+      final placeNames = g.placeIds
+          .map((id) => provider.getGoalPlace(id)?.name)
+          .whereType<String>()
+          .toList();
       return {
         'id': g.id,
         'title': g.title,
@@ -165,7 +169,7 @@ class ExternalAiBriefingHelper {
         'progressRatio': g.getProgressRatio(),
         'currentValue': g.currentValue,
         'targetValue': g.targetValue,
-        if (place != null) 'place': place.name,
+        if (placeNames.isNotEmpty) 'places': placeNames,
         if (g.reminderTimes.isNotEmpty)
           'reminderTimes': g.reminderTimes,
         if (g.subChecklist.isNotEmpty)
@@ -222,12 +226,9 @@ class ExternalAiBriefingHelper {
       }
     }
 
-    // Known people
-    final people = provider.chatbotMemory.people.map((p) => {
-      'name': p.name,
-      'relation': p.relation,
-      if (p.details != null && p.details!.isNotEmpty) 'details': p.details,
-    }).toList();
+    // Known people: the whole record for each person, including their intel, so the external AI
+    // can propose increments to it.
+    final people = provider.chatbotMemory.people.map(_personRecord).toList();
 
     // Notifications / Communications Journal for target date
     final dayNotifications = provider.getNotificationsForDate(targetDateStr);
@@ -303,6 +304,7 @@ You are provided with a complete JSON dataset containing the user's historical b
 The dataset also includes "notifications_journal" containing communications, alerts, and messages logged throughout the day — use them to identify meaningful interactions, updates, and context for grateful_people, savor_moment, summary, small_win, and tomorrow's directives.
 The dataset also includes "day_context" with the day's tracked work sessions, completed steps, health (sleep, water, activity, energy), spending by category and communication volume — ground the summary, small_win and directives in these facts.
 The dataset also includes "previous_quotes" listing all quotes and authors previously used across daily briefings and morning reports.
+The dataset also includes "known_people": every person in the user's database with their full record: relation, manualNotes, manualLastContactIntel (dated intel log), manualNextMeetPlan, biodata (occupation, location, birthday, contact) and "dossier" (psychological_profile, interaction_history, communication_tips). Treat this as the current intel on each person.
 
 CRITICAL DEDUPLICATION RULE:
 You MUST NOT duplicate or reuse any quote or author that appears in "previous_quotes".
@@ -312,6 +314,7 @@ MISSION:
 1. Analyze the attached JSON dataset.
 2. Generate TODAY's official DAILY TACTICAL BRIEFING ($dateStr).
 3. To save time tomorrow morning, ALSO synthesize TOMORROW's System Start-Up Sequence ($tomorrowStr) grounded in today's accomplishments, momentum, remaining tasks, and goals!
+4. PEOPLE INTEL INCREMENTS: For each person in "known_people" that today's reflections, notifications_journal or telemetry mention, write ONLY what is NEW since their current record (the latest reflection, the new event, the new change). Never repeat intel already in their record. Use the exact name from known_people. Leave people with nothing new out of the list.
 
 Tone: Uplifting, highly optimistic, empowering, and deeply appreciative. Celebrate all accomplishments, small wins, and positive turning points. NEVER give negative or critical advice.
 Writing rules: Address the user directly as "you". Plain prose only — no markdown, no headers, no bullet/numbered lists inside any string. Be concrete and specific to the data.
@@ -412,7 +415,17 @@ Return a single valid JSON object containing BOTH "daily_briefing" and "tomorrow
       "string",
       "string"
     ]
-  }
+  },
+  "people_intel_increments": [
+    {
+      "name": "string (exactly as written in known_people)",
+      "new_intel": "string (one new dated fact or change from the latest reflections; empty string if nothing new)",
+      "next_meet_plan": "string (concrete next interaction; empty string if none)",
+      "interaction_history": [
+        {"highlight": "string (short event label)", "text": "string (the new event or pattern)"}
+      ]
+    }
+  ]
 }
 
 OUTPUT RULES:
@@ -625,6 +638,7 @@ OUTPUT RULES:
 
         provider.saveTacticalBriefing(dateStr, dailyData);
         _syncGratitudeItems(provider, dailyData);
+        _syncPeopleIntelIncrements(provider, data['people_intel_increments'], targetDate);
 
         // Also save tomorrow's startup sequence if generated
         if (startupData != null) {
@@ -648,6 +662,56 @@ OUTPUT RULES:
       case BriefingType.monthly:
         await provider.saveMonthlyReport(dateStr, data);
         break;
+    }
+  }
+
+  /// The full record of one person for the external AI: every stored field, with the dossier
+  /// (stored as a JSON string) decoded so it reads as an object.
+  static Map<String, dynamic> _personRecord(PersonInfo p) {
+    final json = p.toJson();
+    final details = p.details;
+    if (details != null && details.isNotEmpty) {
+      try {
+        json['dossier'] = jsonDecode(details);
+        json.remove('details');
+      } catch (_) {
+        // Not JSON: keep it as plain text.
+      }
+    }
+    return json;
+  }
+
+  /// Applies the external AI's intel increments to people already in the database. The entries
+  /// go through the same logging path as the in-app updates, which skips anything already logged,
+  /// so applying the same reply twice does not duplicate intel. Unknown names are ignored.
+  static void _syncPeopleIntelIncrements(AppProvider provider, Object? raw, DateTime date) {
+    if (raw is! List) return;
+    for (final item in raw.whereType<Map>()) {
+      final name = (item['name'] ?? '').toString().trim();
+      if (name.isEmpty) continue;
+      final person = provider.chatbotMemory.people
+          .firstWhereOrNull((p) => p.name.toLowerCase() == name.toLowerCase());
+      if (person == null) continue;
+
+      final newIntel = (item['new_intel'] ?? '').toString().trim();
+      final nextPlan = (item['next_meet_plan'] ?? '').toString().trim();
+      if (newIntel.isNotEmpty || nextPlan.isNotEmpty) {
+        provider.logInteractionForPerson(
+          name: person.name,
+          interactionSummary: newIntel.isEmpty ? null : newIntel,
+          nextActionPlan: nextPlan.isEmpty ? null : nextPlan,
+          date: date,
+        );
+      }
+
+      final history = item['interaction_history'];
+      if (history is List) {
+        for (final h in history.whereType<Map>()) {
+          final text = (h['text'] ?? '').toString().trim();
+          if (text.isEmpty) continue;
+          provider.logInteractionForPerson(name: person.name, interactionSummary: text, date: date);
+        }
+      }
     }
   }
 

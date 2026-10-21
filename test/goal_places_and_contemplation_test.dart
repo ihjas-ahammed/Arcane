@@ -60,60 +60,73 @@ void main() {
   });
 
   group('GoalModel Place & Contemplation Reminders', () {
-    test('GoalModel stores reminderTimes and placeId with full JSON roundtrip', () {
+    test('GoalModel stores reminderTimes and several placeIds with full JSON roundtrip', () {
       final goal = GoalModel(
         id: 'goal_daily_1',
         title: 'Deep Focus Coding',
         scope: GoalScope.daily,
         metricType: GoalMetricType.check,
-        placeId: 'work',
+        placeIds: ['work', 'home'],
         reminderTimes: ['09:00', '14:30', '18:00'],
       );
 
-      expect(goal.placeId, 'work');
+      expect(goal.placeIds, ['work', 'home']);
       expect(goal.reminderTimes, ['09:00', '14:30', '18:00']);
 
       final json = goal.toJson();
-      expect(json['placeId'], 'work');
+      expect(json['placeIds'], ['work', 'home']);
+      expect(json['placeId'], 'work', reason: 'first place kept for older app versions');
       expect(json['reminderTimes'], ['09:00', '14:30', '18:00']);
 
       final restored = GoalModel.fromJson(json);
       expect(restored.id, goal.id);
       expect(restored.title, goal.title);
-      expect(restored.placeId, 'work');
+      expect(restored.placeIds, ['work', 'home']);
       expect(restored.reminderTimes, ['09:00', '14:30', '18:00']);
     });
 
-    test('GoalModel copyWith supports modifying and clearing placeId', () {
+    test('GoalModel reads an older single placeId save as a one-item list', () {
+      final restored = GoalModel.fromJson({
+        'id': 'goal_old',
+        'title': 'Old Save',
+        'scope': 'daily',
+        'placeId': 'college',
+      });
+
+      expect(restored.placeIds, ['college']);
+    });
+
+    test('GoalModel copyWith supports changing and clearing placeIds', () {
       final goal = GoalModel(
         id: 'goal_daily_2',
         title: 'Study Mechanics',
         scope: GoalScope.daily,
-        placeId: 'college',
+        placeIds: ['college'],
         reminderTimes: ['10:00'],
       );
 
       final updated = goal.copyWith(
-        placeId: 'home',
+        placeIds: ['home', 'college'],
         reminderTimes: ['10:00', '16:00'],
       );
-      expect(updated.placeId, 'home');
+      expect(updated.placeIds, ['home', 'college']);
       expect(updated.reminderTimes, ['10:00', '16:00']);
 
-      final cleared = updated.copyWith(clearPlaceId: true);
-      expect(cleared.placeId, isNull);
+      final cleared = updated.copyWith(clearPlaceIds: true);
+      expect(cleared.placeIds, isEmpty);
     });
 
-    test('GoalModel defaults reminderTimes to empty list and placeId to null', () {
+    test('GoalModel defaults reminderTimes and placeIds to empty lists', () {
       final goal = GoalModel(
         id: 'goal_def',
         title: 'Simple Goal',
       );
 
-      expect(goal.placeId, isNull);
+      expect(goal.placeIds, isEmpty);
       expect(goal.reminderTimes, isEmpty);
 
       final json = goal.toJson();
+      expect(json['placeIds'], isEmpty);
       expect(json.containsKey('placeId'), isFalse);
       expect(json['reminderTimes'], isEmpty);
     });

@@ -7,7 +7,6 @@ import 'package:missions/src/models/project_models.dart';
 import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/services/notification_service.dart';
 import 'package:missions/src/utils/constants.dart';
-import 'package:missions/src/utils/helpers.dart';
 import 'package:missions/src/utils/task_calculations.dart';
 import 'package:missions/src/providers/mixins/sync_mixin.dart';
 import 'package:collection/collection.dart';
@@ -130,7 +129,11 @@ mixin TaskMixin on ChangeNotifier {
 
   void deleteGoalPlace(String id) {
     _goalPlaces = _goalPlaces.where((p) => p.id != id).toList();
-    _goals = _goals.map((g) => g.placeId == id ? g.copyWith(clearPlaceId: true) : g).toList();
+    _goals = _goals
+        .map((g) => g.placeIds.contains(id)
+            ? g.copyWith(placeIds: g.placeIds.where((p) => p != id).toList())
+            : g)
+        .toList();
     sync.markDirty('tasks');
     notifyListeners();
   }
@@ -493,7 +496,6 @@ mixin TaskMixin on ChangeNotifier {
   /// is global), so restoring on every launch re-checked unfinished items. Only imports/merges use it.
   bool _crossSyncTasksAndHistory(Map<String, dynamic> historyMap, {bool restoreFromHistory = false}) {
     bool tasksModified = false;
-    final todayStr = getTodayDateString();
 
     // 1. Collect completed history from historyMap for non-recurring restoration
     final completedCheckpointMap = <String, String>{}; // id -> completionTimestamp
@@ -584,26 +586,31 @@ mixin TaskMixin on ChangeNotifier {
           }
         }
 
+        // A checkpoint is logged once, on the day it was completed. It used to be checked
+        // only against that day's list and stamped with today's date when it had no
+        // timestamp, so an old checkpoint was re-logged on every new day and kept showing
+        // up as "yesterday". Checkpoints without a known completion day are skipped.
         void syncCheckpointsRecursively(List<SubSubTask> cps) {
           for (final cp in cps) {
-            if (cp.completed) {
+            if (cp.completed && !completedCheckpointMap.containsKey(cp.id)) {
               final cpDate = (cp.completionTimestamp != null && cp.completionTimestamp!.length >= 10)
                   ? cp.completionTimestamp!.substring(0, 10)
-                  : (st.completedDate ?? todayStr);
-              final dayData = Map<String, dynamic>.from(historyMap[cpDate] as Map? ?? {});
-              final curCps = (dayData['checkpointsCompleted'] as List? ?? []).whereType<Map>().toList();
-              final exists = curCps.any((c) => c['subSubTaskId'] == cp.id);
-              if (!exists) {
+                  : st.completedDate;
+              if (cpDate != null && cpDate.isNotEmpty) {
+                final ts = cp.completionTimestamp ?? cpDate;
+                final dayData = Map<String, dynamic>.from(historyMap[cpDate] as Map? ?? {});
+                final curCps = (dayData['checkpointsCompleted'] as List? ?? []).whereType<Map>().toList();
                 curCps.add({
                   'parentTaskId': task.id,
                   'parentSubTaskId': st.id,
                   'parentSubtaskName': st.name,
                   'subSubTaskId': cp.id,
                   'name': cp.name,
-                  'completionTimestamp': cp.completionTimestamp ?? DateTime.now().toIso8601String(),
+                  'completionTimestamp': ts,
                 });
                 dayData['checkpointsCompleted'] = curCps;
                 historyMap[cpDate] = dayData;
+                completedCheckpointMap[cp.id] = ts;
               }
             }
             if (cp.substeps.isNotEmpty) {
@@ -612,6 +619,9 @@ mixin TaskMixin on ChangeNotifier {
           }
         }
 
+        // Inactive and deleted tasks or subtasks are not logged. Their checkpoints stay
+        // completed in the task data, but they should not appear in daily progress.
+        if (!task.isActive || task.isDeleted || !st.isActive || st.isDeleted) continue;
         syncCheckpointsRecursively(st.subSubTasks);
       }
     }

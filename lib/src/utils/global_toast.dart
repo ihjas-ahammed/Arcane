@@ -30,7 +30,8 @@ ScaffoldMessengerState? get currentScaffoldMessenger =>
 /// Show a short snackbar-style toast. No-op when no UI is mounted (e.g. the
 /// action fired while the app was killed) — the notification body still
 /// reflects what happened.
-void showGlobalToast(String message) {
+/// [bottomMargin] lifts the toast above a bottom overlay, such as the Android clipboard preview.
+void showGlobalToast(String message, {double bottomMargin = 0}) {
   final messenger = currentScaffoldMessenger;
   if (messenger == null) return;
   messenger
@@ -44,6 +45,7 @@ void showGlobalToast(String message) {
                 fontWeight: FontWeight.w600)),
         backgroundColor: AppTheme.fhBgDark,
         behavior: SnackBarBehavior.floating,
+        margin: bottomMargin > 0 ? EdgeInsets.fromLTRB(16, 0, 16, bottomMargin) : null,
         duration: const Duration(seconds: 2),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(6),
