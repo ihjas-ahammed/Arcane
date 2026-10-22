@@ -107,7 +107,7 @@ class HomeWidgetService {
 
   // ── Publish ────────────────────────────────────────────────────────────
 
-  Future<void> publishTask({
+  Future<bool> publishTask({
     required bool hasTask,
     required String title,
     required String subtitle,
@@ -125,7 +125,7 @@ class HomeWidgetService {
     int pausedAtMs = 0,
     bool clearPausedGrace = false,
   }) async {
-    if (!_supported) return;
+    if (!_supported) return true;
 
     // The widget renders natively (crisp RemoteViews), so we only push data —
     // no Flutter-to-bitmap rasterization (that was the blurry, non-scaling
@@ -167,7 +167,7 @@ class HomeWidgetService {
           ? '${multitaskTasks[i].completedCheckpoints}/${multitaskTasks[i].totalCheckpoints}'
           : '';
     }
-    await _enqueueTask(data);
+    return _enqueueTask(data);
   }
 
   /// Rewrites only the keys the floating button trusts (running state and clock), leaving the
@@ -198,18 +198,23 @@ class HomeWidgetService {
   /// publish can never land on top of a newer one.
   Map<String, Object>? _queuedTask;
   Future<void>? _taskWriter;
+  bool _lastTaskWriteOk = true;
 
   /// Serialises task publishes (latest wins, never interleaved). `updatedAtMs` is always written
   /// last: the floating button only re-syncs on that key, so it never reads a half-written state.
-  Future<void> _enqueueTask(Map<String, Object> data) {
+  /// Resolves to whether the latest write landed, so the publisher only marks a snapshot as
+  /// published once the widget actually has it.
+  Future<bool> _enqueueTask(Map<String, Object> data) async {
     _queuedTask = {...?_queuedTask, ...data};
-    return _taskWriter ??= () async {
+    final writer = _taskWriter ??= () async {
       try {
         while (_queuedTask != null) {
           final next = _queuedTask!;
           _queuedTask = null;
-          await _setAll(next);
-          await _setAll({_updatedAtKey: DateTime.now().millisecondsSinceEpoch});
+          var ok = await _setAll(next);
+          final stamped = await _setAll({_updatedAtKey: DateTime.now().millisecondsSinceEpoch});
+          ok = ok && stamped;
+          _lastTaskWriteOk = ok;
           await _refresh(_providerRunning);
           await _refresh(_providerDayPlan);
         }
@@ -217,18 +222,20 @@ class HomeWidgetService {
         _taskWriter = null;
       }
     }();
+    await writer;
+    return _lastTaskWriteOk;
   }
 
   /// Theme the native widgets follow: the launcher's palette (light/dark, accent, panel, text), as ARGB ints.
-  Future<void> publishTheme({
+  Future<bool> publishTheme({
     required bool light,
     required int accentArgb,
     required int surfaceArgb,
     required int textArgb,
     required int mutedArgb,
   }) async {
-    if (!_supported) return;
-    await _setAll({
+    if (!_supported) return true;
+    final ok = await _setAll({
       'arcane.theme.light': light,
       'arcane.theme.accent': accentArgb,
       'arcane.theme.surface': surfaceArgb,
@@ -245,17 +252,18 @@ class HomeWidgetService {
     ]) {
       await _refresh(p);
     }
+    return ok;
   }
 
-  Future<void> publishFinance({
+  Future<bool> publishFinance({
     required double balance,
     required double todaySpend,
     required double monthSpend,
     required int budgetPct,
   }) async {
-    if (!_supported) return;
+    if (!_supported) return true;
 
-    await _setAll({
+    final ok = await _setAll({
       // SharedPreferences on Android can't store doubles via the plugin's
       // typed setters — write as strings, parse on the Kotlin side.
       'arcane.fin.balance': balance.toStringAsFixed(2),
@@ -265,9 +273,10 @@ class HomeWidgetService {
       'arcane.fin.updatedAtMs': DateTime.now().millisecondsSinceEpoch,
     });
     await _refresh(_providerFinance);
+    return ok;
   }
 
-  Future<void> publishJournal({
+  Future<bool> publishJournal({
     required int count,
     required bool wake,
     required bool morn,
@@ -275,9 +284,9 @@ class HomeWidgetService {
     required bool eve,
     required bool night,
   }) async {
-    if (!_supported) return;
+    if (!_supported) return true;
 
-    await _setAll({
+    final ok = await _setAll({
       'arcane.journal.count': count,
       'arcane.journal.wake': wake,
       'arcane.journal.morn': morn,
@@ -286,9 +295,10 @@ class HomeWidgetService {
       'arcane.journal.night': night,
     });
     await _refresh(_providerJournal);
+    return ok;
   }
 
-  Future<void> publishBus({
+  Future<bool> publishBus({
     required String origin,
     required String destination,
     required String nextTime,
@@ -298,9 +308,9 @@ class HomeWidgetService {
     int minutesRemaining = -1,
     int progressPct = 0,
   }) async {
-    if (!_supported) return;
+    if (!_supported) return true;
 
-    await _setAll({
+    final ok = await _setAll({
       'arcane.bus.origin': origin,
       'arcane.bus.destination': destination,
       'arcane.bus.nextTime': nextTime,
@@ -315,9 +325,10 @@ class HomeWidgetService {
     // When transit state changes or active, also refresh RunningTaskWidget so
     // it can show the travel if placed on user's homescreen
     await _refresh(_providerRunning);
+    return ok;
   }
 
-  Future<void> publishGoals({
+  Future<bool> publishGoals({
     required int totalCount,
     required int completedCount,
     required int progressPct,
@@ -325,7 +336,7 @@ class HomeWidgetService {
     List<({String id, String title, bool isCompleted, String tag})> items =
         const [],
   }) async {
-    if (!_supported) return;
+    if (!_supported) return true;
 
     final map = <String, Object>{
       'arcane.goals.totalCount': totalCount,
@@ -350,18 +361,23 @@ class HomeWidgetService {
       }
     }
 
-    await _setAll(map);
+    final ok = await _setAll(map);
     await _refresh(_providerGoals);
+    return ok;
   }
 
-  Future<void> _setAll(Map<String, Object> values) async {
+  /// Writes each key. Returns false if any key failed, so callers retry instead of assuming success.
+  Future<bool> _setAll(Map<String, Object> values) async {
+    var ok = true;
     for (final e in values.entries) {
       try {
         await HomeWidget.saveWidgetData(e.key, e.value);
       } catch (err) {
+        ok = false;
         debugPrint('[HomeWidget] save ${e.key}: $err');
       }
     }
+    return ok;
   }
 
   Future<void> _refresh(String providerName) async {

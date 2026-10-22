@@ -54,7 +54,9 @@ class NotificationService {
   static const int reflectionReminderId = 3001;
   static const int financeReminderId = 3002;
   static const int healthReminderId = 3003;
-  static const int _submissionReminderBase = 4000;
+  static const int _submissionReminderBase = 30000;
+  // Goal snoozes live above the goal slots (60000+) so a goal reschedule never cancels them.
+  static const int _goalSnoozeBase = 90000;
 
   // Linux: periodic timer for updating the live-elapsed notification every 5 min
   Timer? _linuxTimerUpdater;
@@ -74,6 +76,25 @@ class NotificationService {
   // Init
   // ---------------------------------------------------------------------------
 
+  /// Fixed-offset zone for the device's current UTC offset. Exact for zones without DST
+  /// (e.g. India); in a DST zone the reminders drift by an hour until the next app start.
+  /// The offset name (e.g. "UTC+05:30") is a valid zone id for the Android plugin.
+  static tz.Location _deviceOffsetLocation() {
+    final offsetSeconds = DateTime.now().timeZoneOffset.inSeconds;
+    final sign = offsetSeconds < 0 ? '-' : '+';
+    final absSeconds = offsetSeconds.abs();
+    final hh = (absSeconds ~/ 3600).toString().padLeft(2, '0');
+    final mm = ((absSeconds % 3600) ~/ 60).toString().padLeft(2, '0');
+    final name = 'UTC$sign$hh:$mm';
+    return tz.Location(
+      name,
+      const <int>[],
+      const <int>[],
+      // TimeZone.offset is in milliseconds east of UTC.
+      [tz.TimeZone(offsetSeconds * 1000, isDst: false, abbreviation: name)],
+    );
+  }
+
   Future<void> init({void Function(String? payload)? onTap}) async {
     if (_initialized) return;
     _onTap = onTap;
@@ -85,6 +106,9 @@ class NotificationService {
 
     if (!kIsWeb) {
       tz_data.initializeTimeZones();
+      // `timezone` leaves tz.local on UTC, so daily reminders were armed on UTC wall-clock
+      // hours (a 09:00 reminder fired at 14:30 in UTC+05:30). Pin it to the device offset.
+      tz.setLocalLocation(_deviceOffsetLocation());
     }
 
     AndroidInitializationSettings? androidInit;
@@ -281,12 +305,12 @@ class NotificationService {
         final goalTitle = payload.startsWith('goal_contemplate:')
             ? payload.split(':').sublist(2).join(':')
             : 'Daily Goal';
-        final snoozeId = (notificationId ?? 60000) + 10000;
         scheduleOneTimeReminder(
-          id: snoozeId,
+          id: goalSnoozeId(notificationId ?? 60000),
           title: goalTitle,
           body: 'Your 2-hour contemplation window has resurfaced. Ready to engage & execute?',
           scheduledTime: DateTime.now().add(const Duration(hours: 2)),
+          payload: payload,
         );
         break;
       default:
@@ -396,7 +420,8 @@ class NotificationService {
     String? payload,
     int? id,
   }) async {
-    final notifId = id ?? (5000 + DateTime.now().millisecondsSinceEpoch % 10000);
+    // 20000-29999: clear of the energy slots (5000+) and goal slots (60000+).
+    final notifId = id ?? (20000 + DateTime.now().millisecondsSinceEpoch % 10000);
     if (kIsWeb) {
       final ok = await _ensureWebPermission();
       if (!ok) return;
@@ -734,7 +759,7 @@ class NotificationService {
     if (_supportsZonedSchedule) {
       await _scheduleAndroidDailyReminder(id, title, body, hour, minute, actions: actions, payload: payload);
     } else {
-      _scheduleInAppDailyReminder(id, title, body, hour, minute);
+      _scheduleInAppDailyReminder(id, title, body, hour, minute, payload: payload);
     }
   }
 
@@ -804,6 +829,18 @@ class NotificationService {
     }
   }
 
+  /// Exact delivery when the user has granted exact alarms (Android 12+), otherwise inexact.
+  /// Inexact alarms can be held back for minutes in Doze, which read as "late" reminders.
+  Future<AndroidScheduleMode> _androidScheduleMode() async {
+    try {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      final canExact = await android?.canScheduleExactNotifications() ?? false;
+      if (canExact) return AndroidScheduleMode.exactAllowWhileIdle;
+    } catch (_) {}
+    return AndroidScheduleMode.inexactAllowWhileIdle;
+  }
+
   Future<void> _scheduleAndroidDailyReminder(
       int id, String title, String body, int hour, int minute,
       {List<AndroidNotificationAction>? actions,
@@ -852,27 +889,27 @@ class NotificationService {
       details,
       payload: payload,
       matchDateTimeComponents: DateTimeComponents.time,
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: await _androidScheduleMode(),
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
   void _scheduleInAppDailyReminder(
-      int id, String title, String body, int hour, int minute) {
+      int id, String title, String body, int hour, int minute, {String? payload}) {
     final now = DateTime.now();
     var next = DateTime(now.year, now.month, now.day, hour, minute);
     if (next.isBefore(now)) next = next.add(const Duration(days: 1));
 
     final delay = next.difference(now);
     _inAppReminderTimers[id] = Timer(delay, () async {
-      await _showReminderNow(id, title, body);
+      await _showReminderNow(id, title, body, payload: payload);
       // Reschedule for next day
-      _scheduleInAppDailyReminder(id, title, body, hour, minute);
+      _scheduleInAppDailyReminder(id, title, body, hour, minute, payload: payload);
     });
   }
 
-  Future<void> _showReminderNow(int id, String title, String body) async {
+  Future<void> _showReminderNow(int id, String title, String body, {String? payload}) async {
     if (kIsWeb) return;
     await _plugin.show(
       id,
@@ -882,6 +919,7 @@ class NotificationService {
         linux: LinuxNotificationDetails(urgency: LinuxNotificationUrgency.normal),
         macOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
       ),
+      payload: payload,
     );
   }
 
@@ -904,6 +942,7 @@ class NotificationService {
     required String title,
     required String body,
     required DateTime scheduledTime,
+    String? payload,
   }) async {
     if (!_initialized) return;
     await cancelDailyReminder(id); // reuse cancel (clears both timer + plugin)
@@ -934,7 +973,8 @@ class NotificationService {
         body,
         tzScheduled,
         details,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: payload,
+        androidScheduleMode: await _androidScheduleMode(),
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
@@ -942,7 +982,7 @@ class NotificationService {
       // Linux / macOS: in-app timer
       final delay = scheduledTime.difference(DateTime.now());
       _inAppReminderTimers[id] = Timer(delay, () async {
-        await _showReminderNow(id, title, body);
+        await _showReminderNow(id, title, body, payload: payload);
         _inAppReminderTimers.remove(id);
       });
     }
@@ -951,10 +991,13 @@ class NotificationService {
   Future<void> cancelOneTimeReminder(int id) async => cancelDailyReminder(id);
 
   static int subtaskReminderId(String subtaskId) =>
-      _submissionReminderBase + subtaskId.hashCode.abs() % 50000;
+      _submissionReminderBase + subtaskId.hashCode.abs() % 20000;
 
   static int goalReminderId(String goalId, int timeIndex) =>
       60000 + (('${goalId}_$timeIndex'.hashCode).abs() % 30000);
+
+  /// Snooze ID for a goal reminder: 90000 + its slot offset from 60000.
+  static int goalSnoozeId(int goalNotifId) => _goalSnoozeBase + (goalNotifId - 60000) % 10000;
 
   /// Schedule all daily goal contemplation reminders just like energy check reminders.
   /// Header is strictly the goal name (no extras).
@@ -964,7 +1007,7 @@ class NotificationService {
     // 1. Cancel existing goal contemplation reminders in dedicated range (60000 to 60200)
     for (int i = 0; i < 200; i++) {
       await cancelDailyReminder(60000 + i);
-      await cancelOneTimeReminder(70000 + i);
+      await cancelOneTimeReminder(_goalSnoozeBase + i);
     }
 
     // 2. Filter active daily goals with contemplation reminder times
@@ -1048,7 +1091,7 @@ class NotificationService {
   Future<void> cancelGoalContemplationReminders(String goalId) async {
     for (int i = 0; i < 10; i++) {
       await cancelDailyReminder(goalReminderId(goalId, i));
-      await cancelOneTimeReminder(goalReminderId(goalId, i) + 10000);
+      await cancelOneTimeReminder(goalSnoozeId(goalReminderId(goalId, i)));
     }
   }
 
@@ -1389,12 +1432,12 @@ void _backgroundResponseHandler(NotificationResponse resp) async {
       final goalTitle = (payload != null && payload.startsWith('goal_contemplate:'))
           ? payload.split(':').sublist(2).join(':')
           : 'Daily Goal';
-      final snoozeId = (resp.id ?? 60000) + 10000;
       await NotificationService.instance.scheduleOneTimeReminder(
-        id: snoozeId,
+        id: NotificationService.goalSnoozeId(resp.id ?? 60000),
         title: goalTitle,
         body: 'Your 2-hour contemplation window has resurfaced. Ready to engage & execute?',
         scheduledTime: DateTime.now().add(const Duration(hours: 2)),
+        payload: payload,
       );
     }
   }

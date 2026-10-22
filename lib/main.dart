@@ -56,7 +56,7 @@ void main() async {
   // Launcher anti-kill safety: prevent unhandled exceptions from terminating the launcher process
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
-    debugPrint('[LauncherSafety] FlutterError handled: ${details.exception}');
+    debugPrint('[LauncherSafety] FlutterError handled: ${details.exception}\n${details.stack}');
   };
   PlatformDispatcher.instance.onError = (error, stack) {
     debugPrint('[LauncherSafety] Uncaught async error suppressed: $error');

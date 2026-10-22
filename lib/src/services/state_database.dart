@@ -18,7 +18,28 @@ class StateDatabase {
   Future<Database>? _opening;
   int generation = 0;
 
-  Future<Database> get _database => _opening ??= _open();
+  Future<Database> get _database {
+    final opening = _opening ??= _open();
+    // A failed open must not be cached, or every later call fails until the app restarts.
+    opening.catchError((_) {
+      if (identical(_opening, opening)) _opening = null;
+      return opening;
+    });
+    return opening;
+  }
+
+  /// Runs [action] on the open database. sqflite closes every handle when its engine detaches,
+  /// which leaves the cached handle dead ("database_closed"). Drop it and retry once on a fresh one.
+  Future<T> _run<T>(Future<T> Function(Database db) action) async {
+    try {
+      return await action(await _database);
+    } on DatabaseException catch (e) {
+      if (!e.isDatabaseClosedError()) rethrow;
+      debugPrint('[StateDatabase] handle closed, reopening: $e');
+      _opening = null;
+      return action(await _database);
+    }
+  }
 
   /// Closes the open database so the next call reopens it. Used by tests that remove the
   /// database directory between cases.
@@ -68,8 +89,7 @@ class StateDatabase {
   }
 
   Future<Map<String, String>> readCollections(String userId) async {
-    final db = await _database;
-    return db.transaction((txn) => _readCollections(txn, userId));
+    return _run((db) => db.transaction((txn) => _readCollections(txn, userId)));
   }
 
   Future<Map<String, String>> _readCollections(DatabaseExecutor db, String userId) async {
@@ -105,8 +125,7 @@ class StateDatabase {
   /// A null value removes that collection. All changes commit in one transaction.
   Future<void> writeCollections(String userId, Map<String, String?> changes) async {
     if (changes.isEmpty) return;
-    final db = await _database;
-    await db.transaction((txn) async {
+    await _run((db) => db.transaction((txn) async {
       final batch = txn.batch();
       changes.forEach((collection, json) {
         batch.delete(
@@ -118,13 +137,12 @@ class StateDatabase {
         if (json != null) _insertParts(batch, userId, collection, json);
       });
       await batch.commit(noResult: true);
-    });
+    }));
   }
 
   /// Replaces everything stored for [userId] with [collections], in one transaction.
   Future<void> replaceUser(String userId, Map<String, String> collections) async {
-    final db = await _database;
-    await db.transaction((txn) async {
+    await _run((db) => db.transaction((txn) async {
       await txn.delete(_table, where: 'user_id = ?', whereArgs: [userId]);
       await txn.delete('state_meta', where: 'user_id = ? AND key LIKE ?', whereArgs: [userId, 'hash:%']);
       final batch = txn.batch();
@@ -132,7 +150,7 @@ class StateDatabase {
       await batch.commit(noResult: true);
       final verified = await _readCollections(txn, userId);
       if (!mapEquals(verified, collections)) throw StateError('Import read-back differs; rolling back');
-    });
+    }));
   }
 
   void _insertParts(Batch batch, String userId, String collection, String json) {
@@ -153,21 +171,18 @@ class StateDatabase {
   }
 
   Future<void> setMeta(String userId, String key, String value) async {
-    final db = await _database;
-    await db.insert('state_meta', {'user_id': userId, 'key': key, 'value': value}, conflictAlgorithm: ConflictAlgorithm.replace);
+    await _run((db) => db.insert('state_meta', {'user_id': userId, 'key': key, 'value': value}, conflictAlgorithm: ConflictAlgorithm.replace));
   }
 
   Future<String?> getMeta(String userId, String key) async {
-    final db = await _database;
-    final rows = await db.query('state_meta', where: 'user_id = ? AND key = ?', whereArgs: [userId, key]);
+    final rows = await _run((db) => db.query('state_meta', where: 'user_id = ? AND key = ?', whereArgs: [userId, key]));
     return rows.isEmpty ? null : rows.first['value'] as String;
   }
 
   Future<void> deleteUser(String userId) async {
-    final db = await _database;
-    await db.transaction((txn) async {
+    await _run((db) => db.transaction((txn) async {
       await txn.delete(_table, where: 'user_id = ?', whereArgs: [userId]);
       await txn.delete('state_meta', where: 'user_id = ?', whereArgs: [userId]);
-    });
+    }));
   }
 }

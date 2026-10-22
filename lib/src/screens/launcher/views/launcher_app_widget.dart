@@ -299,8 +299,24 @@ class _LauncherAppWidgetState extends State<LauncherAppWidget> with AutomaticKee
       onDragUpdate: _onDragUpdate,
       onDragEnd: (_) => _onDragEnd(),
       onDraggableCanceled: (_, __) => _onDragEnd(),
-      child: cardContent,
+      // Double-tap cycles the widget through its preset heights.
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onDoubleTap: _cycleHeight,
+        child: cardContent,
+      ),
     );
+  }
+
+  /// Heights a double-tap steps through, smallest first. The smallest is the usual provider minimum.
+  static const List<double> _heightSteps = [110, 180, 260, 360];
+
+  /// Moves to the next preset height above the current one, wrapping back to the smallest.
+  void _cycleHeight() {
+    HapticFeedback.selectionClick();
+    final current = widget.entry.height;
+    final next = _heightSteps.firstWhere((h) => h > current + 8, orElse: () => _heightSteps.first);
+    LauncherService.instance.resizeWidget(widget.entry, next);
   }
 }
 

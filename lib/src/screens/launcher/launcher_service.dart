@@ -66,6 +66,8 @@ class LauncherService {
   static const _kFolders = 'launcher_v4_folders';
   static const _kWeb = 'launcher_v4_web';
   static const _kWidgets = 'launcher_v4_widgets';
+  static const _kDefaultWidgetSeeded = 'launcher_v4_default_widget_seeded';
+  static const _kPlannerWidgetProvider = 'me.ihjas.missions/me.ihjas.missions.widgets.DayPlanWidget';
   static const _kIconPack = 'launcher_v4_icon_pack';
   static const _kOverrides = 'launcher_v4_icon_overrides';
   static const _kHidden = 'launcher_v4_hidden';
@@ -347,6 +349,7 @@ class LauncherService {
     unawaited(_prefs?.setString(_kApps, jsonEncode([..._systemApps, ..._shortcuts].map((a) => a.toJson()).toList())));
 
     if (!_dockConfigured) await _buildDefaultDock();
+    unawaited(_seedDefaultWidget());
     _pruneMissing();
   }
 
@@ -406,9 +409,19 @@ class LauncherService {
     add(byPackage(roles['phone']));
     add(byPackage(roles['messages']));
     add(arcaneApp);
-    add(byPackage(roles['browser']));
-    add(byPackage(roles['camera']));
     _saveArea(LauncherArea.dock, slots);
+  }
+
+  /// First run only: places the planner (Day Plan) widget on the first home page, so the default
+  /// layout is the same every time. Flagged once, so removing it later never brings it back.
+  Future<void> _seedDefaultWidget() async {
+    final prefs = _prefs;
+    if (prefs == null || prefs.getBool(_kDefaultWidgetSeeded) == true) return;
+    await prefs.setBool(_kDefaultWidgetSeeded, true);
+    if (widgets.value.isNotEmpty) return;
+    try {
+      await addWidget({'provider': _kPlannerWidgetProvider});
+    } catch (_) {}
   }
 
   // ── Areas (dock / home / shelf / drawer folders) ────────────

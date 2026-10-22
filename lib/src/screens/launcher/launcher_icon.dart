@@ -32,6 +32,14 @@ class LauncherIconCache {
   Directory? _dir;
   Future<Directory?>? _dirFuture;
 
+  /// True once the first batch of cached icons is on screen. The launcher stays hidden until then,
+  /// so a cold start shows the final view instead of glyph placeholders filling in.
+  final ValueNotifier<bool> primed = ValueNotifier<bool>(false);
+
+  void markPrimed() {
+    if (!primed.value) primed.value = true;
+  }
+
   static String _appSlot(String appKey) => 'a|$appKey';
   static String _packSlot(String pack, String drawable) => 'p|$pack|$drawable';
 
@@ -102,27 +110,34 @@ class LauncherIconCache {
     final packs = Map<String, Set<String>>.from(_pendingPack);
     _pendingPack.clear();
 
-    // 1. Disk hits.
+    // 1. Disk hits, read in parallel: one awaited file at a time made a cold start wait on
+    // every icon in turn.
     final missingApps = <String>[];
-    for (final key in apps) {
-      final bytes = await _readFile(_appFile(key));
+    final appBytes = await Future.wait(apps.map((key) => _readFile(_appFile(key))));
+    for (var i = 0; i < apps.length; i++) {
+      final bytes = appBytes[i];
       if (bytes != null) {
-        _publish(_appSlot(key), bytes);
+        _publish(_appSlot(apps[i]), bytes);
       } else {
-        missingApps.add(key);
+        missingApps.add(apps[i]);
       }
     }
+    final packEntries = <(String, String)>[
+      for (final e in packs.entries)
+        for (final d in e.value) (e.key, d),
+    ];
+    final packBytes = await Future.wait(packEntries.map((p) => _readFile(_packFile(p.$1, p.$2))));
     final missingPack = <String, List<String>>{};
-    for (final e in packs.entries) {
-      for (final d in e.value) {
-        final bytes = await _readFile(_packFile(e.key, d));
-        if (bytes != null) {
-          _publish(_packSlot(e.key, d), bytes);
-        } else {
-          (missingPack[e.key] ??= <String>[]).add(d);
-        }
+    for (var i = 0; i < packEntries.length; i++) {
+      final (pack, drawable) = packEntries[i];
+      final bytes = packBytes[i];
+      if (bytes != null) {
+        _publish(_packSlot(pack, drawable), bytes);
+      } else {
+        (missingPack[pack] ??= <String>[]).add(drawable);
       }
     }
+    markPrimed();
 
     // 2. Web links: the site's own icon.
     final webKeys = missingApps.where((k) => k.startsWith('web:')).toList();

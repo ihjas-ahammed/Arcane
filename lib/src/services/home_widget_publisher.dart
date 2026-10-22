@@ -253,14 +253,14 @@ class HomeWidgetPublisher {
       final muted = LauncherTheme.muted.toARGB32();
       final key = '$light|$accent|$surface|$text|$muted';
       if (!force && key == _lastThemeKey) return;
-      _lastThemeKey = key;
-      await HomeWidgetService.instance.publishTheme(
+      final ok = await HomeWidgetService.instance.publishTheme(
         light: light,
         accentArgb: accent,
         surfaceArgb: surface,
         textArgb: text,
         mutedArgb: muted,
       );
+      if (ok) _lastThemeKey = key;
     } catch (e) {
       debugPrint('[HomeWidget] publish theme: $e');
     }
@@ -436,7 +436,6 @@ class HomeWidgetPublisher {
       nextCheckpoint,
     ].join('|');
     if (!force && key == _lastTaskKey) return;
-    _lastTaskKey = key;
 
     _lastLiveTimer = (
       hasTask: s != null,
@@ -447,7 +446,7 @@ class HomeWidgetPublisher {
     );
 
     try {
-      await HomeWidgetService.instance.publishTask(
+      final ok = await HomeWidgetService.instance.publishTask(
         hasTask: s != null,
         title: title,
         subtitle: subtitle,
@@ -465,6 +464,7 @@ class HomeWidgetPublisher {
         pausedAtMs: _pausedAtMs,
         clearPausedGrace: clearPausedGrace,
       );
+      if (ok) _lastTaskKey = key;
     } catch (e) {
       debugPrint('[HomeWidget] publish task: $e');
     }
@@ -508,15 +508,15 @@ class HomeWidgetPublisher {
       budgetPct,
     ].join('|');
     if (!force && key == _lastFinanceKey) return;
-    _lastFinanceKey = key;
 
     try {
-      await HomeWidgetService.instance.publishFinance(
+      final ok = await HomeWidgetService.instance.publishFinance(
         balance: balance,
         todaySpend: todaySpend,
         monthSpend: monthSpend,
         budgetPct: budgetPct,
       );
+      if (ok) _lastFinanceKey = key;
     } catch (e) {
       debugPrint('[HomeWidget] publish finance: $e');
     }
@@ -581,10 +581,9 @@ class HomeWidgetPublisher {
       night,
     ].join('|');
     if (!force && key == _lastJournalKey) return;
-    _lastJournalKey = key;
 
     try {
-      await HomeWidgetService.instance.publishJournal(
+      final ok = await HomeWidgetService.instance.publishJournal(
         count: logs.length,
         wake: wake,
         morn: morn,
@@ -592,6 +591,7 @@ class HomeWidgetPublisher {
         eve: eve,
         night: night,
       );
+      if (ok) _lastJournalKey = key;
     } catch (e) {
       debugPrint('[HomeWidget] publish journal: $e');
     }
@@ -723,9 +723,8 @@ class HomeWidgetPublisher {
       ].join('|');
 
       if (!force && key == _lastBusKey) return;
-      _lastBusKey = key;
 
-      await HomeWidgetService.instance.publishBus(
+      final ok = await HomeWidgetService.instance.publishBus(
         origin: formOrigin,
         destination: formDest,
         nextTime: nextTime,
@@ -734,6 +733,7 @@ class HomeWidgetPublisher {
         speedKmh: live.speedKmh.round(),
         minutesRemaining: smallestDiff < 9999 ? smallestDiff : -1,
       );
+      if (ok) _lastBusKey = key;
     } catch (e) {
       debugPrint('[HomeWidget] publish bus: $e');
     }
@@ -754,7 +754,6 @@ class HomeWidgetPublisher {
     ].join('|');
 
     if (!force && key == _lastGoalsKey) return;
-    _lastGoalsKey = key;
 
     final items = <({String id, String title, bool isCompleted, String tag})>[];
     for (final g in topGoals) {
@@ -780,13 +779,14 @@ class HomeWidgetPublisher {
     }
 
     try {
-      await HomeWidgetService.instance.publishGoals(
+      final ok = await HomeWidgetService.instance.publishGoals(
         totalCount: live.totalCount,
         completedCount: live.completedCount,
         progressPct: (live.progress * 100).toInt(),
         scope: live.scope == GoalScope.weekly ? 'weekly' : 'daily',
         items: items,
       );
+      if (ok) _lastGoalsKey = key;
     } catch (e) {
       debugPrint('[HomeWidget] publish goals: $e');
     }

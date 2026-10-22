@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/screens/launcher/launcher_models.dart';
+import 'package:missions/src/screens/launcher/launcher_icon.dart';
 import 'package:missions/src/screens/launcher/launcher_native.dart';
 import 'package:missions/src/screens/launcher/launcher_service.dart';
 import 'package:missions/src/screens/launcher/launcher_theme.dart';
@@ -62,7 +64,10 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
     if (!LauncherNative.isSupported) return;
 
     LauncherService.instance.init();
+    // Fallback: never keep the pages hidden if the icon batch is slow or empty.
+    Future.delayed(const Duration(milliseconds: 700), LauncherIconCache.instance.markPrimed);
     LauncherNative.attach();
+    GestureBinding.instance.pointerRouter.addGlobalRoute(_onGlobalPointer);
     LauncherNative.homePressed.addListener(_goHome);
     LauncherNative.openArcaneRequested.addListener(_openArcaneFromIntent);
     WidgetActionRouter.instance.tabRequest.addListener(_onTabRequest);
@@ -125,6 +130,7 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
 
   @override
   void dispose() {
+    GestureBinding.instance.pointerRouter.removeGlobalRoute(_onGlobalPointer);
     LauncherService.instance.fullscreen.removeListener(_applySystemUiMode);
     LauncherNative.homePressed.removeListener(_goHome);
     LauncherNative.openArcaneRequested.removeListener(_openArcaneFromIntent);
@@ -409,6 +415,22 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
     );
   }
 
+  /// Safety net for the REMOVE bar, which shows while either an item drag (`active`) or a widget
+  /// drag (`activeWidget`) is set. A drag whose end never reaches its widget left the bar stuck.
+  /// Lifting any finger ends the drag, so clear both after the release has been handled.
+  void _onGlobalPointer(PointerEvent event) {
+    if (event is! PointerUpEvent && event is! PointerCancelEvent) return;
+    // After the frame: a notifier write during a locked build is dropped, which left the bar stale.
+    // The setState forces the bar to rebuild from the current values, even when they were already null.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (LauncherActions.active.value != null) LauncherActions.active.value = null;
+      if (LauncherActions.activeWidget.value != null) LauncherActions.activeWidget.value = null;
+      setState(() {});
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
   // ── Home gestures ───────────────────────────────────────────
 
   double _dragStartDrawer = 0;
@@ -490,7 +512,7 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
                       fit: StackFit.expand,
                       children: [
                         _buildWallpaper(isLight),
-                        _buildPages(),
+                        _fadeInWhenIconsReady(_buildPages()),
                         _buildBottomChrome(),
                         _buildDrawer(),
                         _buildDragChrome(),
@@ -567,6 +589,19 @@ class _LauncherScreenState extends State<LauncherScreen> with TickerProviderStat
           return CustomPaint(painter: LauncherWallpaperPainter(isLight: isLight));
         },
       ),
+    );
+  }
+
+  /// Keeps the pages hidden until the first icon batch is read, then fades them in.
+  Widget _fadeInWhenIconsReady(Widget pages) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: LauncherIconCache.instance.primed,
+      builder: (context, ready, child) => AnimatedOpacity(
+        opacity: ready ? 1 : 0,
+        duration: const Duration(milliseconds: 150),
+        child: child,
+      ),
+      child: pages,
     );
   }
 
