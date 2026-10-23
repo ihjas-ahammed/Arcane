@@ -1125,10 +1125,14 @@ class _PanelHeader extends StatelessWidget {
       child: Row(children: [
         Container(width: 3, height: 10, color: color),
         const SizedBox(width: 8),
-        Text(label,
-            style: GoogleFonts.jetBrainsMono(
-              color: color, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.6,
-            )),
+        Expanded(
+          child: Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.jetBrainsMono(
+                color: color, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.6,
+              )),
+        ),
       ]),
     );
   }

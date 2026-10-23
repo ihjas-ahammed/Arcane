@@ -233,16 +233,19 @@ class _StartDayReportCardState extends State<StartDayReportCard> {
                 children: [
                   Icon(MdiIcons.checkCircleOutline, size: 12, color: JweTheme.accentCyan),
                   const SizedBox(width: 6),
-                  Text(
-                    "DAY COMMENCED · TASK TRACKING ACTIVE",
-                    style: GoogleFonts.jetBrainsMono(
-                      color: JweTheme.accentCyan,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.1,
+                  Expanded(
+                    child: Text(
+                      "DAY COMMENCED",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: JweTheme.accentCyan,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.1,
+                      ),
                     ),
                   ),
-                  const Spacer(),
                   InkWell(
                     onTap: () {
                       final effectiveDate = widget.date ?? DateFormat('yyyy-MM-dd').format(reportDate);

@@ -64,8 +64,8 @@ import kotlin.math.sin
  *    (tucking ~38% into the bezel, leaving a rounded tactile thumb-tab peeking out) and dims its
  *    contents (glow, arc, glyph, time) while the disc itself stays opaque so nothing shows
  *    through it. Instantly springs out at full brightness on touch.
- *  - Visibility: shown while a timer runs, and for [PAUSED_GRACE_MS] after it was halted, so a
- *    tap on HALT doesn't make the button vanish. Hides are debounced by [HIDE_DEBOUNCE_MS].
+ *  - Visibility: shown only while a timer runs; it hides when the task is stopped or paused.
+ *    Hides are debounced by [HIDE_DEBOUNCE_MS].
  *  - Stay Alive: Supported by [TaskForegroundService] while running so Android / MIUI battery
  *    savers never kill the process during long reading or focus sessions.
  *  - Tap: Halts running session or resumes paused session.
@@ -88,8 +88,6 @@ class TaskBubbleOverlay(private val context: Context) {
         private const val IDLE_DIM_MIN_ALPHA = 0.35f
         private const val IDLE_DELAY_MS = 2500L
 
-        /** The button stays (paused, amber) this long after HALT before it is removed. */
-        private const val PAUSED_GRACE_MS = 10 * 60_000L
 
         /** A "not running" reading must persist this long before the button is removed. */
         private const val HIDE_DEBOUNCE_MS = 1500L
@@ -267,10 +265,8 @@ class TaskBubbleOverlay(private val context: Context) {
         }
         if (taskPresent) lastHadTask = true
 
-        val effectivePausedAtMs = if (pausedAtPref < 0L) 0L else maxOf(pausedAtPref, localPausedAtMs)
-        val pausedAge = if (effectivePausedAtMs > 0L) (now - effectivePausedAtMs).coerceAtLeast(0L) else Long.MAX_VALUE
-        val inGrace = (taskPresent || lastHadTask) && !running && pausedAge in 0L until PAUSED_GRACE_MS
-        val wanted = started && enabled && !temporarilyHidden && (running || inGrace)
+        // Visible only while a task is running. Stopping or pausing hides the button.
+        val wanted = started && enabled && !temporarilyHidden && running
 
         if (wanted) {
             notRunningSince = 0L
@@ -306,8 +302,6 @@ class TaskBubbleOverlay(private val context: Context) {
                 }
             } else {
                 stopForeground()
-                // Wake up exactly when the grace period ends so the button leaves on time.
-                handler.postDelayed(syncRunnable, (PAUSED_GRACE_MS - pausedAge).coerceAtLeast(1000L) + 500L)
             }
             return@Runnable
         }

@@ -237,7 +237,12 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                 children: [
                   Icon(MdiIcons.checkDecagram, color: JweTheme.accentCyan, size: 22),
                   const SizedBox(width: 8),
-                  Text("MERGE COMPLETE", style: TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold)),
+                  Expanded(
+                    child: Text("MERGE COMPLETE",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold)),
+                  ),
                 ],
               ),
               content: SingleChildScrollView(

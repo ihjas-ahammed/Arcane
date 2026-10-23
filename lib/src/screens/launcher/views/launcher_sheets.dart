@@ -80,7 +80,8 @@ void showLauncherHomeMenu(
 }) {
   _sheet<void>(context, (ctx) {
     final service = LauncherService.instance;
-    return Column(
+    return SingleChildScrollView(
+      child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         _action(ctx, MdiIcons.appsBox, 'Add apps to home', () async {
@@ -103,6 +104,7 @@ void showLauncherHomeMenu(
         _action(ctx, MdiIcons.targetAccount, 'Arcane widgets', onOpenArcaneWidgets),
         _action(ctx, MdiIcons.tuneVariant, 'Launcher settings', () => showLauncherSettings(context)),
       ],
+      ),
     );
   });
 }

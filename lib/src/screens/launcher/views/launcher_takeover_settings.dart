@@ -25,7 +25,7 @@ class _LauncherTakeoverSettingsState extends State<LauncherTakeoverSettings> wit
   bool _loaded = false;
 
   // Floating Nora settings
-  bool _floatingNoraEnabled = true;
+  bool _floatingNoraEnabled = false;
   bool _watchFloatingEnabled = true;
 
   @override
