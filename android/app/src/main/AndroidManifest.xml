@@ -27,6 +27,8 @@
     <!-- Home launcher: pull down the notification shade, uninstall apps from the drawer -->
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR"/>
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES"/>
+    <!-- Grayscale status bar tile: granted once over adb (pm grant), not by the user prompt -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
     <!-- Foreground service: keeps reading/task timers and floating button alive in background -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
@@ -283,6 +285,23 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+        <!-- One-time setup guide for the Grayscale tile (opened when the permission is missing) -->
+        <activity
+            android:name=".GrayscaleSetupActivity"
+            android:exported="false"
+            android:label="Grayscale setup"
+            android:theme="@style/NormalTheme" />
+        <!-- Quick Settings status bar toggle: switches the display to grayscale -->
+        <service
+            android:name=".GrayscaleTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_qs_grayscale"
+            android:label="Grayscale"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
     </application>
