@@ -943,6 +943,7 @@ class NotificationService {
     required String body,
     required DateTime scheduledTime,
     String? payload,
+    List<AndroidNotificationAction>? actions,
   }) async {
     if (!_initialized) return;
     await cancelDailyReminder(id); // reuse cancel (clears both timer + plugin)
@@ -955,7 +956,7 @@ class NotificationService {
       final tzScheduled = tz.TZDateTime(
           tz.UTC, utc.year, utc.month, utc.day, utc.hour, utc.minute, utc.second);
 
-      const details = NotificationDetails(
+      final details = NotificationDetails(
         android: AndroidNotificationDetails(
           _reminderChannelId,
           _reminderChannelName,
@@ -963,6 +964,7 @@ class NotificationService {
           importance: Importance.high,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',
+          actions: actions,
         ),
         iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
       );
@@ -1010,9 +1012,15 @@ class NotificationService {
       await cancelOneTimeReminder(_goalSnoozeBase + i);
     }
 
-    // 2. Filter active daily goals with contemplation reminder times
+    // 2. Only today's active daily goals. Goals from earlier days stay in the list
+    // (they are never removed), so without this filter their repeating reminders
+    // kept firing on later days.
+    final todayKey = GoalModel.getPeriodKey(GoalScope.daily, DateTime.now());
     final activeDailyGoals = goals.where(
-      (g) => g.scope == GoalScope.daily && !g.isCompleted && g.reminderTimes.isNotEmpty,
+      (g) => g.scope == GoalScope.daily &&
+          g.dateKey == todayKey &&
+          !g.isCompleted &&
+          g.reminderTimes.isNotEmpty,
     ).toList();
 
     int slotIndex = 0;
@@ -1028,22 +1036,40 @@ class NotificationService {
         final id = 60000 + slotIndex;
         slotIndex++;
 
-        await scheduleDailyReminder(
-          id: id,
-          title: goal.title,
-          body: 'Dedicated daily reflection window: mentally visualize and strategize your next move for this goal.',
-          hour: h,
-          minute: m,
-          payload: 'goal_contemplate:${goal.id}:${goal.title}',
-          actions: const [
-            AndroidNotificationAction(
-              'snooze_goal_2h',
-              'Snooze (2 hr)',
-              showsUserInterface: false,
-              cancelNotification: true,
-            ),
-          ],
-        );
+        final body = 'Dedicated daily reflection window: mentally visualize and strategize your next move for this goal.';
+        final payload = 'goal_contemplate:${goal.id}:${goal.title}';
+        const snoozeActions = [
+          AndroidNotificationAction(
+            'snooze_goal_2h',
+            'Snooze (2 hr)',
+            showsUserInterface: false,
+            cancelNotification: true,
+          ),
+        ];
+
+        if (goal.isRecurring) {
+          // Recurring goals get a fresh copy each day with the same title, so repeating is intended.
+          await scheduleDailyReminder(
+            id: id,
+            title: goal.title,
+            body: body,
+            hour: h,
+            minute: m,
+            payload: payload,
+            actions: snoozeActions,
+          );
+        } else {
+          // A one-day goal must not repeat: it fires only today (skipped if the time has passed).
+          final now = DateTime.now();
+          await scheduleOneTimeReminder(
+            id: id,
+            title: goal.title,
+            body: body,
+            scheduledTime: DateTime(now.year, now.month, now.day, h, m),
+            payload: payload,
+            actions: snoozeActions,
+          );
+        }
       }
     }
   }

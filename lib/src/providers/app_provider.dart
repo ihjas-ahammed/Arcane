@@ -8,6 +8,7 @@ import 'package:missions/src/services/firebase_service.dart' as fb_service;
 import 'package:missions/src/services/local_storage_service.dart';
 import 'package:missions/src/services/storage_service.dart';
 import 'package:missions/src/services/data_export_service.dart';
+import 'package:missions/src/models/goal_model.dart';
 import 'package:missions/src/services/notification_service.dart';
 import 'package:missions/src/utils/briefing_context_helper.dart';
 import 'package:missions/src/utils/helpers.dart' as helper;
@@ -2995,6 +2996,11 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
       setLastLoginDate(todayStr);
       if (changed) setMainTasks(newMainTasks);
+
+      // New day: create today's recurring goal copies, then re-arm goal reminders so
+      // yesterday's goals stop notifying.
+      getGoalsForDate(DateTime.now(), GoalScope.daily);
+      NotificationService.instance.scheduleAllGoalContemplationReminders(goals);
 
       // If an advance startDayReport exists for today (e.g. synthesized the night before),
       // ensure day_started is unflagged and recurring tasks in task_snapshot start fresh.
