@@ -183,7 +183,11 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
     };
 
     _updateService.beforeInstall = () async {
-      if (localLoadError != null || cloudAttachRequired) throw StateError('Resolve data recovery before installing an update.');
+      if (localLoadError != null || cloudAttachRequired) {
+        // Saves are blocked while the recovery error stands, so back up the stored data as it is.
+        await _backupStoredDataBeforeUpdate();
+        return;
+      }
       await forceLocalBackup();
       await LocalStorageService.flushPendingSaves();
     };
@@ -1210,6 +1214,23 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     if (settings.dataVersion < 1) {
       settings.dataVersion = 1;
       markDirty('settings');
+    }
+  }
+
+  /// Copies the saved data on this device into the backup folder before an update installs.
+  /// The install does not change the local database, so an unreadable copy is logged and the
+  /// install continues. The copy is raw, so it keeps the records that failed to load.
+  Future<void> _backupStoredDataBeforeUpdate() async {
+    final uid = currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await LocalStorageService.flushPendingSaves();
+      final stored = await _localStorage.loadState(uid);
+      if (stored != null) {
+        await _localStorage.writeSnapshot(uid, stored, 'before_update_recovery');
+      }
+    } catch (e) {
+      debugPrint('[AppProvider] Pre-update backup could not read the stored data: $e');
     }
   }
 

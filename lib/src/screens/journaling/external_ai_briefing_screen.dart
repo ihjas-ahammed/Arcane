@@ -48,7 +48,9 @@ class _ExternalAiBriefingScreenState extends State<ExternalAiBriefingScreen> {
     _selectedDate = widget.initialDate ?? DateTime.now();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ExternalAiBriefingHelper.syncNotificationsFromJournal(Provider.of<AppProvider>(context, listen: false), _selectedDate);
+      final app = Provider.of<AppProvider>(context, listen: false);
+      ExternalAiBriefingHelper.syncNotificationsFromJournal(app, _selectedDate);
+      _filePicker.refreshOfflineExports(app);
     });
   }
 

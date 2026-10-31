@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/utils/external_ai_briefing_helper.dart';
 import 'package:missions/src/widgets/ui/tactical_briefing_indicator.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// Result of checking one picked briefing JSON file.
 class BriefingFileCheck {
@@ -56,7 +57,38 @@ class BriefingFilePickerProvider extends ChangeNotifier {
 
   bool get isPicking => _isPicking;
 
+  /// Folder under the app documents folder. The Android documents provider (ArcaneExportsProvider)
+  /// shows this folder in the system file picker. Keep the two names in sync.
+  static const String exportDirName = 'briefing_exports';
+
+  static String exportFileName(BriefingType type) => 'arcane_briefing_${type.name}.json';
+
   static String _dayKey(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
+  /// Writes the latest offline export for each slot into [exportDirName], so the file picker can
+  /// offer it. Each file is replaced on every refresh, so it always holds the current data.
+  Future<void> refreshOfflineExports(AppProvider app, {DateTime? now}) async {
+    final today = now ?? DateTime.now();
+    try {
+      await ExternalAiBriefingHelper.syncNotificationsFromJournal(app, today);
+      final base = await getApplicationDocumentsDirectory();
+      final dir = Directory('${base.path}/$exportDirName');
+      await dir.create(recursive: true);
+      for (final type in slotTypes) {
+        final data = ExternalAiBriefingHelper.buildExportData(
+          provider: app,
+          targetDate: today,
+          type: type,
+        );
+        final file = File('${dir.path}/${exportFileName(type)}');
+        final tmp = File('${file.path}.tmp');
+        await tmp.writeAsString(jsonEncode(data), flush: true);
+        await tmp.rename(file.path);
+      }
+    } catch (e) {
+      debugPrint('[BriefingFilePicker] Offline export refresh failed: $e');
+    }
+  }
 
   /// Checks one JSON export against the slot type and today's date.
   ///
