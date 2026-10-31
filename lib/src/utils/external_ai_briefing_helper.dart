@@ -12,6 +12,20 @@ import 'package:uuid/uuid.dart';
 /// Helper utility for compiling external AI briefing datasets, prompt generation,
 /// output parsing, and persistence.
 class ExternalAiBriefingHelper {
+  /// Writing style added to every briefing prompt. Based on ASD-STE100 Simplified Technical English.
+  static const String steWritingStyle = """
+WRITING STYLE (ASD-STE100 Simplified Technical English). Apply it to every text string in the JSON:
+1. Write one idea in each sentence. Keep each sentence to 20 words or fewer.
+2. Use active voice. Write "You finished the task." Do not write "The task was finished."
+3. Use the simple tenses: present, past and future. Do not use the present perfect continuous.
+4. Use one word for one meaning. Do not use synonyms. Write "start", not "begin" or "commence".
+5. Do not use idioms, slang, humour or metaphors. Be literal and concrete.
+6. Use a noun or a name instead of "it", "this" or "they" when the reference is not clear.
+7. Do not use "and/or" or "etc.". Do not use "-ing" words as nouns.
+8. Write numbers as digits. Write dates as YYYY-MM-DD.
+9. Use "must" for a requirement, "should" for advice and "may" for an option.
+10. Use only common words. Do not use abbreviations unless the data uses them.""";
+
   /// Builds the complete telemetry and historical context JSON dataset according to
   /// the operator's specification:
   /// - All weekly briefs of last 30 days
@@ -318,6 +332,7 @@ MISSION:
 
 Tone: Uplifting, highly optimistic, empowering, and deeply appreciative. Celebrate all accomplishments, small wins, and positive turning points. NEVER give negative or critical advice.
 Writing rules: Address the user directly as "you". Plain prose only — no markdown, no headers, no bullet/numbered lists inside any string. Be concrete and specific to the data.
+$steWritingStyle
 
 VALUE FIELDS RULE: Fields that show a value on a small card (finance income, expense and net, counts, amounts, scores) must hold ONLY the bare value. Do not add units, currency symbols, labels or descriptions inside those fields. Put any explanation in a separate description or note field.
 
@@ -442,6 +457,8 @@ You are provided with a complete JSON dataset containing the user's historical b
 Generate a comprehensive 7-DAY REVIEW REPORT grounded in GTD, Atomic Habits, positive psychology, and optimistic encouragement.
 Tone: Uplifting, highly optimistic, empowering, and deeply appreciative. Celebrate all accomplishments and positive turning points.
 
+$steWritingStyle
+
 Generate the official WEEKLY REPORT adhering strictly to this JSON schema:
 
 {
@@ -517,6 +534,8 @@ You are provided with a complete JSON dataset containing the user's historical b
 
 Generate a MONTHLY BRIEFING grounded in positive psychology and optimistic encouragement.
 Tone: Uplifting, highly optimistic, empowering, and deeply appreciative. Celebrate all accomplishments, growth, and positive turning points.
+
+$steWritingStyle
 
 Generate the official MONTHLY BRIEFING adhering strictly to this JSON schema:
 

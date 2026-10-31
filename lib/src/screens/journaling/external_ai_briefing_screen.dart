@@ -5,12 +5,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/providers/briefing_file_picker_provider.dart';
 import 'package:missions/src/screens/journaling/monthly_review_screen.dart';
 import 'package:missions/src/screens/journaling/weekly_review_screen.dart';
 import 'package:missions/src/services/data_export_service.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/external_ai_briefing_helper.dart';
 import 'package:missions/src/utils/goal_briefing_helper.dart';
+import 'package:missions/src/widgets/cards/briefing/briefing_file_picker_panel.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
 import 'package:missions/src/widgets/ui/tactical_briefing_indicator.dart';
 import 'package:provider/provider.dart';
@@ -35,6 +37,7 @@ class _ExternalAiBriefingScreenState extends State<ExternalAiBriefingScreen> {
   late BriefingType _selectedType;
   late DateTime _selectedDate;
   final TextEditingController _outputController = TextEditingController();
+  final BriefingFilePickerProvider _filePicker = BriefingFilePickerProvider();
   bool _isProcessing = false;
   String? _parseError;
 
@@ -52,6 +55,7 @@ class _ExternalAiBriefingScreenState extends State<ExternalAiBriefingScreen> {
   @override
   void dispose() {
     _outputController.dispose();
+    _filePicker.dispose();
     super.dispose();
   }
 
@@ -474,6 +478,13 @@ class _ExternalAiBriefingScreenState extends State<ExternalAiBriefingScreen> {
                     ],
                   ],
                 ),
+              ),
+              const SizedBox(height: 16),
+
+              // ── Offline JSON picker: checks the file, copies the prompt ──
+              ChangeNotifierProvider.value(
+                value: _filePicker,
+                child: BriefingFilePickerPanel(accent: JweTheme.accentCyan),
               ),
               const SizedBox(height: 16),
 
