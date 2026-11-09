@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/models/skill_models.dart';
-import 'package:missions/src/widgets/charts/wellbeing_pie_chart.dart';
-import 'package:missions/src/widgets/charts/time_pie_chart.dart';
+import 'package:missions/src/widgets/charts/mission_focus_body.dart';
 import 'package:missions/src/widgets/charts/weekly_line_charts.dart';
 import 'package:missions/src/widgets/ui/chart_carousel.dart';
 import 'package:missions/src/widgets/ui/hud_components.dart';
@@ -24,7 +23,6 @@ import 'package:missions/src/widgets/cards/start_day_report_card.dart';
 import 'package:missions/src/widgets/ui/task_progress_snapshot_view.dart';
 import 'package:missions/src/widgets/ui/tactical_briefing_indicator.dart';
 import 'package:missions/src/widgets/analytics/jwe_date_selector.dart';
-import 'package:missions/src/widgets/analytics/jwe_reflection_progress.dart';
 import 'package:missions/src/widgets/analytics/jwe_quick_access_grid.dart';
 import 'package:missions/src/widgets/dialogs/create_time_log_start_dialog.dart';
 import 'package:missions/src/widgets/dialogs/start_new_day_dialog.dart';
@@ -44,7 +42,6 @@ class DailySummaryView extends StatefulWidget {
 class _DailySummaryViewState extends State<DailySummaryView> {
   String? _selectedDate;
   String? _selectedTaskFilter;
-  String? _selectedVirtueFilter;
   bool _isGeneratingSummary = false;
   bool _isGeneratingWeeklyReport = false;
   bool _isGeneratingMonthlyReport = false;
@@ -735,52 +732,23 @@ class _DailySummaryViewState extends State<DailySummaryView> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(
-                  child: HudPanel(
-                    clip: HudClip.br,
-                    accent: JweTheme.accentCyan,
-                    padding: EdgeInsets.zero,
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                      _PanelHeader(label: 'MISSION FOCUS', color: JweTheme.accentCyan),
-                      Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: SizedBox(
-                          height: 150,
-                          child: TimePieChart(
-                            taskData: chartData['dailyTaskTimeData'],
-                            taskColors: chartData['taskColors'],
-                            selectedTask: _selectedTaskFilter,
-                            onTaskSelected: (val) => setState(() => _selectedTaskFilter = val),
-                          ),
-                        ),
-                      ),
-                    ]),
+              child: HudPanel(
+                clip: HudClip.br,
+                accent: JweTheme.accentCyan,
+                padding: EdgeInsets.zero,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  _PanelHeader(label: 'MISSION FOCUS', color: JweTheme.accentCyan),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                    child: MissionFocusBody(
+                      taskData: chartData['dailyTaskTimeData'],
+                      taskColors: chartData['taskColors'],
+                      selectedTask: _selectedTaskFilter,
+                      onTaskSelected: (val) => setState(() => _selectedTaskFilter = val),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: HudPanel(
-                    clip: HudClip.br,
-                    accent: JweTheme.accentAmber,
-                    padding: EdgeInsets.zero,
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                      _PanelHeader(label: 'WHAT THE DAY NEEDED', color: JweTheme.accentAmber),
-                      Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: SizedBox(
-                          height: 150,
-                          child: WellbeingPieChart(
-                            logs: reflectionsForDate,
-                            selectedVirtue: _selectedVirtueFilter,
-                            onVirtueSelected: (val) => setState(() => _selectedVirtueFilter = val),
-                          ),
-                        ),
-                      ),
-                    ]),
-                  ),
-                ),
-              ]),
+                ]),
+              ),
             ),
 
             // ── Inspect date ───────────────────────────
@@ -789,15 +757,6 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               child: JweDateSelector(
                 dateStr: _selectedDate ?? 'TODAY',
                 onTap: () => _pickDate(context),
-              ),
-            ),
-
-            // ── Reflection protocol ────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-              child: JweReflectionProgress(
-                logs: reflectionsForDate,
-                dateStr: _selectedDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
               ),
             ),
 

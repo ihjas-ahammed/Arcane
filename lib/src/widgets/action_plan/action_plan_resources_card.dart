@@ -168,7 +168,8 @@ class _ResourceChipBuilder extends StatelessWidget {
         if(item.name.length > 30) name = "${name.substring(0,30)}...";
 
         return InkWell(
-          onTap: () {
+          onTap: onRemove,
+          onLongPress: () {
             showDialog(
               context: context,
               builder: (_) => AssetInfoDialog(item: item)

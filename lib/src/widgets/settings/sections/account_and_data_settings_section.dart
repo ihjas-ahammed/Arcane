@@ -184,16 +184,16 @@ class _AccountAndDataSettingsSectionState
                         height: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
-                          color: AppTheme.fhAccentOrange,
+                          color: AppTheme.fhAccentRed,
                         ),
                       )
                     : Icon(MdiIcons.logoutVariant, size: 18),
                 label: const Text('TERMINATE SESSION'),
                 onPressed: _logoutLoading ? null : () => _handleLogout(appProvider),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.fhAccentOrange,
+                  foregroundColor: AppTheme.fhAccentRed,
                   side: BorderSide(
-                    color: AppTheme.fhAccentOrange,
+                    color: AppTheme.fhAccentRed,
                     width: 1.5,
                   ),
                   minimumSize: const Size(double.infinity, 44),
