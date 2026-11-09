@@ -168,7 +168,12 @@ mixin SyncMixin on ChangeNotifier {
 
   Future<void> maybeAutomaticCloudBackup() async {
     if (!_dataLoadInProgress && settings.autoSaveEnabled && cloudBaseline != null) unawaited(ensureWeeklyOffsiteBackup());
-    if (!_hasUnsavedChanges || _dataLoadInProgress || cloudAttachRequired || localLoadError != null || !settings.autoSaveEnabled) return;
+    if (!_hasUnsavedChanges || _dataLoadInProgress || cloudAttachRequired || localLoadError != null) return;
+    if (settings.alwaysWriteCloud) {
+      await syncEndOfDay(showNotification: false, maxAttempts: 1);
+      return;
+    }
+    if (!settings.autoSaveEnabled) return;
     if (_lastSuccessfulSaveTimestamp == null || DateTime.now().difference(_lastSuccessfulSaveTimestamp!) >= const Duration(hours: 6)) {
       await syncEndOfDay(showNotification: false, maxAttempts: 1);
     }
@@ -275,6 +280,7 @@ mixin SyncMixin on ChangeNotifier {
   void dispose() {
     _disposed = true;
     _saveDebounce?.cancel();
+    _alwaysWriteTimer?.cancel();
     _cloudRetryTimer?.cancel();
     _connectivitySubscription?.cancel();
     _periodicCloudTimer?.cancel();
@@ -294,7 +300,40 @@ mixin SyncMixin on ChangeNotifier {
     _hasUnsavedChanges = true;
     _editGeneration++;
     _scheduleLocalSave();
+    if (settings.alwaysWriteCloud) _scheduleAlwaysWrite();
     notifyListeners();
+  }
+
+  Timer? _alwaysWriteTimer;
+
+  /// "Always write to cloud": a push a few seconds after the last edit. Writes only; never pulls.
+  void _scheduleAlwaysWrite() {
+    if (currentUser == null || _dataLoadInProgress || localLoadError != null || cloudAttachRequired) return;
+    _alwaysWriteTimer?.cancel();
+    _alwaysWriteTimer = Timer(const Duration(seconds: 5), () {
+      unawaited(syncEndOfDay(showNotification: false, maxAttempts: 3));
+    });
+  }
+
+  /// Full-state loads (replacing or merging everything) are allowed only inside an explicit
+  /// confirmation made in Settings. Startup loads from this device's own database do not use this.
+  int _confirmedFullLoadDepth = 0;
+  /// Test-only switch so merge logic can be exercised without the Settings confirmation.
+  static bool debugAllowFullLoads = false;
+
+  Future<T> runConfirmedFullLoad<T>(Future<T> Function() action) async {
+    _confirmedFullLoadDepth++;
+    try {
+      return await action();
+    } finally {
+      _confirmedFullLoadDepth--;
+    }
+  }
+
+  void requireConfirmedFullLoad(String operation) {
+    if (_confirmedFullLoadDepth == 0 && !debugAllowFullLoads) {
+      throw StateError('$operation is blocked. Full-state loads run only after you confirm them in Settings.');
+    }
   }
 
   @override
@@ -413,7 +452,7 @@ mixin SyncMixin on ChangeNotifier {
   /// Never throws; returns whether the cloud now holds the current local state.
   Future<bool> syncEndOfDay({bool showNotification = true, int? maxAttempts, bool manual = false}) async {
     if (currentUser == null || _dataLoadInProgress || localLoadError != null || cloudAttachRequired || failedCollections.isNotEmpty) return false;
-    if (!manual && !settings.autoSaveEnabled) return false;
+    if (!manual && !settings.autoSaveEnabled && !settings.alwaysWriteCloud) return false;
     if (_isSyncing) {
       // A push is already running: queue exactly one more so the newest state is also pushed.
       _endOfDaySyncQueued = true;
@@ -572,6 +611,7 @@ mixin SyncMixin on ChangeNotifier {
 
   Future<bool> manuallyLoadFromCloud() async {
     if (currentUser == null) return false;
+    requireConfirmedFullLoad('Loading from cloud');
     _isManuallyLoading = true;
     notifyListeners();
     try {

@@ -377,6 +377,30 @@ mixin TaskMixin on ChangeNotifier {
     notifyListeners();
   }
 
+  void addGoalListItem(String goalId, GoalListKind kind, String text) {
+    final value = text.trim();
+    if (value.isEmpty) return;
+    _goals = _goals.map((g) {
+      if (g.id != goalId) return g;
+      final items = [
+        ...g.listOf(kind),
+        GoalListItem(id: 'li_${DateTime.now().millisecondsSinceEpoch}', text: value),
+      ];
+      return g.withListItems(kind, items);
+    }).toList();
+    sync.markDirty('tasks');
+    notifyListeners();
+  }
+
+  void deleteGoalListItem(String goalId, GoalListKind kind, String itemId) {
+    _goals = _goals.map((g) {
+      if (g.id != goalId) return g;
+      return g.withListItems(kind, g.listOf(kind).where((i) => i.id != itemId).toList());
+    }).toList();
+    sync.markDirty('tasks');
+    notifyListeners();
+  }
+
   void deleteGoalSubCheckItem(String goalId, String itemId, {bool silent = false}) {
     final targetGoal = _goals.firstWhereOrNull((g) => g.id == goalId);
     if (targetGoal == null) return;

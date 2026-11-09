@@ -68,7 +68,7 @@ class _LocalDataErrorScreenState extends State<LocalDataErrorScreen> {
     );
     if (confirmed != true) return;
     try {
-      await provider.importLocalJson(data);
+      await provider.runConfirmedFullLoad(() => provider.importLocalJson(data));
       messenger.showSnackBar(const SnackBar(content: Text("JSON loaded into the database")));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text("Load failed: $e")));

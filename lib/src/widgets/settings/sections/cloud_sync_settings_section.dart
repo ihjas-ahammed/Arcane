@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:missions/src/providers/app_provider.dart';
+import 'package:missions/src/services/briefing_backup_service.dart';
 import 'package:missions/src/screens/settings/data_recovery_screen.dart';
 import 'package:missions/src/theme/app_theme.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
@@ -54,10 +55,35 @@ class CloudSyncSettingsSection extends StatelessWidget {
       if (confirmed != true) return;
       final snapshot = await appProvider.storageService.getUserSnapshot(appProvider.currentUser!.uid);
       final state = await appProvider.storageService.getCloudVersion(appProvider.currentUser!.uid, selected['version'] as String);
-      await appProvider.replaceStateSafely(state);
+      await appProvider.runConfirmedFullLoad(() => appProvider.replaceStateSafely(state));
       if (snapshot != null) await appProvider.persistCloudBaseline((snapshot['lastModified'] as num).toInt(), version: snapshot['version'] as String?);
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dated backup restored on this device.')));
     } catch (e) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Restore failed: $e'))); }
+  }
+
+  Future<bool> _confirmCloudLoad(BuildContext context, String mode) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: JweTheme.panel,
+        title: Text('Load from cloud?', style: TextStyle(color: JweTheme.textWhite, fontWeight: FontWeight.bold)),
+        content: Text(
+          mode == 'merge'
+              ? 'Cloud data will be merged into this device. Your current data is copied to backups first.'
+              : 'This device will be replaced with the cloud copy. Your current data is copied to backups first.',
+          style: TextStyle(color: JweTheme.textMuted, fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel', style: TextStyle(color: JweTheme.textMuted))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: JweTheme.accentCyan, foregroundColor: JweTheme.onAccent),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Load'),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
   }
 
   Future<void> _confirmDeletionSync(BuildContext context) async {
@@ -123,6 +149,19 @@ class CloudSyncSettingsSection extends StatelessWidget {
                     appProvider.settings..autoSaveEnabled = value);
               },
             ),
+            SwitchListTile.adaptive(
+              title: const Text('Always Write to Cloud'),
+              subtitle: const Text('Every change is pushed to the cloud a few seconds after it is made. Nothing is ever loaded from the cloud automatically.'),
+              value: appProvider.settings.alwaysWriteCloud,
+              activeTrackColor: AppTheme.fhAccentTeal,
+              contentPadding: EdgeInsets.zero,
+              onChanged: (bool value) {
+                appProvider.setSettings(
+                    appProvider.settings..alwaysWriteCloud = value);
+                if (value) appProvider.manuallySaveToCloud();
+              },
+            ),
+            _AllFilesAccessRow(),
             if (appProvider.mergeConflicts.isNotEmpty) TextButton(onPressed: () => _reviewConflict(context), child: Text('REVIEW ${appProvider.mergeConflicts.length} CONFLICTING EDITS')),
             if (appProvider.offsiteBackupError != null) Text(appProvider.offsiteBackupError!, style: const TextStyle(color: Colors.orange)),
             if (!appProvider.settings.autoSaveEnabled) const Text('Auto-backup is OFF. Manual sync is still available.', style: TextStyle(color: Colors.orange)),
@@ -198,15 +237,15 @@ class CloudSyncSettingsSection extends StatelessWidget {
                         ),
                       );
 
-                      if (mode != null && context.mounted) {
+                      if (mode != null && context.mounted && await _confirmCloudLoad(context, mode)) {
                         try {
                           final report = await DataRestoreProgressDialog.run<MergeReport?>(
                             context: context,
                             title: mode == 'merge' ? "MERGING CLOUD DATA" : "RESTORING FROM CLOUD",
-                            action: (reportProgress) => appProvider.restoreFromCloudWithProgress(
+                            action: (reportProgress) => appProvider.runConfirmedFullLoad(() => appProvider.restoreFromCloudWithProgress(
                               merge: mode == 'merge',
                               onProgress: reportProgress,
-                            ),
+                            )),
                           );
 
                           if (context.mounted) {
@@ -301,6 +340,73 @@ class CloudSyncSettingsSection extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Shows whether briefing backups can reach /sdcard/Backups, and asks for All Files Access if not.
+class _AllFilesAccessRow extends StatefulWidget {
+  const _AllFilesAccessRow();
+
+  @override
+  State<_AllFilesAccessRow> createState() => _AllFilesAccessRowState();
+}
+
+class _AllFilesAccessRowState extends State<_AllFilesAccessRow> with WidgetsBindingObserver {
+  bool? _granted;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refresh();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final granted = await BriefingBackupService.hasAllFilesAccess();
+    if (mounted) setState(() => _granted = granted);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final granted = _granted;
+    final fallback = BriefingBackupService.lastWroteToFallback;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('All Files Access'),
+          subtitle: Text(
+            granted == null
+                ? 'Checking…'
+                : granted
+                    ? 'Full JSON backups are saved to /sdcard/Backups after every daily briefing.'
+                    : 'Needed to save full JSON backups to /sdcard/Backups. Until it is granted they stay in the app folder.',
+          ),
+          trailing: granted == true
+              ? Icon(Icons.check_circle, color: AppTheme.fhAccentTeal)
+              : TextButton(
+                  onPressed: () async {
+                    await BriefingBackupService.requestAllFilesAccess();
+                  },
+                  child: const Text('GRANT'),
+                ),
+        ),
+        if (fallback && granted != true)
+          const Text('Last briefing backup went to the app folder, not /sdcard/Backups.', style: TextStyle(color: Colors.orange)),
+      ],
     );
   }
 }

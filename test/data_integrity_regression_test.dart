@@ -1,3 +1,4 @@
+import 'package:missions/src/providers/mixins/sync_mixin.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
@@ -30,6 +31,7 @@ class RecoveryProvider extends AppProvider {
 }
 
 void main() {
+  setUpAll(() => SyncMixin.debugAllowFullLoads = true);
   TestWidgetsFlutterBinding.ensureInitialized();
   setupFirebaseAuthMocks();
   late Directory docs;

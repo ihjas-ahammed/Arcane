@@ -205,6 +205,8 @@ class AppSettings {
   bool descriptionsVisible;
   bool dailyAutoGenerateContent;
   bool autoSaveEnabled;
+  /// Every change is pushed to the cloud (never pulled). Independent of [autoSaveEnabled].
+  bool alwaysWriteCloud;
   bool dayPlannerWidgetCheckable;
   int wakeupTimeHour;
   int wakeupTimeMinute;
@@ -312,6 +314,7 @@ class AppSettings {
     this.descriptionsVisible = true,
     this.dailyAutoGenerateContent = true,
     this.autoSaveEnabled = true,
+    this.alwaysWriteCloud = true,
     this.dayPlannerWidgetCheckable = false,
     this.wakeupTimeHour = 7,
     this.wakeupTimeMinute = 0,
@@ -396,6 +399,7 @@ class AppSettings {
           json['autoGenerateContent'] as bool? ??
           true,
       autoSaveEnabled: json['autoSaveEnabled'] as bool? ?? true,
+      alwaysWriteCloud: json['alwaysWriteCloud'] as bool? ?? true,
       dayPlannerWidgetCheckable: json['dayPlannerWidgetCheckable'] as bool? ?? false,
       wakeupTimeHour: (json['wakeupTimeHour'] as num?)?.toInt() ?? 7,
       wakeupTimeMinute: (json['wakeupTimeMinute'] as num?)?.toInt() ?? 0,
@@ -525,6 +529,7 @@ class AppSettings {
       'descriptionsVisible': descriptionsVisible,
       'dailyAutoGenerateContent': dailyAutoGenerateContent,
       'autoSaveEnabled': autoSaveEnabled,
+      'alwaysWriteCloud': alwaysWriteCloud,
       'dayPlannerWidgetCheckable': dayPlannerWidgetCheckable,
       'wakeupTimeHour': wakeupTimeHour,
       'wakeupTimeMinute': wakeupTimeMinute,

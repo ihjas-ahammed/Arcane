@@ -44,6 +44,25 @@ class GoalSubCheckItem {
   }
 }
 
+/// Plain text entry used for Key Results and Collaborators (no completion state).
+class GoalListItem {
+  final String id;
+  final String text;
+
+  const GoalListItem({required this.id, required this.text});
+
+  factory GoalListItem.fromJson(Map<String, dynamic> json) {
+    return GoalListItem(
+      id: json['id'] as String? ?? '',
+      text: json['text'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {'id': id, 'text': text};
+}
+
+enum GoalListKind { keyResults, collaborators }
+
 class GoalPlace {
   final String id;
   final String name;
@@ -128,6 +147,8 @@ class GoalModel {
   final bool countAllTime; // If true, count all-time task duration; if false (default), start from goal date at 12:00 AM
   final List<String> reminderTimes; // e.g. ["09:00", "14:30"], active strictly for daily goals
   final List<String> placeIds; // References to GoalPlace.id; empty when no place is set
+  final List<GoalListItem> keyResults;
+  final List<GoalListItem> collaborators;
 
   GoalModel({
     required this.id,
@@ -146,6 +167,8 @@ class GoalModel {
     this.countAllTime = false,
     this.reminderTimes = const [],
     this.placeIds = const [],
+    this.keyResults = const [],
+    this.collaborators = const [],
   })  : createdAt = createdAt ?? DateTime.now(),
         dateKey = dateKey ?? getPeriodKey(scope, startDateTime ?? DateTime.now());
 
@@ -193,6 +216,8 @@ class GoalModel {
     List<String>? reminderTimes,
     List<String>? placeIds,
     bool clearPlaceIds = false,
+    List<GoalListItem>? keyResults,
+    List<GoalListItem>? collaborators,
   }) {
     return GoalModel(
       id: id ?? this.id,
@@ -211,8 +236,16 @@ class GoalModel {
       countAllTime: countAllTime ?? this.countAllTime,
       reminderTimes: reminderTimes ?? this.reminderTimes,
       placeIds: clearPlaceIds ? const [] : (placeIds ?? this.placeIds),
+      keyResults: keyResults ?? this.keyResults,
+      collaborators: collaborators ?? this.collaborators,
     );
   }
+
+  List<GoalListItem> listOf(GoalListKind kind) =>
+      kind == GoalListKind.keyResults ? keyResults : collaborators;
+
+  GoalModel withListItems(GoalListKind kind, List<GoalListItem> items) =>
+      kind == GoalListKind.keyResults ? copyWith(keyResults: items) : copyWith(collaborators: items);
 
   factory GoalModel.fromJson(Map<String, dynamic> json) {
     final scopeVal = GoalScope.values.firstWhere(
@@ -256,6 +289,14 @@ class GoalModel {
       // Older saves stored one 'placeId' string; read it as a one-item list.
       placeIds: (json['placeIds'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
           (json['placeId'] is String ? [json['placeId'] as String] : const []),
+      keyResults: (json['keyResults'] as List<dynamic>?)
+              ?.map((e) => GoalListItem.fromJson(Map<String, dynamic>.from(e)))
+              .toList() ??
+          const [],
+      collaborators: (json['collaborators'] as List<dynamic>?)
+              ?.map((e) => GoalListItem.fromJson(Map<String, dynamic>.from(e)))
+              .toList() ??
+          const [],
     );
   }
 
@@ -277,6 +318,8 @@ class GoalModel {
       'countAllTime': countAllTime,
       'reminderTimes': reminderTimes,
       'placeIds': placeIds,
+      'keyResults': keyResults.map((e) => e.toJson()).toList(),
+      'collaborators': collaborators.map((e) => e.toJson()).toList(),
       // Kept for older app versions that read a single place.
       if (placeIds.isNotEmpty) 'placeId': placeIds.first,
     };

@@ -18,6 +18,7 @@ import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/utils/goal_briefing_helper.dart';
 import 'package:missions/src/models/app_state_models.dart';
 import 'package:missions/src/models/task_models.dart';
+import 'package:missions/src/services/briefing_backup_service.dart';
 import 'package:missions/src/models/skill_models.dart';
 import 'package:missions/src/models/chatbot_models.dart';
 import 'package:missions/src/models/finance_models.dart';
@@ -940,6 +941,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   /// "Load JSON into database": replaces the stored state for the current user with [data]
   /// and loads it. The previous rows are kept in backups/ first.
   Future<void> importLocalJson(Map<String, dynamic> data) async {
+    requireConfirmedFullLoad('Importing JSON');
     final user = currentUser;
     if (user == null) throw StateError('Sign in before loading data.');
     final normalized = normalizeImportedData(data);
@@ -1072,7 +1074,10 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     }, forceReplace: true);
   }
 
-  Future<void> startFreshAfterCloudConfirmation(String confirmation) async {
+  Future<void> startFreshAfterCloudConfirmation(String confirmation) =>
+      runConfirmedFullLoad(() => _startFreshAfterCloudConfirmation(confirmation));
+
+  Future<void> _startFreshAfterCloudConfirmation(String confirmation) async {
     if (confirmation != 'DELETE' || currentUser == null) throw StateError('Type DELETE to start fresh.');
     await _localStorage.writeSnapshot(currentUser!.uid, getFullAppState(), 'before_start_fresh');
     Map<String, dynamic>? snapshot;
@@ -1244,6 +1249,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
 
   @override
   MergeReport mergeAppStateFromMap(Map<String, dynamic> rawData) {
+    requireConfirmedFullLoad('Merging data');
     final data = normalizeImportedData(rawData);
     validateAppState(data);
 
@@ -1557,6 +1563,8 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       final gList = toListOfMaps(raw['goals']);
       for (final g in gList) {
         if (g['subChecklist'] != null) g['subChecklist'] = toListOfMaps(g['subChecklist']);
+        if (g['keyResults'] != null) g['keyResults'] = toListOfMaps(g['keyResults']);
+        if (g['collaborators'] != null) g['collaborators'] = toListOfMaps(g['collaborators']);
       }
       raw['goals'] = gList;
     }
@@ -1905,6 +1913,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   }
 
   Future<MergeReport?> restoreFromLocalSnapshot(File backupFile, {bool merge = true}) async {
+    requireConfirmedFullLoad('Restoring a snapshot');
     try {
       final contents = await backupFile.readAsString();
       final data = jsonDecode(contents) as Map<String, dynamic>;
@@ -2044,6 +2053,7 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   }
 
   Future<void> replaceStateSafely(Map<String, dynamic> rawData) async {
+    requireConfirmedFullLoad('Replacing all data');
     final user = currentUser;
     if (user == null) throw StateError('Sign in before replacing data.');
     final norm = normalizeImportedData(rawData);
@@ -2788,6 +2798,12 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
     return getPreviouslyUsedStories();
   }
 
+  /// Writes the full app state as a JSON backup. Runs in the background and never blocks the briefing.
+  void _backupAfterBriefing(String label) {
+    if (currentUser == null) return;
+    unawaited(BriefingBackupService.writeFullBackup(label: label, state: getFullAppState()));
+  }
+
   Future<Map<String, dynamic>> generateTacticalBriefing(
     String date,
     List<ReflectionLog> logs, {
@@ -2929,6 +2945,9 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
       }
     }
 
+    // Every briefing leaves a full JSON backup in /sdcard/Backups (or the app folder without access).
+    _backupAfterBriefing('daily_briefing');
+
     // End of day: this is the one moment the whole app state is pushed to the cloud.
     unawaited(syncEndOfDay());
 
@@ -2936,36 +2955,17 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
   }
 
   void _cleanOverlappingSessions() {
-    bool changed = false;
-    final newMainTasks = mainTasks.map((task) {
-      return task.copyWith(
-        subTasks: task.subTasks.map((sub) {
-          if (sub.sessions.length <= 1) return sub;
-          final sorted = List<TaskSession>.from(sub.sessions)..sort((a, b) => a.startTime.compareTo(b.startTime));
-          final List<TaskSession> cleaned =[sorted.first];
-          for (int i = 1; i < sorted.length; i++) {
-            final current = sorted[i];
-            final previous = cleaned.last;
-            if (current.startTime.isBefore(previous.endTime)) {
-              changed = true;
-              if (current.endTime.isAfter(previous.endTime)) {
-                cleaned.removeLast();
-                cleaned.add(TaskSession(id: previous.id, startTime: previous.startTime, endTime: current.endTime));
-              }
-            } else {
-              cleaned.add(current);
-            }
-          }
-          if (cleaned.length != sub.sessions.length) {
-            final totalSeconds = cleaned.fold(0, (sum, s) => sum + s.durationSeconds);
-            return sub.copyWith(currentTimeSpent: totalSeconds, sessions: cleaned);
-          }
-          return sub;
-        }).toList()
-      );
-    }).toList();
-
-    if (changed) setMainTasks(newMainTasks);
+    // Reporting only: merging or dropping sessions at launch deleted time records.
+    var overlaps = 0;
+    for (final task in mainTasks) {
+      for (final sub in task.subTasks) {
+        final sorted = List<TaskSession>.from(sub.sessions)..sort((x, y) => x.startTime.compareTo(y.startTime));
+        for (var i = 1; i < sorted.length; i++) {
+          if (sorted[i].startTime.isBefore(sorted[i - 1].endTime)) overlaps++;
+        }
+      }
+    }
+    if (overlaps > 0) debugPrint('[AppProvider] $overlaps overlapping sessions left as they are.');
   }
 
   void _fixTimerAnomalies() {
@@ -3000,7 +3000,8 @@ Provide a concise, tactical 1-2 sentence response (under 140 characters so it fi
                 templateSets: st.templateSets.map((ts) => ts.copyWith(
                   subSubTasks: ts.subSubTasks.map(_resetCheckpoint).toList(),
                 )).toList(),
-                progressDataPoints: [],
+                // Progress history is kept: clearing it at midnight deleted data.
+                progressDataPoints: st.progressDataPoints,
                 updatedAt: DateTime.now(),
               );
             }

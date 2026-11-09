@@ -8,7 +8,10 @@ import 'package:missions/src/providers/app_provider.dart';
 import 'package:missions/src/theme/jwe_theme.dart';
 import 'package:missions/src/utils/global_toast.dart';
 import 'package:missions/src/widgets/drawers/goals/add_sub_check_item_row.dart';
+import 'package:missions/src/widgets/drawers/goals/goal_panel_widgets.dart';
 import 'package:missions/src/widgets/drawers/goals/tactical_goal_painters.dart';
+
+enum _GoalPanel { checklist, keyResults, collaborators }
 
 class TacticalGoalCard extends StatefulWidget {
   final GoalModel goal;
@@ -38,13 +41,16 @@ class TacticalGoalCard extends StatefulWidget {
 
 class _TacticalGoalCardState extends State<TacticalGoalCard> {
   bool _isReorderMode = false;
+  // The checklist opens by default, so its items are visible as soon as the goal is expanded.
+  final Set<_GoalPanel> _openPanels = {_GoalPanel.checklist};
 
   void _toggleReorderMode() {
     HapticFeedback.lightImpact();
     setState(() {
       _isReorderMode = !_isReorderMode;
-      if (_isReorderMode && !widget.isSubExpanded) {
-        widget.onToggleSubExpanded();
+      if (_isReorderMode) {
+        _openPanels.add(_GoalPanel.checklist);
+        if (!widget.isSubExpanded) widget.onToggleSubExpanded();
       }
     });
   }
@@ -407,169 +413,16 @@ class _TacticalGoalCardState extends State<TacticalGoalCard> {
     );
   }
 
-  Widget _buildSubchecklist(BuildContext context) {
+  Widget _buildChecklistBody(BuildContext context) {
     final goal = widget.goal;
     final themeColor = widget.themeColor;
     final isLight = widget.isLight;
-    final isSubExpanded = widget.isSubExpanded;
     final appProvider = widget.appProvider;
-    final onToggleSubExpanded = widget.onToggleSubExpanded;
-
-    final completedCount =
-        goal.subChecklist.where((i) => i.isCompleted).length;
     final totalCount = goal.subChecklist.length;
-    final subRatio =
-        totalCount == 0 ? 0.0 : (completedCount / totalCount);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isLight
-            ? (_isReorderMode
-                ? themeColor.withValues(alpha: 0.06)
-                : Colors.black.withValues(alpha: 0.03))
-            : (_isReorderMode
-                ? themeColor.withValues(alpha: 0.08)
-                : const Color(0xFF0F1018)),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: _isReorderMode
-              ? themeColor.withValues(alpha: 0.65)
-              : (goal.isCompleted ? themeColor.darken(0.15) : themeColor)
-                  .withValues(alpha: 0.25),
-          width: _isReorderMode ? 1.5 : 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Subchecklist Header Bar (Single-tap: collapse/expand, Double-tap: toggle rearrange mode)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            child: Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: onToggleSubExpanded,
-                    onDoubleTap: _toggleReorderMode,
-                    borderRadius: BorderRadius.circular(4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isSubExpanded
-                              ? Icons.keyboard_arrow_down
-                              : Icons.keyboard_arrow_right,
-                          size: 16,
-                          color: themeColor,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _isReorderMode ? 'REORDER' : 'SUBCHECKLIST',
-                          style: GoogleFonts.orbitron(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.bold,
-                            color: _isReorderMode
-                                ? (isLight ? themeColor.darken(0.15) : themeColor)
-                                : (isLight ? Colors.black87 : Colors.white70),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        if (_isReorderMode) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 5, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: themeColor
-                                  .withValues(alpha: isLight ? 0.15 : 0.22),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: themeColor.withValues(alpha: 0.45),
-                                width: 0.8,
-                              ),
-                            ),
-                            child: Text(
-                              'ARRANGE',
-                              style: GoogleFonts.jetBrainsMono(
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.bold,
-                                color: themeColor,
-                              ),
-                            ),
-                          ),
-                        ] else ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: themeColor.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '$completedCount/$totalCount (${(subRatio * 100).toInt()}%)',
-                              style: GoogleFonts.jetBrainsMono(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                color: themeColor,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-                if (_isReorderMode)
-                  InkWell(
-                    onTap: _toggleReorderMode,
-                    borderRadius: BorderRadius.circular(4),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: themeColor.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: themeColor.withValues(alpha: 0.5),
-                          width: 0.8,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.check, size: 12, color: themeColor),
-                          const SizedBox(width: 3),
-                          Text(
-                            'DONE',
-                            style: GoogleFonts.jetBrainsMono(
-                              fontSize: 8.5,
-                              fontWeight: FontWeight.bold,
-                              color: themeColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  InkWell(
-                    onTap: _toggleReorderMode,
-                    borderRadius: BorderRadius.circular(4),
-                    child: Tooltip(
-                      message: 'Double click to rearrange subchecklist',
-                      child: Icon(MdiIcons.swapVertical,
-                          size: 14, color: themeColor),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          if (isSubExpanded) ...[
-            const Divider(height: 1, thickness: 0.8),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
-              child: Column(
-                children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
                   ...goal.subChecklist.asMap().entries.map((entry) {
                     final index = entry.key;
                     final item = entry.value;
@@ -757,18 +610,254 @@ class _TacticalGoalCardState extends State<TacticalGoalCard> {
                         ),
                       );
                     }),
-                  const SizedBox(height: 6),
+        const SizedBox(height: 6),
+        AddSubCheckItemRow(
+          goalId: goal.id,
+          themeColor: themeColor,
+          isLight: isLight,
+        ),
+      ],
+    );
+  }
 
-                  // Add Subchecklist Item Input Row
-                  AddSubCheckItemRow(
-                    goalId: goal.id,
-                    themeColor: themeColor,
-                    isLight: isLight,
+  Widget _reorderRow() {
+    final themeColor = widget.themeColor;
+    if (_isReorderMode) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: InkWell(
+          onTap: _toggleReorderMode,
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: themeColor.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: themeColor.withValues(alpha: 0.5), width: 0.8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check, size: 12, color: themeColor),
+                const SizedBox(width: 3),
+                Text(
+                  'DONE',
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.bold,
+                    color: themeColor,
                   ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return Align(
+      alignment: Alignment.centerRight,
+      child: InkWell(
+        onTap: _toggleReorderMode,
+        borderRadius: BorderRadius.circular(4),
+        child: Tooltip(
+          message: 'Double click to rearrange subchecklist',
+          child: Padding(
+            padding: const EdgeInsets.all(3),
+            child: Icon(MdiIcons.swapVertical, size: 14, color: themeColor),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _summaryChip(String label, String value) {
+    final themeColor = widget.themeColor;
+    final isLight = widget.isLight;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: themeColor.withValues(alpha: isLight ? 0.10 : 0.14),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: themeColor.withValues(alpha: 0.35), width: 0.8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.orbitron(
+              fontSize: 8,
+              fontWeight: FontWeight.bold,
+              color: isLight ? Colors.black54 : Colors.white60,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            value,
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+              color: themeColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubchecklist(BuildContext context) {
+    final goal = widget.goal;
+    final themeColor = widget.themeColor;
+    final isLight = widget.isLight;
+    final isSubExpanded = widget.isSubExpanded;
+    final appProvider = widget.appProvider;
+
+    final completedCount = goal.subChecklist.where((i) => i.isCompleted).length;
+    final totalCount = goal.subChecklist.length;
+    final percent = totalCount == 0 ? 0 : (completedCount * 100 ~/ totalCount);
+
+    Widget panel({
+      required _GoalPanel id,
+      required String label,
+      required String count,
+      required Widget child,
+    }) {
+      final open = _openPanels.contains(id);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GoalDropdownHeader(
+            label: label,
+            countText: count,
+            isOpen: open,
+            themeColor: themeColor,
+            isLight: isLight,
+            onTap: () => setState(() {
+              if (open) {
+                _openPanels.remove(id);
+              } else {
+                _openPanels.add(id);
+              }
+            }),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: open
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
+                    child: child,
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isLight
+            ? (_isReorderMode
+                ? themeColor.withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: 0.03))
+            : (_isReorderMode
+                ? themeColor.withValues(alpha: 0.08)
+                : const Color(0xFF0F1018)),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: _isReorderMode
+              ? themeColor.withValues(alpha: 0.65)
+              : (goal.isCompleted ? themeColor.darken(0.15) : themeColor)
+                  .withValues(alpha: 0.25),
+          width: _isReorderMode ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Single tap on the bar expands the three dropdowns.
+          InkWell(
+            onTap: widget.onToggleSubExpanded,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  _summaryChip('CHECKLIST', '$completedCount/$totalCount'),
+                  _summaryChip('KEY RESULTS', '${goal.keyResults.length}'),
+                  _summaryChip('COLLABORATORS', '${goal.collaborators.length}'),
                 ],
               ),
             ),
-          ],
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: isSubExpanded
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Divider(height: 1, thickness: 0.8),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(6, 4, 6, 6),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            panel(
+                              id: _GoalPanel.checklist,
+                              label: _isReorderMode ? 'REORDER' : 'SUBCHECKLIST',
+                              count: _isReorderMode ? 'ARRANGE' : '$completedCount/$totalCount ($percent%)',
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _reorderRow(),
+                                  _buildChecklistBody(context),
+                                ],
+                              ),
+                            ),
+                            panel(
+                              id: _GoalPanel.keyResults,
+                              label: 'KEY RESULTS',
+                              count: '${goal.keyResults.length}',
+                              child: GoalItemListPanel(
+                                items: goal.keyResults,
+                                themeColor: themeColor,
+                                isLight: isLight,
+                                hint: 'Add a key result...',
+                                emptyText: 'No key results yet.',
+                                onAdd: (text) => appProvider.addGoalListItem(
+                                    goal.id, GoalListKind.keyResults, text),
+                                onDelete: (id) => appProvider.deleteGoalListItem(
+                                    goal.id, GoalListKind.keyResults, id),
+                              ),
+                            ),
+                            panel(
+                              id: _GoalPanel.collaborators,
+                              label: 'COLLABORATORS',
+                              count: '${goal.collaborators.length}',
+                              child: GoalItemListPanel(
+                                items: goal.collaborators,
+                                themeColor: themeColor,
+                                isLight: isLight,
+                                hint: 'Add a collaborator...',
+                                emptyText: 'No collaborators yet.',
+                                onAdd: (text) => appProvider.addGoalListItem(
+                                    goal.id, GoalListKind.collaborators, text),
+                                onDelete: (id) => appProvider.deleteGoalListItem(
+                                    goal.id, GoalListKind.collaborators, id),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
         ],
       ),
     );

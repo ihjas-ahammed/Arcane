@@ -36,7 +36,7 @@ class _DatabaseEditorScreenState extends State<DatabaseEditorScreen> {
       return;
     }
     try {
-      await provider.replaceStateSafely(_localData);
+      await provider.runConfirmedFullLoad(() => provider.replaceStateSafely(_localData));
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Changes saved locally. Use Cloud Sync to upload after review.")));
     } catch (e) {
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));

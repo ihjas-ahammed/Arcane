@@ -1,3 +1,4 @@
+import 'package:missions/src/providers/mixins/sync_mixin.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:missions/src/providers/app_provider.dart';
@@ -7,6 +8,7 @@ import './mock.dart';
 /// Completed checkpoints under inactive subtasks must not be written into daily history,
 /// and a checkpoint must be logged once, not again on every new day.
 void main() {
+  setUpAll(() => SyncMixin.debugAllowFullLoads = true);
   setupFirebaseAuthMocks();
 
   setUpAll(() async {

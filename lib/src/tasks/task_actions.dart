@@ -1538,7 +1538,7 @@ class TaskActions {
         };
       }
       final dayData = Map<String, dynamic>.from(newCompletedByDay[date]);
-      dayData['taskTimes'] = taskMap;
+      dayData['taskTimes'] = _mergeTaskTimes(dayData['taskTimes'], taskMap);
       newCompletedByDay[date] = dayData;
     });
 
@@ -1614,7 +1614,7 @@ class TaskActions {
         };
       }
       final dayData = Map<String, dynamic>.from(newCompletedByDay[date]);
-      dayData['taskTimes'] = taskMap;
+      dayData['taskTimes'] = _mergeTaskTimes(dayData['taskTimes'], taskMap);
       newCompletedByDay[date] = dayData;
     });
 
@@ -1695,7 +1695,7 @@ class TaskActions {
         };
       }
       final dayData = Map<String, dynamic>.from(newCompletedByDay[date]);
-      dayData['taskTimes'] = taskMap;
+      dayData['taskTimes'] = _mergeTaskTimes(dayData['taskTimes'], taskMap);
       newCompletedByDay[date] = dayData;
     });
 
@@ -1762,21 +1762,25 @@ class TaskActions {
         };
       }
       final dayData = Map<String, dynamic>.from(newCompletedByDay[date]);
-      dayData['taskTimes'] = taskMap;
+      dayData['taskTimes'] = _mergeTaskTimes(dayData['taskTimes'], taskMap);
       newCompletedByDay[date] = dayData;
     });
 
     final todayStr = getTodayDateString();
     final todayTimes = calculatedHistory[todayStr] ?? {};
 
+    // Keep the larger value on both sides: manual time edits have no session behind them.
     final newMainTasks = _provider.mainTasks.map((task) {
       final updatedSubtasks = task.subTasks.map((st) {
         final totalSeconds = recalibrated.subtaskLifetimeSeconds[st.id] ?? 0;
-        return st.copyWith(currentTimeSpent: totalSeconds);
+        return st.copyWith(
+            currentTimeSpent: totalSeconds > st.currentTimeSpent ? totalSeconds : st.currentTimeSpent);
       }).toList();
 
+      final derivedToday = todayTimes[task.id] ?? 0;
       return task.copyWith(
-          subTasks: updatedSubtasks, dailyTimeSpent: todayTimes[task.id] ?? 0);
+          subTasks: updatedSubtasks,
+          dailyTimeSpent: derivedToday > task.dailyTimeSpent ? derivedToday : task.dailyTimeSpent);
     }).toList();
 
     _provider.setProviderState(
@@ -1926,6 +1930,21 @@ class TaskActions {
       return task;
     }).toList();
     _provider.setProviderState(mainTasks: newMainTasks);
+  }
+
+  /// Session totals never lower a day's recorded minutes: entries logged without a session
+  /// (manual time edits) are kept, and a larger derived value wins.
+  Map<String, int> _mergeTaskTimes(Object? existing, Map<dynamic, dynamic> derived) {
+    final merged = <String, int>{};
+    if (existing is Map) {
+      existing.forEach((k, v) => merged[k.toString()] = (v as num?)?.toInt() ?? 0);
+    }
+    derived.forEach((k, v) {
+      final key = k.toString();
+      final value = (v as num?)?.toInt() ?? 0;
+      if (value > (merged[key] ?? 0)) merged[key] = value;
+    });
+    return merged;
   }
 
   void logToDailySummary(String type, Map<String, dynamic> data) {

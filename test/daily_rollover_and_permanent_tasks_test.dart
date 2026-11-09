@@ -1,3 +1,4 @@
+import 'package:missions/src/providers/mixins/sync_mixin.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:missions/src/providers/app_provider.dart';
@@ -5,6 +6,7 @@ import 'package:missions/src/models/task_models.dart';
 import './mock.dart';
 
 void main() {
+  setUpAll(() => SyncMixin.debugAllowFullLoads = true);
   setupFirebaseAuthMocks();
 
   setUpAll(() async {

@@ -40,6 +40,10 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
   final Map<String, bool> _expandedTasks = {};
   final List<String> _initialSubItems = [];
   final _newSubController = TextEditingController();
+  final _keyResultController = TextEditingController();
+  final _collaboratorController = TextEditingController();
+  List<GoalListItem> _keyResults = [];
+  List<GoalListItem> _collaborators = [];
   List<String> _reminderTimes = [];
   final Set<String> _selectedPlaceIds = {};
 
@@ -60,6 +64,8 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
       _initialSubItems.addAll(g.subChecklist.map((s) => s.title));
       _reminderTimes = List.from(g.reminderTimes);
       _selectedPlaceIds.addAll(g.placeIds);
+      _keyResults = List.from(g.keyResults);
+      _collaborators = List.from(g.collaborators);
     } else {
       _targetValueController.text = '1';
     }
@@ -71,6 +77,8 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
     _filterController.dispose();
     _targetValueController.dispose();
     _newSubController.dispose();
+    _keyResultController.dispose();
+    _collaboratorController.dispose();
     super.dispose();
   }
 
@@ -130,6 +138,8 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
         countAllTime: _countAllTime,
         reminderTimes: _selectedScope == GoalScope.daily ? _reminderTimes : const [],
         placeIds: _selectedPlaceIds.toList(),
+        keyResults: _keyResults,
+        collaborators: _collaborators,
       );
 
       provider.updateGoal(updatedGoal);
@@ -158,12 +168,103 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
         countAllTime: _countAllTime,
         reminderTimes: _selectedScope == GoalScope.daily ? _reminderTimes : const [],
         placeIds: _selectedPlaceIds.toList(),
+        keyResults: _keyResults,
+        collaborators: _collaborators,
       );
 
       provider.addGoal(goal);
       Navigator.of(context).pop();
       showGlobalToast('New Goal Initialized!');
     }
+  }
+
+  Widget _buildListEditor({
+    required String label,
+    required List<GoalListItem> items,
+    required TextEditingController controller,
+    required String hint,
+    required Color themeColor,
+    required bool isLight,
+    required void Function(String text) onAdd,
+    required void Function(String id) onRemove,
+  }) {
+    void submit() {
+      final text = controller.text.trim();
+      if (text.isEmpty) return;
+      onAdd(text);
+      controller.clear();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.orbitron(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: isLight ? const Color(0xFF475569) : Colors.white60,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          children: items.map((item) {
+            return Chip(
+              visualDensity: VisualDensity.compact,
+              backgroundColor: themeColor.withValues(alpha: 0.15),
+              side: BorderSide(color: themeColor),
+              label: Text(
+                item.text,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 10,
+                  color: isLight ? Colors.black87 : Colors.white,
+                ),
+              ),
+              deleteIcon: const Icon(Icons.close, size: 14),
+              onDeleted: () => onRemove(item.id),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: controller,
+                onSubmitted: (_) => submit(),
+                scrollPadding: const EdgeInsets.only(bottom: 120),
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 11,
+                  color: isLight ? Colors.black87 : Colors.white,
+                ),
+                decoration: InputDecoration(
+                  hintText: hint,
+                  isDense: true,
+                  filled: true,
+                  fillColor: isLight
+                      ? const Color(0xFFEDE9DF)
+                      : const Color(0xFF14151E),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: themeColor,
+                foregroundColor: Colors.black,
+              ),
+              onPressed: submit,
+              child: const Text('ADD'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+      ],
+    );
   }
 
   @override
@@ -872,6 +973,36 @@ class _CreateGoalSheetState extends State<CreateGoalSheet> {
                   ],
                 ),
                 const SizedBox(height: 14),
+              ],
+
+              // KEY RESULTS & COLLABORATORS (CHECK GOALS ONLY, SAME DROPDOWN AS SUBCHECKLIST)
+              if (_selectedMetric == GoalMetricType.check) ...[
+                _buildListEditor(
+                  label: 'KEY RESULTS (OPTIONAL)',
+                  items: _keyResults,
+                  controller: _keyResultController,
+                  hint: 'Type key result & press Add...',
+                  themeColor: themeColor,
+                  isLight: isLight,
+                  onAdd: (text) => setState(() => _keyResults.add(GoalListItem(
+                        id: 'kr_${DateTime.now().millisecondsSinceEpoch}',
+                        text: text,
+                      ))),
+                  onRemove: (id) => setState(() => _keyResults.removeWhere((i) => i.id == id)),
+                ),
+                _buildListEditor(
+                  label: 'COLLABORATORS (OPTIONAL)',
+                  items: _collaborators,
+                  controller: _collaboratorController,
+                  hint: 'Type a name & press Add...',
+                  themeColor: themeColor,
+                  isLight: isLight,
+                  onAdd: (text) => setState(() => _collaborators.add(GoalListItem(
+                        id: 'cb_${DateTime.now().millisecondsSinceEpoch}',
+                        text: text,
+                      ))),
+                  onRemove: (id) => setState(() => _collaborators.removeWhere((i) => i.id == id)),
+                ),
               ],
 
               // PLANNER-STYLE TASK SELECTOR

@@ -39,7 +39,7 @@ class SyncHarness extends ChangeNotifier with SyncMixin {
   @override
   final currentUser = const AppUser(uid: 'sync-test');
   @override
-  final settings = AppSettings(autoSaveEnabled: false);
+  final settings = AppSettings(autoSaveEnabled: false, alwaysWriteCloud: false);
   @override
   Map<String, dynamic> getFullAppState() =>
       {'settings': settings.toJson(), 'mainTasks': [], 'completedByDay': {}};

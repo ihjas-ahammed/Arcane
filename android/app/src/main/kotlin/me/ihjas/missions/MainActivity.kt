@@ -57,6 +57,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         const val TTS_CHANNEL = "arcane/tts"
         const val STT_CHANNEL = "arcane/stt"
         const val ASSISTANT_CHANNEL = "arcane/assistant"
+        const val STORAGE_CHANNEL = "arcane/storage"
         const val INPUT_REPLY_CHANNEL = "me.ihjas.arcane/input_reply"
 
         @Volatile
@@ -678,6 +679,27 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
         super.configureFlutterEngine(flutterEngine)
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         ttsMethodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, TTS_CHANNEL)
+        // All Files Access, used to write full JSON backups to /sdcard/Backups.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, STORAGE_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "hasAllFilesAccess" -> result.success(
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) android.os.Environment.isExternalStorageManager() else true
+                )
+                "requestAllFilesAccess" -> {
+                    try {
+                        val intent = Intent(
+                            Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                            Uri.parse("package:$packageName")
+                        )
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+                    }
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
         sttMethodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, STT_CHANNEL)
         assistantMethodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ASSISTANT_CHANNEL)
         updateBridge?.dispose()

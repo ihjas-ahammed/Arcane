@@ -206,7 +206,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     );
     if (confirmed != true) return;
     try {
-      await provider.importLocalJson(data);
+      await provider.runConfirmedFullLoad(() => provider.importLocalJson(data));
       messenger.showSnackBar(const SnackBar(content: Text("JSON loaded into the database")));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text("Load failed: $e")));
@@ -360,7 +360,7 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
                 await reportProgress(0, "Reading & normalizing imported JSON");
                 final norm = AppProvider.normalizeImportedData(importedData);
                 await reportProgress(2, "Replacing full database state");
-                await provider.replaceStateSafely(norm);
+                await provider.runConfirmedFullLoad(() => provider.replaceStateSafely(norm));
                 await reportProgress(4, "Writing atomic disk cache");
                 await provider.forceLocalBackup();
               },
