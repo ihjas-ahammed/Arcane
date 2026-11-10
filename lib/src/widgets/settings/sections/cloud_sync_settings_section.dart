@@ -150,8 +150,8 @@ class CloudSyncSettingsSection extends StatelessWidget {
               },
             ),
             SwitchListTile.adaptive(
-              title: const Text('Always Write to Cloud'),
-              subtitle: const Text('Every change is pushed to the cloud a few seconds after it is made. Nothing is ever loaded from the cloud automatically.'),
+              title: const Text('Realtime Sync'),
+              subtitle: const Text('Every change is pushed to the cloud two seconds after it is made, and changes from your other devices are merged in as they arrive. A copy of this device is kept in backups before each merge.'),
               value: appProvider.settings.alwaysWriteCloud,
               activeTrackColor: AppTheme.fhAccentTeal,
               contentPadding: EdgeInsets.zero,

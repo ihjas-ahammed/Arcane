@@ -1,8 +1,8 @@
-# Missions 2026.10.29 (build 2126102901)
+# Missions 2026.11.10 (build 2126111001)
 
-- Goal reminders: an incomplete goal from a previous day no longer sends reminders. Reminders now belong to the day the goal was made for.
-- One-day daily goals remind once, on their own day, and do not repeat. Recurring goals keep their daily reminder.
-- Goal reminders are re-armed at the daily rollover, so yesterday's reminders stop without opening the goals screen.
+- Restored reflection protocol strip and log reflection widget in Logbook.
+- Realtime cloud sync improvements and conflict handling.
+- Data integrity, backup retention, and sync reliability updates.
 - Android: arm64-v8a and armeabi-v7a only.
 - Desktop (Linux x86_64) bundle is published in a second stage after the Android release.
 

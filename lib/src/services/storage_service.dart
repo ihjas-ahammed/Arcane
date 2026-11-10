@@ -92,6 +92,8 @@ abstract class StorageService {
   Future<int> getLastModified(String userId);
   Future<void> setLastModified(String userId, int timestamp);
   Stream<int> watchLastModified(String userId);
+  /// Emits the committed cloud snapshot version each time any device commits a new one.
+  Stream<String?> watchHeadVersion(String userId);
   Future<bool> saveTasks(String userId, Map<String, dynamic> data);
   Future<bool> saveSettings(String userId, Map<String, dynamic> data);
   Future<bool> saveFinance(String userId, Map<String, dynamic> data);
@@ -416,6 +418,12 @@ class _FlutterFireStorageService implements StorageService {
     return _rtdb.ref('users/$userId/lastModified').onValue.map((event) {
       return (event.snapshot.value as num?)?.toInt() ?? 0;
     });
+  }
+
+  @override
+  Stream<String?> watchHeadVersion(String userId) {
+    if (userId.isEmpty) return const Stream.empty();
+    return _rtdb.ref('users/$userId/head/version').onValue.map((event) => event.snapshot.value?.toString());
   }
 
   @override
@@ -858,6 +866,16 @@ class _LinuxStorageService implements StorageService {
         .child('users/$userId/lastModified')
         .onValue
         .map((event) => (event.snapshot.value as num?)?.toInt() ?? 0);
+  }
+
+  @override
+  Stream<String?> watchHeadVersion(String userId) {
+    if (userId.isEmpty) return const Stream.empty();
+    return _rtdb
+        .reference()
+        .child('users/$userId/head/version')
+        .onValue
+        .map((event) => event.snapshot.value?.toString());
   }
 
   @override

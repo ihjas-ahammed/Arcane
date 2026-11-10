@@ -205,7 +205,8 @@ class AppSettings {
   bool descriptionsVisible;
   bool dailyAutoGenerateContent;
   bool autoSaveEnabled;
-  /// Every change is pushed to the cloud (never pulled). Independent of [autoSaveEnabled].
+  /// Realtime sync: every change is pushed to the cloud and other devices' commits are merged in.
+  /// Independent of [autoSaveEnabled].
   bool alwaysWriteCloud;
   bool dayPlannerWidgetCheckable;
   int wakeupTimeHour;

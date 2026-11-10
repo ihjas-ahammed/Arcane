@@ -23,6 +23,7 @@ import 'package:missions/src/widgets/cards/start_day_report_card.dart';
 import 'package:missions/src/widgets/ui/task_progress_snapshot_view.dart';
 import 'package:missions/src/widgets/ui/tactical_briefing_indicator.dart';
 import 'package:missions/src/widgets/analytics/jwe_date_selector.dart';
+import 'package:missions/src/widgets/analytics/jwe_reflection_progress.dart';
 import 'package:missions/src/widgets/analytics/jwe_quick_access_grid.dart';
 import 'package:missions/src/widgets/dialogs/create_time_log_start_dialog.dart';
 import 'package:missions/src/widgets/dialogs/start_new_day_dialog.dart';
@@ -757,6 +758,15 @@ class _DailySummaryViewState extends State<DailySummaryView> {
               child: JweDateSelector(
                 dateStr: _selectedDate ?? 'TODAY',
                 onTap: () => _pickDate(context),
+              ),
+            ),
+
+            // ── Reflection protocol ────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              child: JweReflectionProgress(
+                logs: reflectionsForDate,
+                dateStr: _selectedDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
               ),
             ),
 

@@ -164,6 +164,13 @@ mixin SyncMixin on ChangeNotifier {
     offsiteBackupError = null;
     _cloudSyncPending = false;
     _pendingManualCloudSync = false;
+    _headSubscription?.cancel();
+    _headSubscription = null;
+    _headWatchUid = null;
+    _remoteHeadVersion = null;
+    _conflictPullNeeded = false;
+    _conflictPulls = 0;
+    _pullRetryTimer?.cancel();
   }
 
   Future<void> maybeAutomaticCloudBackup() async {
@@ -250,11 +257,12 @@ mixin SyncMixin on ChangeNotifier {
   void loadStateFromMap(Map<String, dynamic> data);
   dynamic mergeAppStateFromMap(Map<String, dynamic> rawData);
 
-  /// Cloud sync is NOT realtime. Every change is saved to the local cache only; the cloud is
-  /// written once a day when the daily briefing is generated ([syncEndOfDay]) or when the user
-  /// taps a manual sync button. This only wires up the "retry a failed end-of-day sync once we're
-  /// back online" hook.
+  /// Starts cloud sync. With "Realtime Sync" on (the default) every edit is pushed a moment after
+  /// it is made, and a snapshot committed by another device is merged into this one as soon as
+  /// the cloud announces it ([_pullRemoteChanges]). With it off, the cloud is written every six
+  /// hours, after the daily briefing, and from the manual sync button.
   void initSync() {
+    _watchCloudHead();
     if (_syncStarted) return;
     _syncStarted = true;
     _periodicCloudTimer = Timer.periodic(const Duration(minutes: 10), (_) => unawaited(maybeAutomaticCloudBackup()));
@@ -272,8 +280,114 @@ mixin SyncMixin on ChangeNotifier {
       if (isOnline && _cloudSyncPending && currentUser != null && !_dataLoadInProgress && !_isSyncing) {
         debugPrint("[SyncMixin] Back online with a pending end-of-day sync. Retrying.");
         syncEndOfDay();
+      } else if (isOnline) {
+        unawaited(_pullRemoteChanges());
       }
     });
+  }
+
+  StreamSubscription<String?>? _headSubscription;
+  String? _headWatchUid;
+  String? _remoteHeadVersion;
+  bool _remotePullRunning = false;
+  bool _conflictPullNeeded = false;
+  int _conflictPulls = 0;
+  Timer? _pullRetryTimer;
+
+  /// When another device's snapshot was last merged into this one.
+  DateTime? lastRemoteMerge;
+
+  /// Listens to the small `head/version` value. It changes exactly once per committed snapshot,
+  /// so this costs a few bytes per change and nothing while idle.
+  void _watchCloudHead() {
+    final uid = currentUser?.uid;
+    if (uid == null || uid == _headWatchUid) return;
+    _headSubscription?.cancel();
+    _headWatchUid = uid;
+    _remoteHeadVersion = null;
+    try {
+      _headSubscription = storageService.watchHeadVersion(uid).listen((version) {
+        if (currentUser?.uid != uid || version == null || version.isEmpty) return;
+        _remoteHeadVersion = version;
+        unawaited(_pullRemoteChanges());
+      }, onError: (Object e) {
+        debugPrint('[SyncMixin] Cloud head listener error: $e');
+        _headWatchUid = null;
+      });
+    } catch (e) {
+      debugPrint('[SyncMixin] Cloud head listener unavailable: $e');
+      _headWatchUid = null;
+    }
+  }
+
+  /// Runs after a remote snapshot was merged; lets the provider wait for parts that load async.
+  Future<void> afterRemoteMerge() async {}
+
+  /// Realtime pull. Merges a snapshot committed by another device into the state in memory.
+  ///
+  /// Nothing local is replaced: this is the same record-by-record merge as "Merge from cloud" in
+  /// Settings (tombstones, preserved conflicts), a full copy of this device's state is written
+  /// to backups/ first, and local edits that the cloud does not hold yet are pushed afterwards.
+  /// It never runs before this device is attached to the cloud (no baseline), while data is
+  /// loading, or while local data is unreadable.
+  Future<void> _pullRemoteChanges({bool force = false}) async {
+    final user = currentUser;
+    if (user == null || !settings.alwaysWriteCloud) return;
+    if (_dataLoadInProgress || localLoadError != null || cloudAttachRequired || failedCollections.isNotEmpty) return;
+    if (cloudBaseline == null) return;
+    if (!force && (_remoteHeadVersion == null || _remoteHeadVersion == cloudBaselineVersion)) return;
+    // A push or pull in flight re-checks from its own finally block.
+    if (_isSyncing || _remotePullRunning || _isManuallyLoading) return;
+    final uid = user.uid;
+    _remotePullRunning = true;
+    _isSyncing = true;
+    _pullRetryTimer?.cancel();
+    notifyListeners();
+    try {
+      final snapshot = await storageService.getUserSnapshot(uid);
+      if (currentUser?.uid != uid || snapshot == null) return;
+      final remoteVersion = snapshot['version'] as String?;
+      final remoteTs = (snapshot['lastModified'] as num?)?.toInt() ?? 0;
+      if (remoteVersion == cloudBaselineVersion && remoteTs <= (cloudBaseline ?? 0)) return;
+      final cloudData = snapshot['state'] as Map<String, dynamic>?;
+      if (cloudData == null || cloudData.isEmpty) return;
+      // Keep a copy of exactly what's on this device before anything from the cloud is merged in.
+      _saveDebounce?.cancel();
+      await _localStorageService.writeSnapshot(uid, getFullAppState(), 'before_realtime');
+      await _saveLocalSnapshot(forceFlush: true);
+      if (currentUser?.uid != uid || _dataLoadInProgress || localLoadError != null || cloudAttachRequired) return;
+      final hadLocalEdits = _hasUnsavedChanges;
+      // Merge under the load guard so the setters don't re-stamp cloud data as a local change.
+      // The merge is synchronous, so no edit can land in the middle of it.
+      _dataLoadInProgress = true;
+      _confirmedFullLoadDepth++;
+      try {
+        mergeAppStateFromMap(cloudData);
+      } finally {
+        _confirmedFullLoadDepth--;
+        _dataLoadInProgress = false;
+      }
+      await afterRemoteMerge();
+      if (currentUser?.uid != uid) return;
+      if (failedCollections.isNotEmpty) {
+        cloudSyncError = 'Some records could not be read and were preserved: ${failedCollections.join(', ')}. Cloud upload is paused until they are repaired.';
+      }
+      await persistCloudBaseline(remoteTs, version: remoteVersion);
+      _hasUnsavedChanges = hadLocalEdits || _hasUnsavedChanges;
+      await _saveLocalSnapshot(forceFlush: true);
+      lastRemoteMerge = DateTime.now();
+    } catch (e) {
+      debugPrint('[SyncMixin] Realtime pull failed: $e');
+      _pullRetryTimer = Timer(const Duration(minutes: 1), () => unawaited(_pullRemoteChanges(force: force)));
+    } finally {
+      _remotePullRunning = false;
+      _isSyncing = false;
+      notifyListeners();
+      if ((_endOfDaySyncQueued || _hasUnsavedChanges) && currentUser?.uid == uid && failedCollections.isEmpty) {
+        _endOfDaySyncQueued = false;
+        unawaited(syncEndOfDay(showNotification: false, maxAttempts: 3, manual: _pendingManualCloudSync));
+      }
+    }
   }
 
   @override
@@ -282,6 +396,8 @@ mixin SyncMixin on ChangeNotifier {
     _saveDebounce?.cancel();
     _alwaysWriteTimer?.cancel();
     _cloudRetryTimer?.cancel();
+    _pullRetryTimer?.cancel();
+    _headSubscription?.cancel();
     _connectivitySubscription?.cancel();
     _periodicCloudTimer?.cancel();
     super.dispose();
@@ -306,11 +422,11 @@ mixin SyncMixin on ChangeNotifier {
 
   Timer? _alwaysWriteTimer;
 
-  /// "Always write to cloud": a push a few seconds after the last edit. Writes only; never pulls.
+  /// "Realtime Sync": a push two seconds after the last edit.
   void _scheduleAlwaysWrite() {
     if (currentUser == null || _dataLoadInProgress || localLoadError != null || cloudAttachRequired) return;
     _alwaysWriteTimer?.cancel();
-    _alwaysWriteTimer = Timer(const Duration(seconds: 5), () {
+    _alwaysWriteTimer = Timer(const Duration(seconds: 2), () {
       unawaited(syncEndOfDay(showNotification: false, maxAttempts: 3));
     });
   }
@@ -486,7 +602,7 @@ mixin SyncMixin on ChangeNotifier {
             }
           },
         );
-        if (!ok && cloudSyncError != null) return false;
+        if (!ok && (cloudSyncError != null || _conflictPullNeeded)) return false;
         if (ok) {
           await _setCloudSyncPending(false);
           if (showNotification) {
@@ -513,9 +629,15 @@ mixin SyncMixin on ChangeNotifier {
     } finally {
       _isSyncing = false;
       notifyListeners();
-      if (_endOfDaySyncQueued) {
+      if (_conflictPullNeeded) {
+        // Another device committed first: merge its snapshot, then the pull pushes the result.
+        _conflictPullNeeded = false;
+        unawaited(_pullRemoteChanges(force: true));
+      } else if (_endOfDaySyncQueued) {
         _endOfDaySyncQueued = false;
         unawaited(syncEndOfDay(showNotification: showNotification, maxAttempts: maxAttempts, manual: _pendingManualCloudSync));
+      } else {
+        unawaited(_pullRemoteChanges());
       }
     }
   }
@@ -704,6 +826,7 @@ mixin SyncMixin on ChangeNotifier {
       final committedTs = (saved['lastModified'] as num).toInt();
       await persistCloudBaseline(committedTs, version: saved['version'] as String?);
       allowConfirmedShrink = false;
+      _conflictPulls = 0;
       onProgress?.call(1, 1, 'Cloud snapshot committed');
 
       if (LauncherNative.isSupported) {
@@ -736,6 +859,13 @@ mixin SyncMixin on ChangeNotifier {
         return true;
       }
     } on CloudConflictException catch (e) {
+      // Realtime sync resolves "another device committed first" by merging that snapshot and
+      // uploading again. Bounded, so a conflict that merging cannot clear is shown instead.
+      if (e.remoteAdvanced && settings.alwaysWriteCloud && cloudBaseline != null && currentUser?.uid == uid && _conflictPulls < 3) {
+        _conflictPulls++;
+        _conflictPullNeeded = true;
+        return false;
+      }
       if (currentUser?.uid == uid) cloudSyncError = e.message;
       notifyListeners();
       return false;

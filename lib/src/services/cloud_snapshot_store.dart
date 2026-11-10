@@ -25,8 +25,12 @@ bool cloudRecoveryMatches(dynamic expected, dynamic restored) {
 }
 
 class CloudConflictException implements Exception {
-  const CloudConflictException(this.message);
+  const CloudConflictException(this.message, {this.remoteAdvanced = false});
   final String message;
+
+  /// True when the only problem is that another device committed first. Merging the newer
+  /// cloud snapshot and uploading again resolves it without the user.
+  final bool remoteAdvanced;
   @override
   String toString() => message;
 }
@@ -213,10 +217,16 @@ class CloudSnapshotStore {
       final value = entry.value;
       if (value is Map && value['_entities'] == true) {
         final entries = <String, dynamic>{};
-        for (final item in (value['items'] as Map? ?? {}).values) {
-          final node = item as Map;
-          entries[node['key'] as String] =
-              await resolve(userId, key, node['value']);
+        // Entities are independent parts: read a few at a time so a pull of several hundred
+        // history days does not wait on one request after another.
+        final nodes = (value['items'] as Map? ?? {}).values.cast<Map>().toList();
+        for (var i = 0; i < nodes.length; i += 8) {
+          final batch = nodes.skip(i).take(8).toList();
+          final values = await Future.wait(
+              batch.map((node) => resolve(userId, key, node['value'])));
+          for (var j = 0; j < batch.length; j++) {
+            entries[batch[j]['key'] as String] = values[j];
+          }
         }
         resolved[key] = entries;
       } else {
@@ -278,11 +288,11 @@ class CloudSnapshotStore {
     final remoteTs = (head['lastModified'] as num?)?.toInt() ?? legacyTs;
     if (baselineVersion != null && head['version'] != baselineVersion) {
       throw const CloudConflictException(
-          'Another device committed a different cloud version. Restore or merge it before uploading.');
+          'Another device committed a different cloud version. Restore or merge it before uploading.', remoteAdvanced: true);
     }
     if (remoteTs > baseline || legacyTs > baseline) {
       throw const CloudConflictException(
-          'Another device has newer cloud data. Restore or merge it before uploading.');
+          'Another device has newer cloud data. Restore or merge it before uploading.', remoteAdvanced: true);
     }
     final manifest = counts(collections);
     var previousManifest = head['manifest'] ?? await read('$root/manifest');
@@ -375,13 +385,13 @@ class CloudSnapshotStore {
     await write('$root/versions/$version', next);
     if (!await commit('$root/head', previousVersion, next)) {
       throw const CloudConflictException(
-          'Cloud data changed during the upload. Merge the newer backup before retrying.');
+          'Cloud data changed during the upload. Merge the newer backup before retrying.', remoteAdvanced: true);
     }
     final saved = Map<String, dynamic>.from(await read('$root/head') as Map);
     // Preserve a timestamped immutable manifest for the restore list.
     if (saved['version'] != version)
       throw const CloudConflictException(
-          'Another device committed a newer snapshot. Merge it before uploading again.');
+          'Another device committed a newer snapshot. Merge it before uploading again.', remoteAdvanced: true);
     // The already-uploaded manifest remains readable if this metadata refresh fails.
     try {
       await write('$root/versions/$version', saved);

@@ -304,6 +304,11 @@ class AppProvider with ChangeNotifier, SyncMixin, TaskMixin, FinanceMixin, UserM
   }
 
   @override
+  Future<void> afterRemoteMerge() async {
+    await _launcherLoad;
+  }
+
+  @override
   Future<bool> manuallyLoadFromCloud() async {
     final success = await super.manuallyLoadFromCloud();
     await fetchDailyReportsFromCloud();
