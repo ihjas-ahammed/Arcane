@@ -1,0 +1,19 @@
+# Miles 2026.11.16 (2126111601)
+
+- Finances: spending limits for today, this week and this month, shown like usage meters. Set a monthly budget and the daily and weekly limits follow; edit this week or today on its own, or reset to auto.
+- Add transaction: the chosen account and type now show clearly (tinted card, border and check mark).
+- Progress bars show their full track.
+- Updates: the app now reads update information and downloads the APK from the public Arcane repo (the Miles repo is private, so downloads failed).
+
+# Miles 2026.11.14 (2126111403)
+
+- Reflections: tap a card to show its full text and feedback; tap again to fold it.
+- Reflections: swipe a card left to delete it. An UNDO bar appears for a few seconds and restores the entry.
+- Multi-device: each phone has its own id and name (Utilities → This device). Remote commands go to `triggers/<deviceId>`, so an app opens on the phone it was sent to. Utilities → Devices lists every phone with its online state.
+- Phone sync (Android, with access you grant): notifications are sent to the database as they arrive, and app usage (time in the foreground and opens per app) every 15 minutes. Allow each under Utilities → This device.
+- Remote commands (Android): Miles listens on `triggers/<deviceId>` and can open an app when a command with the shared token arrives.
+- New look: route-map task list (protocols as lines, tasks as stations), redesigned task and checkpoint screens.
+- Light theme. Choose System, Light or Dark under Utilities; the setting syncs across devices.
+- Offline cache for faster start; the task list and schedule share one live data listener.
+- Device time zone again: the IST offset from 2126111301 is removed.
+- Task screens copied from Arcane: submission view, checkpoints and sub-stops at every level.
