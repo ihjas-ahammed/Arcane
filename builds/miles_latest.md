@@ -1,3 +1,10 @@
+# Miles 2026.11.16 (2126111602)
+
+- Finances: the daily and weekly limits now split what is left of the month over the days to go (even split once the month is used up).
+- File access: Utilities → This device has an All files row. An agent on your Wi-Fi or Tailscale can use the database commands list_dir, stat, search, mkdir, copy, move, delete, checksum, disk_info, pull_file (file, folder or zip) and push_file (upload).
+- Code sessions (Utilities → Tools): Claude, Antigravity and Codex sessions on your PCs, read through the MCP gateways over Tailscale. Filters, detail view with latest output, offline handling per PC. Gateway URLs and tokens are set in the screen's settings and kept in secure storage.
+- Plain HTTP is allowed so the app can reach the Tailscale gateway addresses.
+
 # Miles 2026.11.16 (2126111601)
 
 - Finances: spending limits for today, this week and this month, shown like usage meters. Set a monthly budget and the daily and weekly limits follow; edit this week or today on its own, or reset to auto.
