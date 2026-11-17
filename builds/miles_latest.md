@@ -1,3 +1,11 @@
+# Miles 2026.11.17 (2126111701)
+
+- Code sessions: the PC with the older gateway (optima-26-lite) now opens its session detail; the app reads both reply shapes.
+- Code sessions: a message box on each running session. Type to the agent and attach files (10 MB each, saved in the session folder under miles-uploads/).
+- Code sessions: running and finished sessions are listed apart, and finished ones load 10 at a time.
+- Code sessions: a New session button. Choose the PC, the agent (Claude, Codex or Antigravity), a model, a folder (suggested from every folder used before) and the first prompt.
+- Tasks: one malformed record no longer hides a whole protocol (Routine disappeared because of eight sub-steps without an id); the bad record is skipped and the rest loads.
+
 # Miles 2026.11.16 (2126111602)
 
 - Finances: the daily and weekly limits now split what is left of the month over the days to go (even split once the month is used up).
