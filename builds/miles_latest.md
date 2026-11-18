@@ -1,3 +1,9 @@
+# Miles 2026.11.18 (2126111801)
+
+- New Health tab: sleep and activity for the last 7 days with charts, a sleep suggestion based on 90-minute cycles and your recent sleep debt, quick Add Sleep / Log Manually / Add Walk / Add Workout, and a Stats view with a log you can delete from. It reads and writes the same health logs as Arcane.
+- Utilities is now a tab on the right of the bar (balancing Health on the left); the top-bar shortcut is gone.
+- Bottom tabs show icons only.
+
 # Miles 2026.11.17 (2126111701)
 
 - Code sessions: the PC with the older gateway (optima-26-lite) now opens its session detail; the app reads both reply shapes.
