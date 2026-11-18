@@ -1,3 +1,11 @@
+# Miles 2026.11.18 (2126111802)
+
+- Goals tab redesigned: a welcome banner, then Daily, Weekly and Monthly cards with progress and the first goals. View all opens the full list; tapping a goal opens it in its own window.
+- Daily briefing and Startup report: Arcane's own Tactical Briefing and System Startup cards. Generate them with an external AI: the prompt is copied for you, share the data file, then paste the reply to apply it.
+- Screen time and insights in the briefing: total, 7-day chart, top apps, groups, and plain-language insights from your phones' usage.
+- Accent colours: set the light and dark theme colour with an RGB picker under Utilities.
+- Health: workouts now load from the Workouts task, Stats lists every day, and the suggested sleep also gives next bedtime and a nap window.
+
 # Miles 2026.11.18 (2126111801)
 
 - New Health tab: sleep and activity for the last 7 days with charts, a sleep suggestion based on 90-minute cycles and your recent sleep debt, quick Add Sleep / Log Manually / Add Walk / Add Workout, and a Stats view with a log you can delete from. It reads and writes the same health logs as Arcane.
