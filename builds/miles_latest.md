@@ -1,3 +1,8 @@
+# Miles 2026.11.18 (2126111803)
+
+- Goals banner follows the time of day: View startup from 04:00 to 20:00, View briefing from 20:00 to 04:00. A startup report made today but saved under yesterday's date now shows too.
+- Startup header no longer overflows.
+
 # Miles 2026.11.18 (2126111802)
 
 - Goals tab redesigned: a welcome banner, then Daily, Weekly and Monthly cards with progress and the first goals. View all opens the full list; tapping a goal opens it in its own window.
