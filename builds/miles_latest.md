@@ -1,3 +1,10 @@
+# Miles 2026.11.19 (2126111905)
+
+- People and SOP explorer (Utilities, Journal): Arcane's screens, restyled with Miles panels, borders and buttons. People scan and dossiers use an external AI (copy the prompt, paste the reply).
+- Briefing: Miles updates the people named in today's journal, writes new SOPs from reflections, and adds SOP guidance. SOP titles no longer start with "Protocol:".
+- Health: water (hydration) beside walk and workout, with a Water tab, a Water today row (- and +), and water in Stats.
+- No live blur: only the wallpaper is blurred. Every pushed screen shows the wallpaper under a white or pitch-black layer. Task cards are black in dark mode.
+
 # Miles 2026.11.19 (2126111904)
 
 - Wallpaper: blurred and tinted once, saved on the device and redrawn only when the picture changes. No blur filter runs per frame.
