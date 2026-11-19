@@ -1,3 +1,8 @@
+# Miles 2026.11.19 (2126111903)
+
+- Utilities → App → "Check for updates": looks for a newer release on demand and says what it found.
+- Startup and Briefing share the wallpaper glass look (10% blur and tint, translucent inner boxes).
+
 # Miles 2026.11.19 (2126111902)
 
 - Goals: "+ N more" opens the rest of the list in place, with "Show less".
