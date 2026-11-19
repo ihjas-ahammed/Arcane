@@ -1,3 +1,8 @@
+# Miles 2026.11.19 (2126111904)
+
+- Wallpaper: blurred and tinted once, saved on the device and redrawn only when the picture changes. No blur filter runs per frame.
+- Task list: each route group sits on a white-tinted card so text reads over the wallpaper.
+
 # Miles 2026.11.19 (2126111903)
 
 - Utilities → App → "Check for updates": looks for a newer release on demand and says what it found.
