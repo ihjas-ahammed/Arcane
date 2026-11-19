@@ -1,3 +1,10 @@
+# Miles 2026.11.19 (2126111902)
+
+- Goals: "+ N more" opens the rest of the list in place, with "Show less".
+- Startup opens expanded.
+- Screen time: no overflow, and a new By device block shows each phone's total and top apps.
+- People in Startup and the Briefing: name, relation and type no longer overflow or hide names.
+
 # Miles 2026.11.19 (2126111901)
 
 - New look: a wallpaper behind the whole app (dark and light pictures, kept in the database so they can be changed without an update) and frosted-glass panels, bar and top bar.
