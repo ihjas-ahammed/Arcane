@@ -1,3 +1,8 @@
+# Miles 2026.11.19 (2126111901)
+
+- New look: a wallpaper behind the whole app (dark and light pictures, kept in the database so they can be changed without an update) and frosted-glass panels, bar and top bar.
+- Goals is now the tab the app opens on.
+
 # Miles 2026.11.18 (2126111803)
 
 - Goals banner follows the time of day: View startup from 04:00 to 20:00, View briefing from 20:00 to 04:00. A startup report made today but saved under yesterday's date now shows too.
