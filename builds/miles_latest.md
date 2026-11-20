@@ -1,3 +1,10 @@
+# Miles 2026.11.20 (2126112001)
+
+- Coding sessions refresh by themselves: the list every 10 s, an open session every 5 s while it runs.
+- Briefing: new "What shipped today" (daily) and "What shipped yesterday" (startup) lists, built from WhatsApp, Muse chats and Claude sessions.
+- Faster feel: skeleton loading screens shaped like each screen (Tasks, Goals, Health, Finance, Schedule, Reflections, Briefing, Sessions, People, SOPs and more).
+- Checking a task, adding water and adding a transaction respond at once, with a small pop animation and a ring until the server confirms.
+
 # Miles 2026.11.19 (2126111905)
 
 - People and SOP explorer (Utilities, Journal): Arcane's screens, restyled with Miles panels, borders and buttons. People scan and dossiers use an external AI (copy the prompt, paste the reply).
