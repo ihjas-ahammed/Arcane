@@ -1,3 +1,10 @@
+# Miles 2026.11.20 (2126112002)
+
+- New Files utility (Utilities → Tools): browse, search, make folders, rename, delete and read text files on both PCs (over MCP) and on your phones.
+- Schedule: Arcane's date strip and boxed controls (with a light and a dark tint), tinted session cards, round resize handles, time and duration tags while dragging, a "jump to today" button, and short sessions hide their label.
+- Health → Stats: 7, 30 or 90 days, with progress bars toward sleep, workout, distance and water goals, plus a sleep chart.
+- Wallpaper: no longer decoded again on every update; it changes only when the picture changes in the database.
+
 # Miles 2026.11.20 (2126112001)
 
 - Coding sessions refresh by themselves: the list every 10 s, an open session every 5 s while it runs.
