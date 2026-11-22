@@ -1,5 +1,5 @@
-# Miles 2026.11.22 (2126112201)
+# Miles 2026.11.22 (2126112202)
 
-- Schedule shows added, moved, and resized sessions immediately while they save in the background. The timeline and date strip show less of the wallpaper, and the resize handles are easier to grab.
-- Database Viewer displays text, numbers, and booleans. The editor opens with the current value and checks for changes before saving.
-- Goals shows all unfinished goals, sorted from lowest to highest progress. The completed-goal toggle reveals finished goals. When every goal in a period is finished, the card shows the full list and a Complete badge.
+- Weekly review: a new 7-day briefing (shipped this week, health, screen time, gratitude, abilities, people) that you generate with your AI and view in the app.
+- Briefing prompts and export gained weekly data; Utilities has a shortcut to the weekly review.
+- Schedule and icon tweaks.
