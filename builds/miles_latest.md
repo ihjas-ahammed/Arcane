@@ -1,5 +1,4 @@
-# Miles 2026.11.22 (2126112202)
+# Miles 2026.11.24 (2126112401)
 
-- Weekly review: a new 7-day briefing (shipped this week, health, screen time, gratitude, abilities, people) that you generate with your AI and view in the app.
-- Briefing prompts and export gained weekly data; Utilities has a shortcut to the weekly review.
-- Schedule and icon tweaks.
+- Code sessions: added right drawer file manager to explore and manage the current project folder with full file manager features (browse, new folder, rename, delete, text view, open, save as, share, search, insert path in session).
+- Code sessions: added folder button in app bar and clickable workdir link in session status card.
