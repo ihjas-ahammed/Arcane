@@ -1,6 +1,6 @@
-# Miles 2026.11.24 (2126112402)
+# Miles 2026.11.27 (2126112701)
 
-- Code sessions: Markdown-rendered latest output view with raw/markdown toggle pill (`[MD]`).
-- Code sessions: configurable auto-refresh interval (1s, 2s, 5s, 10s, 30s) with dedicated setting button.
-- Code sessions: support killing/terminating active sessions with a confirmation dialog from both the session card and session detail screen.
-- Code sessions: added right drawer file manager to explore and manage the project folder with full file manager features.
+- Code sessions: added 300ms, 600ms, and 1s auto-refresh intervals and reliable settings persistence across sessions and restarts.
+- Code sessions: clickable blue project file links (`PROJECT FILE LINKS` setting) to download and open or preview existing project files directly from output.
+- Devices: merge notifications and app usage from inactive offline devices into the current device and remove stale device entries.
+- Utilities: fixed scroll position jumping when scrolling past Android status panels.
