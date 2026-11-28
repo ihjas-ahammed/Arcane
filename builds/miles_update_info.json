@@ -1,24 +1,24 @@
 {
-  "version_code": 2126112702,
-  "version_name": "2026.11.27",
-  "published_at": "2026-11-27T13:51:38.159851Z",
+  "version_code": 2126112801,
+  "version_name": "2026.11.28",
+  "published_at": "2026-11-28T18:31:54.257418Z",
   "min_supported_version_code": 2026010101,
-  "apk_filename": "miles-v2026.11.27-b2126112702-arm64-v8a.apk",
-  "apk_url": "https://github.com/ihjas-ahammed/Arcane/releases/download/miles-v2026.11.27-b2126112702/miles-v2026.11.27-b2126112702-arm64-v8a.apk",
+  "apk_filename": "miles-v2026.11.28-b2126112801-arm64-v8a.apk",
+  "apk_url": "https://github.com/ihjas-ahammed/Arcane/releases/download/miles-v2026.11.28-b2126112801/miles-v2026.11.28-b2126112801-arm64-v8a.apk",
   "apk_arch_urls": {
-    "arm64-v8a": "https://github.com/ihjas-ahammed/Arcane/releases/download/miles-v2026.11.27-b2126112702/miles-v2026.11.27-b2126112702-arm64-v8a.apk"
+    "arm64-v8a": "https://github.com/ihjas-ahammed/Arcane/releases/download/miles-v2026.11.28-b2126112801/miles-v2026.11.28-b2126112801-arm64-v8a.apk"
   },
   "apk_arch_version_codes": {
-    "arm64-v8a": 2126114702
+    "arm64-v8a": 2126114801
   },
   "package_sha256": {
-    "https://github.com/ihjas-ahammed/Arcane/releases/download/miles-v2026.11.27-b2126112702/miles-v2026.11.27-b2126112702-arm64-v8a.apk": "74f044130de9ce5cddfad6d66549099244650adabb8f0fd4d1ae5d09af23ec00"
+    "https://github.com/ihjas-ahammed/Arcane/releases/download/miles-v2026.11.28-b2126112801/miles-v2026.11.28-b2126112801-arm64-v8a.apk": "2677bce6decccf12846db3e8f7e3ccc673cdeec803149223952a701f13b1c3f8"
   },
   "package_signatures": {
-    "https://github.com/ihjas-ahammed/Arcane/releases/download/miles-v2026.11.27-b2126112702/miles-v2026.11.27-b2126112702-arm64-v8a.apk": "Qx1AKIb00ceA6Q7qwDZjUgGxdhATaoPEwt7uZk1Jti4+rW7UaXHsSiVSX/P0ba8QVXDnWL/sc/FVCdnNn6TxBg=="
+    "https://github.com/ihjas-ahammed/Arcane/releases/download/miles-v2026.11.28-b2126112801/miles-v2026.11.28-b2126112801-arm64-v8a.apk": "J4woJs31OYvHY4/6PL9dUYRfjq6I5NS35zPnMWto4i8C5q/8DRBIJH4PjhOsmPkUNDqHR7nZB1UKQUTDi3oKBw=="
   },
   "package_sizes": {
-    "https://github.com/ihjas-ahammed/Arcane/releases/download/miles-v2026.11.27-b2126112702/miles-v2026.11.27-b2126112702-arm64-v8a.apk": 25867510
+    "https://github.com/ihjas-ahammed/Arcane/releases/download/miles-v2026.11.28-b2126112801/miles-v2026.11.28-b2126112801-arm64-v8a.apk": 25999582
   },
   "changelog_url": "https://raw.githubusercontent.com/ihjas-ahammed/Arcane/revive2/builds/miles_latest.md"
 }
